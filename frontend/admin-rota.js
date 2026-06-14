@@ -388,11 +388,19 @@
     return Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   }
 
+  function assignShiftEmployee(shift, employeeId) {
+    shift.employee_id = employeeId;
+    shift.employee_name = employeeName(employeeId);
+    shift.role_label = roleFromEmployee(employeeId);
+    return shift;
+  }
+
   function moveShift(index, employeeId, shiftDate) {
     if (!guardWeekEditable("move shifts")) return false;
     const shift = shifts[index];
     if (!shift) return false;
-    const next = { ...shift, employee_id: employeeId, shift_date: shiftDate, employee_name: employeeName(employeeId) };
+    const next = { ...shift, shift_date: shiftDate };
+    assignShiftEmployee(next, employeeId);
     const clash = shiftWouldOverlap(next, index);
     if (clash) {
       setMessage(`Cannot move — overlaps ${employeeName(clash.employee_id)} ${clash.start_time}–${clash.end_time}`, "error");
@@ -410,9 +418,8 @@
     const source = shifts[index];
     if (!source) return false;
     const copy = cloneShift(source);
-    copy.employee_id = employeeId;
     copy.shift_date = shiftDate;
-    copy.employee_name = employeeName(employeeId);
+    assignShiftEmployee(copy, employeeId);
     const clash = shiftWouldOverlap(copy);
     if (clash) {
       setMessage(`Cannot copy — overlaps ${employeeName(clash.employee_id)} ${clash.start_time}–${clash.end_time}`, "error");
