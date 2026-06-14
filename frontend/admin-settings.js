@@ -388,6 +388,58 @@
     { value: 7, label: "Sunday" },
   ];
 
+  function rotaReadinessStatusLabel(status) {
+    if (status === "ok") return "Complete";
+    if (status === "error") return "Action needed";
+    if (status === "warn") return "Recommended";
+    return "Optional";
+  }
+
+  function renderRotaReadinessHtml(readiness) {
+    if (!readiness?.items?.length) {
+      return `<article class="card settings-rota-readiness settings-rota-readiness--loading"><p class="muted">Rota readiness checklist unavailable.</p></article>`;
+    }
+    const readyClass = readiness.ready ? " settings-rota-readiness--ready" : "";
+    const itemsHtml = readiness.items
+      .map((item) => {
+        const action = item.action_href
+          ? `<a class="settings-rota-readiness__action" href="${escapeHtml(item.action_href)}">${escapeHtml(item.action_text || "Open")}</a>`
+          : "";
+        return `<li class="settings-rota-readiness__item settings-rota-readiness__item--${escapeHtml(item.status || "warn")}">
+          <div class="settings-rota-readiness__item-head">
+            <span class="settings-rota-readiness__status">${escapeHtml(rotaReadinessStatusLabel(item.status))}</span>
+            <strong>${escapeHtml(item.title || "")}</strong>
+          </div>
+          <p class="muted settings-rota-readiness__message">${escapeHtml(item.message || "")}</p>
+          ${action}
+        </li>`;
+      })
+      .join("");
+    return `<article class="card settings-rota-readiness${readyClass}" id="settings-rota-readiness" aria-labelledby="settings-rota-readiness-title">
+      <div class="settings-rota-readiness__head">
+        <div>
+          <h4 id="settings-rota-readiness-title">Rota readiness</h4>
+          <p class="muted settings-rota-readiness__summary">${escapeHtml(readiness.summary || "")}${readiness.ready ? " · ready to build" : ""}</p>
+        </div>
+        <a class="btn ghost" href="#rota">Open Rota</a>
+      </div>
+      <ul class="settings-rota-readiness__list">${itemsHtml}</ul>
+    </article>`;
+  }
+
+  async function refreshRotaReadiness(container) {
+    if (!container) return;
+    try {
+      const res = await apiFetch("/admin/rota/readiness");
+      if (!res.ok) throw new Error("load failed");
+      const readiness = await res.json();
+      container.outerHTML = renderRotaReadinessHtml(readiness);
+      window.ShiftSwiftBrand?.applyBrandDom?.(document.getElementById("settings-rota-readiness"));
+    } catch {
+      container.innerHTML = '<p class="muted">Could not refresh rota readiness.</p>';
+    }
+  }
+
   function rotaRequirementRowHtml(req = {}, index = 0) {
     return `
       <tr data-req-row="${index}">
@@ -599,12 +651,14 @@
     host.innerHTML = `<p class="muted">Loading rota settings…</p>`;
 
     try {
-      const [profileRes, overviewRes] = await Promise.all([
+      const [profileRes, overviewRes, readinessRes] = await Promise.all([
         apiFetch("/admin/tenant-profile"),
         apiFetch("/admin/overview"),
+        apiFetch("/admin/rota/readiness"),
       ]);
       const profile = profileRes.ok ? await profileRes.json() : {};
       const overview = overviewRes.ok ? await overviewRes.json() : {};
+      const readiness = readinessRes.ok ? await readinessRes.json() : null;
       const options = overview.rota_mode_options || profile.rota_mode_options || ["basic"];
       const modeLabels = overview.rota_mode_labels || window.Admin?.tenantFeatures?.rota_mode_labels || {};
       const allModes = overview.rota_modes_all || window.Admin?.tenantFeatures?.rota_modes_all || ["basic", "advanced", "multi_site"];
@@ -613,6 +667,7 @@
       const supportMailto = window.ShiftSwiftBrand?.supportMailto?.("Advanced rota add-on") || "#";
 
       host.innerHTML = `
+        ${renderRotaReadinessHtml(readiness)}
         <p class="muted">Basic manual rota (weekly grid, copy week, publish, attendance) is included on your <strong>${escapeHtml(planName)}</strong> plan.</p>
         <p class="muted">Advanced scheduling and multi-site rota are <strong>paid add-ons</strong> — pricing to be confirmed. Contact <a href="${escapeHtml(supportMailto)}">support</a> to enable them on your account.</p>
         <label class="edit-field">
@@ -676,6 +731,7 @@
             document.getElementById("settings-rota-templates-wrap"),
             select.value === "advanced" || select.value === "multi_site"
           );
+          await refreshRotaReadiness(document.getElementById("settings-rota-readiness"));
         } catch (error) {
           if (statusLine) statusLine.textContent = error.message || "Could not save rota mode";
           showSettingsToast(error.message || "Could not save rota mode");

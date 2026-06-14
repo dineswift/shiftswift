@@ -16,6 +16,7 @@ from core.permissions import check_permission
 from deps import get_employee_user, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from modules.rota import attendance as rota_attendance
 from modules.rota import insights as rota_insights
+from modules.rota import readiness as rota_readiness
 from modules.rota import requests as rota_requests
 from modules.rota import service as rota_service
 from modules.rota import templates as rota_templates
@@ -150,6 +151,20 @@ def _tenant_has_advanced_rota(*, tenant_id: int, conn) -> bool:
 
     profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
     return bool(profile.get("rota_advanced_addon")) and profile.get("rota_mode") in ("advanced", "multi_site")
+
+
+@admin_router.get("/readiness")
+def get_rota_readiness(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        return rota_readiness.build_rota_readiness(tenant_id=tenant_id, conn=conn)
+    finally:
+        conn.close()
 
 
 @admin_router.get("/weeks/{week_start}")

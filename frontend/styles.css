@@ -5771,6 +5771,106 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin-top: 8px;
 }
 
+.settings-rota-readiness {
+  margin-bottom: 20px;
+  padding: 16px 18px;
+}
+
+.settings-rota-readiness--ready {
+  border-color: rgba(15, 110, 86, 0.28);
+  background: linear-gradient(180deg, rgba(225, 245, 238, 0.55), var(--white));
+}
+
+.settings-rota-readiness__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.settings-rota-readiness__head h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--green-900);
+}
+
+.settings-rota-readiness__summary {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.settings-rota-readiness__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.settings-rota-readiness__item {
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.settings-rota-readiness__item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.settings-rota-readiness__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.settings-rota-readiness__item--ok .settings-rota-readiness__status {
+  background: var(--green-100);
+  color: var(--green-800);
+}
+
+.settings-rota-readiness__item--warn .settings-rota-readiness__status {
+  background: #faeeda;
+  color: #854f0b;
+}
+
+.settings-rota-readiness__item--error .settings-rota-readiness__status {
+  background: #fde8e8;
+  color: #a32d2d;
+}
+
+.settings-rota-readiness__item--optional .settings-rota-readiness__status {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.settings-rota-readiness__message {
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.settings-rota-readiness__action {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--green-700);
+  text-decoration: none;
+}
+
+.settings-rota-readiness__action:hover,
+.settings-rota-readiness__action:focus-visible {
+  text-decoration: underline;
+}
+
 .rota-builder-actions {
   flex-wrap: wrap;
   justify-content: flex-end;
