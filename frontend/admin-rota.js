@@ -43,6 +43,14 @@
     return window.matchMedia("(max-width: 860px)").matches;
   }
 
+  function isDesktopRotaViewport() {
+    return !isMobileViewport();
+  }
+
+  function syncViewForViewport() {
+    setView(isDesktopRotaViewport() ? "grid" : "list");
+  }
+
   function isMobileRotaUi() {
     return isMobileViewport() && (document.body.dataset.mobileTab === "rota" || activeView === "list");
   }
@@ -1077,6 +1085,9 @@
   }
 
   function setView(view) {
+    if (isDesktopRotaViewport() && view === "list") {
+      view = "grid";
+    }
     activeView = view;
     document.getElementById("rota-grid-view").hidden = view !== "grid";
     document.getElementById("rota-list-panel").hidden = view !== "list";
@@ -1088,6 +1099,10 @@
       panelOpen = false;
     }
     syncPanelVisibility();
+    renderEmptyState();
+    if (view === "grid" && hasActiveEmployees()) {
+      renderGrid();
+    }
   }
 
   function closeShiftPanel() {
@@ -1677,17 +1692,29 @@
     window.addEventListener("admin:features", applyRotaModeUi);
     bindAdvancedUiOnce();
 
-    setView(window.matchMedia("(max-width: 860px)").matches ? "list" : "grid");
+    syncViewForViewport();
+    window.addEventListener("resize", syncViewForViewport);
     await loadEmployeesList();
     await loadWeek();
     await loadShiftRequests();
   }
 
+  async function refreshRotaSection() {
+    syncViewForViewport();
+    await loadEmployeesList();
+    if (sectionReady) {
+      renderAll();
+    }
+  }
+
   window.addEventListener("admin:section", (event) => {
-    if (event.detail?.section === "rota" && !sectionReady) {
+    if (event.detail?.section !== "rota") return;
+    if (!sectionReady) {
       sectionReady = true;
       initSection();
+      return;
     }
+    refreshRotaSection();
   });
 
   if (parseHashBaseSection(window.location.hash) === "rota") {

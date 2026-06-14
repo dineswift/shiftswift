@@ -98,6 +98,24 @@ body.admin-portal .nav-crumb {
   padding-left: calc(10px + 1.125rem + 7px);
 }
 
+@media (min-width: 861px) {
+  body.admin-portal .rota-desktop-row {
+    display: flex !important;
+  }
+
+  body.admin-portal .rota-builder-subbar {
+    display: flex !important;
+  }
+
+  body.admin-portal #rota-view-list {
+    display: none;
+  }
+
+  body.admin-portal .rota-builder-hint {
+    display: block;
+  }
+}
+
 .app-mark {
   display: block;
   width: 36px;
