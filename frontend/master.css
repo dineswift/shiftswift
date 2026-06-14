@@ -900,6 +900,39 @@ body.master-app {
   resize: vertical;
 }
 
+.master-change-plan {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--master-border);
+}
+
+.master-change-plan h3 {
+  margin: 0 0 0.55rem;
+  font-size: 0.92rem;
+}
+
+.master-change-plan__field {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.85rem;
+}
+
+.master-change-plan__field select,
+.master-change-plan__field input {
+  width: 100%;
+  border: 1px solid var(--master-border);
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+
+.master-change-plan__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .master-detail-actions {
   display: grid;
   gap: 0.4rem;

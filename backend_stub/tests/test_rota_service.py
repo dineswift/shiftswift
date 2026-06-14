@@ -96,6 +96,24 @@ def test_validate_no_overlaps_raises() -> None:
         validate_no_overlaps(shifts)
 
 
+def test_validate_no_overlaps_allows_same_slot_different_staff() -> None:
+    shifts = [
+        {
+            "employee_id": 1,
+            "shift_date": date(2026, 6, 8),
+            "start_time": time(9, 0),
+            "end_time": time(17, 0),
+        },
+        {
+            "employee_id": 2,
+            "shift_date": date(2026, 6, 8),
+            "start_time": time(9, 0),
+            "end_time": time(17, 0),
+        },
+    ]
+    validate_no_overlaps(shifts)
+
+
 def test_past_published_week_is_readonly() -> None:
     week_start = date(2026, 6, 1)
     today = date(2026, 6, 10)

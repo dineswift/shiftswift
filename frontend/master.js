@@ -11,6 +11,7 @@
     excludeTest: false,
     section: "tenants",
     loading: true,
+    provisionPlans: [],
   };
 
   const els = {
@@ -415,6 +416,9 @@
     const notes = document.getElementById("detail-notes");
     if (notes) notes.value = tenant.internal_notes || "";
 
+    const changePlanWrap = document.getElementById("detail-change-plan-wrap");
+    if (changePlanWrap) changePlanWrap.hidden = true;
+
     const canImpersonate = tenant.can_impersonate !== false;
     const isDeleted = Boolean(tenant.deleted_at);
     const isSuspended = (tenant.platform_status || "") === "suspended" || tenant.status === "suspended";
@@ -542,6 +546,96 @@
           reportOfflineBillingResult(result, "Tenant is now on offline billing with active access.");
         } catch (error) {
           alert(error.message);
+        }
+      };
+    }
+
+    const changePlanWrap = document.getElementById("detail-change-plan-wrap");
+    const changePlanBtn = document.getElementById("detail-change-plan");
+    const changePlanSelect = document.getElementById("detail-change-plan-select");
+    const changePlanNotes = document.getElementById("detail-change-plan-notes");
+    const changePlanStatus = document.getElementById("detail-change-plan-status");
+    const changePlanApply = document.getElementById("detail-change-plan-apply");
+    const changePlanCancel = document.getElementById("detail-change-plan-cancel");
+
+    const hideChangePlanPanel = () => {
+      if (changePlanWrap) changePlanWrap.hidden = true;
+      if (changePlanStatus) changePlanStatus.textContent = "";
+    };
+
+    const populateChangePlanSelect = (plans) => {
+      if (!changePlanSelect) return;
+      const currentPlanId = tenant.plan_id || "";
+      changePlanSelect.innerHTML = plans
+        .map(
+          (plan) =>
+            `<option value="${escapeHtml(plan.id)}"${plan.id === currentPlanId ? " selected" : ""}>${escapeHtml(plan.name)} · up to ${plan.max_employees} staff</option>`,
+        )
+        .join("");
+    };
+
+    if (changePlanBtn) {
+      changePlanBtn.hidden = isDeleted;
+      changePlanBtn.onclick = async () => {
+        if (changePlanStatus) changePlanStatus.textContent = "Loading plans…";
+        if (changePlanWrap) changePlanWrap.hidden = false;
+        try {
+          if (!state.provisionPlans.length) {
+            const data = await apiGet("/master/plans");
+            state.provisionPlans = data.plans || [];
+          }
+          populateChangePlanSelect(state.provisionPlans);
+          if (changePlanNotes) changePlanNotes.value = tenant.billing_notes || "";
+          if (changePlanStatus) changePlanStatus.textContent = "Choose the new plan, then apply.";
+        } catch (error) {
+          hideChangePlanPanel();
+          alert(error.message || "Could not load plans.");
+        }
+      };
+    }
+
+    if (changePlanCancel) {
+      changePlanCancel.onclick = hideChangePlanPanel;
+    }
+
+    if (changePlanApply) {
+      changePlanApply.disabled = isDeleted;
+      changePlanApply.onclick = async () => {
+        const planId = changePlanSelect?.value;
+        if (!planId) {
+          if (changePlanStatus) changePlanStatus.textContent = "Choose a plan first.";
+          return;
+        }
+        if (planId === tenant.plan_id) {
+          if (changePlanStatus) changePlanStatus.textContent = "That plan is already assigned.";
+          return;
+        }
+        const notes = (changePlanNotes?.value || "").trim();
+        const subscriptionStatus = tenant.status === "trialing" ? "trialing" : "active";
+        let billingMode = tenant.billing_mode === "offline" ? "offline" : "stripe";
+        if (billingMode !== "offline") {
+          const ok = window.confirm(
+            "This tenant is still on Stripe billing. Switch them to offline/manual billing with the new plan?",
+          );
+          if (!ok) return;
+          billingMode = "offline";
+        }
+        if (changePlanStatus) changePlanStatus.textContent = "Updating plan…";
+        try {
+          const result = await apiPost(`/master/tenants/${tenant.id}/billing`, {
+            billing_mode: billingMode,
+            subscription_status: subscriptionStatus,
+            plan_id: planId,
+            billing_notes: notes || tenant.billing_notes || "",
+          });
+          hideChangePlanPanel();
+          await refreshSelectedTenant();
+          reportOfflineBillingResult(
+            result,
+            `Plan updated to ${state.provisionPlans.find((plan) => plan.id === planId)?.name || planId}.`,
+          );
+        } catch (error) {
+          if (changePlanStatus) changePlanStatus.textContent = error.message || "Plan change failed.";
         }
       };
     }

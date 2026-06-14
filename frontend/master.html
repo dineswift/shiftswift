@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#142033" />
     <script src="./app-icons.js?v=brandkit-v5"></script>
     <title>ShiftSwift OPS | Master Admin</title>
-    <link rel="stylesheet" href="./master.css?v=12" />
+    <link rel="stylesheet" href="./master.css?v=13" />
   </head>
   <body class="master-app">
     <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
@@ -206,12 +206,30 @@
                 <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
               </div>
 
+              <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
+                <h3>Change plan</h3>
+                <label class="master-change-plan__field">
+                  New plan
+                  <select id="detail-change-plan-select"></select>
+                </label>
+                <label class="master-change-plan__field">
+                  Billing note
+                  <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
+                </label>
+                <div class="master-change-plan__actions">
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-apply">Apply plan change</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-cancel">Cancel</button>
+                </div>
+                <p class="master-inline-status muted" id="detail-change-plan-status" aria-live="polite"></p>
+              </div>
+
               <div class="master-detail-actions">
                 <button type="button" class="master-btn master-btn--gold" id="detail-impersonate">Impersonate this account</button>
                 <div class="master-detail-actions__row">
                   <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-offline-trial">Offline billing (keep trial)</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-offline-active">Offline billing (active)</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan">Change plan</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-email-tenant">Email tenant</button>
                 </div>
                 <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
@@ -279,6 +297,6 @@
     <script src="./brand-config.js?v=brand-v4"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=4"></script>
-    <script src="./master.js?v=13"></script>
+    <script src="./master.js?v=14"></script>
   </body>
 </html>

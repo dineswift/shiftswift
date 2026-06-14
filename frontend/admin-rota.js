@@ -645,21 +645,21 @@
     renderStatusBadge();
     const publishBtn = document.getElementById("rota-publish-btn");
     const canPublish = Boolean(
-      weekMeta?.version && weekMeta.status !== "published" && shifts.length && !dirty && !isWeekReadOnly(),
+      weekMeta?.version && weekMeta.status !== "published" && shifts.length && !isWeekReadOnly(),
     );
     if (publishBtn) {
       publishBtn.disabled = !canPublish;
       publishBtn.title = isWeekReadOnly()
         ? readonlyMessage()
         : canPublish
-          ? "Publish so staff see shifts in Time Clock"
-          : dirty
-            ? "Save the rota before publishing"
-            : !shifts.length
-              ? "Add shifts before publishing"
-              : weekMeta?.status === "published"
-                ? "Already published"
-                : "Save the rota before publishing";
+          ? dirty
+            ? "Save draft and publish so staff see shifts in Time Clock"
+            : "Publish so staff see shifts in Time Clock"
+          : !shifts.length
+            ? "Add shifts before publishing"
+            : weekMeta?.status === "published"
+              ? "Already published"
+              : "Save the rota before publishing";
     }
     updateReadOnlyUi();
   }
@@ -1331,7 +1331,7 @@
   }
 
   async function saveRota() {
-    if (!guardWeekEditable("save this rota")) return;
+    if (!guardWeekEditable("save this rota")) return false;
     const btn = document.getElementById("rota-save-btn");
     if (btn) btn.disabled = true;
     setMessage("Saving…");
@@ -1354,19 +1354,21 @@
       if (res.status === 409) {
         setMessage((data.detail?.message || "Version conflict.") + " Reloading…", "error");
         await loadWeek();
-        return;
+        return false;
       }
       if (!res.ok) {
         setMessage(data.detail?.message || data.detail || "Save failed.", "error");
-        return;
+        return false;
       }
       weekMeta = data.week;
       shifts = data.shifts || [];
       markClean();
       renderAll();
       setMessage(data.message || "Rota saved — publish when ready.");
+      return true;
     } catch (error) {
       setMessage(error.message || "Save failed.", "error");
+      return false;
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -1398,6 +1400,15 @@
 
   async function publishRota() {
     if (!guardWeekEditable("publish this rota")) return;
+    if (!shifts.length) {
+      setMessage("Add at least one shift before publishing.", "error");
+      return;
+    }
+    if (dirty) {
+      setMessage("Saving draft before publish…");
+      const saved = await saveRota();
+      if (!saved) return;
+    }
     if (!weekMeta?.version) {
       setMessage("Save the rota before publishing.", "error");
       return;
@@ -1413,7 +1424,12 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage(data.detail?.message || data.detail || "Publish failed.", "error");
+        const message = data.detail?.message || data.detail || "Publish failed.";
+        if (/at least one shift/i.test(String(message))) {
+          setMessage(`${message} Click Save draft first, then publish again.`, "error");
+        } else {
+          setMessage(message, "error");
+        }
         return;
       }
       weekMeta = data.week;

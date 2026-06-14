@@ -439,7 +439,10 @@ def publish_week(
             (tenant_id, week_id),
         )
         if int(cur.fetchone()[0]) == 0:
-            raise RotaValidationError("Add at least one shift before publishing", field="shifts")
+            raise RotaValidationError(
+                "Add at least one shift before publishing — click Save draft first",
+                field="shifts",
+            )
 
         cur.execute(
             """
