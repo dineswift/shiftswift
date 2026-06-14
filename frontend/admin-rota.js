@@ -1599,10 +1599,11 @@
     const feats = window.Admin?.tenantFeatures || {};
     const badge = document.getElementById("rota-mode-badge");
     const advancedPanel = document.getElementById("rota-advanced-panel");
-    const labels = { basic: "Basic", advanced: "Advanced", multi_site: "Multi-site" };
+    const labels = feats.rota_mode_labels || { basic: "Basic", advanced: "Advanced", multi_site: "Multi-site" };
     const mode = feats.rota_mode || "basic";
     if (badge) {
-      badge.textContent = labels[mode] || mode;
+      const label = labels[mode] || mode;
+      badge.textContent = String(label).split(" — ")[0].split(" - ")[0];
       badge.hidden = false;
       badge.className = `rota-mode-badge rota-mode-badge--${mode}`;
     }

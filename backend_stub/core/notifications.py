@@ -52,7 +52,9 @@ def smtp_config_summary() -> dict[str, str | bool]:
 
 
 def _support_email() -> str:
-    return os.getenv("EMAIL_SUPPORT", "support@shiftswifthr.co.uk")
+    from brand import EMAIL_SUPPORT
+
+    return EMAIL_SUPPORT
 
 
 def resolve_tenant_company_email(contacts: dict[str, str | None] | None) -> str | None:

@@ -31,6 +31,70 @@ a { color: inherit; }
 
 .brand-logo--compact { height: 36px; width: 36px; max-width: 36px; border-radius: 8px; object-fit: cover; }
 
+/* Admin console — sidebar & topbar app icon (larger than default chrome mark) */
+body.admin-portal .sidebar-head .brand-logo--compact,
+body.admin-portal .sidebar-head .brand .app-mark {
+  width: 52px;
+  height: 52px;
+  max-width: 52px;
+  border-radius: 10px;
+}
+
+body.admin-portal .topbar-brand__logo {
+  width: 44px;
+  height: 44px;
+  max-width: 44px;
+  border-radius: 10px;
+}
+
+/* Admin sidebar nav — tighter rows, aligned icon column */
+body.admin-portal .sidebar {
+  padding: 12px 10px;
+  gap: 6px;
+}
+
+body.admin-portal .nav-section-label {
+  padding: 8px 10px 1px;
+}
+
+body.admin-portal .nav-section-label:first-of-type {
+  padding-top: 4px;
+}
+
+body.admin-portal .nav-link {
+  gap: 7px;
+  padding: 5px 10px;
+  min-height: 30px;
+  font-size: 12.5px;
+}
+
+body.admin-portal .nav-link.active,
+body.admin-portal .nav-link.active:hover,
+body.admin-portal .nav-link.active:focus,
+body.admin-portal .nav-link.active:focus-visible {
+  padding: 5px 10px;
+}
+
+body.admin-portal .nav-link__icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+body.admin-portal .nav-link__icon .admin-icon,
+body.admin-portal .nav-link__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+body.admin-portal .nav-link__meta {
+  gap: 3px;
+}
+
+body.admin-portal .nav-crumb {
+  padding-left: calc(10px + 1.125rem + 7px);
+}
+
 .app-mark {
   display: block;
   width: 36px;
@@ -830,6 +894,36 @@ textarea:focus {
   color: var(--green-900);
 }
 
+.sidebar-brand-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: auto;
+  padding: 8px 14px;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-brand-link:hover,
+.sidebar-brand-link:focus-visible {
+  filter: brightness(0.96);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+}
+
+.sidebar-brand-link__icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.sidebar-brand-link__icon .admin-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -855,67 +949,95 @@ textarea:focus {
 .sidebar {
   background: linear-gradient(180deg, var(--white) 0%, var(--gray-100) 100%);
   border-right: 1px solid var(--card-border);
-  padding: 24px 18px;
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
-.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav { display: flex; flex-direction: column; gap: 0; }
 
 .nav-section-label {
   margin: 0;
-  padding: 14px 12px 4px;
-  font-size: 0.68rem;
-  font-weight: 700;
+  padding: 10px 14px 2px;
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gray-500, #6b7280);
+  color: #888;
 }
 
-.nav-section-label:first-child {
-  padding-top: 4px;
+.nav-section-label:first-of-type {
+  padding-top: 6px;
 }
 
 .nav-link {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-height: 32px;
   text-decoration: none;
   color: var(--gray-700);
-  padding: 10px 12px;
+  padding: 6px 12px;
   border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 13px;
+  line-height: 1.2;
   transition: background 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-link__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.125rem;
+  width: 1rem;
   flex-shrink: 0;
 }
 
 .nav-link__icon .admin-icon {
-  width: 1.125rem;
-  height: 1.125rem;
+  display: block;
+  width: 1rem;
+  height: 1rem;
 }
 
 .nav-link__label {
   min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nav-link:hover,
-.nav-link:focus {
+.nav-link:hover:not(.active),
+.nav-link:focus-visible:not(.active) {
   background: var(--green-100);
   color: var(--green-800);
 }
 
-.nav-link.active {
+.nav-link:focus {
+  outline: none;
+}
+
+.nav-link:focus-visible:not(.active) {
+  outline: 2px solid var(--green-600);
+  outline-offset: 1px;
+}
+
+.nav-link.active,
+.nav-link.active:hover,
+.nav-link.active:focus,
+.nav-link.active:focus-visible {
   background: var(--green-700);
   color: var(--white);
+  padding: 6px 12px;
+  outline: none;
+}
+
+.nav-link.active .nav-link__icon {
+  color: inherit;
 }
 
 .nav-badge {
@@ -934,15 +1056,38 @@ textarea:focus {
   line-height: 1;
 }
 
-.nav-link--locked {
-  opacity: 0.72;
+.nav-link--locked .nav-link__label {
+  color: #888;
 }
 
-.nav-link--locked::after {
-  content: " · Upgrade";
-  font-size: 0.75rem;
+.nav-link--locked .nav-link__icon {
+  color: var(--gray-700);
+}
+
+.nav-link--locked:hover:not(.active) .nav-link__icon,
+.nav-link--locked:focus-visible:not(.active) .nav-link__icon {
+  color: var(--green-800);
+}
+
+.nav-link__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nav-link__lock .admin-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: #888;
+}
+
+.nav-link__upgrade {
+  font-size: 0.6875rem;
   font-weight: 600;
-  opacity: 0.85;
+  color: #888;
+  white-space: nowrap;
 }
 
 .content { padding: 32px 36px 64px; min-width: 0; }
@@ -4442,6 +4587,60 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin-bottom: 12px;
 }
 
+.settings-billing-addons {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--gray-50, #fafafa);
+}
+
+.settings-billing-addons__title {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+}
+
+.settings-billing-addons__list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-billing-addons__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.settings-billing-addons__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.settings-billing-addons__pill.is-active {
+  background: var(--green-100);
+  color: var(--green-800);
+}
+
+.settings-billing-addons__pill.is-inactive {
+  background: var(--gray-100);
+  color: var(--gray-500);
+}
+
+.settings-billing-addons__note {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 .settings-notify-table-wrap {
   margin-top: 12px;
 }
@@ -5519,6 +5718,26 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--card-border, #e5e9ef);
+}
+
+.settings-rota-template-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.settings-rota-template-list__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.settings-rota-template-delete {
+  margin-left: auto;
+  color: #b42318;
 }
 
 .settings-rota-req-table input,

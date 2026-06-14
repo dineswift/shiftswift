@@ -6,12 +6,20 @@ window.Admin = (() => {
     return localStorage.getItem("apiBaseUrl") || "http://localhost:3000";
   }
 
+  function isLocalDevHost() {
+    return window.ShiftSwiftBrand?.isLocalDevHost?.() || false;
+  }
+
+  function getMasterCustomerId() {
+    return localStorage.getItem("masterTenantId") || "999";
+  }
+
   function resolveWorkspaceTenantId() {
     const stored = localStorage.getItem("tenantId") || "";
     const role = localStorage.getItem("userRole") || "";
-    const masterId = localStorage.getItem("masterTenantId") || "999";
-    // Platform master (tenant 999) manages the demo business workspace locally.
-    if (role === "admin" && stored === masterId) {
+    const masterId = getMasterCustomerId();
+    // Local dev only: platform master workspace maps to demo tenant 1.
+    if (isLocalDevHost() && role === "admin" && stored === masterId) {
       return "1";
     }
     return stored;
@@ -20,8 +28,7 @@ window.Admin = (() => {
   function isPlatformAdmin() {
     const role = localStorage.getItem("userRole") || "";
     const tenantId = localStorage.getItem("tenantId") || "";
-    const masterId = localStorage.getItem("masterTenantId") || "999";
-    return role === "admin" && tenantId === masterId;
+    return role === "admin" && tenantId === getMasterCustomerId();
   }
 
   const TOKEN = localStorage.getItem("token") || "";
@@ -78,6 +85,15 @@ window.Admin = (() => {
     "api-access": "api_access_enabled",
   };
 
+  const FEATURE_TO_UPGRADE_KEY = {
+    "sponsor-compliance": "sponsor_compliance",
+    grievance: "grievance",
+    disciplinary: "disciplinary",
+    "audit-export": "audit_export",
+    "multi-site": "multi_site",
+    "api-access": "api_access",
+  };
+
   const FEATURE_UPGRADE_LABELS = {
     "sponsor-compliance": "Sponsor licence compliance is included on Growth and Scale plans.",
     grievance: "Grievance workflows are included on Growth and Scale plans.",
@@ -86,6 +102,12 @@ window.Admin = (() => {
     "multi-site": "Multi-site dashboard is included on Scale plans.",
     "api-access": "API access is included on Scale plans.",
   };
+
+  function featureUpgradeMessage(feature) {
+    const apiKey = FEATURE_TO_UPGRADE_KEY[feature];
+    const fromApi = apiKey && tenantFeatures.upgrade_messages?.[apiKey];
+    return fromApi || FEATURE_UPGRADE_LABELS[feature] || "Upgrade your plan to unlock this feature.";
+  }
 
   function authHeaders(json = true) {
     const headers = {
@@ -139,6 +161,9 @@ window.Admin = (() => {
         plan_display_name: data.plan_display_name || "Starter",
         plan_tier: data.plan_tier || "starter",
         sponsored_employees: Number(data.sponsored_employees || 0),
+        rota_mode_labels: data.rota_mode_labels || {},
+        rota_modes_all: Array.isArray(data.rota_modes_all) ? data.rota_modes_all : ["basic"],
+        upgrade_messages: data.upgrade_messages || {},
       };
     } catch {
       /* keep previous values */
@@ -161,11 +186,35 @@ window.Admin = (() => {
     if (!notice) {
       notice = document.createElement("div");
       notice.className = "feature-upgrade-notice promo-result";
-      notice.innerHTML = `<p><strong>${escapeHtml(FEATURE_UPGRADE_LABELS[feature] || "Upgrade your plan to unlock this feature.")}</strong> <a href="./index.html#pricing">View plans</a></p>`;
+      notice.innerHTML = `<p><strong>${escapeHtml(featureUpgradeMessage(feature))}</strong> <a href="#settings/billing">View billing</a></p>`;
       const header = section.querySelector(".section-header");
       section.insertBefore(notice, header ? header.nextSibling : section.firstChild);
     }
     notice.hidden = false;
+  }
+
+  function syncNavLinkLock(link, locked) {
+    let meta = link.querySelector(".nav-link__meta");
+    if (locked) {
+      if (!meta) {
+        meta = document.createElement("span");
+        meta.className = "nav-link__meta";
+        const lockEl = document.createElement("span");
+        lockEl.className = "nav-link__lock";
+        lockEl.setAttribute("aria-hidden", "true");
+        if (window.AdminIcons?.svg) {
+          lockEl.innerHTML = window.AdminIcons.svg("lock", "nav-link__lock-svg");
+        }
+        const upgrade = document.createElement("span");
+        upgrade.className = "nav-link__upgrade";
+        upgrade.textContent = "Upgrade";
+        meta.appendChild(lockEl);
+        meta.appendChild(upgrade);
+        link.appendChild(meta);
+      }
+    } else if (meta) {
+      meta.remove();
+    }
   }
 
   function applyFeatureGates() {
@@ -175,6 +224,7 @@ window.Admin = (() => {
       if (el.matches(".nav-link")) {
         el.hidden = false;
         el.classList.toggle("nav-link--locked", !enabled);
+        syncNavLinkLock(el, !enabled);
         el.setAttribute("aria-disabled", enabled ? "false" : "true");
         return;
       }
@@ -258,6 +308,10 @@ window.Admin = (() => {
     const res = await apiFetch("/admin/metadata");
     if (!res.ok) throw new Error("Could not load form options");
     formOptions = await res.json();
+    if (formOptions.brand) {
+      window.ShiftSwiftBrand?.mergeBrand?.(formOptions.brand);
+      window.ShiftSwiftBrand?.applyBrandDom?.();
+    }
     try {
       await loadEmployees();
     } catch {
@@ -442,7 +496,11 @@ window.Admin = (() => {
         section.classList.toggle("admin-section--active", active);
       });
       links.forEach((link) => {
-        link.classList.toggle("active", link.dataset.section === sectionId);
+        const isActive = link.dataset.section === sectionId;
+        link.classList.toggle("active", isActive);
+        if (!isActive && link.matches(":focus")) {
+          link.blur();
+        }
       });
       if (sidebarCtl?.isOpen?.()) {
         sidebarCtl.closeSidebar();
@@ -489,6 +547,9 @@ window.Admin = (() => {
         event.preventDefault();
         const target = link.dataset.section;
         window.location.hash = target === "settings" ? "settings/business" : target;
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
       });
     });
 

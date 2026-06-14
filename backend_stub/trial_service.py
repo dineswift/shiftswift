@@ -11,6 +11,7 @@ from billing_config import stripe_settings
 from billing_plans import get_plan, resolve_stripe_price_id
 from billing_seat_sync import build_platform_subscription_items
 from billing_stripe_checkout import create_subscription_checkout_session
+from brand import EMAIL_SUPPORT
 from payroll_plans import get_payroll_plan, resolve_stripe_price_id as resolve_payroll_stripe_price_id
 
 DEFAULT_TRIAL_DAYS = int(os.getenv("BILLING_TRIAL_DAYS", "14"))
@@ -304,7 +305,7 @@ def create_upgrade_checkout(
     if not cfg["secret_key"] or not plan:
         return {
             "checkout_url": None,
-            "message": "Stripe is not configured. Email support@shiftswifthr.co.uk to upgrade.",
+            "message": f"Stripe is not configured. Email {EMAIL_SUPPORT} to upgrade.",
             "upgrade_required": snap["upgrade_required"],
             "trial": snap,
         }

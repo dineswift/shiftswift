@@ -40,13 +40,28 @@
     settings:
       '<path d="M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/>',
     chevron: '<path d="M9 6l6 6l-6 6"/>',
+    "trending-up": '<path d="M3 17l6-6l4 4l8-8"/><path d="M14 7h7v7"/>',
+    "user-plus":
+      '<path d="M9 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><path d="M16 19h6"/><path d="M19 16v6"/>',
+    "user-minus":
+      '<path d="M9 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M3 21v-2a4 4 0 0 1 4-4h10"/><path d="M16 19h6"/>',
+    "file-text":
+      '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10 9h6"/><path d="M10 13h6"/><path d="M10 17h4"/>',
+    "file-certificate":
+      '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10 14l-2 1l2 1l2-1l-2-1"/><path d="M10 10h4"/>',
+    sparkles:
+      '<path d="M12 3l1.1 3.6L17 8l-3.9 1.4L12 13l-1.1-3.6L7 8l3.9-1.4z"/><path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9z"/><path d="M5 16l.8 2.4L8.2 19l-2.4.8L5 22.2l-.8-2.4L1.8 19l2.4-.8z"/>',
+    "calendar-off":
+      '<path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 8h18"/><path d="M5 6h14a2 2 0 0 1 2 2v2"/><path d="M16 16l-8-8"/><path d="M8 16l8-8"/>',
+    "external-link":
+      '<path d="M12 6h6v6"/><path d="M10 14L18 6"/><path d="M15 10h3v9H6v-12h9"/>',
   };
 
   function svg(name, className) {
     const body = PATHS[name];
     if (!body) return "";
     const cls = className ? ` admin-icon ${className}` : " admin-icon";
-    return `<svg class="${cls.trim()}" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+    return `<svg class="${cls.trim()}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
   }
 
   window.AdminIcons = { svg };

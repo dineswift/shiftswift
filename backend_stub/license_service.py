@@ -13,6 +13,7 @@ from trial_service import (
     _utcnow,
     trial_snapshot,
 )
+from brand import EMAIL_SUPPORT
 
 DD_GRACE_DAYS = int(os.getenv("BILLING_DD_GRACE_DAYS", "7"))
 PAYMENT_WARNING_STATUSES = frozenset({"past_due", "unpaid"})
@@ -141,7 +142,7 @@ def assert_tenant_access(*, tenant_id: int, conn: Any, master_tenant_id: str) ->
         raise HTTPException(
             status_code=403,
             detail={
-                "message": "This business account is temporarily suspended. Contact support@shiftswifthr.co.uk.",
+                "message": f"This business account is temporarily suspended. Contact {EMAIL_SUPPORT}.",
                 "platform_suspended": True,
                 "tenant_name": tenant_name,
             },

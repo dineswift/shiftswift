@@ -186,6 +186,8 @@ def admin_metadata() -> dict[str, object]:
         for tid, meta in TEMPLATE_REGISTRY.items()
     ]
     templates.append({"value": "pack", "label": "Full pack (MSA + DPA + Order)"})
+    from plan_features import ROTA_MODE_LABELS, ROTA_MODES, UPGRADE_MESSAGES
+
     return {
         "brand": brand_payload(),
         "advert_platforms": ADVERT_PLATFORMS,
@@ -243,6 +245,9 @@ def admin_metadata() -> dict[str, object]:
         "platform_plans": platform_plans,
         "payroll_plans": payroll_plans,
         "contract_templates": templates,
+        "rota_mode_labels": ROTA_MODE_LABELS,
+        "rota_modes_all": list(ROTA_MODES),
+        "upgrade_messages": UPGRADE_MESSAGES,
     }
 
 

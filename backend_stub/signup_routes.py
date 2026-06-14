@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from auth_service import AuthUser, create_token_pair, hash_password, log_security_event
+from brand import EMAIL_SUPPORT
 from billing_plans import get_plan
 from billing_promotions import validate_promotions
 from billing_stripe_service import provision_tenant_billing
@@ -353,7 +354,7 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
         logger.exception("Signup failed for %s", payload.billing_email)
         raise HTTPException(
             status_code=503,
-            detail="Could not finish setting up your workspace. Please try again or email support@shiftswifthr.co.uk.",
+            detail=f"Could not finish setting up your workspace. Please try again or email {EMAIL_SUPPORT}.",
         ) from exc
     finally:
         conn.close()

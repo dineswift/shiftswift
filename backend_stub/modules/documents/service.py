@@ -60,6 +60,15 @@ def validate_information_fields(section: str, updates: dict[str, Any]) -> dict[s
                 probation = date.fromisoformat(probation)
             if probation < start:
                 raise ValueError("Probation end date cannot be before start date")
+        if "contract_hours_weekly" in validated:
+            raw = validated["contract_hours_weekly"]
+            if raw is None or raw == "":
+                validated["contract_hours_weekly"] = None
+            else:
+                hours = float(raw)
+                if hours < 0 or hours > 168:
+                    raise ValueError("Contract hours must be between 0 and 168")
+                validated["contract_hours_weekly"] = hours
     if section == "recruitment" and "email" in validated and validated["email"]:
         validate_email(validated["email"], field_label="Work email")
     return validated
@@ -67,6 +76,10 @@ def validate_information_fields(section: str, updates: dict[str, Any]) -> dict[s
 
 def fetch_document_categories_by_employee(*, tenant_id: int, conn: Any) -> dict[int, list[str]]:
     """Map employee_id → distinct document categories (for completion summaries)."""
+    from core.schema import table_columns
+
+    if not table_columns(conn, "employee_documents"):
+        return {}
     with conn.cursor() as cur:
         cur.execute(
             """

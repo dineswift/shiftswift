@@ -51,6 +51,7 @@ class SectionPatch(BaseModel):
         default=None,
         pattern="^(full_time|part_time|zero_hours|fixed_term|casual)$",
     )
+    contract_hours_weekly: float | None = Field(default=None, ge=0, le=168)
     salary: float | None = Field(default=None, ge=0)
     work_location: str | None = Field(default=None, max_length=200)
     probation_end_date: date | None = None

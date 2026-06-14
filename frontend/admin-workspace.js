@@ -114,7 +114,8 @@
         window.location.href = data.checkout_url;
         return;
       }
-      alert(data.message || data.detail || "Upgrade is not available in local mode. Email support@shiftswifthr.co.uk.");
+      const support = window.ShiftSwiftBrand?.supportEmail?.() || "support";
+      alert(data.message || data.detail || `Upgrade is not available yet. Contact ${support} for billing help.`);
     } catch (error) {
       alert(error.message || "Upgrade request failed");
     }
@@ -369,7 +370,7 @@
                   : undefined,
           }),
           moduleCard({
-            icon: "clipboard",
+            icon: "user-plus",
             title: "Recruitment",
             value: String(recruitment.open_vacancies ?? 0),
             sub: recruitment.pending_applicants
@@ -433,7 +434,7 @@
             tone: (disciplinary.open_cases ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
-            icon: "file",
+            icon: "file-text",
             title: "Employment contracts",
             value: String(contracts.pending_signature ?? 0),
             sub: contracts.pending_signature ? "Awaiting signature" : "Up to date",
@@ -441,14 +442,14 @@
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
-            icon: "door",
+            icon: "user-minus",
             title: "Offboarding",
             value: String(offboarding.in_progress ?? 0),
             sub: offboarding.in_progress ? "In progress" : "No active leavers",
             href: "#offboarding",
           }),
           moduleCard({
-            icon: "beach",
+            icon: "calendar-off",
             title: "Leave",
             value: String(leave.pending_requests ?? 0),
             sub: leave.pending_requests ? "Awaiting HR approval" : "No pending requests",

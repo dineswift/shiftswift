@@ -109,6 +109,9 @@
     if (panelId === "security") {
       void loadSecurityPanel();
     }
+    if (panelId === "billing") {
+      void loadBillingPanel(true);
+    }
     if (panelId === "rota") {
       void loadRotaPanel();
     }
@@ -247,9 +250,9 @@
     }
   }
 
-  async function loadBillingPanel() {
+  async function loadBillingPanel(force = false) {
     const host = document.getElementById("settings-billing-content");
-    if (!host || host.dataset.ready === "true") return;
+    if (!host || (host.dataset.ready === "true" && !force)) return;
     try {
       const [overviewRes, billingRes] = await Promise.all([
         apiFetch("/admin/overview"),
@@ -263,6 +266,8 @@
       const trialEnds = billing.trial_ends_at
         ? new Date(billing.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
         : null;
+      const advancedAddon = Boolean(overview.rota_advanced_addon);
+      const multiSiteAddon = Boolean(overview.rota_multi_site_addon);
 
       host.innerHTML = `
         <div class="settings-billing-summary">
@@ -271,13 +276,28 @@
           ${trialEnds ? `<div class="settings-billing-row"><span class="muted">Trial ends</span><strong>${escapeHtml(trialEnds)}${trialDays != null ? ` (${escapeHtml(trialDays)} days left)` : ""}</strong></div>` : ""}
           <div class="settings-billing-row"><span class="muted">Employee limit</span><strong>${escapeHtml(overview.max_employees ?? billing.max_employees ?? "—")}</strong></div>
         </div>
+        <div class="settings-billing-addons">
+          <h4 class="settings-billing-addons__title">Add-ons</h4>
+          <ul class="settings-billing-addons__list">
+            <li class="settings-billing-addons__item">
+              <span>Advanced rota</span>
+              <span class="settings-billing-addons__pill ${advancedAddon ? "is-active" : "is-inactive"}">${advancedAddon ? "Active" : "Not enabled"}</span>
+            </li>
+            <li class="settings-billing-addons__item">
+              <span>Multi-site rota</span>
+              <span class="settings-billing-addons__pill ${multiSiteAddon ? "is-active" : "is-inactive"}">${multiSiteAddon ? "Active" : "Not enabled"}</span>
+            </li>
+          </ul>
+          <p class="muted settings-billing-addons__note">Basic manual rota is included on all plans. Add-ons are enabled by ${escapeHtml(window.ShiftSwiftBrand?.appName || "ShiftSwift HR")} support until self-service billing is live — <a href="#" data-brand-support-mailto="Rota add-on">request an add-on</a>.</p>
+        </div>
         <div class="link-row settings-billing-actions">
           <button type="button" class="btn outline" data-settings-upgrade>Upgrade plan</button>
           <a class="btn ghost" href="./payment-terms.html" target="_blank" rel="noopener">Payment terms</a>
-          <a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=Billing%20enquiry">Contact billing</a>
+          <a class="btn ghost" href="#" data-brand-support-mailto="Billing enquiry">Contact billing</a>
         </div>
         <p class="muted settings-billing-note">Invoice history and self-service cancellation will appear here once Stripe live billing is enabled.</p>`;
       host.querySelector("[data-settings-upgrade]")?.addEventListener("click", startUpgrade);
+      window.ShiftSwiftBrand?.applyBrandDom?.(host);
       host.dataset.ready = "true";
     } catch {
       host.innerHTML = `<p class="muted">Could not load billing details.</p>`;
@@ -358,12 +378,6 @@
       });
   }
 
-  const ROTA_MODE_LABELS = {
-    basic: "Basic — manual weekly grid",
-    advanced: "Advanced — templates, coverage & hours",
-    multi_site: "Multi-site — per-location rotas",
-  };
-
   const ROTA_DAY_OPTIONS = [
     { value: 1, label: "Monday" },
     { value: 2, label: "Tuesday" },
@@ -425,7 +439,7 @@
               ? `<ul class="settings-rota-template-list">${items
                   .map(
                     (item) =>
-                      `<li><button type="button" class="btn ghost" data-edit-template="${item.id}">${escapeHtml(item.name)}</button>${item.is_default ? " <span class=\"muted\">(default)</span>" : ""} · ${item.requirement_count} slot${item.requirement_count === 1 ? "" : "s"}</li>`
+                      `<li class="settings-rota-template-list__item"><button type="button" class="btn ghost" data-edit-template="${item.id}">${escapeHtml(item.name)}</button>${item.is_default ? " <span class=\"muted\">(default)</span>" : ""} · ${item.requirement_count} slot${item.requirement_count === 1 ? "" : "s"}<button type="button" class="btn ghost settings-rota-template-delete" data-delete-template="${item.id}" aria-label="Delete ${escapeHtml(item.name)}">Delete</button></li>`
                   )
                   .join("")}</ul>`
               : `<p class="muted">No templates yet — create your first weekly pattern below.</p>`
@@ -518,6 +532,32 @@
         });
       });
 
+      container.querySelectorAll("[data-delete-template]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const templateId = Number(btn.getAttribute("data-delete-template"));
+          const templateName = btn.closest(".settings-rota-template-list__item")?.querySelector("[data-edit-template]")?.textContent?.trim();
+          const label = templateName || "this template";
+          if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) return;
+          if (statusEl) statusEl.textContent = "Deleting template…";
+          try {
+            const deleteRes = await apiFetch(`/admin/rota/templates/${templateId}`, { method: "DELETE" });
+            if (!deleteRes.ok) {
+              const deleteData = await deleteRes.json();
+              throw new Error(deleteData.detail?.message || deleteData.detail || "Delete failed");
+            }
+            showSettingsToast("Staffing template deleted");
+            if (editingTemplateId === templateId) {
+              resetTemplateForm();
+            }
+            const panelHost = document.getElementById("settings-rota-content");
+            if (panelHost) panelHost.dataset.ready = "false";
+            await loadRotaPanel(true);
+          } catch (error) {
+            if (statusEl) statusEl.textContent = error.message || "Could not delete template";
+          }
+        });
+      });
+
       cancelBtn?.addEventListener("click", () => {
         resetTemplateForm();
         if (statusEl) statusEl.textContent = "";
@@ -566,20 +606,22 @@
       const profile = profileRes.ok ? await profileRes.json() : {};
       const overview = overviewRes.ok ? await overviewRes.json() : {};
       const options = overview.rota_mode_options || profile.rota_mode_options || ["basic"];
-      const allModes = ["basic", "advanced", "multi_site"];
+      const modeLabels = overview.rota_mode_labels || window.Admin?.tenantFeatures?.rota_mode_labels || {};
+      const allModes = overview.rota_modes_all || window.Admin?.tenantFeatures?.rota_modes_all || ["basic", "advanced", "multi_site"];
       const current = profile.rota_mode_preference ?? overview.rota_mode ?? profile.rota_mode ?? "basic";
       const planName = overview.plan_display_name || "Starter";
+      const supportMailto = window.ShiftSwiftBrand?.supportMailto?.("Advanced rota add-on") || "#";
 
       host.innerHTML = `
         <p class="muted">Basic manual rota (weekly grid, copy week, publish, attendance) is included on your <strong>${escapeHtml(planName)}</strong> plan.</p>
-        <p class="muted">Advanced scheduling and multi-site rota are <strong>paid add-ons</strong> — pricing to be confirmed. Contact <a href="mailto:support@shiftswifthr.co.uk?subject=Advanced%20rota%20add-on">support</a> to enable them on your account.</p>
+        <p class="muted">Advanced scheduling and multi-site rota are <strong>paid add-ons</strong> — pricing to be confirmed. Contact <a href="${escapeHtml(supportMailto)}">support</a> to enable them on your account.</p>
         <label class="edit-field">
           Scheduling mode
           <select id="settings-rota-mode-select">
             ${allModes.map((mode) => {
               const allowed = options.includes(mode);
               const selected = mode === current ? "selected" : "";
-              const label = ROTA_MODE_LABELS[mode] || mode;
+              const label = modeLabels[mode] || mode;
               const suffix = allowed ? "" : mode === "basic" ? "" : " (add-on required)";
               return `<option value="${escapeHtml(mode)}" ${selected} ${allowed ? "" : "disabled"}>${escapeHtml(label)}${suffix}</option>`;
             }).join("")}
@@ -645,6 +687,7 @@
         Boolean(overview.rota_advanced_addon) && (current === "advanced" || current === "multi_site")
       );
 
+      window.ShiftSwiftBrand?.applyBrandDom?.(host);
       host.dataset.ready = "true";
     } catch {
       host.innerHTML = `<p class="muted">Could not load rota settings.</p>`;
@@ -670,9 +713,10 @@
         <span class="muted">${escapeHtml(roleLabel)} · you</span>
       </div>
       <div class="settings-form-actions">
-        <a class="btn outline" href="mailto:support@shiftswifthr.co.uk?subject=Invite%20manager%20to%20ShiftSwift%20HR">Invite manager</a>
+        <a class="btn outline" href="#" data-brand-support-mailto="Invite manager to ShiftSwift HR">Invite manager</a>
       </div>
       <p class="muted">Multi-user roles and manager invites are managed by support during early access. Email us to add HR managers or site leads.</p>`;
+    window.ShiftSwiftBrand?.applyBrandDom?.(host);
     host.dataset.ready = "true";
   }
 

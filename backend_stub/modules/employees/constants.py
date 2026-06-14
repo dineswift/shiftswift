@@ -76,7 +76,7 @@ SECTION_LABELS = {
 
 SECTION_DESCRIPTIONS = {
     "recruitment": "Basic identity and employee type (standard or sponsored).",
-    "onboarding": "Role, start date, employment type, and work location.",
+    "onboarding": "Role, start date, employment type, contracted weekly hours (for rota warnings), and work location.",
     "induction": "Contact details, NI number, address, and emergency contact.",
     "document_store": "Contracts, ID, policies, and required HR evidence.",
     "development": "Training certificates — upload in Document store using Qualification category and expiry date.",
@@ -118,6 +118,7 @@ SECTION_FIELDS: dict[str, tuple[str, ...]] = {
         "job_title",
         "department",
         "employment_type",
+        "contract_hours_weekly",
         "work_location",
         "probation_end_date",
     ),

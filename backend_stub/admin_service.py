@@ -73,7 +73,12 @@ NOTIFICATION_PREF_EVENTS = (
 VALID_NOTIFICATION_DELIVERY = frozenset({"email", "email_sms", "off"})
 
 
-from modules.employees.repository import EMPLOYEE_COLUMNS, _row_to_employee, fetch_employee, list_employee_summaries
+from modules.employees.repository import (
+    _row_to_employee,
+    build_employee_insert,
+    fetch_employee,
+    list_employee_summaries,
+)
 from modules.employees.workspace import list_completion_summary
 
 
@@ -100,9 +105,26 @@ def attach_rota_mode_fields(profile: dict[str, Any], *, tenant_id: int, conn: An
 
 
 def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
+    from core.schema import column_expr
+
+    rota_mode_col = column_expr(conn, table="tenants", column="rota_mode", alias=None)
+    rota_advanced_col = column_expr(
+        conn,
+        table="tenants",
+        column="rota_advanced_addon",
+        alias=None,
+        null_sql="FALSE AS rota_advanced_addon",
+    )
+    rota_multi_col = column_expr(
+        conn,
+        table="tenants",
+        column="rota_multi_site_addon",
+        alias=None,
+        null_sql="FALSE AS rota_multi_site_addon",
+    )
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT id, name, trading_name, company_number, registered_address, phone,
                    billing_email, vat_number, signatory_name, signatory_title, signatory_email,
                    subscription_plan, subscription_status, max_employees,
@@ -110,7 +132,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    holds_sponsor_licence, sponsor_licence_acknowledged_at,
                    sponsor_licence_acknowledged_by, sponsor_licence_ack_version,
                    payroll_accountant_email, payroll_hours_report_enabled,
-                   rota_mode, rota_advanced_addon, rota_multi_site_addon
+                   {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -164,27 +186,42 @@ def update_tenant_profile(
         return get_tenant_profile(tenant_id=tenant_id, conn=conn)
 
     if "rota_mode" in allowed:
+        from core.schema import table_columns
         from plan_features import validate_rota_mode_choice
 
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT rota_advanced_addon, rota_multi_site_addon
-                FROM tenants WHERE id = %s
-                """,
-                (tenant_id,),
+        tenant_cols = table_columns(conn, "tenants")
+        if "rota_mode" not in tenant_cols:
+            allowed.pop("rota_mode", None)
+        else:
+            advanced_expr = (
+                "rota_advanced_addon"
+                if "rota_advanced_addon" in tenant_cols
+                else "FALSE"
             )
-            addon_row = cur.fetchone()
-            if not addon_row:
-                raise LookupError("tenant not found")
-        try:
-            allowed["rota_mode"] = validate_rota_mode_choice(
-                rota_mode=allowed["rota_mode"],
-                rota_advanced_addon=bool(addon_row[0]),
-                rota_multi_site_addon=bool(addon_row[1]),
+            multi_expr = (
+                "rota_multi_site_addon"
+                if "rota_multi_site_addon" in tenant_cols
+                else "FALSE"
             )
-        except ValueError as exc:
-            raise ValueError(str(exc)) from exc
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT {advanced_expr}, {multi_expr}
+                    FROM tenants WHERE id = %s
+                    """,
+                    (tenant_id,),
+                )
+                addon_row = cur.fetchone()
+                if not addon_row:
+                    raise LookupError("tenant not found")
+            try:
+                allowed["rota_mode"] = validate_rota_mode_choice(
+                    rota_mode=allowed["rota_mode"],
+                    rota_advanced_addon=bool(addon_row[0]),
+                    rota_multi_site_addon=bool(addon_row[1]),
+                )
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
 
     sets = ", ".join(f"{key} = %s" for key in allowed)
     values = list(allowed.values()) + [tenant_id]
@@ -334,31 +371,12 @@ def create_employee(
     conn: Any,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO employees (
-              tenant_id, first_name, last_name, email, job_title, salary, work_location,
-              start_date, status, is_sponsored, phone, department, employment_type
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING """
-            + EMPLOYEE_COLUMNS,
-            (
-                tenant_id,
-                data["first_name"],
-                data["last_name"],
-                data.get("email"),
-                data.get("job_title"),
-                data.get("salary"),
-                data.get("work_location"),
-                data.get("start_date"),
-                data.get("status", "active"),
-                data.get("is_sponsored", False),
-                data.get("phone"),
-                data.get("department"),
-                data.get("employment_type", "full_time"),
-            ),
+        insert_sql, insert_values = build_employee_insert(
+            tenant_id=tenant_id,
+            data=data,
+            conn=conn,
         )
+        cur.execute(insert_sql, insert_values)
         row = cur.fetchone()
         conn.commit()
         emp = _row_to_employee(row)
@@ -416,6 +434,7 @@ def update_employee(
         "ni_number",
         "department",
         "employment_type",
+        "contract_hours_weekly",
         "probation_end_date",
         "emergency_contact_name",
         "emergency_contact_phone",
@@ -819,7 +838,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         subscription_status=profile.get("subscription_status"),
         trial_access_allowed=bool(trial.get("access_allowed")),
     )
-    from plan_features import apply_rota_features
+    from plan_features import ROTA_MODE_LABELS, ROTA_MODES, UPGRADE_MESSAGES, apply_rota_features
 
     apply_rota_features(
         plan_flags,
@@ -827,6 +846,9 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         rota_advanced_addon=bool(profile.get("rota_advanced_addon")),
         rota_multi_site_addon=bool(profile.get("rota_multi_site_addon")),
     )
+    plan_flags["rota_mode_labels"] = ROTA_MODE_LABELS
+    plan_flags["rota_modes_all"] = list(ROTA_MODES)
+    plan_flags["upgrade_messages"] = UPGRADE_MESSAGES
 
     rtw_needs_review = rtw_expired
     rtw_verified = max(rtw_total - rtw_expired - rtw_expiring_soon, 0)

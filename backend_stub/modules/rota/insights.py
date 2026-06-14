@@ -235,10 +235,17 @@ def build_week_insights(
 
 
 def _load_rota_employees(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
+    from modules.employees.repository import employees_table_columns
+
+    contract_hours_col = (
+        "contract_hours_weekly"
+        if "contract_hours_weekly" in employees_table_columns(conn)
+        else "NULL::numeric AS contract_hours_weekly"
+    )
     with conn.cursor() as cur:
         cur.execute(
-            """
-            SELECT id, first_name, last_name, job_title, employment_type, contract_hours_weekly, status
+            f"""
+            SELECT id, first_name, last_name, job_title, employment_type, {contract_hours_col}, status
             FROM employees
             WHERE tenant_id = %s
             ORDER BY first_name, last_name, id

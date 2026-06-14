@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="./brand-config.js?v=brand-v6"></script>
+    <script src="./brand-config.js?v=brand-v7"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="theme-color" content="#0f6e56" />
     <script src="./app-icons.js?v=brandkit-v5"></script>
@@ -20,8 +20,9 @@
           var role = localStorage.getItem("userRole");
           var masterId = localStorage.getItem("masterTenantId") || "999";
           var tenantId = localStorage.getItem("tenantId");
+          var isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
           if (role !== "admin" || !localStorage.getItem("token")) return;
-          if (tenantId === "1" && masterId === "999") {
+          if (isLocal && tenantId === "1" && masterId === "999") {
             localStorage.setItem("tenantId", masterId);
             tenantId = masterId;
           }
@@ -34,9 +35,9 @@
       })();
     </script>
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v37" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v41" />
   </head>
-  <body>
+  <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
     <div class="app">
@@ -48,7 +49,6 @@
           <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
         </div>
         <nav class="nav" aria-label="Admin sections">
-          <p class="nav-section-label">Home</p>
           <a class="nav-link" href="#overview" data-section="overview">
             <span class="nav-link__icon" data-nav-icon="layout" aria-hidden="true"></span>
             <span class="nav-link__label">Overview</span>
@@ -61,15 +61,15 @@
           </a>
           <p class="nav-crumb" id="employee-nav-crumb" hidden aria-live="polite"></p>
           <a class="nav-link" href="#recruitment" data-section="recruitment">
-            <span class="nav-link__icon" data-nav-icon="clipboard" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="user-plus" aria-hidden="true"></span>
             <span class="nav-link__label">Recruitment</span>
           </a>
           <a class="nav-link" href="#offboarding" data-section="offboarding">
-            <span class="nav-link__icon" data-nav-icon="door" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="user-minus" aria-hidden="true"></span>
             <span class="nav-link__label">Offboarding</span>
           </a>
           <a class="nav-link" href="#promotions" data-section="promotions">
-            <span class="nav-link__icon" data-nav-icon="check" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="trending-up" aria-hidden="true"></span>
             <span class="nav-link__label">Promotions</span>
           </a>
 
@@ -79,11 +79,13 @@
             <span class="nav-link__label">Sponsor compliance</span>
           </a>
           <a class="nav-link" href="#contracts" data-section="contracts">
-            <span class="nav-link__icon" data-nav-icon="file" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="file-certificate" aria-hidden="true"></span>
             <span class="nav-link__label">Service agreements</span>
           </a>
+
+          <p class="nav-section-label">Cases</p>
           <a class="nav-link" href="#employment-contracts" data-section="employment-contracts">
-            <span class="nav-link__icon" data-nav-icon="clipboard" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="file-text" aria-hidden="true"></span>
             <span class="nav-link__label">Employment contracts</span>
           </a>
           <a class="nav-link" href="#grievance" data-section="grievance" data-feature="grievance">
@@ -105,13 +107,13 @@
             <span class="nav-link__label">Rota</span>
           </a>
           <a class="nav-link" href="#leave" data-section="leave">
-            <span class="nav-link__icon" data-nav-icon="beach" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="calendar-off" aria-hidden="true"></span>
             <span class="nav-link__label">Leave</span>
           </a>
 
           <p class="nav-section-label">Tools</p>
           <a class="nav-link" href="#templates" data-section="templates">
-            <span class="nav-link__icon" data-nav-icon="file" aria-hidden="true"></span>
+            <span class="nav-link__icon" data-nav-icon="sparkles" aria-hidden="true"></span>
             <span class="nav-link__label">HR Templates &amp; AI</span>
           </a>
 
@@ -121,7 +123,18 @@
             <span class="nav-link__label">Settings</span>
           </a>
         </nav>
-        <div class="badge pill">shiftswifthr.co.uk</div>
+        <a
+          class="badge pill sidebar-brand-link"
+          href="#"
+          data-brand-marketing-url
+          data-brand-marketing-label="domain"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Visit marketing site (opens in new tab)"
+        >
+          <span data-brand-marketing-label="domain">shiftswifthr.co.uk</span>
+          <span class="sidebar-brand-link__icon" data-nav-icon="external-link" aria-hidden="true"></span>
+        </a>
       </aside>
       <main class="content">
         <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
@@ -189,7 +202,7 @@
             <a class="mobile-more-link" href="#settings">Billing &amp; plan</a>
             <a class="mobile-more-link" href="#settings">Notifications</a>
             <a class="mobile-more-link" href="#employees">Users &amp; employees</a>
-            <a class="mobile-more-link" href="mailto:support@shiftswifthr.co.uk">Help &amp; support</a>
+            <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
             <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
             <a class="mobile-more-link mobile-more-link--signout" href="./business-login.html" data-sign-out>Sign out</a>
           </nav>
@@ -2011,12 +2024,12 @@
                   <h3>Multi-site dashboard</h3>
                   <p class="muted">Manage staff records and compliance across multiple sites from one workspace.</p>
                   <button type="button" class="btn" data-settings-upgrade>Upgrade to Scale</button>
-                  <p class="muted">Contact <a href="mailto:support@shiftswifthr.co.uk">support@shiftswifthr.co.uk</a> after upgrading to add sites.</p>
+                  <p class="muted">Contact <a href="#" data-brand-support-mailto="Multi-site upgrade">support</a> after upgrading to add sites.</p>
                 </div>
                 <div class="settings-gated-card__unlocked" hidden>
                   <h3>Multi-site dashboard</h3>
                   <p class="muted">Manage staff records and compliance across multiple sites from one workspace.</p>
-                  <p class="muted">Contact <a href="mailto:support@shiftswifthr.co.uk">support@shiftswifthr.co.uk</a> to add additional sites.</p>
+                  <p class="muted">Contact <a href="#" data-brand-support-mailto="Additional sites">support</a> to add additional sites.</p>
                 </div>
               </article>
 
@@ -2031,7 +2044,7 @@
                 <div class="settings-gated-card__unlocked" hidden>
                   <h3>API access</h3>
                   <p class="muted">Integrate ShiftSwift HR with your accountant, BI tools, or internal systems.</p>
-                  <p class="muted">Email <a href="mailto:support@shiftswifthr.co.uk">support@shiftswifthr.co.uk</a> for API keys and documentation.</p>
+                  <p class="muted">Email <a href="#" data-brand-support-mailto="API keys and documentation">support</a> for API keys and documentation.</p>
                 </div>
               </article>
             </div>
@@ -2064,7 +2077,6 @@
     </nav>
 
     <script src="./auth-guard.js?v=security-v1"></script>
-    <script src="./brand-config.js?v=brand-v4"></script>
     <script
       src="./portal-pwa-install.js?v=2"
       data-portal="admin"
@@ -2074,13 +2086,13 @@
     ></script>
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
-    <script src="./admin-icons.js?v=2"></script>
+    <script src="./admin-icons.js?v=4"></script>
     <script src="./admin-mobile.js?v=5"></script>
-    <script src="./admin-shared.js?v=admin-v14"></script>
-    <script src="./admin-workspace.js?v=admin-v15"></script>
-    <script src="./admin-settings.js?v=7"></script>
+    <script src="./admin-shared.js?v=admin-v16"></script>
+    <script src="./admin-workspace.js?v=admin-v17"></script>
+    <script src="./admin-settings.js?v=9"></script>
     <script src="./admin-documents.js?v=4"></script>
-    <script src="./admin-employees.js?v=14"></script>
+    <script src="./admin-employees.js?v=16"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
     <script src="./admin-compliance.js?v=admin-v9"></script>
@@ -2091,7 +2103,7 @@
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=11"></script>
-    <script src="./admin-rota.js?v=13"></script>
+    <script src="./admin-rota.js?v=14"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=5"></script>

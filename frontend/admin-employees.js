@@ -32,6 +32,15 @@
         { name: "status", label: "Status", type: "select", optionsKey: "employee_statuses", defaultValue: "onboarding" },
         { name: "department", label: "Department", type: "text", placeholder: "Kitchen, Front of house…" },
         { name: "employment_type", label: "Employment type", type: "select", optionsKey: "employment_types", defaultValue: "full_time" },
+        {
+          name: "contract_hours_weekly",
+          label: "Contract hours (per week)",
+          type: "number",
+          placeholder: "Blank = type default (e.g. 40 full-time)",
+          step: "0.5",
+          min: 0,
+          max: 168,
+        },
         { name: "work_location", label: "Work location", type: "text", placeholder: "London site" },
         { name: "probation_end_date", label: "Probation end date", type: "date" },
       ],
@@ -87,7 +96,7 @@
 
   const SECTION_HINTS = {
     recruitment: "Set employee type here. Sponsor compliance (step 9) unlocks only for sponsored workers.",
-    onboarding: "Set status to <strong>Onboarding</strong> for new starters. Probation end must be on or after start date.",
+    onboarding: "Set status to <strong>Onboarding</strong> for new starters. Contract hours drive rota over/under warnings — leave blank to use the default for the employment type.",
     induction: "Phone, home address, and emergency contact are required. NI number is validated when provided.",
     job_performance: "Salary is stored here for payroll CSV export. Run probation and annual reviews using HR Templates — file signed forms in Document store.",
     compliance_reporting: "Visa type plus a GOV.UK share code <em>or</em> CoS reference required.",
@@ -478,6 +487,14 @@
       body.salary = Number(body.salary);
     } else if (section === "job_performance") {
       body.salary = null;
+    }
+    if (
+      section === "onboarding" &&
+      body.contract_hours_weekly !== undefined &&
+      body.contract_hours_weekly !== null &&
+      body.contract_hours_weekly !== ""
+    ) {
+      body.contract_hours_weekly = Number(body.contract_hours_weekly);
     }
     Object.keys(body).forEach((key) => {
       if (body[key] === "") body[key] = null;
@@ -1034,7 +1051,16 @@
 
     try {
       const res = await apiFetch("/admin/employees");
-      if (!res.ok) throw new Error("Load failed");
+      if (!res.ok) {
+        let detail = "Load failed";
+        try {
+          const err = await res.json();
+          detail = err.detail || err.message || detail;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(typeof detail === "string" ? detail : "Load failed");
+      }
       const data = await res.json();
       employeesCache = data.items || [];
 
@@ -1071,8 +1097,9 @@
       if (selectedEmployeeId) {
         renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
       }
-    } catch {
-      tbody.innerHTML = '<tr><td colspan="4" class="muted">Could not load employees.</td></tr>';
+    } catch (error) {
+      const message = escapeHtml(error?.message || "Could not load employees.");
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
     }
   }
 

@@ -94,6 +94,10 @@ def _fetch_last_portal_invite_at(
 ) -> dict[int, Any]:
     if not employee_ids:
         return {}
+    from core.schema import table_columns
+
+    if not table_columns(conn, "employee_data_audit_log"):
+        return {}
     with conn.cursor() as cur:
         cur.execute(
             """
