@@ -143,11 +143,15 @@ def update_tenant_profile(
 
     if allowed.get("registered_address"):
         try:
-            from modules.time_punch.service import sync_primary_site_from_tenant_address
+            from modules.time_punch.service import PunchSyncError, sync_primary_site_from_tenant_address
 
             sync_primary_site_from_tenant_address(tenant_id=tenant_id, conn=conn)
+        except PunchSyncError:
+            pass
         except Exception:
             pass
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
 
     log_employee_data_event(
         tenant_id=tenant_id,
@@ -162,7 +166,7 @@ def update_tenant_profile(
         user_agent=user_agent,
         conn=conn,
     )
-    return get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    return profile
 
 
 def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]:

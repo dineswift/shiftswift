@@ -292,14 +292,15 @@ def sync_site_from_address(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
-        site = punch_service.sync_primary_site_from_tenant_address(tenant_id=tenant_id, conn=conn)
+        try:
+            site = punch_service.sync_primary_site_from_tenant_address(tenant_id=tenant_id, conn=conn)
+        except punch_service.PunchSyncError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": str(exc), "code": exc.code},
+            ) from exc
     finally:
         conn.close()
-    if not site:
-        raise HTTPException(
-            status_code=400,
-            detail="Could not sync punch site — set a registered business address first or check geocoding.",
-        )
     return site
 
 

@@ -19,6 +19,14 @@ SITE_SCAN_VALID_MINUTES = 10
 DEFAULT_RADIUS_M = int(os.getenv("PUNCH_GEOFENCE_RADIUS_M", "150"))
 
 
+class PunchSyncError(ValueError):
+    """Raised when a punch site cannot be synced from the tenant address."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 def haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     radius = 6371000.0
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
@@ -346,20 +354,26 @@ def upsert_primary_punch_site(
     return _site_row(row)
 
 
-def sync_primary_site_from_tenant_address(*, tenant_id: int, conn: Any) -> dict[str, Any] | None:
+def sync_primary_site_from_tenant_address(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             "SELECT name, trading_name, registered_address FROM tenants WHERE id = %s",
             (tenant_id,),
         )
         row = cur.fetchone()
-    if not row or not row[2]:
-        return None
-    name = row[1] or row[0] or "Primary site"
-    address = str(row[2]).strip()
+    address = str(row[2]).strip() if row and row[2] else ""
+    if not address:
+        raise PunchSyncError(
+            "missing_address",
+            "Set your registered business address in Settings → Business profile, then sync again.",
+        )
+    name = (row[1] or row[0] or "Primary site") if row else "Primary site"
     coords = geocode_address(address)
     if not coords:
-        return None
+        raise PunchSyncError(
+            "geocode_failed",
+            "Could not locate that address on the map. Include a full UK postcode (e.g. M3 3AP) in Settings → Business profile.",
+        )
     lat, lng = coords
     return upsert_primary_punch_site(
         tenant_id=tenant_id,

@@ -221,6 +221,7 @@
           localStorage.setItem(SAVED_AT_KEY, now);
           updateLastSavedLabel(now);
           showSettingsToast("Business details saved ✓");
+          window.dispatchEvent(new CustomEvent("admin:tenant-profile-saved", { detail: data }));
         },
       });
     } catch (error) {

@@ -180,15 +180,33 @@
     msg.className = tone === "ok" ? "punch-admin-message punch-admin-message--ok" : "muted punch-admin-message";
   }
 
+  function parseApiDetail(data, fallback = "Request failed") {
+    const detail = data?.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    if (typeof data?.message === "string") return data.message;
+    return fallback;
+  }
+
   function updateSetupUi() {
     const warning = $("punch-address-warning");
     const setupGuide = $("punch-setup-guide");
     const selectHint = $("punch-detail-select-hint");
     const noSites = !sites.length;
+    const hasAddress = hasBusinessAddress();
 
-    if (warning) warning.hidden = hasBusinessAddress();
+    if (warning) warning.hidden = hasAddress;
     const syncMeta = $("punch-sync-meta");
     if (syncMeta) syncMeta.textContent = lastSyncLabel();
+
+    ["sync-punch-site-btn", "punch-setup-sync-btn"].forEach((id) => {
+      const btn = $(id);
+      if (!btn) return;
+      btn.disabled = !hasAddress;
+      btn.title = hasAddress
+        ? "Create or refresh your primary punch site from the registered business address"
+        : "Add your registered business address in Settings → Business profile first";
+    });
 
     if (setupGuide && selectHint) {
       if (noSites) {
@@ -795,13 +813,21 @@
 
   async function syncFromAddress(sourceBtn) {
     const btn = sourceBtn || $("sync-punch-site-btn");
+    await loadTenantProfile();
+    if (!hasBusinessAddress()) {
+      showMessage(
+        "Add your registered business address in Settings → Business profile first (include a full UK postcode).",
+      );
+      updateSetupUi();
+      return;
+    }
     if (btn) btn.disabled = true;
     showMessage("Syncing from registered business address…");
     try {
       const res = await apiFetch("/admin/time-punch/sites/sync-from-address", { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showMessage(data.detail || "Sync failed.");
+        showMessage(parseApiDetail(data, "Sync failed."));
         updateSetupUi();
         return;
       }
@@ -813,7 +839,7 @@
     } catch (error) {
       showMessage(error.message || "Sync failed.");
     } finally {
-      if (btn) btn.disabled = false;
+      updateSetupUi();
     }
   }
 
@@ -1201,6 +1227,10 @@
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "time-punch") initSection();
+  });
+
+  window.addEventListener("admin:tenant-profile-saved", () => {
+    void loadTenantProfile().then(updateSetupUi);
   });
 
   if (parseHashBaseSection(window.location.hash) === "time-punch") initSection();
