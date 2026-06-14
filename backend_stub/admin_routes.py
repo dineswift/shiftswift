@@ -311,6 +311,9 @@ def patch_tenant_profile(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
+
+
+@router.get("/employees")
 def read_employees(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),

@@ -1304,10 +1304,20 @@
   async function loadEmployeesList() {
     try {
       const res = await apiFetch("/admin/employees");
-      if (!res.ok) throw new Error("load failed");
+      if (!res.ok) {
+        let detail = "Could not load employees";
+        try {
+          const err = await res.json();
+          detail = err.detail || err.message || detail;
+        } catch {
+          detail = res.statusText || detail;
+        }
+        throw new Error(typeof detail === "string" ? detail : "Could not load employees");
+      }
       employees = (await res.json()).items || [];
-    } catch {
+    } catch (error) {
       employees = [];
+      setMessage(error?.message || "Could not load employees for rota.", "error");
     }
     populateEmployeeSelect();
     populateRoleSuggestions();

@@ -34,17 +34,20 @@ a { color: inherit; }
 /* Admin console — sidebar & topbar app icon (larger than default chrome mark) */
 body.admin-portal .sidebar-head .brand-logo--compact,
 body.admin-portal .sidebar-head .brand .app-mark {
-  width: 52px;
-  height: 52px;
-  max-width: 52px;
-  border-radius: 10px;
+  width: 56px;
+  height: 56px;
+  max-width: 56px;
+  border-radius: 12px;
 }
 
-body.admin-portal .topbar-brand__logo {
-  width: 44px;
-  height: 44px;
-  max-width: 44px;
-  border-radius: 10px;
+body.admin-portal .topbar-brand__logo,
+body.admin-portal .topbar-brand__logo.app-mark,
+body.admin-portal .topbar-brand__logo.app-mark--chrome {
+  width: 56px;
+  height: 56px;
+  max-width: 56px;
+  min-width: 56px;
+  border-radius: 12px;
 }
 
 /* Admin sidebar nav — tighter rows, aligned icon column */
