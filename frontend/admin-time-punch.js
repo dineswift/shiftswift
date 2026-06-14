@@ -202,6 +202,14 @@
         selectHint.hidden = true;
       }
     }
+
+    const posterBtn = $("punch-print-all-poster-btn");
+    if (posterBtn) {
+      posterBtn.disabled = noSites;
+      posterBtn.title = noSites
+        ? "Sync or add a punch site first — then print the premises QR poster."
+        : "Print an A4 poster with QR codes for all active sites";
+    }
   }
 
   function updatePunchStats() {
@@ -348,6 +356,21 @@
     updateSetupUi();
   }
 
+  function portalLinksMarkup({ includeMaster = true, includeClock = true } = {}) {
+    const portals = (window.ShiftSwiftBrand?.portals?.() || []).filter((p) => {
+      if (p.id === "master" && !includeMaster) return false;
+      if (p.id === "clock" && !includeClock) return false;
+      return true;
+    });
+    if (!portals.length) return "";
+    return `<ul class="punch-portal-links">${portals
+      .map(
+        (p) =>
+          `<li><strong>${escapeHtml(p.label)}</strong> <span class="punch-portal-links__url">${escapeHtml(p.display)}</span></li>`,
+      )
+      .join("")}</ul>`;
+  }
+
   async function loadSiteClockQr(siteId) {
     const host = $("punch-clock-qr-body");
     if (!host) return;
@@ -360,9 +383,11 @@
         <div class="punch-clock-qr-layout">
           <img src="${escapeHtml(data.qr_image_url)}" width="200" height="200" alt="Premises clock-in QR for ${escapeHtml(data.site_name)}" class="punch-clock-qr-image" />
           <div class="punch-clock-qr-meta">
-            <p class="punch-clock-qr-url"><a href="${escapeHtml(data.clock_url)}" target="_blank" rel="noopener">${escapeHtml(data.clock_url)}</a></p>
+            <p class="punch-clock-qr-site-name"><strong>${escapeHtml(data.site_name || "Work site")}</strong></p>
+            ${portalLinksMarkup({ includeMaster: false })}
+            <p class="muted punch-clock-qr-note">Staff scan this QR in the Time Clock app — no need to type the link.</p>
             <div class="punch-clock-qr-actions">
-              <button type="button" class="btn outline" id="punch-copy-clock-url">Copy link</button>
+              <button type="button" class="btn outline" id="punch-copy-clock-url">Copy premises link</button>
               <button type="button" class="btn outline" id="punch-print-clock-card">Print QR card</button>
               <button type="button" class="btn outline" id="punch-print-tent-card">Print tent card</button>
               <button type="button" class="btn outline" id="punch-open-kiosk-btn">Open kiosk</button>
@@ -807,7 +832,7 @@
   async function openAllSitesPoster() {
     const activeSites = (sites || []).filter((site) => site.is_active);
     if (!activeSites.length) {
-      showMessage("Add at least one active punch site first.");
+      showMessage("Sync from address or add a site manually first — then print the QR poster.");
       return;
     }
     showMessage("Preparing A4 poster…");
@@ -835,10 +860,6 @@
       window.open(new URL("./punch-site-poster.html", window.location.href).toString(), "_blank", "noopener");
       showMessage("Poster opened in a new tab — click Print poster.", "ok");
     } catch (error) {
-      showMessage(error.message || "Could not prepare poster.");
-    }
-  }
-
       showMessage(error.message || "Could not prepare poster.");
     }
   }

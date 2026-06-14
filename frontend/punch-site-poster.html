@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./brand-config.js?v=brand-v6"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <title>Premises clock-in QR poster</title>
     <script src="./app-icons.js?v=brandkit-v5"></script>
@@ -217,13 +217,18 @@
         }
 
         const businessName = payload.businessName || "Your business";
+        const portalFoot =
+          window.ShiftSwiftBrand?.portals?.()
+            .filter((p) => p.id !== "master")
+            .map((p) => `<span><strong>${escapeHtml(p.label)}</strong> ${escapeHtml(p.display)}</span>`)
+            .join(" · ") || "";
         const tiles = sites
           .map(
             (site) => `<article class="poster-tile">
               <img src="${qrUrl(site.clock_url)}" alt="QR for ${escapeHtml(site.site_name)}" />
               <div>
                 <h2>${escapeHtml(site.site_name)}</h2>
-                <p>Open <strong>Time Clock</strong> → <strong>Scan premises QR</strong> → clock in or out.</p>
+                <p>Scan this QR at <strong>${escapeHtml(site.site_name)}</strong>, then clock in or out in the Time Clock app.</p>
               </div>
             </article>`
           )
@@ -239,7 +244,8 @@
           </header>
           <div class="poster-grid">${tiles}</div>
           <footer class="poster-foot">
-            GPS works outdoors. Use these QR codes indoors where GPS is weak. If a code is lost, HR can rotate it in Admin → Time punch.
+            ${portalFoot ? `<p>${portalFoot}</p>` : ""}
+            <p>GPS works outdoors. Use these QR codes indoors where GPS is weak. If a code is lost, HR can rotate it in Admin → Time punch.</p>
           </footer>
         </section>`;
 

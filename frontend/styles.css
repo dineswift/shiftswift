@@ -559,7 +559,7 @@ body.employee-gdpr-locked .sidebar {
 
 .portal-login-features {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -7680,6 +7680,42 @@ body.rota-week-readonly .rota-builder-hint {
 .punch-clock-qr-meta {
   flex: 1;
   min-width: 180px;
+}
+
+.punch-clock-qr-site-name {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  color: var(--green-900);
+}
+
+.punch-clock-qr-note {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.82rem;
+}
+
+.punch-portal-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.punch-portal-links li {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--gray-700);
+}
+
+.punch-portal-links strong {
+  color: var(--green-900);
+  font-weight: 600;
+}
+
+.punch-portal-links__url {
+  color: var(--gray-600);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
 }
 
 .punch-clock-qr-url {

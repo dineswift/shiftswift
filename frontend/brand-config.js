@@ -55,6 +55,45 @@ window.ShiftSwiftBrand.appUrl = function appUrl(path) {
   return `${base}${suffix}`;
 };
 
+window.ShiftSwiftBrand.appHost = function appHost() {
+  return window.ShiftSwiftBrand.urls.app.replace(/^https?:\/\//, "").replace(/\/$/, "");
+};
+
+/** Labelled app portals for login cards, QR printouts, and admin copy. */
+window.ShiftSwiftBrand.portals = function portals() {
+  const host = window.ShiftSwiftBrand.appHost();
+  return [
+    {
+      id: "business",
+      label: "Business HR",
+      description: "Admin dashboard & compliance",
+      href: window.ShiftSwiftBrand.appUrl("/business-login.html"),
+      display: `${host}/business-login.html`,
+    },
+    {
+      id: "employee",
+      label: "Employee",
+      description: "Payslips, documents & leave",
+      href: window.ShiftSwiftBrand.appUrl("/employee.html"),
+      display: `${host}/employee.html`,
+    },
+    {
+      id: "master",
+      label: "Master",
+      description: "Platform operations (authorised staff)",
+      href: window.ShiftSwiftBrand.appUrl("/ops-9x7k2.html"),
+      display: `${host}/ops-9x7k2.html`,
+    },
+    {
+      id: "clock",
+      label: "Time Clock",
+      description: "Clock in & out on site",
+      href: window.ShiftSwiftBrand.appUrl("/punch.html"),
+      display: `${host}/punch.html`,
+    },
+  ];
+};
+
 window.ShiftSwiftBrand.getApiBase = function getApiBase() {
   return window.ShiftSwiftBrand.resolveApiBase();
 };

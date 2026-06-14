@@ -393,6 +393,14 @@ document.querySelectorAll("[data-secure-host]").forEach((el) => {
   el.textContent = secureHostLabel();
 });
 
+if (window.ShiftSwiftBrand?.portals) {
+  const byId = Object.fromEntries(window.ShiftSwiftBrand.portals().map((p) => [p.id, p.display]));
+  document.querySelectorAll("[data-portal-display]").forEach((el) => {
+    const key = el.getAttribute("data-portal-display");
+    if (key && byId[key]) el.textContent = byId[key];
+  });
+}
+
 showLocalDevHints();
 initBusinessLoginTabs();
 bindSimpleLogin("ops-master-login-form", "/auth/master-login", "./master.html");

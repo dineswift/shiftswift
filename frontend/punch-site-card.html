@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./brand-config.js?v=brand-v6"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <title>Premises clock-in QR card</title>
     <script src="./app-icons.js?v=brandkit-v5"></script>
@@ -142,6 +142,23 @@
 
       .punch-card__steps li + li {
         margin-top: 0.6mm;
+      }
+
+      .punch-card__portals {
+        margin-top: 1.5mm;
+        padding-top: 1.5mm;
+        border-top: 0.3mm solid var(--green-200);
+        font-size: 2.2mm;
+        line-height: 1.35;
+        color: var(--gray-700);
+      }
+
+      .punch-card__portals div + div {
+        margin-top: 0.5mm;
+      }
+
+      .punch-card__portals strong {
+        color: var(--green-900);
       }
 
       .sheet-note {
@@ -324,6 +341,7 @@
               <li>Tap <strong>Scan premises QR</strong></li>
               <li>Clock in or out</li>
             </ol>
+            <div class="punch-card__portals" id="card-portals" aria-label="ShiftSwift app addresses"></div>
           </div>
         </article>
         <p class="sheet-note">
@@ -401,6 +419,15 @@
           }
         }
 
+        function renderPortalLines(containerId) {
+          const host = document.getElementById(containerId);
+          if (!host || !window.ShiftSwiftBrand?.portals) return;
+          const lines = window.ShiftSwiftBrand.portals().filter((p) => p.id !== "master");
+          host.innerHTML = lines
+            .map((p) => `<div><strong>${p.label}</strong> ${p.display}</div>`)
+            .join("");
+        }
+
         if (!clockUrl) {
           empty.hidden = false;
           return;
@@ -416,6 +443,7 @@
           tentQrImg.src = qr.replace("320x320", "480x480");
           tentQrImg.alt = qrImg.alt;
         }
+        renderPortalLines("card-portals");
 
         const initialLayout = params.get("layout") === "tent" ? "tent" : "pocket";
         setLayout(initialLayout);
