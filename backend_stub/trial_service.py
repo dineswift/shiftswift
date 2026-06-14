@@ -223,8 +223,11 @@ def process_trial_reminders(*, conn: Any, as_of: datetime | None = None) -> dict
             """
             SELECT id, name, billing_email, trial_ends_at, subscription_status
             FROM tenants
-            WHERE subscription_status IN ('trialing', 'provisioning', 'trial_expired')
-               OR (trial_ends_at IS NOT NULL AND subscription_status NOT IN ('active', 'cancelled'))
+            WHERE billing_mode IS DISTINCT FROM 'offline'
+              AND (
+                subscription_status IN ('trialing', 'provisioning', 'trial_expired')
+                OR (trial_ends_at IS NOT NULL AND subscription_status NOT IN ('active', 'cancelled'))
+              )
             """
         )
         rows = cur.fetchall()

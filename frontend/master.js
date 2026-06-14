@@ -479,22 +479,60 @@
       }
     };
 
-    const offlineBtn = document.getElementById("detail-offline-active");
-    if (offlineBtn) {
-      offlineBtn.hidden = isDeleted;
-      offlineBtn.onclick = async () => {
+    const reportOfflineBillingResult = (result, label) => {
+      if (result?.stripe_subscription_cancelled) {
+        alert(`${label}\n\nStripe subscription cancelled.`);
+        return;
+      }
+      if (result?.stripe_cancel?.subscription_id && !result?.stripe_subscription_cancelled) {
+        alert(
+          `${label}\n\nWarning: Stripe subscription was not cancelled (${result.stripe_cancel.reason || "unknown error"}). Cancel it manually in Stripe.`,
+        );
+        return;
+      }
+      alert(label);
+    };
+
+    const offlineTrialBtn = document.getElementById("detail-offline-trial");
+    if (offlineTrialBtn) {
+      offlineTrialBtn.hidden = isDeleted || tenant.billing_mode === "offline";
+      offlineTrialBtn.onclick = async () => {
         const notes = window.prompt(
-          "Mark this tenant as offline billing with active access?\n\nOptional billing note (invoice ref, agreed price):",
+          "Switch to offline billing but keep the current trial?\n\nOptional billing note (invoice ref, agreed price):",
           tenant.billing_notes || "",
         );
         if (notes === null) return;
         try {
-          await apiPost(`/master/tenants/${tenant.id}/billing`, {
+          const result = await apiPost(`/master/tenants/${tenant.id}/billing`, {
+            billing_mode: "offline",
+            subscription_status: "trialing",
+            billing_notes: notes.trim() || tenant.billing_notes || "",
+          });
+          await refreshSelectedTenant();
+          reportOfflineBillingResult(result, "Tenant is now on offline billing with the existing trial.");
+        } catch (error) {
+          alert(error.message);
+        }
+      };
+    }
+
+    const offlineBtn = document.getElementById("detail-offline-active");
+    if (offlineBtn) {
+      offlineBtn.hidden = isDeleted || tenant.billing_mode === "offline";
+      offlineBtn.onclick = async () => {
+        const notes = window.prompt(
+          "Mark this tenant as offline billing with active access (ends trial)?\n\nOptional billing note (invoice ref, agreed price):",
+          tenant.billing_notes || "",
+        );
+        if (notes === null) return;
+        try {
+          const result = await apiPost(`/master/tenants/${tenant.id}/billing`, {
             billing_mode: "offline",
             subscription_status: "active",
             billing_notes: notes.trim() || tenant.billing_notes || "",
           });
           await refreshSelectedTenant();
+          reportOfflineBillingResult(result, "Tenant is now on offline billing with active access.");
         } catch (error) {
           alert(error.message);
         }

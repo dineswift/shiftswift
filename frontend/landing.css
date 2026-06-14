@@ -593,8 +593,8 @@ body.is-loading .page {
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(min(100%, 480px), 520px) minmax(320px, 1fr);
-  gap: 32px 48px;
+  grid-template-columns: minmax(0, 580px) minmax(280px, 520px);
+  gap: 32px 40px;
   align-items: stretch;
   padding: 24px 0 56px;
 }
@@ -718,7 +718,7 @@ body.is-loading .page {
 
 .hero-visual {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: stretch;
   width: 100%;
   min-height: 100%;

@@ -15,6 +15,28 @@ from payroll_plans import PayrollPlan, resolve_stripe_price_id as resolve_payrol
 from trial_service import DEFAULT_TRIAL_DAYS
 
 
+def cancel_stripe_subscription(*, subscription_id: str) -> dict[str, object]:
+    """Cancel a Stripe subscription (e.g. when switching tenant to offline billing)."""
+    import logging
+
+    logger = logging.getLogger(__name__)
+    cfg = stripe_settings()
+    if not cfg["secret_key"]:
+        return {"cancelled": False, "reason": "stripe_not_configured"}
+    if not subscription_id:
+        return {"cancelled": False, "reason": "missing_subscription_id"}
+
+    import stripe
+
+    stripe.api_key = cfg["secret_key"]
+    try:
+        stripe.Subscription.cancel(subscription_id)
+        return {"cancelled": True, "subscription_id": subscription_id}
+    except Exception as exc:
+        logger.exception("Stripe subscription cancel failed for %s", subscription_id)
+        return {"cancelled": False, "subscription_id": subscription_id, "reason": str(exc)}
+
+
 def provision_tenant_billing(
     *,
     conn: Any,

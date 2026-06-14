@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from billing_plans import get_plan
 from billing_promotions import PromotionResult
-from billing_stripe_service import provision_tenant_billing
+from billing_stripe_service import cancel_stripe_subscription, provision_tenant_billing
 from signup_routes import _business_email_registered, _create_hr_admin_user
 from trial_service import DEFAULT_TRIAL_DAYS
 
@@ -23,6 +23,28 @@ def _utcnow() -> datetime:
 
 def _normalize_notes(notes: str | None) -> str:
     return (notes or "").strip()[:2000]
+
+
+def resolve_trial_end(
+    *,
+    now: datetime,
+    status: AccessMode,
+    trial_days: int | None,
+    existing_trial_end: datetime | None,
+) -> datetime | None:
+    if status != "trialing":
+        return None
+    if trial_days is not None:
+        if trial_days < 1:
+            raise ValueError("Trial days must be at least 1")
+        return now + timedelta(days=trial_days)
+    if isinstance(existing_trial_end, datetime):
+        end = existing_trial_end
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        if end > now:
+            return end
+    return now + timedelta(days=DEFAULT_TRIAL_DAYS)
 
 
 def create_tenant_manually(
@@ -154,7 +176,8 @@ def update_tenant_billing(
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, name, billing_email, deleted_at, subscription_status, subscription_plan
+            SELECT id, name, billing_email, deleted_at, subscription_status, subscription_plan,
+                   trial_ends_at, stripe_subscription_id
             FROM tenants
             WHERE id = %s AND id != %s
             """,
@@ -174,17 +197,19 @@ def update_tenant_billing(
     status = subscription_status
     if status is None:
         status = "active" if billing_mode == "offline" else (row[4] or "trialing")
-    trial_end = None
-    if status == "trialing":
-        days = trial_days if trial_days is not None else DEFAULT_TRIAL_DAYS
-        if days < 1:
-            raise ValueError("Trial days must be at least 1")
-        trial_end = now + timedelta(days=days)
-    elif status == "active":
-        trial_end = None
+    trial_end = resolve_trial_end(
+        now=now,
+        status=status,  # type: ignore[arg-type]
+        trial_days=trial_days,
+        existing_trial_end=row[6],
+    )
 
     if billing_mode == "stripe" and status == "active":
         raise ValueError("Use offline billing for active access without Stripe checkout")
+
+    stripe_cancel: dict[str, object] = {"cancelled": False}
+    if billing_mode == "offline" and row[7]:
+        stripe_cancel = cancel_stripe_subscription(subscription_id=str(row[7]))
 
     updates = [
         "billing_mode = %s",
@@ -196,6 +221,8 @@ def update_tenant_billing(
         "updated_at = NOW()",
     ]
     params: list[Any] = [billing_mode, status, trial_end]
+    if billing_mode == "offline" and row[7]:
+        updates.append("stripe_subscription_id = NULL")
 
     if plan:
         updates.append("subscription_plan = %s")
@@ -222,6 +249,8 @@ def update_tenant_billing(
         "trial_ends_at": trial_end.isoformat() if trial_end else None,
         "max_employees": max_employees,
         "billing_notes": _normalize_notes(billing_notes) if billing_notes is not None else None,
+        "stripe_subscription_cancelled": bool(stripe_cancel.get("cancelled")),
+        "stripe_cancel": stripe_cancel,
     }
 
 
