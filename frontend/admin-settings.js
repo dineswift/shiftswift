@@ -171,10 +171,21 @@
   function bindUpgradeActions() {
     document.getElementById("settings-upgrade-link")?.addEventListener("click", (e) => {
       e.preventDefault();
-      startUpgrade();
+      window.location.hash = "settings/billing";
+      activateSettingsPanel("billing");
+      void loadBillingPanel();
     });
     document.querySelectorAll("[data-settings-upgrade]").forEach((btn) => {
       btn.addEventListener("click", startUpgrade);
+    });
+  }
+
+  function bindSettingsNavIcons() {
+    document.querySelectorAll("[data-settings-icon]").forEach((el) => {
+      const name = el.dataset.settingsIcon;
+      if (window.AdminIcons?.svg && name) {
+        el.innerHTML = window.AdminIcons.svg(name, "settings-nav__svg");
+      }
     });
   }
 
@@ -766,6 +777,7 @@
   }
 
   async function initSettingsSection() {
+    bindSettingsNavIcons();
     bindSettingsNav();
     bindUpgradeActions();
     try {

@@ -406,7 +406,17 @@ window.Admin = (() => {
       .join("");
   }
 
+  function bindNavIcons() {
+    document.querySelectorAll("[data-nav-icon]").forEach((el) => {
+      const name = el.dataset.navIcon;
+      if (window.AdminIcons?.svg && name) {
+        el.innerHTML = window.AdminIcons.svg(name, "nav-link__svg");
+      }
+    });
+  }
+
   function initNavigation() {
+    bindNavIcons();
     const sections = [...document.querySelectorAll(".admin-section")];
     const links = [...document.querySelectorAll(".nav-link[data-section]")];
     const sidebarCtl =
@@ -446,6 +456,10 @@ window.Admin = (() => {
     function routeFromHash() {
       const { path } = parseHashPath(window.location.hash);
       const sectionId = resolveSectionFromHash(window.location.hash);
+      if (sectionId === "settings" && path === "settings") {
+        window.location.hash = "settings/business";
+        return;
+      }
       const exists = sections.some((s) => s.id === sectionId);
       const targetSection = exists ? sectionId : "overview";
       const isDeepLink = path.includes("/");
@@ -474,7 +488,7 @@ window.Admin = (() => {
       link.addEventListener("click", (event) => {
         event.preventDefault();
         const target = link.dataset.section;
-        window.location.hash = target;
+        window.location.hash = target === "settings" ? "settings/business" : target;
       });
     });
 
@@ -717,6 +731,7 @@ window.Admin = (() => {
     readFormPayload,
     renderTableBody,
     initNavigation,
+    parseHashPath,
     parseHashBaseSection,
     resolveSectionFromHash,
   };

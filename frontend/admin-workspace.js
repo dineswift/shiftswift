@@ -161,8 +161,20 @@
     const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
+    const avatar = document.querySelector(".topbar-user-menu__avatar");
+    const username = localStorage.getItem("username") || "Admin";
     if (topbarName) topbarName.textContent = businessName;
-    if (userLabel) userLabel.textContent = businessName;
+    if (userLabel) userLabel.textContent = username;
+    if (avatar) {
+      const initials = String(username)
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+      avatar.textContent = initials || "HR";
+    }
     const badge = document.getElementById("topbar-alerts-badge");
     const count = Number(data.open_actions_count) || 0;
     if (badge) {

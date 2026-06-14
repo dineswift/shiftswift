@@ -47,23 +47,79 @@
           </a>
           <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
         </div>
-        <nav class="nav">
-          <a class="nav-link" href="#overview" data-section="overview">Overview</a>
-          <a class="nav-link" href="#employees" data-section="employees">Employees</a>
+        <nav class="nav" aria-label="Admin sections">
+          <p class="nav-section-label">Home</p>
+          <a class="nav-link" href="#overview" data-section="overview">
+            <span class="nav-link__icon" data-nav-icon="layout" aria-hidden="true"></span>
+            <span class="nav-link__label">Overview</span>
+          </a>
+
+          <p class="nav-section-label">People</p>
+          <a class="nav-link" href="#employees" data-section="employees">
+            <span class="nav-link__icon" data-nav-icon="users" aria-hidden="true"></span>
+            <span class="nav-link__label">Employees</span>
+          </a>
           <p class="nav-crumb" id="employee-nav-crumb" hidden aria-live="polite"></p>
-          <a class="nav-link" href="#recruitment" data-section="recruitment">Recruitment</a>
-          <a class="nav-link" href="#grievance" data-section="grievance" data-feature="grievance">Grievance</a>
-          <a class="nav-link" href="#disciplinary" data-section="disciplinary" data-feature="disciplinary">Disciplinary</a>
-          <a class="nav-link" href="#offboarding" data-section="offboarding">Offboarding</a>
-          <a class="nav-link" href="#promotions" data-section="promotions">Promotions</a>
-          <a class="nav-link" href="#templates" data-section="templates">HR Templates & AI</a>
-          <a class="nav-link" href="#compliance" data-section="compliance" data-feature="sponsor-compliance">Sponsor Compliance</a>
-          <a class="nav-link" href="#contracts" data-section="contracts">Platform contracts</a>
-          <a class="nav-link" href="#employment-contracts" data-section="employment-contracts">Employment contracts</a>
-          <a class="nav-link" href="#time-punch" data-section="time-punch">Time punch</a>
-          <a class="nav-link" href="#rota" data-section="rota">Rota</a>
-          <a class="nav-link" href="#leave" data-section="leave">Leave</a>
-          <a class="nav-link" href="#settings" data-section="settings">Settings</a>
+          <a class="nav-link" href="#recruitment" data-section="recruitment">
+            <span class="nav-link__icon" data-nav-icon="clipboard" aria-hidden="true"></span>
+            <span class="nav-link__label">Recruitment</span>
+          </a>
+          <a class="nav-link" href="#offboarding" data-section="offboarding">
+            <span class="nav-link__icon" data-nav-icon="door" aria-hidden="true"></span>
+            <span class="nav-link__label">Offboarding</span>
+          </a>
+          <a class="nav-link" href="#promotions" data-section="promotions">
+            <span class="nav-link__icon" data-nav-icon="check" aria-hidden="true"></span>
+            <span class="nav-link__label">Promotions</span>
+          </a>
+
+          <p class="nav-section-label">Compliance</p>
+          <a class="nav-link" href="#compliance" data-section="compliance" data-feature="sponsor-compliance">
+            <span class="nav-link__icon" data-nav-icon="passport" aria-hidden="true"></span>
+            <span class="nav-link__label">Sponsor compliance</span>
+          </a>
+          <a class="nav-link" href="#contracts" data-section="contracts">
+            <span class="nav-link__icon" data-nav-icon="file" aria-hidden="true"></span>
+            <span class="nav-link__label">Service agreements</span>
+          </a>
+          <a class="nav-link" href="#employment-contracts" data-section="employment-contracts">
+            <span class="nav-link__icon" data-nav-icon="clipboard" aria-hidden="true"></span>
+            <span class="nav-link__label">Employment contracts</span>
+          </a>
+          <a class="nav-link" href="#grievance" data-section="grievance" data-feature="grievance">
+            <span class="nav-link__icon" data-nav-icon="scale" aria-hidden="true"></span>
+            <span class="nav-link__label">Grievance</span>
+          </a>
+          <a class="nav-link" href="#disciplinary" data-section="disciplinary" data-feature="disciplinary">
+            <span class="nav-link__icon" data-nav-icon="alert" aria-hidden="true"></span>
+            <span class="nav-link__label">Disciplinary</span>
+          </a>
+
+          <p class="nav-section-label">Operations</p>
+          <a class="nav-link" href="#time-punch" data-section="time-punch">
+            <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
+            <span class="nav-link__label">Time punch</span>
+          </a>
+          <a class="nav-link" href="#rota" data-section="rota">
+            <span class="nav-link__icon" data-nav-icon="calendar" aria-hidden="true"></span>
+            <span class="nav-link__label">Rota</span>
+          </a>
+          <a class="nav-link" href="#leave" data-section="leave">
+            <span class="nav-link__icon" data-nav-icon="beach" aria-hidden="true"></span>
+            <span class="nav-link__label">Leave</span>
+          </a>
+
+          <p class="nav-section-label">Tools</p>
+          <a class="nav-link" href="#templates" data-section="templates">
+            <span class="nav-link__icon" data-nav-icon="file" aria-hidden="true"></span>
+            <span class="nav-link__label">HR Templates &amp; AI</span>
+          </a>
+
+          <p class="nav-section-label">Admin</p>
+          <a class="nav-link" href="#settings/business" data-section="settings">
+            <span class="nav-link__icon" data-nav-icon="settings" aria-hidden="true"></span>
+            <span class="nav-link__label">Settings</span>
+          </a>
         </nav>
         <div class="badge pill">shiftswifthr.co.uk</div>
       </aside>
@@ -121,9 +177,6 @@
                 <a class="topbar-user-menu__link topbar-user-menu__link--signout" href="./business-login.html" data-sign-out>Sign out</a>
               </div>
             </details>
-          </div>
-          <div class="stack topbar-actions topbar-actions--desktop">
-            <a class="btn ghost" href="./business-login.html" data-sign-out>Sign out</a>
           </div>
         </div>
 
@@ -1090,7 +1143,7 @@
         <section id="contracts" class="admin-section" hidden>
           <header class="section-header contracts-page-header">
             <div>
-              <h2>Platform contracts</h2>
+              <h2>Service agreements</h2>
               <p class="muted">ShiftSwift ↔ your business: MSA, DPA, and subscription order forms. For employee contracts, use Employment contracts.</p>
             </div>
             <div class="section-actions">
@@ -1766,40 +1819,40 @@
           <div class="settings-workspace">
             <nav class="settings-nav" aria-label="Settings sections">
               <button type="button" class="settings-nav__item settings-nav__item--active" data-settings-nav="business" aria-current="page">
-                <span class="settings-nav__icon" aria-hidden="true">🏢</span>
+                <span class="settings-nav__icon" data-settings-icon="building" aria-hidden="true"></span>
                 Business info
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="documents">
-                <span class="settings-nav__icon" aria-hidden="true">📁</span>
+                <span class="settings-nav__icon" data-settings-icon="folder" aria-hidden="true"></span>
                 Document store
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="billing">
-                <span class="settings-nav__icon" aria-hidden="true">💳</span>
+                <span class="settings-nav__icon" data-settings-icon="card" aria-hidden="true"></span>
                 Billing &amp; plan
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="notifications">
-                <span class="settings-nav__icon" aria-hidden="true">🔔</span>
+                <span class="settings-nav__icon" data-settings-icon="bell" aria-hidden="true"></span>
                 Notifications
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="rota">
-                <span class="settings-nav__icon" aria-hidden="true">📅</span>
+                <span class="settings-nav__icon" data-settings-icon="calendar" aria-hidden="true"></span>
                 Rota scheduling
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="users">
-                <span class="settings-nav__icon" aria-hidden="true">👥</span>
+                <span class="settings-nav__icon" data-settings-icon="users" aria-hidden="true"></span>
                 Users &amp; access
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="security">
-                <span class="settings-nav__icon" aria-hidden="true">🔐</span>
+                <span class="settings-nav__icon" data-settings-icon="lock" aria-hidden="true"></span>
                 Security
               </button>
               <hr class="settings-nav__divider" />
               <button type="button" class="settings-nav__item" data-settings-nav="multisite">
-                <span class="settings-nav__icon" aria-hidden="true">🏬</span>
+                <span class="settings-nav__icon" data-settings-icon="map-pin" aria-hidden="true"></span>
                 Multi-site
               </button>
               <button type="button" class="settings-nav__item" data-settings-nav="api">
-                <span class="settings-nav__icon" aria-hidden="true">🔌</span>
+                <span class="settings-nav__icon" data-settings-icon="plug" aria-hidden="true"></span>
                 API access
               </button>
             </nav>
@@ -2021,11 +2074,11 @@
     ></script>
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
-    <script src="./admin-icons.js?v=1"></script>
+    <script src="./admin-icons.js?v=2"></script>
     <script src="./admin-mobile.js?v=5"></script>
-    <script src="./admin-shared.js?v=admin-v12"></script>
-    <script src="./admin-workspace.js?v=admin-v14"></script>
-    <script src="./admin-settings.js?v=6"></script>
+    <script src="./admin-shared.js?v=admin-v14"></script>
+    <script src="./admin-workspace.js?v=admin-v15"></script>
+    <script src="./admin-settings.js?v=7"></script>
     <script src="./admin-documents.js?v=4"></script>
     <script src="./admin-employees.js?v=14"></script>
     <script src="./admin-recruitment.js?v=6"></script>
