@@ -79,7 +79,14 @@
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(parseApiError(data));
+      const message = parseApiError(data);
+      if (
+        response.status === 403 &&
+        window.ShiftSwiftMasterSession?.isMasterAuthError?.(message)
+      ) {
+        window.ShiftSwiftMasterSession.redirectToMasterLogin(message);
+      }
+      throw new Error(message);
     }
     return data;
   }
@@ -1104,6 +1111,17 @@
   async function bootstrap() {
     try {
       const verify = await apiGet("/auth/verify");
+      const session = window.ShiftSwiftMasterSession;
+      if (session && !session.isMasterVerify(verify)) {
+        session.syncLocalRoleFromVerify(verify);
+        session.redirectToMasterLogin(
+          verify.impersonating
+            ? "You are viewing a customer account. Exit impersonation, then open the master console again."
+            : "Your master session was replaced. Sign in again at the OPS login page.",
+        );
+        return;
+      }
+      session?.syncLocalRoleFromVerify?.(verify);
       const name = verify.username || "Platform owner";
       if (els.userName) els.userName.textContent = name.split("@")[0].replace(/\./g, " ");
       if (els.userAvatar) els.userAvatar.textContent = initials(name.split("@")[0]);
@@ -1174,6 +1192,11 @@
   els.menuBtn?.addEventListener("click", openSidebar);
   els.sidebarClose?.addEventListener("click", closeSidebar);
   els.overlay?.addEventListener("click", closeSidebar);
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== "token" || event.newValue === event.oldValue) return;
+    window.location.reload();
+  });
 
   bootstrap();
 })();

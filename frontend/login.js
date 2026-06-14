@@ -404,3 +404,11 @@ if (window.ShiftSwiftBrand?.portals) {
 showLocalDevHints();
 initBusinessLoginTabs();
 bindSimpleLogin("ops-master-login-form", "/auth/master-login", "./master.html");
+
+(function showMasterLoginNotice() {
+  if (!document.getElementById("ops-master-login-form")) return;
+  const notice = sessionStorage.getItem("masterLoginNotice");
+  if (!notice) return;
+  sessionStorage.removeItem("masterLoginNotice");
+  setStatus(notice);
+})();

@@ -68,7 +68,14 @@ def get_master_user(
     from modules.master.security import assert_master_ip, assert_master_tenant
 
     settings = load_settings()
-    user = get_admin_user(authorization=authorization)
+    user = get_current_user(authorization=authorization)
+    if user.role not in ADMIN_ROLES:
+        if user.impersonated_by:
+            raise HTTPException(
+                status_code=403,
+                detail="Exit impersonation and return to the master console before running platform actions",
+            )
+        raise HTTPException(status_code=403, detail="Master admin sign-in required")
     assert_master_tenant(user.tenant_id, settings)
     assert_master_ip(request, settings)
     return user

@@ -48,6 +48,10 @@
   }
 
   function restoreMasterSession() {
+    if (window.ShiftSwiftMasterSession?.restoreMasterReturnSession?.()) {
+      window.location.href = "./master.html";
+      return;
+    }
     try {
       const saved = JSON.parse(sessionStorage.getItem("masterImpersonationReturn") || "null");
       if (!saved?.token) {

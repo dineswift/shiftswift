@@ -1,7 +1,20 @@
 (function () {
+  const session = window.ShiftSwiftMasterSession;
+  const masterId = session?.masterTenantId?.() || localStorage.getItem("masterTenantId") || "999";
+
+  if (sessionStorage.getItem("impersonationActive")) {
+    if (session?.restoreMasterReturnSession?.()) {
+      /* Restored platform token after returning from impersonation. */
+    } else {
+      session?.redirectToMasterLogin?.(
+        "Exit the customer impersonation session before using the master console.",
+      );
+      return;
+    }
+  }
+
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("userRole");
-  const masterId = localStorage.getItem("masterTenantId") || "999";
 
   if (!token || role !== "admin") {
     window.location.replace("./ops-9x7k2.html");
