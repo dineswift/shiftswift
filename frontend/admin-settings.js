@@ -2,7 +2,7 @@
 (function initAdminSettings() {
   const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS } = window.Admin;
 
-  const PANELS = ["business", "documents", "billing", "notifications", "users", "security", "multisite", "api"];
+  const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "multisite", "api"];
   const PANEL_COPY = {
     business: {
       title: "Business information",
@@ -19,6 +19,10 @@
     notifications: {
       title: "Notifications",
       subtitle: "Choose how your organisation receives compliance and workforce alerts.",
+    },
+    rota: {
+      title: "Rota scheduling",
+      subtitle: "Basic manual rota is included on your plan. Advanced tools are optional paid add-ons.",
     },
     users: {
       title: "Users & access",
@@ -104,6 +108,9 @@
     }
     if (panelId === "security") {
       void loadSecurityPanel();
+    }
+    if (panelId === "rota") {
+      void loadRotaPanel();
     }
   }
 
@@ -340,6 +347,299 @@
       });
   }
 
+  const ROTA_MODE_LABELS = {
+    basic: "Basic — manual weekly grid",
+    advanced: "Advanced — templates, coverage & hours",
+    multi_site: "Multi-site — per-location rotas",
+  };
+
+  const ROTA_DAY_OPTIONS = [
+    { value: 1, label: "Monday" },
+    { value: 2, label: "Tuesday" },
+    { value: 3, label: "Wednesday" },
+    { value: 4, label: "Thursday" },
+    { value: 5, label: "Friday" },
+    { value: 6, label: "Saturday" },
+    { value: 7, label: "Sunday" },
+  ];
+
+  function rotaRequirementRowHtml(req = {}, index = 0) {
+    return `
+      <tr data-req-row="${index}">
+        <td>
+          <select data-req-day>
+            ${ROTA_DAY_OPTIONS.map(
+              (day) =>
+                `<option value="${day.value}" ${Number(req.day_of_week) === day.value ? "selected" : ""}>${day.label}</option>`
+            ).join("")}
+          </select>
+        </td>
+        <td><input type="time" data-req-start value="${escapeHtml((req.start_time || "09:00").slice(0, 5))}" step="1800" /></td>
+        <td><input type="time" data-req-end value="${escapeHtml((req.end_time || "17:00").slice(0, 5))}" step="1800" /></td>
+        <td><input type="text" data-req-role value="${escapeHtml(req.role_label || "")}" placeholder="e.g. Floor" maxlength="80" /></td>
+        <td><input type="number" data-req-min min="1" max="50" value="${escapeHtml(String(req.min_staff || 1))}" /></td>
+        <td><button type="button" class="btn ghost" data-req-remove aria-label="Remove row">×</button></td>
+      </tr>`;
+  }
+
+  function readRequirementRows(table) {
+    return Array.from(table.querySelectorAll("[data-req-row]")).map((row) => ({
+      day_of_week: Number(row.querySelector("[data-req-day]")?.value || 1),
+      start_time: String(row.querySelector("[data-req-start]")?.value || "09:00").slice(0, 5),
+      end_time: String(row.querySelector("[data-req-end]")?.value || "17:00").slice(0, 5),
+      role_label: String(row.querySelector("[data-req-role]")?.value || "").trim(),
+      min_staff: Number(row.querySelector("[data-req-min]")?.value || 1),
+    }));
+  }
+
+  async function renderRotaTemplatesEditor(container, advancedEnabled) {
+    if (!container) return;
+    if (!advancedEnabled) {
+      container.innerHTML = "";
+      return;
+    }
+
+    container.innerHTML = `<p class="muted">Loading staffing templates…</p>`;
+    try {
+      const res = await apiFetch("/admin/rota/templates");
+      const data = res.ok ? await res.json() : { items: [] };
+      const items = data.items || [];
+
+      container.innerHTML = `
+        <div class="settings-rota-templates">
+          <h4>Staffing templates</h4>
+          <p class="muted">Define required staff by day, time band, and role. Coverage gaps and generate draft use the default template.</p>
+          ${
+            items.length
+              ? `<ul class="settings-rota-template-list">${items
+                  .map(
+                    (item) =>
+                      `<li><button type="button" class="btn ghost" data-edit-template="${item.id}">${escapeHtml(item.name)}</button>${item.is_default ? " <span class=\"muted\">(default)</span>" : ""} · ${item.requirement_count} slot${item.requirement_count === 1 ? "" : "s"}</li>`
+                  )
+                  .join("")}</ul>`
+              : `<p class="muted">No templates yet — create your first weekly pattern below.</p>`
+          }
+          <div class="settings-rota-template-form" id="settings-rota-template-form">
+            <h5 id="settings-rota-template-form-title">New template</h5>
+            <label class="edit-field">Template name<input type="text" id="settings-rota-template-name" maxlength="120" placeholder="e.g. Weekday shop floor" /></label>
+            <label class="signup-check"><input type="checkbox" id="settings-rota-template-default" /> <span>Set as default template</span></label>
+            <div class="table-wrap">
+              <table class="data-table settings-rota-req-table">
+                <thead>
+                  <tr><th>Day</th><th>Start</th><th>End</th><th>Role</th><th>Min staff</th><th></th></tr>
+                </thead>
+                <tbody id="settings-rota-req-body">
+                  ${rotaRequirementRowHtml({ day_of_week: 1, start_time: "09:00", end_time: "17:00", role_label: "Floor", min_staff: 2 })}
+                </tbody>
+              </table>
+            </div>
+            <div class="settings-form-actions">
+              <button type="button" class="btn ghost" id="settings-rota-req-add">+ Add slot</button>
+              <button type="button" class="btn outline" id="settings-rota-template-save">Save template</button>
+              <button type="button" class="btn ghost" id="settings-rota-template-cancel" hidden>Cancel edit</button>
+            </div>
+            <p class="muted" id="settings-rota-template-status" aria-live="polite"></p>
+          </div>
+        </div>`;
+
+      let editingTemplateId = null;
+      const reqBody = document.getElementById("settings-rota-req-body");
+      const statusEl = document.getElementById("settings-rota-template-status");
+      const titleEl = document.getElementById("settings-rota-template-form-title");
+      const cancelBtn = document.getElementById("settings-rota-template-cancel");
+
+      function resetTemplateForm() {
+        editingTemplateId = null;
+        if (titleEl) titleEl.textContent = "New template";
+        document.getElementById("settings-rota-template-name").value = "";
+        document.getElementById("settings-rota-template-default").checked = !items.length;
+        if (reqBody) {
+          reqBody.innerHTML = rotaRequirementRowHtml({
+            day_of_week: 1,
+            start_time: "09:00",
+            end_time: "17:00",
+            role_label: "Floor",
+            min_staff: 2,
+          });
+        }
+        if (cancelBtn) cancelBtn.hidden = true;
+      }
+
+      function bindRequirementRowEvents() {
+        reqBody?.querySelectorAll("[data-req-remove]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const rows = reqBody.querySelectorAll("[data-req-row]");
+            if (rows.length <= 1) return;
+            btn.closest("[data-req-row]")?.remove();
+          });
+        });
+      }
+      bindRequirementRowEvents();
+
+      document.getElementById("settings-rota-req-add")?.addEventListener("click", () => {
+        if (!reqBody) return;
+        const index = reqBody.querySelectorAll("[data-req-row]").length;
+        reqBody.insertAdjacentHTML("beforeend", rotaRequirementRowHtml({ day_of_week: 1, start_time: "09:00", end_time: "17:00", role_label: "Bar", min_staff: 1 }, index));
+        bindRequirementRowEvents();
+      });
+
+      container.querySelectorAll("[data-edit-template]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const templateId = Number(btn.getAttribute("data-edit-template"));
+          try {
+            const detailRes = await apiFetch(`/admin/rota/templates/${templateId}`);
+            const template = await detailRes.json();
+            if (!detailRes.ok) throw new Error(template.detail || "Could not load template");
+            editingTemplateId = templateId;
+            if (titleEl) titleEl.textContent = `Edit template — ${template.name}`;
+            document.getElementById("settings-rota-template-name").value = template.name || "";
+            document.getElementById("settings-rota-template-default").checked = Boolean(template.is_default);
+            if (reqBody) {
+              reqBody.innerHTML = (template.requirements || []).length
+                ? template.requirements.map((req, index) => rotaRequirementRowHtml(req, index)).join("")
+                : rotaRequirementRowHtml({}, 0);
+              bindRequirementRowEvents();
+            }
+            if (cancelBtn) cancelBtn.hidden = false;
+          } catch (error) {
+            if (statusEl) statusEl.textContent = error.message || "Could not load template";
+          }
+        });
+      });
+
+      cancelBtn?.addEventListener("click", () => {
+        resetTemplateForm();
+        if (statusEl) statusEl.textContent = "";
+      });
+
+      document.getElementById("settings-rota-template-save")?.addEventListener("click", async () => {
+        const name = document.getElementById("settings-rota-template-name")?.value?.trim();
+        const isDefault = Boolean(document.getElementById("settings-rota-template-default")?.checked);
+        const requirements = readRequirementRows(reqBody);
+        if (!name) {
+          if (statusEl) statusEl.textContent = "Template name is required";
+          return;
+        }
+        if (statusEl) statusEl.textContent = "Saving template…";
+        try {
+          const payload = { name, is_default: isDefault, requirements };
+          const saveRes = editingTemplateId
+            ? await apiFetch(`/admin/rota/templates/${editingTemplateId}`, { method: "PUT", body: JSON.stringify(payload) })
+            : await apiFetch("/admin/rota/templates", { method: "POST", body: JSON.stringify(payload) });
+          const saveData = await saveRes.json();
+          if (!saveRes.ok) throw new Error(saveData.detail?.message || saveData.detail || "Save failed");
+          showSettingsToast("Staffing template saved ✓");
+          const panelHost = document.getElementById("settings-rota-content");
+          if (panelHost) panelHost.dataset.ready = "false";
+          await loadRotaPanel(true);
+        } catch (error) {
+          if (statusEl) statusEl.textContent = error.message || "Could not save template";
+        }
+      });
+    } catch {
+      container.innerHTML = `<p class="muted">Could not load staffing templates.</p>`;
+    }
+  }
+
+  async function loadRotaPanel(force = false) {
+    const host = document.getElementById("settings-rota-content");
+    if (!host || (host.dataset.ready === "true" && !force)) return;
+
+    host.innerHTML = `<p class="muted">Loading rota settings…</p>`;
+
+    try {
+      const [profileRes, overviewRes] = await Promise.all([
+        apiFetch("/admin/tenant-profile"),
+        apiFetch("/admin/overview"),
+      ]);
+      const profile = profileRes.ok ? await profileRes.json() : {};
+      const overview = overviewRes.ok ? await overviewRes.json() : {};
+      const options = overview.rota_mode_options || profile.rota_mode_options || ["basic"];
+      const allModes = ["basic", "advanced", "multi_site"];
+      const current = profile.rota_mode_preference ?? overview.rota_mode ?? profile.rota_mode ?? "basic";
+      const planName = overview.plan_display_name || "Starter";
+
+      host.innerHTML = `
+        <p class="muted">Basic manual rota (weekly grid, copy week, publish, attendance) is included on your <strong>${escapeHtml(planName)}</strong> plan.</p>
+        <p class="muted">Advanced scheduling and multi-site rota are <strong>paid add-ons</strong> — pricing to be confirmed. Contact <a href="mailto:support@shiftswifthr.co.uk?subject=Advanced%20rota%20add-on">support</a> to enable them on your account.</p>
+        <label class="edit-field">
+          Scheduling mode
+          <select id="settings-rota-mode-select">
+            ${allModes.map((mode) => {
+              const allowed = options.includes(mode);
+              const selected = mode === current ? "selected" : "";
+              const label = ROTA_MODE_LABELS[mode] || mode;
+              const suffix = allowed ? "" : mode === "basic" ? "" : " (add-on required)";
+              return `<option value="${escapeHtml(mode)}" ${selected} ${allowed ? "" : "disabled"}>${escapeHtml(label)}${suffix}</option>`;
+            }).join("")}
+          </select>
+        </label>
+        <p class="muted settings-rota-addon-status" id="settings-rota-addon-status"></p>
+        <p class="muted settings-rota-foot" id="settings-rota-mode-help"></p>
+        <p class="muted" id="settings-rota-status" aria-live="polite"></p>
+        <div id="settings-rota-templates-wrap"></div>`;
+
+      const help = document.getElementById("settings-rota-mode-help");
+      const statusLine = document.getElementById("settings-rota-status");
+      const addonStatus = document.getElementById("settings-rota-addon-status");
+      const select = document.getElementById("settings-rota-mode-select");
+
+      if (addonStatus) {
+        const bits = [];
+        if (overview.rota_advanced_addon) bits.push("Advanced rota add-on active");
+        if (overview.rota_multi_site_addon) bits.push("Multi-site rota add-on active");
+        addonStatus.textContent = bits.length ? bits.join(" · ") : "No rota add-ons enabled on this account yet.";
+      }
+
+      function updateHelp() {
+        const mode = select?.value || "basic";
+        if (mode === "basic") {
+          help.textContent = "Build rotas manually on the weekly grid. Staff see published shifts in the Time Clock app.";
+        } else if (mode === "advanced") {
+          help.textContent = "Use staffing templates, coverage gaps, hours warnings, and generate draft on the Rota page.";
+        } else {
+          help.textContent = "Multi-site rota mode — per-location rotas will roll out here.";
+        }
+      }
+      updateHelp();
+
+      select?.addEventListener("change", async () => {
+        updateHelp();
+        const mode = select.value;
+        if (!options.includes(mode)) return;
+        if (statusLine) statusLine.textContent = "Saving…";
+        try {
+          const saveRes = await apiFetch("/admin/tenant-profile", {
+            method: "PATCH",
+            body: JSON.stringify({ rota_mode: mode }),
+          });
+          const saveData = await saveRes.json();
+          if (!saveRes.ok) throw new Error(saveData.detail || "Save failed");
+          showSettingsToast("Rota scheduling mode saved ✓");
+          if (statusLine) statusLine.textContent = "";
+          await window.Admin.loadTenantFeatures();
+          window.dispatchEvent(new CustomEvent("admin:features-refresh"));
+          await renderRotaTemplatesEditor(
+            document.getElementById("settings-rota-templates-wrap"),
+            select.value === "advanced" || select.value === "multi_site"
+          );
+        } catch (error) {
+          if (statusLine) statusLine.textContent = error.message || "Could not save rota mode";
+          showSettingsToast(error.message || "Could not save rota mode");
+        }
+      });
+
+      await renderRotaTemplatesEditor(
+        document.getElementById("settings-rota-templates-wrap"),
+        Boolean(overview.rota_advanced_addon) && (current === "advanced" || current === "multi_site")
+      );
+
+      host.dataset.ready = "true";
+    } catch {
+      host.innerHTML = `<p class="muted">Could not load rota settings.</p>`;
+    }
+  }
+
   function loadUsersPanel() {
     const host = document.getElementById("settings-users-content");
     if (!host || host.dataset.ready === "true") return;
@@ -480,6 +780,7 @@
     await loadBusinessPanel();
     await loadBillingPanel();
     loadNotificationsPanel();
+    loadRotaPanel();
     loadUsersPanel();
     loadSecurityPanel();
     if (window.AdminDocuments?.loadSettingsDocuments) {

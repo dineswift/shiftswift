@@ -5395,6 +5395,101 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin: 0;
 }
 
+.rota-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--surface-muted, #eef2f6);
+  color: var(--text-muted, #5c6770);
+}
+
+.rota-mode-badge--advanced {
+  background: #e6f1fb;
+  color: #185fa5;
+}
+
+.rota-mode-badge--multi_site {
+  background: #faeeda;
+  color: #854f0b;
+}
+
+.rota-advanced-panel {
+  margin-bottom: 16px;
+}
+
+.rota-advanced-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rota-advanced-template {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  font-size: 0.875rem;
+}
+
+.rota-advanced-template select {
+  min-width: 220px;
+}
+
+.rota-advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.rota-advanced-card {
+  padding: 14px 16px;
+}
+
+.rota-advanced-card h4 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.rota-advanced-list ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.rota-advanced-list li {
+  margin-bottom: 6px;
+}
+
+.rota-hours-warn--over {
+  color: #993556;
+}
+
+.rota-hours-warn--under {
+  color: #854f0b;
+}
+
+.settings-rota-templates {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border, #e5e9ef);
+}
+
+.settings-rota-req-table input,
+.settings-rota-req-table select {
+  width: 100%;
+  min-width: 0;
+}
+
+.settings-rota-foot {
+  margin-top: 8px;
+}
+
 .rota-builder-actions {
   flex-wrap: wrap;
   justify-content: flex-end;

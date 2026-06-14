@@ -172,6 +172,8 @@ def update_tenant_billing(
     max_employees: int | None = None,
     trial_days: int | None = None,
     billing_notes: str | None = None,
+    rota_advanced_addon: bool | None = None,
+    rota_multi_site_addon: bool | None = None,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -233,6 +235,12 @@ def update_tenant_billing(
     if billing_notes is not None:
         updates.append("billing_notes = %s")
         params.append(_normalize_notes(billing_notes))
+    if rota_advanced_addon is not None:
+        updates.append("rota_advanced_addon = %s")
+        params.append(bool(rota_advanced_addon))
+    if rota_multi_site_addon is not None:
+        updates.append("rota_multi_site_addon = %s")
+        params.append(bool(rota_multi_site_addon))
 
     params.append(tenant_id)
     with conn.cursor() as cur:
@@ -249,6 +257,8 @@ def update_tenant_billing(
         "trial_ends_at": trial_end.isoformat() if trial_end else None,
         "max_employees": max_employees,
         "billing_notes": _normalize_notes(billing_notes) if billing_notes is not None else None,
+        "rota_advanced_addon": rota_advanced_addon,
+        "rota_multi_site_addon": rota_multi_site_addon,
         "stripe_subscription_cancelled": bool(stripe_cancel.get("cancelled")),
         "stripe_cancel": stripe_cancel,
     }

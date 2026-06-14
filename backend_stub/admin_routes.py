@@ -103,6 +103,7 @@ class TenantProfileUpdate(BaseModel):
     signatory_email: str | None = Field(default=None, max_length=254)
     payroll_accountant_email: str | None = Field(default=None, max_length=254)
     payroll_hours_report_enabled: bool | None = None
+    rota_mode: str | None = Field(default=None, pattern="^(basic|advanced|multi_site)$")
 
 
 class PayrollHoursEmailRequest(BaseModel):
@@ -301,11 +302,10 @@ def patch_tenant_profile(
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
-
-
-@router.get("/employees")
 def read_employees(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),

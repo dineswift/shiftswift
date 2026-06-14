@@ -34,6 +34,10 @@
     { bg: "#FBEAF0", color: "#993556" },
   ];
   let panelOpen = false;
+  let rotaTemplates = [];
+  let rotaInsights = null;
+  let selectedTemplateId = null;
+  let advancedUiBound = false;
 
   function isMobileViewport() {
     return window.matchMedia("(max-width: 860px)").matches;
@@ -201,6 +205,23 @@
     if (count === 0) return "empty";
     if (count <= 2) return "warn";
     return "ok";
+  }
+
+  function gapsOnDate(iso) {
+    return (rotaInsights?.coverage_gaps || []).filter((gap) => gap.shift_date === iso).length;
+  }
+
+  function coverageLevelForDay(iso, count) {
+    if (window.Admin?.tenantFeatures?.rota_advanced_enabled && rotaInsights?.has_template) {
+      if (gapsOnDate(iso) > 0) return "warn";
+      if (count === 0) return "empty";
+      return "ok";
+    }
+    return coverageLevel(count);
+  }
+
+  function templateQuerySuffix() {
+    return selectedTemplateId ? `&template_id=${encodeURIComponent(selectedTemplateId)}` : "";
   }
 
   function parseMinutes(time) {
@@ -914,11 +935,15 @@
         day: "numeric",
       });
       const count = shiftsOnDate(iso);
-      const level = coverageLevel(count);
+      const level = coverageLevelForDay(iso, count);
+      const gapNote =
+        window.Admin?.tenantFeatures?.rota_advanced_enabled && gapsOnDate(iso) > 0
+          ? ` · ${gapsOnDate(iso)} gap${gapsOnDate(iso) === 1 ? "" : "s"}`
+          : "";
       const todayClass = iso === todayIso ? " rota-gh-cell--today" : "";
       html += `<div class="rota-gh-cell${todayClass}">
         <span class="rota-day-sub">${escapeHtml(label)}</span>
-        <span class="rota-day-cov"><span class="rota-cov-dot rota-cov-dot--${level}" aria-hidden="true"></span>${count} shift${count === 1 ? "" : "s"}</span>
+        <span class="rota-day-cov"><span class="rota-cov-dot rota-cov-dot--${level}" aria-hidden="true"></span>${count} shift${count === 1 ? "" : "s"}${gapNote}</span>
       </div>`;
     });
     html += "</div>";
@@ -1237,7 +1262,7 @@
   async function loadWeek() {
     setMessage("Loading rota…");
     try {
-      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}?include_attendance=true`);
+      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}?include_attendance=true${templateQuerySuffix()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setMessage(data.detail?.message || data.detail || "Could not load rota.", "error");
@@ -1251,6 +1276,12 @@
         if (item.shift_id != null) attendanceByShiftId.set(String(item.shift_id), item);
       });
       markClean();
+      rotaTemplates = data.templates || [];
+      rotaInsights = data.insights || null;
+      if (!selectedTemplateId && rotaInsights?.template_id) {
+        selectedTemplateId = rotaInsights.template_id;
+      }
+      renderAdvancedPanel();
       renderAttendanceTable(data.attendance?.items || []);
       renderAll();
       populateDaySelect();
@@ -1463,6 +1494,127 @@
     loadWeek();
   }
 
+  function renderAdvancedPanel() {
+    const feats = window.Admin?.tenantFeatures || {};
+    if (!feats.rota_advanced_enabled) return;
+
+    const select = document.getElementById("rota-template-select");
+    if (select) {
+      const items = rotaTemplates || [];
+      if (!selectedTemplateId && rotaInsights?.template_id) {
+        selectedTemplateId = rotaInsights.template_id;
+      }
+      select.innerHTML = items.length
+        ? items
+            .map(
+              (item) =>
+                `<option value="${item.id}" ${Number(item.id) === Number(selectedTemplateId) ? "selected" : ""}>${escapeHtml(item.name)}${item.is_default ? " (default)" : ""}</option>`
+            )
+            .join("")
+        : `<option value="">No templates yet</option>`;
+    }
+
+    const gapsHost = document.getElementById("rota-coverage-gaps");
+    const hoursHost = document.getElementById("rota-hours-warnings");
+    const gaps = rotaInsights?.coverage_gaps || [];
+    const warnings = rotaInsights?.hours_warnings || [];
+
+    if (gapsHost) {
+      if (!rotaInsights?.has_template) {
+        gapsHost.innerHTML =
+          '<p class="muted">Create a staffing template in <a href="#settings/rota">Settings → Rota scheduling</a> to track coverage gaps.</p>';
+      } else if (!gaps.length) {
+        gapsHost.innerHTML = '<p class="muted">All template slots are covered for this week.</p>';
+      } else {
+        gapsHost.innerHTML = `<ul>${gaps
+          .map(
+            (gap) =>
+              `<li><strong>${escapeHtml(gap.day_name)}</strong> ${escapeHtml(gap.start_time)}–${escapeHtml(gap.end_time)} · ${escapeHtml(gap.role_label || "Any role")} — need ${gap.required}, have ${gap.actual}</li>`
+          )
+          .join("")}</ul>`;
+      }
+    }
+
+    if (hoursHost) {
+      if (!warnings.length) {
+        hoursHost.innerHTML = '<p class="muted">No weekly hours warnings for scheduled staff.</p>';
+      } else {
+        hoursHost.innerHTML = `<ul>${warnings
+          .map((warn) => {
+            const cls = warn.severity === "over" ? "rota-hours-warn--over" : "rota-hours-warn--under";
+            const label = warn.severity === "over" ? "over" : "under";
+            return `<li class="${cls}"><strong>${escapeHtml(warn.employee_name)}</strong> — ${warn.scheduled_hours}h scheduled vs ${warn.contracted_hours}h contracted (${label} by ${Math.abs(warn.delta_hours)}h)</li>`;
+          })
+          .join("")}</ul>`;
+      }
+    }
+
+    const genBtn = document.getElementById("rota-generate-draft-btn");
+    if (genBtn) genBtn.disabled = !rotaInsights?.has_template || isWeekReadOnly();
+  }
+
+  async function generateDraftFromTemplate() {
+    if (!guardWeekEditable("generate a draft")) return;
+    if (!rotaInsights?.has_template) {
+      setMessage("Create a staffing template in Settings first.", "error");
+      return;
+    }
+    if (dirty && !window.confirm("You have unsaved changes. Generate draft anyway?")) return;
+    setMessage("Generating draft from template…");
+    try {
+      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/generate-draft`, {
+        method: "POST",
+        body: JSON.stringify({
+          template_id: selectedTemplateId ? Number(selectedTemplateId) : null,
+          expected_version: weekMeta?.version ?? null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data.detail?.message || data.detail || "Could not generate draft.", "error");
+        return;
+      }
+      setMessage(data.message || "Draft generated.", "success");
+      await loadWeek();
+    } catch (error) {
+      setMessage(error.message || "Could not generate draft.", "error");
+    }
+  }
+
+  function bindAdvancedUiOnce() {
+    if (advancedUiBound) return;
+    advancedUiBound = true;
+    document.getElementById("rota-template-select")?.addEventListener("change", (event) => {
+      if (dirty && !window.confirm("Discard unsaved changes?")) {
+        event.target.value = selectedTemplateId || "";
+        return;
+      }
+      selectedTemplateId = event.target.value ? Number(event.target.value) : null;
+      loadWeek();
+    });
+    document.getElementById("rota-generate-draft-btn")?.addEventListener("click", generateDraftFromTemplate);
+  }
+
+  function applyRotaModeUi() {
+    const feats = window.Admin?.tenantFeatures || {};
+    const badge = document.getElementById("rota-mode-badge");
+    const advancedPanel = document.getElementById("rota-advanced-panel");
+    const labels = { basic: "Basic", advanced: "Advanced", multi_site: "Multi-site" };
+    const mode = feats.rota_mode || "basic";
+    if (badge) {
+      badge.textContent = labels[mode] || mode;
+      badge.hidden = false;
+      badge.className = `rota-mode-badge rota-mode-badge--${mode}`;
+    }
+    if (advancedPanel) {
+      advancedPanel.hidden = !feats.rota_advanced_enabled;
+    }
+    if (feats.rota_advanced_enabled) {
+      bindAdvancedUiOnce();
+      renderAdvancedPanel();
+    }
+  }
+
   async function initSection() {
     ensureShiftPanelPlacement();
     window.addEventListener("resize", ensureShiftPanelPlacement);
@@ -1506,6 +1658,13 @@
     document.getElementById("rota-add-end")?.addEventListener("change", updateShiftDurationLabel);
     document.getElementById("rota-add-role")?.addEventListener("input", updateOverlapStatus);
     document.getElementById("rota-add-notes")?.addEventListener("input", updateOverlapStatus);
+
+    if (window.Admin?.loadTenantFeatures) {
+      await window.Admin.loadTenantFeatures();
+    }
+    applyRotaModeUi();
+    window.addEventListener("admin:features", applyRotaModeUi);
+    bindAdvancedUiOnce();
 
     setView(window.matchMedia("(max-width: 860px)").matches ? "list" : "grid");
     await loadEmployeesList();

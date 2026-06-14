@@ -1522,6 +1522,7 @@
             <div>
               <div class="rota-builder-title-row">
                 <h2>Rota</h2>
+                <span id="rota-mode-badge" class="rota-mode-badge" hidden></span>
                 <span id="rota-week-status"></span>
               </div>
               <p class="muted">Build your rota, save as draft, then publish — staff see shifts in the Time Clock app.</p>
@@ -1545,6 +1546,26 @@
           </header>
           <div id="rota-admin-message" class="rota-admin-message" aria-live="polite" hidden></div>
           <div id="rota-readonly-notice" class="rota-readonly-notice" hidden role="status"></div>
+          <div id="rota-advanced-panel" class="rota-advanced-panel" hidden>
+            <div class="rota-advanced-toolbar">
+              <label class="rota-advanced-template">
+                Staffing template
+                <select id="rota-template-select" aria-label="Staffing template"></select>
+              </label>
+              <button type="button" class="btn outline" id="rota-generate-draft-btn">Generate draft</button>
+              <a class="btn ghost" href="#settings/rota" id="rota-manage-templates-link">Manage templates</a>
+            </div>
+            <div class="rota-advanced-grid">
+              <article class="card rota-advanced-card">
+                <h4>Coverage gaps</h4>
+                <div id="rota-coverage-gaps" class="rota-advanced-list"><p class="muted">Loading…</p></div>
+              </article>
+              <article class="card rota-advanced-card">
+                <h4>Weekly hours</h4>
+                <div id="rota-hours-warnings" class="rota-advanced-list"><p class="muted">Loading…</p></div>
+              </article>
+            </div>
+          </div>
           <article class="card hr-workspace">
           <div class="rota-builder-subbar">
             <div class="rota-builder-subbar__left">
@@ -1760,6 +1781,10 @@
                 <span class="settings-nav__icon" aria-hidden="true">🔔</span>
                 Notifications
               </button>
+              <button type="button" class="settings-nav__item" data-settings-nav="rota">
+                <span class="settings-nav__icon" aria-hidden="true">📅</span>
+                Rota scheduling
+              </button>
               <button type="button" class="settings-nav__item" data-settings-nav="users">
                 <span class="settings-nav__icon" aria-hidden="true">👥</span>
                 Users &amp; access
@@ -1911,6 +1936,10 @@
 
               <article class="card settings-panel hr-workspace" data-settings-panel="notifications" hidden>
                 <div class="hr-workspace-body" id="settings-notifications-content"></div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="rota" hidden>
+                <div class="hr-workspace-body" id="settings-rota-content"></div>
               </article>
 
               <article class="card settings-panel hr-workspace" data-settings-panel="users" hidden>

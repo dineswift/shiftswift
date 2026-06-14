@@ -14,6 +14,99 @@ TIER_LABELS = {
     "scale": "Scale",
 }
 
+ROTA_MODES = ("basic", "advanced", "multi_site")
+
+ROTA_MODE_LABELS = {
+    "basic": "Basic — manual weekly grid",
+    "advanced": "Advanced — templates, coverage & hours",
+    "multi_site": "Multi-site — per-location rotas",
+}
+
+
+def allowed_rota_modes(
+    *,
+    rota_advanced_addon: bool = False,
+    rota_multi_site_addon: bool = False,
+) -> list[str]:
+    """Basic manual rota is included on all plans; advanced modes require purchased add-ons."""
+    options = ["basic"]
+    if rota_advanced_addon:
+        options.append("advanced")
+    if rota_multi_site_addon:
+        options.append("multi_site")
+    return options
+
+
+def default_rota_mode() -> str:
+    return "basic"
+
+
+def resolve_rota_mode(
+    *,
+    stored_mode: str | None,
+    rota_advanced_addon: bool = False,
+    rota_multi_site_addon: bool = False,
+) -> str:
+    options = allowed_rota_modes(
+        rota_advanced_addon=rota_advanced_addon,
+        rota_multi_site_addon=rota_multi_site_addon,
+    )
+    normalized = (stored_mode or "").strip().lower()
+    if normalized in options:
+        return normalized
+    return default_rota_mode()
+
+
+def apply_rota_features(
+    feats: dict[str, object],
+    *,
+    stored_mode: str | None,
+    rota_advanced_addon: bool = False,
+    rota_multi_site_addon: bool = False,
+) -> dict[str, object]:
+    options = allowed_rota_modes(
+        rota_advanced_addon=rota_advanced_addon,
+        rota_multi_site_addon=rota_multi_site_addon,
+    )
+    mode = resolve_rota_mode(
+        stored_mode=stored_mode,
+        rota_advanced_addon=rota_advanced_addon,
+        rota_multi_site_addon=rota_multi_site_addon,
+    )
+    feats["rota_mode"] = mode
+    feats["rota_mode_options"] = options
+    feats["rota_mode_default"] = default_rota_mode()
+    feats["rota_advanced_addon"] = bool(rota_advanced_addon)
+    feats["rota_multi_site_addon"] = bool(rota_multi_site_addon)
+    feats["rota_advanced_enabled"] = bool(rota_advanced_addon) and mode in ("advanced", "multi_site")
+    feats["rota_multi_site_enabled"] = bool(rota_multi_site_addon) and mode == "multi_site"
+    return feats
+
+
+def validate_rota_mode_choice(
+    *,
+    rota_mode: str | None,
+    rota_advanced_addon: bool = False,
+    rota_multi_site_addon: bool = False,
+) -> str | None:
+    """Return normalized mode to store, or raise ValueError."""
+    if rota_mode is None or str(rota_mode).strip() == "":
+        return None
+    normalized = str(rota_mode).strip().lower()
+    if normalized not in ROTA_MODES:
+        raise ValueError("Rota mode must be basic, advanced, or multi_site")
+    allowed = allowed_rota_modes(
+        rota_advanced_addon=rota_advanced_addon,
+        rota_multi_site_addon=rota_multi_site_addon,
+    )
+    if normalized not in allowed:
+        if normalized == "advanced":
+            raise ValueError("Advanced rota is a paid add-on — contact support to enable it on your account")
+        if normalized == "multi_site":
+            raise ValueError("Multi-site rota is a paid add-on — contact support to enable it on your account")
+        raise ValueError(f"{ROTA_MODE_LABELS.get(normalized, normalized)} is not available on your account")
+    return normalized
+
 
 def plan_tier(plan_id: str | None) -> str:
     pid = (plan_id or "").strip()
@@ -98,6 +191,12 @@ def assert_tenant_feature(
         subscription_status=profile.get("subscription_status"),
         trial_access_allowed=bool(trial.get("access_allowed")),
     )
+    apply_rota_features(
+        feats,
+        stored_mode=profile.get("rota_mode_preference"),
+        rota_advanced_addon=bool(profile.get("rota_advanced_addon")),
+        rota_multi_site_addon=bool(profile.get("rota_multi_site_addon")),
+    )
     flag = f"{feature}_enabled"
     if feats.get(flag):
         return
@@ -117,6 +216,8 @@ UPGRADE_MESSAGES = {
     "sponsor_compliance": "Sponsor licence compliance is included on Growth and Scale plans.",
     "multi_site": "Multi-site dashboard is included on Scale plans.",
     "api_access": "API access is included on Scale plans.",
+    "rota_advanced": "Advanced rota is a paid add-on. Contact support to add it to your subscription.",
+    "rota_multi_site": "Multi-site rota is a paid add-on. Contact support to add it to your subscription.",
 }
 
 

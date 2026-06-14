@@ -15,8 +15,10 @@ from core.database import get_connection
 from core.permissions import check_permission
 from deps import get_employee_user, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from modules.rota import attendance as rota_attendance
+from modules.rota import insights as rota_insights
 from modules.rota import requests as rota_requests
 from modules.rota import service as rota_service
+from modules.rota import templates as rota_templates
 from modules.rota.service import RotaConflictError, RotaValidationError
 from modules.time_punch import service as punch_service
 
@@ -59,6 +61,31 @@ class CopyWeekRequest(BaseModel):
     expected_version: int | None = Field(default=None, ge=1)
 
 
+class TemplateRequirementInput(BaseModel):
+    day_of_week: int = Field(ge=1, le=7)
+    start_time: str = Field(min_length=4, max_length=5)
+    end_time: str = Field(min_length=4, max_length=5)
+    role_label: str = Field(default="", max_length=80)
+    min_staff: int = Field(default=1, ge=1, le=50)
+
+
+class TemplateCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    is_default: bool = Field(default=False)
+    requirements: list[TemplateRequirementInput] = Field(min_length=1)
+
+
+class TemplateUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    is_default: bool | None = None
+    requirements: list[TemplateRequirementInput] | None = None
+
+
+class GenerateDraftRequest(BaseModel):
+    template_id: int | None = Field(default=None, ge=1)
+    expected_version: int | None = Field(default=None, ge=1)
+
+
 class ReviewRequestBody(BaseModel):
     approve: bool
 
@@ -98,12 +125,40 @@ def _employee_for_user(*, tenant_id: int, user: AuthUser, conn) -> dict:
     return employee
 
 
+def _require_rota_advanced(*, tenant_id: int, conn) -> None:
+    from admin_service import get_tenant_profile
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    if not profile.get("rota_advanced_addon"):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=403,
+            detail="Advanced rota is a paid add-on. Contact support to add it to your subscription.",
+        )
+    if profile.get("rota_mode") not in ("advanced", "multi_site"):
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=403,
+            detail="Switch to Advanced scheduling mode in Settings → Rota scheduling to use these tools.",
+        )
+
+
+def _tenant_has_advanced_rota(*, tenant_id: int, conn) -> bool:
+    from admin_service import get_tenant_profile
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    return bool(profile.get("rota_advanced_addon")) and profile.get("rota_mode") in ("advanced", "multi_site")
+
+
 @admin_router.get("/weeks/{week_start}")
 def get_week_rota(
     week_start: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     include_attendance: bool = Query(default=True),
+    template_id: int | None = Query(default=None, ge=1),
 ) -> dict[str, object]:
     check_permission(current_user, "employees.read")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
@@ -127,6 +182,15 @@ def get_week_rota(
                 tenant_id=tenant_id,
                 week_start=parsed,
                 shifts=payload["shifts"],
+                conn=conn,
+            )
+        if _tenant_has_advanced_rota(tenant_id=tenant_id, conn=conn):
+            payload["templates"] = rota_templates.list_templates(tenant_id=tenant_id, conn=conn)
+            payload["insights"] = rota_insights.build_week_insights(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                shifts=payload.get("shifts") or [],
+                template_id=template_id,
                 conn=conn,
             )
         return payload
@@ -229,6 +293,142 @@ def publish_week_rota(
                 actor_username=current_user.username,
                 conn=conn,
                 notify_staff=payload.notify_staff,
+            )
+        finally:
+            conn.close()
+    except (RotaValidationError, RotaConflictError, ValueError) as exc:
+        raise _handle_rota_errors(exc) from exc
+
+
+@admin_router.get("/templates")
+def list_rota_templates(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        _require_rota_advanced(tenant_id=tenant_id, conn=conn)
+        return {"items": rota_templates.list_templates(tenant_id=tenant_id, conn=conn)}
+    finally:
+        conn.close()
+
+
+@admin_router.get("/templates/{template_id}")
+def get_rota_template(
+    template_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        _require_rota_advanced(tenant_id=tenant_id, conn=conn)
+        return rota_templates.get_template(tenant_id=tenant_id, template_id=template_id, conn=conn)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/templates")
+def create_rota_template(
+    payload: TemplateCreateRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        _require_rota_advanced(tenant_id=tenant_id, conn=conn)
+        return rota_templates.create_template(
+            tenant_id=tenant_id,
+            name=payload.name,
+            is_default=payload.is_default,
+            requirements=[item.model_dump() for item in payload.requirements],
+            actor_username=current_user.username,
+            conn=conn,
+        )
+    except RotaValidationError as exc:
+        raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.put("/templates/{template_id}")
+def update_rota_template(
+    template_id: int,
+    payload: TemplateUpdateRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        _require_rota_advanced(tenant_id=tenant_id, conn=conn)
+        updates = payload.model_dump(exclude_unset=True)
+        requirements = updates.pop("requirements", None)
+        return rota_templates.update_template(
+            tenant_id=tenant_id,
+            template_id=template_id,
+            name=updates.get("name"),
+            is_default=updates.get("is_default"),
+            requirements=requirements,
+            actor_username=current_user.username,
+            conn=conn,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RotaValidationError as exc:
+        raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.delete("/templates/{template_id}")
+def delete_rota_template(
+    template_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        _require_rota_advanced(tenant_id=tenant_id, conn=conn)
+        rota_templates.delete_template(tenant_id=tenant_id, template_id=template_id, conn=conn)
+        return {"message": "Template deleted"}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/weeks/{week_start}/generate-draft")
+def generate_week_draft(
+    week_start: str,
+    payload: GenerateDraftRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    try:
+        parsed = rota_service.parse_week_start(week_start)
+        conn = get_connection()
+        try:
+            _require_rota_advanced(tenant_id=tenant_id, conn=conn)
+            return rota_insights.generate_draft_from_template(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                template_id=payload.template_id,
+                expected_version=payload.expected_version,
+                actor_username=current_user.username,
+                conn=conn,
             )
         finally:
             conn.close()

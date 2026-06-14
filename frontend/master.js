@@ -405,6 +405,7 @@
       <div><dt>Billing notes</dt><dd>${escapeHtml(tenant.billing_notes || "—")}</dd></div>
       <div><dt>Platform access</dt><dd>${escapeHtml(tenant.platform_status || "active")}${tenant.deleted_at ? " · deleted" : ""}</dd></div>
       <div><dt>Plan</dt><dd>${escapeHtml(tenant.plan_label)} · ${escapeHtml(tenant.mrr_label)}</dd></div>
+      <div><dt>Rota add-ons</dt><dd>${tenant.rota_advanced_addon ? "Advanced" : "—"}${tenant.rota_multi_site_addon ? " · Multi-site" : ""}${!tenant.rota_advanced_addon && !tenant.rota_multi_site_addon ? "None (basic manual rota only)" : ""}</dd></div>
       <div><dt>Employees</dt><dd>${active} active · ${tenant.employees_pending_portal || 0} portal pending
         <div class="master-staff-bar"><span style="width:${pct}%"></span></div><small>${escapeHtml(tenant.staff_label)}</small></dd></div>
       <div><dt>Last active</dt><dd>${escapeHtml(tenant.last_active?.label || "—")}</dd></div>`;
@@ -557,6 +558,8 @@
     const changePlanStatus = document.getElementById("detail-change-plan-status");
     const changePlanApply = document.getElementById("detail-change-plan-apply");
     const changePlanCancel = document.getElementById("detail-change-plan-cancel");
+    const rotaAdvancedAddon = document.getElementById("detail-rota-advanced-addon");
+    const rotaMultiSiteAddon = document.getElementById("detail-rota-multisite-addon");
 
     const hideChangePlanPanel = () => {
       if (changePlanWrap) changePlanWrap.hidden = true;
@@ -586,7 +589,9 @@
           }
           populateChangePlanSelect(state.provisionPlans);
           if (changePlanNotes) changePlanNotes.value = tenant.billing_notes || "";
-          if (changePlanStatus) changePlanStatus.textContent = "Choose the new plan, then apply.";
+          if (rotaAdvancedAddon) rotaAdvancedAddon.checked = Boolean(tenant.rota_advanced_addon);
+          if (rotaMultiSiteAddon) rotaMultiSiteAddon.checked = Boolean(tenant.rota_multi_site_addon);
+          if (changePlanStatus) changePlanStatus.textContent = "Update plan and/or rota add-ons, then apply.";
         } catch (error) {
           hideChangePlanPanel();
           alert(error.message || "Could not load plans.");
@@ -606,33 +611,44 @@
           if (changePlanStatus) changePlanStatus.textContent = "Choose a plan first.";
           return;
         }
-        if (planId === tenant.plan_id) {
-          if (changePlanStatus) changePlanStatus.textContent = "That plan is already assigned.";
+        const advancedAddon = Boolean(rotaAdvancedAddon?.checked);
+        const multiSiteAddon = Boolean(rotaMultiSiteAddon?.checked);
+        const planChanged = planId !== tenant.plan_id;
+        const addonsChanged =
+          advancedAddon !== Boolean(tenant.rota_advanced_addon) ||
+          multiSiteAddon !== Boolean(tenant.rota_multi_site_addon);
+        if (!planChanged && !addonsChanged) {
+          if (changePlanStatus) changePlanStatus.textContent = "No changes to apply.";
           return;
         }
         const notes = (changePlanNotes?.value || "").trim();
         const subscriptionStatus = tenant.status === "trialing" ? "trialing" : "active";
         let billingMode = tenant.billing_mode === "offline" ? "offline" : "stripe";
-        if (billingMode !== "offline") {
+        if (planChanged && billingMode !== "offline") {
           const ok = window.confirm(
             "This tenant is still on Stripe billing. Switch them to offline/manual billing with the new plan?",
           );
           if (!ok) return;
           billingMode = "offline";
         }
-        if (changePlanStatus) changePlanStatus.textContent = "Updating plan…";
+        if (changePlanStatus) changePlanStatus.textContent = "Saving…";
         try {
           const result = await apiPost(`/master/tenants/${tenant.id}/billing`, {
             billing_mode: billingMode,
             subscription_status: subscriptionStatus,
             plan_id: planId,
             billing_notes: notes || tenant.billing_notes || "",
+            rota_advanced_addon: advancedAddon,
+            rota_multi_site_addon: multiSiteAddon,
           });
           hideChangePlanPanel();
           await refreshSelectedTenant();
+          const planLabel = state.provisionPlans.find((plan) => plan.id === planId)?.name || planId;
           reportOfflineBillingResult(
             result,
-            `Plan updated to ${state.provisionPlans.find((plan) => plan.id === planId)?.name || planId}.`,
+            planChanged
+              ? `Plan updated to ${planLabel}.`
+              : "Rota add-ons updated.",
           );
         } catch (error) {
           if (changePlanStatus) changePlanStatus.textContent = error.message || "Plan change failed.";

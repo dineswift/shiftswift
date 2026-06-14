@@ -587,7 +587,8 @@ def get_tenant_detail(
         cur.execute(
             """
             SELECT subscription_status, payroll_enabled, holds_sponsor_licence, trial_ends_at,
-                   platform_status, deleted_at, internal_notes
+                   platform_status, deleted_at, internal_notes,
+                   rota_advanced_addon, rota_multi_site_addon, rota_mode
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -600,6 +601,9 @@ def get_tenant_detail(
         platform_status = meta[4] if meta else "active"
         deleted_at = meta[5] if meta else None
         internal_notes = meta[6] if meta else ""
+        rota_advanced_addon = bool(meta[7]) if meta else False
+        rota_multi_site_addon = bool(meta[8]) if meta else False
+        rota_mode = meta[9] if meta else None
 
         trial_access = subscription_status in TRIALING_STATUSES
         features = effective_features_for_tenant(
@@ -665,4 +669,7 @@ def get_tenant_detail(
         "platform_status": platform_status or "active",
         "deleted_at": deleted_at.isoformat() if isinstance(deleted_at, datetime) else deleted_at,
         "can_impersonate": deleted_at is None and (platform_status or "active") == "active",
+        "rota_advanced_addon": rota_advanced_addon,
+        "rota_multi_site_addon": rota_multi_site_addon,
+        "rota_mode": rota_mode,
     }
