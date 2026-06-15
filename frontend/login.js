@@ -15,6 +15,9 @@ const LOGIN_MODES = {
     lead: "Sign in to your ShiftSwift HR account.",
     submit: "Open HR dashboard",
     usernamePlaceholder: "hr@shiftswifthr.co.uk",
+    bannerPill: "Business HR",
+    bannerCopy:
+      "You are signing in as an <strong>HR admin</strong> — manage employees, rotas, and compliance. Employees should use the Employee tab.",
   },
   employee: {
     endpoint: "/auth/employee-login",
@@ -22,6 +25,9 @@ const LOGIN_MODES = {
     lead: "Sign in to view payslips, documents, and your shift schedule.",
     submit: "Open employee portal",
     usernamePlaceholder: "employee@shiftswifthr.co.uk",
+    bannerPill: "Employee",
+    bannerCopy:
+      "You are signing in as a <strong>staff member</strong> — payslips, documents, and leave only. HR managers should use the Business HR tab.",
   },
 };
 
@@ -301,10 +307,19 @@ function switchLoginMode(nextMode) {
   const lead = document.getElementById("login-lead");
   const submit = document.getElementById("login-submit");
   const usernameInput = document.querySelector('#portal-login-form input[name="username"]');
+  const card = document.getElementById("portal-login-card");
+  const bannerPill = document.getElementById("login-role-banner-pill");
+  const bannerCopy = document.getElementById("login-role-banner-copy");
 
   if (lead) lead.textContent = mode.lead;
   if (submit) submit.textContent = mode.submit;
   if (usernameInput) usernameInput.placeholder = mode.usernamePlaceholder;
+  if (card) {
+    card.classList.remove("portal-login-card--business", "portal-login-card--employee");
+    card.classList.add(`portal-login-card--${nextMode}`);
+  }
+  if (bannerPill) bannerPill.textContent = mode.bannerPill;
+  if (bannerCopy) bannerCopy.innerHTML = mode.bannerCopy;
   const forgotLink = document.getElementById("forgot-password-link");
   if (forgotLink) {
     forgotLink.href =

@@ -117,9 +117,10 @@ window.ShiftSwiftBrand.appHost = function appHost() {
 };
 
 /** Labelled app portals for login cards, QR printouts, and admin copy. */
-window.ShiftSwiftBrand.portals = function portals() {
+window.ShiftSwiftBrand.portals = function portals(options = {}) {
   const host = this.appHost();
-  return [
+  const includeMaster = options.includeMaster === true;
+  const items = [
     {
       id: "business",
       label: "Business HR",
@@ -131,8 +132,8 @@ window.ShiftSwiftBrand.portals = function portals() {
       id: "employee",
       label: "Employee",
       description: "Payslips, documents & leave",
-      href: this.appUrl("/employee.html"),
-      display: `${host}/employee.html`,
+      href: this.appUrl("/business-login.html?portal=employee"),
+      display: `${host}/business-login.html`,
     },
     {
       id: "master",
@@ -149,6 +150,10 @@ window.ShiftSwiftBrand.portals = function portals() {
       display: `${host}/punch.html`,
     },
   ];
+  if (!includeMaster) {
+    return items.filter((item) => item.id !== "master");
+  }
+  return items;
 };
 
 window.ShiftSwiftBrand.applyBrandDom = function applyBrandDom(root) {
