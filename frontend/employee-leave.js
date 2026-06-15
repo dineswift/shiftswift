@@ -1,26 +1,13 @@
 /** Employee portal — leave and holiday requests. */
 (function initEmployeeLeave() {
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
   const tenantId = localStorage.getItem("tenantId");
 
-  if (!localStorage.getItem("token") || !tenantId) return;
-
-  function authHeaders() {
-    return {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-      "X-Tenant-Id": tenantId,
-      "Content-Type": "application/json",
-    };
-  }
+  if (!session.hasSession() || !tenantId) return;
 
   async function apiFetch(path, options = {}) {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: { ...authHeaders(), ...(options.headers || {}) },
-    });
-    return res;
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
   }
 
   function escapeHtml(value) {

@@ -9,7 +9,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 
-from modules.documents.constants import DOCUMENT_LIFECYCLE_STAGES
+from modules.documents.constants import (
+    DOCUMENT_FORM_LIFECYCLE_STAGES,
+    DOCUMENT_LIFECYCLE_STAGES,
+    EXPIRY_ALERT_DAY_OPTIONS,
+)
 from modules.employees.constants import (
     EMPLOYEE_DOCUMENT_CATEGORIES,
     EMPLOYMENT_TYPES,
@@ -157,8 +161,10 @@ class DocumentCreate(BaseModel):
     document_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
+    expiry_alert_days: int = Field(default=30, ge=30, le=90)
     original_filename: str | None = Field(default=None, max_length=255)
     employee_id: int | None = None
+    employee_visible: bool = False
 
 
 class DocumentUpdate(BaseModel):
@@ -168,8 +174,10 @@ class DocumentUpdate(BaseModel):
     document_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
+    expiry_alert_days: int | None = Field(default=None, ge=30, le=90)
     original_filename: str | None = Field(default=None, max_length=255)
     employee_id: int | None = None
+    employee_visible: bool | None = None
 
 
 @router.get("/metadata")
@@ -194,6 +202,8 @@ def admin_metadata() -> dict[str, object]:
         "advert_platforms": ADVERT_PLATFORMS,
         "document_categories": DOCUMENT_CATEGORIES,
         "document_lifecycle_stages": DOCUMENT_LIFECYCLE_STAGES,
+        "document_form_lifecycle_stages": DOCUMENT_FORM_LIFECYCLE_STAGES,
+        "document_expiry_alert_days": EXPIRY_ALERT_DAY_OPTIONS,
         "employee_statuses": EMPLOYEE_STATUSES,
         "employment_types": EMPLOYMENT_TYPES,
         "worker_types": WORKER_TYPES,
@@ -407,6 +417,21 @@ def remove_employee(
     return {"status": "deleted"}
 
 
+@router.get("/documents/expiring")
+def read_expiring_documents(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.documents.service import list_expiring_documents
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = _db_conn()
+    try:
+        return list_expiring_documents(tenant_id=tenant_id, conn=conn)
+    finally:
+        conn.close()
+
+
 @router.get("/documents")
 def read_documents(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
@@ -529,7 +554,9 @@ async def upload_tenant_document(
     lifecycle_stage: str = Form(default="general"),
     notes: str | None = Form(default=None),
     expires_at: date | None = Form(default=None),
+    expiry_alert_days: int = Form(default=30),
     employee_id: int | None = Form(default=None),
+    employee_visible: bool = Form(default=False),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     from modules.documents.service import create_tenant_document, update_tenant_document
@@ -547,7 +574,10 @@ async def upload_tenant_document(
                 "lifecycle_stage": lifecycle_stage,
                 "notes": notes or "File stored on ShiftSwift HR",
                 "expires_at": expires_at,
+                "expiry_alert_days": expiry_alert_days,
+                "employee_visible": employee_visible,
                 "original_filename": file.filename,
+                "employee_id": employee_id,
             },
             uploaded_by=current_user.username,
             conn=conn,

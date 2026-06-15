@@ -8,7 +8,9 @@ from typing import Any
 
 from modules.documents.constants import (
     EMPLOYEE_DOCUMENT_REQUIREMENTS,
+    EMPLOYEE_SELF_SERVICE_CATEGORIES,
     VALID_EMPLOYEE_CATEGORIES,
+    VALID_EXPIRY_ALERT_DAYS,
     VALID_LIFECYCLE_STAGES,
     VALID_TENANT_CATEGORIES,
 )
@@ -125,6 +127,61 @@ def requirements_status(
     }
 
 
+def _normalize_expiry_alert_days(value: Any, *, default: int = 30) -> int:
+    if value is None or value == "":
+        return default
+    days = int(value)
+    if days not in VALID_EXPIRY_ALERT_DAYS:
+        raise ValueError("Expiry alert window must be 30, 60, or 90 days")
+    return days
+
+
+def _normalize_employee_visible(value: Any, *, default: bool | None = None) -> bool | None:
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "on"}:
+            return True
+        if lowered in {"false", "0", "no", "off"}:
+            return False
+    return bool(value)
+
+
+def document_expiry_status(
+    *,
+    expires_at: date | None,
+    alert_days: int = 30,
+    as_of: date | None = None,
+) -> str:
+    """Return none | valid | expiring_soon | expired for UI colour coding."""
+    if expires_at is None:
+        return "none"
+    today = as_of or date.today()
+    if isinstance(expires_at, str):
+        expires_at = date.fromisoformat(expires_at[:10])
+    days_left = (expires_at - today).days
+    if days_left < 0:
+        return "expired"
+    if days_left <= alert_days:
+        return "expiring_soon"
+    return "valid"
+
+
+def portal_document_visible(doc: dict[str, Any]) -> bool:
+    """Whether a document should appear in the employee self-service portal."""
+    if not doc.get("has_file") and not doc.get("document_url"):
+        return False
+    visible = doc.get("employee_visible")
+    if visible is False:
+        return False
+    if visible is True:
+        return True
+    return doc.get("category") in EMPLOYEE_SELF_SERVICE_CATEGORIES
+
+
 def validate_employee_document_data(data: dict[str, Any]) -> dict[str, Any]:
     title = (data.get("title") or "").strip()
     if not title:
@@ -144,6 +201,7 @@ def validate_employee_document_data(data: dict[str, Any]) -> dict[str, Any]:
     pay_period = data.get("pay_period")
     if pay_period is not None:
         pay_period = str(pay_period).strip() or None
+    employee_visible = _normalize_employee_visible(data.get("employee_visible"), default=True)
     return {
         "title": title,
         "category": category,
@@ -151,6 +209,8 @@ def validate_employee_document_data(data: dict[str, Any]) -> dict[str, Any]:
         "document_url": document_url,
         "notes": data.get("notes"),
         "expires_at": data.get("expires_at"),
+        "expiry_alert_days": _normalize_expiry_alert_days(data.get("expiry_alert_days")),
+        "employee_visible": employee_visible if employee_visible is not None else True,
         "pay_period": pay_period,
         "original_filename": data.get("original_filename"),
         "storage_path": data.get("storage_path"),
@@ -175,6 +235,7 @@ def validate_tenant_document_data(data: dict[str, Any]) -> dict[str, Any]:
         document_url = str(document_url).strip() or None
     if not document_url and not data.get("notes") and not data.get("storage_path"):
         raise ValueError("Provide a document URL, upload a file, or notes describing where the file is stored")
+    employee_visible = _normalize_employee_visible(data.get("employee_visible"), default=False)
     return {
         "title": title,
         "category": category,
@@ -182,6 +243,8 @@ def validate_tenant_document_data(data: dict[str, Any]) -> dict[str, Any]:
         "document_url": document_url,
         "notes": data.get("notes"),
         "expires_at": data.get("expires_at"),
+        "expiry_alert_days": _normalize_expiry_alert_days(data.get("expiry_alert_days")),
+        "employee_visible": employee_visible if employee_visible is not None else False,
         "original_filename": data.get("original_filename"),
         "employee_id": data.get("employee_id"),
         "storage_path": data.get("storage_path"),
@@ -218,6 +281,8 @@ def _row_to_employee_document(row: tuple[Any, ...]) -> dict[str, Any]:
         "content_type": row[14],
         "file_size_bytes": row[15],
         "pay_period": row[16],
+        "expiry_alert_days": row[17],
+        "employee_visible": row[18],
         "has_file": bool(row[12]),
     }
 
@@ -225,7 +290,8 @@ def _row_to_employee_document(row: tuple[Any, ...]) -> dict[str, Any]:
 EMPLOYEE_DOCUMENT_SELECT = """
     id, title, category, lifecycle_stage, document_url, notes, uploaded_by,
     expires_at, original_filename, created_at, updated_at, employee_id,
-    storage_path, content_sha256, content_type, file_size_bytes, pay_period
+    storage_path, content_sha256, content_type, file_size_bytes, pay_period,
+    expiry_alert_days, employee_visible
 """
 
 
@@ -294,9 +360,10 @@ def create_employee_document(
             INSERT INTO employee_documents (
               tenant_id, employee_id, title, category, lifecycle_stage,
               document_url, notes, uploaded_by, expires_at, original_filename,
-              storage_path, content_sha256, content_type, file_size_bytes, pay_period
+              storage_path, content_sha256, content_type, file_size_bytes, pay_period,
+              expiry_alert_days, employee_visible
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING """
             + EMPLOYEE_DOCUMENT_SELECT,
             (
@@ -315,6 +382,8 @@ def create_employee_document(
                 payload.get("content_type"),
                 payload.get("file_size_bytes"),
                 payload.get("pay_period"),
+                payload["expiry_alert_days"],
+                payload["employee_visible"],
             ),
         )
         row = cur.fetchone()
@@ -349,6 +418,8 @@ def update_employee_document(
             "content_type",
             "file_size_bytes",
             "pay_period",
+            "expiry_alert_days",
+            "employee_visible",
         )
     }
     if not allowed:
@@ -362,6 +433,14 @@ def update_employee_document(
         raise ValueError("Invalid document category")
     if "lifecycle_stage" in merged and merged["lifecycle_stage"] not in VALID_LIFECYCLE_STAGES - {"policy"}:
         raise ValueError("Invalid lifecycle stage")
+    if "expiry_alert_days" in merged:
+        merged["expiry_alert_days"] = _normalize_expiry_alert_days(merged["expiry_alert_days"])
+    if "employee_visible" in merged:
+        visible = _normalize_employee_visible(merged["employee_visible"])
+        if visible is None:
+            del merged["employee_visible"]
+        else:
+            merged["employee_visible"] = visible
     merged["updated_at"] = datetime.utcnow()
     sets = ", ".join(f"{key} = %s" for key in merged)
     values = list(merged.values()) + [tenant_id, employee_id, document_id]
@@ -427,6 +506,8 @@ def _row_to_tenant_document(row: tuple[Any, ...]) -> dict[str, Any]:
         "content_sha256": row[13],
         "content_type": row[14],
         "file_size_bytes": row[15],
+        "expiry_alert_days": row[16],
+        "employee_visible": row[17],
         "has_file": bool(row[12]),
     }
 
@@ -434,7 +515,8 @@ def _row_to_tenant_document(row: tuple[Any, ...]) -> dict[str, Any]:
 TENANT_DOCUMENT_SELECT = """
     id, title, category, lifecycle_stage, document_url, notes, uploaded_by,
     expires_at, original_filename, created_at, updated_at, employee_id,
-    storage_path, content_sha256, content_type, file_size_bytes
+    storage_path, content_sha256, content_type, file_size_bytes,
+    expiry_alert_days, employee_visible
 """
 
 
@@ -501,9 +583,10 @@ def create_tenant_document(
             INSERT INTO tenant_documents (
               tenant_id, title, category, lifecycle_stage, document_url, notes,
               uploaded_by, expires_at, original_filename, employee_id,
-              storage_path, content_sha256, content_type, file_size_bytes
+              storage_path, content_sha256, content_type, file_size_bytes,
+              expiry_alert_days, employee_visible
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING """
             + TENANT_DOCUMENT_SELECT,
             (
@@ -521,6 +604,8 @@ def create_tenant_document(
                 payload.get("content_sha256"),
                 payload.get("content_type"),
                 payload.get("file_size_bytes"),
+                payload["expiry_alert_days"],
+                payload["employee_visible"],
             ),
         )
         row = cur.fetchone()
@@ -552,8 +637,18 @@ def update_tenant_document(
             "content_sha256",
             "content_type",
             "file_size_bytes",
+            "expiry_alert_days",
+            "employee_visible",
         )
     }
+    if "expiry_alert_days" in allowed:
+        allowed["expiry_alert_days"] = _normalize_expiry_alert_days(allowed["expiry_alert_days"])
+    if "employee_visible" in allowed:
+        visible = _normalize_employee_visible(allowed["employee_visible"])
+        if visible is None:
+            del allowed["employee_visible"]
+        else:
+            allowed["employee_visible"] = visible
     if not allowed:
         raise ValueError("no fields to update")
     if "category" in allowed and allowed["category"] not in VALID_TENANT_CATEGORIES:
@@ -653,7 +748,7 @@ def qualification_certificate_summary(*, tenant_id: int, conn: Any) -> dict[str,
                 WHERE expires_at IS NULL OR expires_at > CURRENT_DATE + INTERVAL '30 days'
               )
             FROM employee_documents
-            WHERE tenant_id = %s AND category = 'qualification'
+            WHERE tenant_id = %s AND category IN ('qualification', 'training')
             """,
             (tenant_id,),
         )
@@ -664,3 +759,86 @@ def qualification_certificate_summary(*, tenant_id: int, conn: Any) -> dict[str,
         "valid": int(valid or 0),
         "total": int((expired or 0) + (expiring_soon or 0) + (valid or 0)),
     }
+
+
+def _expiring_document_item(
+    *,
+    scope: str,
+    doc: dict[str, Any],
+    employee_name: str | None,
+    as_of: date,
+) -> dict[str, Any]:
+    expires_raw = doc.get("expires_at")
+    expires_at = date.fromisoformat(str(expires_raw)[:10]) if expires_raw else None
+    alert_days = int(doc.get("expiry_alert_days") or 30)
+    status = document_expiry_status(expires_at=expires_at, alert_days=alert_days, as_of=as_of)
+    days_until_expiry = (expires_at - as_of).days if expires_at else None
+    return {
+        "scope": scope,
+        "id": doc["id"],
+        "title": doc["title"],
+        "category": doc["category"],
+        "lifecycle_stage": doc.get("lifecycle_stage"),
+        "employee_id": doc.get("employee_id"),
+        "employee_name": employee_name,
+        "expires_at": _iso(expires_at),
+        "expiry_alert_days": alert_days,
+        "expiry_status": status,
+        "days_until_expiry": days_until_expiry,
+        "employee_visible": doc.get("employee_visible"),
+    }
+
+
+def list_expiring_documents(
+    *,
+    tenant_id: int,
+    conn: Any,
+    limit: int = 100,
+    as_of: date | None = None,
+) -> dict[str, Any]:
+    """Documents with expiry dates, sorted soonest first, with red/amber/green status."""
+    today = as_of or date.today()
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT {TENANT_DOCUMENT_SELECT},
+                   NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '')
+            FROM tenant_documents
+            LEFT JOIN employees e
+              ON e.id = tenant_documents.employee_id AND e.tenant_id = tenant_documents.tenant_id
+            WHERE tenant_documents.tenant_id = %s AND tenant_documents.expires_at IS NOT NULL
+            """,
+            (tenant_id,),
+        )
+        tenant_rows = cur.fetchall()
+        cur.execute(
+            f"""
+            SELECT {EMPLOYEE_DOCUMENT_SELECT},
+                   NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '')
+            FROM employee_documents
+            JOIN employees e
+              ON e.id = employee_documents.employee_id AND e.tenant_id = employee_documents.tenant_id
+            WHERE employee_documents.tenant_id = %s AND employee_documents.expires_at IS NOT NULL
+            """,
+            (tenant_id,),
+        )
+        employee_rows = cur.fetchall()
+
+    items: list[dict[str, Any]] = []
+    for row in tenant_rows:
+        name = row[-1]
+        doc = _row_to_tenant_document(row[:-1])
+        items.append(_expiring_document_item(scope="tenant", doc=doc, employee_name=name, as_of=today))
+    for row in employee_rows:
+        name = row[-1]
+        doc = _row_to_employee_document(row[:-1])
+        items.append(_expiring_document_item(scope="employee", doc=doc, employee_name=name, as_of=today))
+
+    items.sort(key=lambda item: (item.get("expires_at") or "9999", item.get("title") or ""))
+    summary = {
+        "expired": sum(1 for item in items if item["expiry_status"] == "expired"),
+        "expiring_soon": sum(1 for item in items if item["expiry_status"] == "expiring_soon"),
+        "valid": sum(1 for item in items if item["expiry_status"] == "valid"),
+        "total": len(items),
+    }
+    return {"items": items[:limit], "summary": summary, "count": min(len(items), limit)}

@@ -862,7 +862,11 @@
       ? accordion.querySelector(`[data-section-content="${activeSection}"]`)
       : null;
     if (contentHost) {
-      renderSectionContent(workspace, activeSection, contentHost);
+      try {
+        renderSectionContent(workspace, activeSection, contentHost);
+      } catch (error) {
+        contentHost.innerHTML = `<p class="form-error-message">${escapeHtml(error.message || "Could not load this section.")}</p>`;
+      }
     }
 
     if (activeSection) {
@@ -1182,6 +1186,15 @@
     }
 
     if (section.kind === "documents") {
+      if (!window.Admin.formOptions) {
+        container.innerHTML = `<p class="muted">Loading document store…</p>`;
+        void loadFormOptions().then(() => {
+          if (activeSection === sectionKey && workspaceCache) {
+            renderDocumentStorePanel(workspaceCache, container);
+          }
+        });
+        return;
+      }
       renderDocumentStorePanel(workspace, container);
       return;
     }
@@ -1432,15 +1445,17 @@
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section !== "employees") return;
-    initEmployeesSection();
+    void (async () => {
+      await initEmployeesSection();
 
-    const hash = window.location.hash.replace("#", "");
-    const match = hash.match(/^employees\/(\d+)(?:\/([\w_]+))?$/);
-    if (match) {
-      openEmployee(Number(match[1]), match[2] || null);
-    } else {
-      showListView();
-    }
+      const hash = window.location.hash.replace("#", "");
+      const match = hash.match(/^employees\/(\d+)(?:\/([\w_]+))?$/);
+      if (match) {
+        await openEmployee(Number(match[1]), match[2] || null);
+      } else {
+        showListView();
+      }
+    })();
   });
 
   window.addEventListener("hashchange", () => {
@@ -1457,12 +1472,17 @@
     const id = Number(match[1]);
     const section = match[2] || null;
     if (id === activeEmployeeId) {
-      if (section !== activeSection && workspaceCache) {
-        activeSection = section || null;
+      if (!workspaceCache) return;
+      const contentHost = section
+        ? document.querySelector(`[data-section-content="${section}"]`)
+        : null;
+      const contentMissing = Boolean(contentHost && !contentHost.textContent?.trim());
+      if (section !== activeSection || contentMissing) {
+        activeSection = section;
         renderLifecycleAccordion(workspaceCache);
       }
       return;
     }
-    openEmployee(id, section);
+    void openEmployee(id, section);
   });
 })();

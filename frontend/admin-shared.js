@@ -31,17 +31,14 @@ window.Admin = (() => {
     return role === "admin" && tenantId === getMasterCustomerId();
   }
 
-  const TOKEN = localStorage.getItem("token") || "";
   const TENANT_ID = resolveWorkspaceTenantId();
   const API_BASE = getApiBase();
   const businessName = localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
 
   async function ensureHrPortal() {
-    if (!TOKEN) return;
+    if (!window.ShiftSwiftSession?.hasSession?.()) return;
     try {
-      const response = await fetch(`${getApiBase()}/auth/verify`, {
-        headers: { Authorization: `Bearer ${TOKEN}` },
-      });
+      const response = await window.ShiftSwiftSession.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE });
       if (!response.ok) return;
       const user = await response.json();
       if (user.role === "employee") {
@@ -111,11 +108,7 @@ window.Admin = (() => {
   }
 
   function authHeaders(json = true) {
-    const headers = {
-      Authorization: TOKEN ? `Bearer ${TOKEN}` : "",
-      "X-Tenant-Id": TENANT_ID,
-    };
-    if (json) headers["Content-Type"] = "application/json";
+    const headers = window.ShiftSwiftSession.authHeaders({ json, tenantId: TENANT_ID });
     return headers;
   }
 
@@ -123,19 +116,11 @@ window.Admin = (() => {
     if (!TENANT_ID) {
       throw new Error("Business not set. Sign in again.");
     }
-    const response = await fetch(`${getApiBase()}${path}`, {
-      ...options,
-      headers: {
-        ...authHeaders(!(options.body instanceof FormData)),
-        ...(options.headers || {}),
-      },
+    return window.ShiftSwiftSession.fetchWithAuth(path, options, {
+      apiBase: getApiBase(),
+      tenantId: TENANT_ID,
+      loginUrl: "./business-login.html",
     });
-    if (response.status === 401) {
-      localStorage.removeItem("token");
-      window.location.href = "./business-login.html";
-      throw new Error("Session expired. Please sign in again.");
-    }
-    return response;
   }
 
   async function loadTenantFeatures() {
@@ -370,6 +355,9 @@ window.Admin = (() => {
     }
 
     if (field.type === "select") {
+      const emptyOption = field.placeholderOption
+        ? `<option value="">${escapeHtml(field.placeholderOption)}</option>`
+        : "";
       const opts = resolveOptions(field, options)
         .map(
           (opt) =>
@@ -378,7 +366,7 @@ window.Admin = (() => {
         .join("");
       return `<label class="edit-field" data-span="${field.span || 1}">
         ${label}
-        <select id="${id}" name="${name}"${required}>${opts}</select>
+        <select id="${id}" name="${name}"${required}>${emptyOption}${opts}</select>
       </label>`;
     }
 
@@ -770,7 +758,9 @@ window.Admin = (() => {
 
   return {
     API_BASE,
-    TOKEN,
+    get TOKEN() {
+      return window.ShiftSwiftSession?.getToken?.() || localStorage.getItem("token") || "";
+    },
     TENANT_ID,
     businessName,
     get formOptions() {

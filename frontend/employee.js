@@ -1,10 +1,8 @@
 (function () {
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
-  const token = localStorage.getItem("token");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
 
-  if (!token) {
+  if (!session.hasSession()) {
     window.location.replace("./business-login.html");
     return;
   }
@@ -49,14 +47,14 @@
     const button = document.getElementById("employee-gdpr-submit");
     if (button) button.disabled = true;
     try {
-      const response = await fetch(`${API_BASE}/auth/employee/gdpr-consent`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+      const response = await session.fetchWithAuth(
+        "/auth/employee/gdpr-consent",
+        {
+          method: "POST",
+          body: JSON.stringify({ accept_employee_gdpr: true }),
         },
-        body: JSON.stringify({ accept_employee_gdpr: true }),
-      });
+        { apiBase: API_BASE },
+      );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(typeof data.detail === "string" ? data.detail : "Could not save your consent.");
@@ -74,14 +72,8 @@
     const employerHeader = document.getElementById("topbar-employer-name");
     const employerSubtitle = document.getElementById("mobile-employer-subtitle");
     try {
-      const response = await fetch(`${API_BASE}/auth/verify`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.status === 401) {
-        localStorage.clear();
-        window.location.replace("./business-login.html");
-        return;
-      }
+      const response = await session.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE });
+      if (!response.ok) return;
       const user = await response.json();
       if (user.role !== "employee") {
         window.location.replace("./admin.html");
@@ -112,10 +104,9 @@
 
   function signOut(event) {
     event.preventDefault();
-    localStorage.removeItem("token");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("tenantId");
-    localStorage.removeItem("userRole");
+    session.clearSession();
+    localStorage.removeItem("employeeUsername");
+    localStorage.removeItem("employeeDisplayName");
     window.location.href = "./business-login.html";
   }
 

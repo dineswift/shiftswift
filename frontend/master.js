@@ -67,9 +67,10 @@
     const hasBody = options.body !== undefined && options.body !== null;
     let response;
     try {
-      response = await fetch(`${apiBase()}${path}`, {
-        ...options,
-        headers: { ...authHeaders(hasBody), ...(options.headers || {}) },
+      response = await window.ShiftSwiftSession.fetchWithAuth(path, options, {
+        apiBase: apiBase(),
+        loginUrl: "./ops-9x7k2.html",
+        forceLogoutOn401: false,
       });
     } catch (error) {
       const message = error?.message || "Network request failed";
@@ -78,6 +79,12 @@
       }
       throw error;
     }
+
+    if (response.status === 401) {
+      window.ShiftSwiftMasterSession?.redirectToMasterLogin?.("Your master session expired. Sign in again.");
+      throw new Error("Session expired. Sign in again.");
+    }
+
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const message = parseApiError(data);
@@ -551,7 +558,6 @@
       };
     }
 
-    const changePlanWrap = document.getElementById("detail-change-plan-wrap");
     const changePlanBtn = document.getElementById("detail-change-plan");
     const changePlanSelect = document.getElementById("detail-change-plan-select");
     const changePlanNotes = document.getElementById("detail-change-plan-notes");

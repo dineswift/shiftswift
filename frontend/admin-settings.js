@@ -89,20 +89,60 @@
     el.textContent = when ? `Saved · ${when}` : "";
   }
 
-  function activateSettingsPanel(panelId) {
-    document.querySelectorAll("[data-settings-panel]").forEach((el) => {
-      el.hidden = el.dataset.settingsPanel !== panelId;
+  function isMobileSettingsLayout() {
+    return window.matchMedia("(max-width: 980px)").matches;
+  }
+
+  function mountSettingsAccordion() {
+    const workspace = document.querySelector(".settings-workspace");
+    const nav = document.querySelector(".settings-nav");
+    const main = document.querySelector(".settings-main");
+    if (!workspace || !nav || !main || workspace.dataset.accordionReady === "1") return;
+
+    const accordion = document.createElement("div");
+    accordion.className = "settings-accordion";
+    accordion.id = "settings-accordion";
+
+    [...nav.querySelectorAll("[data-settings-nav]")].forEach((btn) => {
+      const panelId = btn.dataset.settingsNav;
+      const panel = main.querySelector(`[data-settings-panel="${panelId}"]`);
+      if (!panel) return;
+
+      if (panelId === "multisite") {
+        const divider = document.createElement("hr");
+        divider.className = "settings-nav__divider settings-accordion-divider";
+        accordion.appendChild(divider);
+      }
+
+      const item = document.createElement("section");
+      item.className = "settings-accordion-item";
+      item.dataset.settingsSection = panelId;
+
+      const chevron = document.createElement("span");
+      chevron.className = "settings-accordion-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      btn.appendChild(chevron);
+
+      const body = document.createElement("div");
+      body.className = "settings-accordion-body";
+      body.hidden = true;
+
+      btn.remove();
+      panel.remove();
+      panel.hidden = false;
+
+      item.appendChild(btn);
+      body.appendChild(panel);
+      item.appendChild(body);
+      accordion.appendChild(item);
     });
-    document.querySelectorAll("[data-settings-nav]").forEach((btn) => {
-      const active = btn.dataset.settingsNav === panelId;
-      btn.classList.toggle("settings-nav__item--active", active);
-      btn.setAttribute("aria-current", active ? "page" : "false");
-    });
-    const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
-    const titleEl = document.getElementById("settings-panel-title");
-    const subtitleEl = document.getElementById("settings-panel-subtitle");
-    if (titleEl) titleEl.textContent = copy.title;
-    if (subtitleEl) subtitleEl.textContent = copy.subtitle;
+
+    nav.remove();
+    main.appendChild(accordion);
+    workspace.dataset.accordionReady = "1";
+  }
+
+  function loadPanelContent(panelId) {
     if (panelId === "business") {
       void loadBusinessPanel();
     }
@@ -115,6 +155,69 @@
     if (panelId === "rota") {
       void loadRotaPanel();
     }
+    if (panelId === "documents") {
+      window.AdminDocuments?.resetDocumentTabs?.();
+      void window.AdminDocuments?.loadSettingsDocuments?.();
+    }
+    if (panelId === "notifications") {
+      loadNotificationsPanel();
+    }
+    if (panelId === "users") {
+      loadUsersPanel();
+    }
+  }
+
+  function activateSettingsPanel(panelId, options = {}) {
+    const { collapse = false } = options;
+    const items = document.querySelectorAll(".settings-accordion-item");
+    const targetItem = panelId
+      ? document.querySelector(`.settings-accordion-item[data-settings-section="${panelId}"]`)
+      : null;
+
+    items.forEach((item) => {
+      item.classList.remove("is-open");
+      const btn = item.querySelector(".settings-nav__item");
+      const body = item.querySelector(".settings-accordion-body");
+      if (btn) {
+        btn.classList.remove("settings-nav__item--active");
+        btn.removeAttribute("aria-current");
+        btn.setAttribute("aria-expanded", "false");
+      }
+      if (body) body.hidden = true;
+    });
+
+    if (collapse || !panelId) {
+      const titleEl = document.getElementById("settings-panel-title");
+      const subtitleEl = document.getElementById("settings-panel-subtitle");
+      if (titleEl) titleEl.textContent = "Settings";
+      if (subtitleEl) subtitleEl.textContent = "Choose a section below.";
+      return;
+    }
+
+    if (targetItem) {
+      targetItem.classList.add("is-open");
+      const btn = targetItem.querySelector(".settings-nav__item");
+      const body = targetItem.querySelector(".settings-accordion-body");
+      if (btn) {
+        btn.classList.add("settings-nav__item--active");
+        btn.setAttribute("aria-current", "page");
+        btn.setAttribute("aria-expanded", "true");
+      }
+      if (body) body.hidden = false;
+    }
+
+    const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
+    const titleEl = document.getElementById("settings-panel-title");
+    const subtitleEl = document.getElementById("settings-panel-subtitle");
+    if (titleEl) titleEl.textContent = copy.title;
+    if (subtitleEl) subtitleEl.textContent = copy.subtitle;
+    loadPanelContent(panelId);
+
+    if (targetItem && isMobileSettingsLayout()) {
+      requestAnimationFrame(() => {
+        targetItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+    }
   }
 
   function bindSettingsNav() {
@@ -123,6 +226,11 @@
     document.querySelectorAll("[data-settings-nav]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const panel = btn.dataset.settingsNav;
+        const isActive = btn.classList.contains("settings-nav__item--active");
+        if (isMobileSettingsLayout() && isActive) {
+          activateSettingsPanel(null, { collapse: true });
+          return;
+        }
         window.location.hash = `settings/${panel}`;
         activateSettingsPanel(panel);
       });
@@ -944,7 +1052,11 @@
   }
 
   function bootstrapSettingsSection() {
-    if (sectionReady) return;
+    mountSettingsAccordion();
+    if (sectionReady) {
+      activateSettingsPanel(settingsPanelId());
+      return;
+    }
     sectionReady = true;
     window.Admin.loadFormOptions()
       .then(initSettingsSection)
@@ -959,7 +1071,6 @@
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "settings") {
       bootstrapSettingsSection();
-      activateSettingsPanel(settingsPanelId());
     }
   });
 

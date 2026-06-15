@@ -7,6 +7,14 @@
     stage: "document-filter-stage",
   };
 
+  const TAB_DESCRIPTIONS = {
+    upload: "Store a file in secure tenant storage and tag it by employee, category, and expiry.",
+    distribute: "Push a file to one or all employees — it appears in their portal and can trigger an email notification.",
+    link: "Register an external URL (SharePoint, Google Drive, etc.) without uploading the file to ShiftSwift.",
+  };
+
+  let employeeLookup = [];
+
   function categoryLabel(value) {
     const categories = window.Admin.formOptions?.document_categories || [];
     return categories.find((item) => item.value === value)?.label || value;
@@ -15,6 +23,97 @@
   function stageLabel(value) {
     const stages = window.Admin.formOptions?.document_lifecycle_stages || [];
     return stages.find((item) => item.value === value)?.label || value;
+  }
+
+  function employeeLabel(employeeId) {
+    if (!employeeId) return "Tenant-wide";
+    const match = employeeLookup.find((item) => String(item.id) === String(employeeId));
+    if (match?.label) return match.label;
+    const option = (window.Admin.formOptions?.employees || []).find(
+      (item) => String(item.value || item.id) === String(employeeId)
+    );
+    return option?.label || `Employee #${employeeId}`;
+  }
+
+  function formLifecycleStages() {
+    return (
+      window.Admin.formOptions?.document_form_lifecycle_stages ||
+      window.Admin.formOptions?.document_lifecycle_stages ||
+      []
+    );
+  }
+
+  function expiryHintText(days) {
+    const windowDays = Number(days) || 30;
+    return `ShiftSwift will alert HR ${windowDays} days before this document expires.`;
+  }
+
+  function syncExpiryHint(daysInputId, hintId) {
+    const daysEl = document.getElementById(daysInputId);
+    const hintEl = document.getElementById(hintId);
+    if (!hintEl) return;
+    hintEl.textContent = expiryHintText(daysEl?.value || 30);
+  }
+
+  function mountEmployeeSearch({ searchId, datalistId, hiddenId }) {
+    const searchInput = document.getElementById(searchId);
+    const datalist = document.getElementById(datalistId);
+    const hiddenInput = document.getElementById(hiddenId);
+    if (!searchInput || !datalist || !hiddenInput || searchInput.dataset.ready === "true") return;
+
+    employeeLookup = (window.Admin.formOptions?.employees || []).map((item) => ({
+      id: item.value || item.id,
+      label: item.label || `${item.first_name || ""} ${item.last_name || ""}`.trim(),
+    }));
+
+    datalist.innerHTML = employeeLookup
+      .map((item) => `<option value="${escapeHtml(item.label)}" data-id="${escapeHtml(item.id)}"></option>`)
+      .join("");
+
+    const syncEmployeeId = () => {
+      const value = searchInput.value.trim();
+      if (!value) {
+        hiddenInput.value = "";
+        return;
+      }
+      const match = employeeLookup.find((item) => item.label.toLowerCase() === value.toLowerCase());
+      hiddenInput.value = match ? String(match.id) : "";
+    };
+
+    searchInput.addEventListener("change", syncEmployeeId);
+    searchInput.addEventListener("blur", syncEmployeeId);
+    searchInput.addEventListener("input", () => {
+      if (!searchInput.value.trim()) hiddenInput.value = "";
+    });
+    searchInput.dataset.ready = "true";
+  }
+
+  function expiryStatusMarkup(status) {
+    if (status === "expired") return `<span class="doc-expiry doc-expiry--danger">Expired</span>`;
+    if (status === "expiring_soon") return `<span class="doc-expiry doc-expiry--warn">Expiring soon</span>`;
+    if (status === "valid") return `<span class="doc-expiry doc-expiry--ok">Valid</span>`;
+    return "<span class='muted'>—</span>";
+  }
+
+  function expiryDateMarkup(row) {
+    const dateText = escapeHtml((row.expires_at || "").slice(0, 10) || "Not set");
+    if (!row.expires_at) return dateText;
+    const status = row.expiry_status || computeExpiryStatus(row);
+    const cls =
+      status === "expired" ? "doc-expiry doc-expiry--danger" : status === "expiring_soon" ? "doc-expiry doc-expiry--warn" : "";
+    return cls ? `<span class="${cls}">${dateText}</span>` : dateText;
+  }
+
+  function computeExpiryStatus(row) {
+    if (!row.expires_at) return "none";
+    const alertDays = Number(row.expiry_alert_days) || 30;
+    const expires = new Date(String(row.expires_at).slice(0, 10));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const daysLeft = Math.round((expires - today) / 86400000);
+    if (daysLeft < 0) return "expired";
+    if (daysLeft <= alertDays) return "expiring_soon";
+    return "valid";
   }
 
   function buildQuery() {
@@ -46,6 +145,13 @@
       fields: [
         { name: "title", label: "Title", type: "text", required: true },
         {
+          name: "employee_id",
+          label: "Employee",
+          type: "select",
+          optionsKey: "employees",
+          placeholderOption: "Tenant-wide",
+        },
+        {
           name: "category",
           label: "Category",
           type: "select",
@@ -56,11 +162,24 @@
           name: "lifecycle_stage",
           label: "Lifecycle stage",
           type: "select",
-          optionsKey: "document_lifecycle_stages",
-          defaultValue: "general",
+          optionsKey: "document_form_lifecycle_stages",
+          defaultValue: "active",
         },
         { name: "document_url", label: "Document URL", type: "url", placeholder: "https://...", required: true },
         { name: "expires_at", label: "Expiry date", type: "date" },
+        {
+          name: "expiry_alert_days",
+          label: "HR alert window",
+          type: "select",
+          optionsKey: "document_expiry_alert_days",
+          defaultValue: 30,
+        },
+        {
+          name: "employee_visible",
+          label: "Visible to employee in their portal",
+          type: "checkbox",
+          span: 2,
+        },
         { name: "notes", label: "Notes", type: "textarea", span: 2, rows: 2 },
       ],
     };
@@ -72,11 +191,34 @@
       columns: 2,
       submitLabel: "Update document",
       successMessage: "Document updated.",
-      fields: [
-        ...documentLinkFormSchema().fields,
+      fields: documentLinkFormSchema().fields.concat([
         { name: "original_filename", label: "Original filename", type: "text", placeholder: "contract.pdf" },
-      ],
+      ]),
     };
+  }
+
+  function updateTabDescription(target) {
+    const desc = document.getElementById("document-tab-desc");
+    if (desc) desc.textContent = TAB_DESCRIPTIONS[target] || "";
+  }
+
+  function activateDocumentTab(target) {
+    document.querySelectorAll("[data-doc-tab]").forEach((el) => {
+      const active = el.dataset.docTab === target;
+      el.classList.toggle("is-active", active);
+      el.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll("[data-doc-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.docPanel !== target;
+    });
+    updateTabDescription(target);
+    if (target === "link") {
+      mountLinkForm();
+    }
+  }
+
+  function resetDocumentTabs() {
+    activateDocumentTab("upload");
   }
 
   function bindDocumentTabs() {
@@ -86,17 +228,10 @@
 
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
-        const target = tab.dataset.docTab;
-        tabs.forEach((el) => {
-          const active = el.dataset.docTab === target;
-          el.classList.toggle("is-active", active);
-          el.setAttribute("aria-selected", active ? "true" : "false");
-        });
-        document.querySelectorAll("[data-doc-panel]").forEach((panel) => {
-          panel.hidden = panel.dataset.docPanel !== target;
-        });
+        activateDocumentTab(tab.dataset.docTab);
       });
     });
+    updateTabDescription("upload");
   }
 
   function bindUploadDropzone() {
@@ -146,7 +281,7 @@
     const form = document.getElementById("document-upload-form");
     if (!form || form.dataset.ready === "true") return;
     const categories = window.Admin.formOptions?.document_categories || [];
-    const stages = window.Admin.formOptions?.document_lifecycle_stages || [];
+    const stages = formLifecycleStages();
     const categorySelect = document.getElementById("document-upload-category");
     const stageSelect = document.getElementById("document-upload-stage");
     if (categorySelect) {
@@ -158,7 +293,19 @@
       stageSelect.innerHTML = stages
         .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
         .join("");
+      if (stages.some((item) => item.value === "active")) stageSelect.value = "active";
     }
+
+    mountEmployeeSearch({
+      searchId: "document-upload-employee-search",
+      datalistId: "document-upload-employees",
+      hiddenId: "document-upload-employee-id",
+    });
+
+    document.getElementById("document-upload-alert-days")?.addEventListener("change", () => {
+      syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
+    });
+    syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
 
     bindUploadDropzone();
 
@@ -167,6 +314,9 @@
       const status = form.querySelector("[data-status]");
       if (status) status.textContent = "Uploading…";
       const fd = new FormData(form);
+      const visible = form.querySelector("#document-upload-visible")?.checked ?? false;
+      fd.set("employee_visible", visible ? "true" : "false");
+      if (!fd.get("employee_id")) fd.delete("employee_id");
       try {
         const res = await fetch(`${API_BASE}/admin/documents/upload`, {
           method: "POST",
@@ -176,10 +326,13 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         form.reset();
+        document.getElementById("document-upload-employee-id").value = "";
         document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
+        syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
         if (status) status.textContent = "Uploaded.";
         window.AdminSettings?.showSettingsToast?.("Document uploaded ✓");
         await refreshDocuments();
+        await refreshExpiringDocuments();
       } catch (error) {
         if (status) status.textContent = error.message;
       }
@@ -298,6 +451,7 @@
           status.textContent = `${data.message || "Distributed."}${emailNote}`;
         }
         window.AdminSettings?.showSettingsToast?.("Document distributed ✓");
+        await refreshExpiringDocuments();
       } catch (error) {
         if (status) status.textContent = error.message;
       }
@@ -307,6 +461,56 @@
   }
 
   let refreshDocuments = async () => {};
+  let refreshExpiringDocuments = async () => {};
+
+  async function loadExpiringDocuments() {
+    const tbody = document.getElementById("documents-expiring-body");
+    const statsHost = document.getElementById("documents-expiring-stats");
+    if (!tbody) return;
+
+    refreshExpiringDocuments = async () => {
+      try {
+        const res = await apiFetch("/admin/documents/expiring");
+        if (!res.ok) throw new Error("Load failed");
+        const data = await res.json();
+        const summary = data.summary || {};
+
+        if (statsHost) {
+          statsHost.innerHTML = `
+            <span class="doc-expiry-stat doc-expiry-stat--danger">${summary.expired || 0} expired</span>
+            <span class="doc-expiry-stat doc-expiry-stat--warn">${summary.expiring_soon || 0} expiring soon</span>
+            <span class="doc-expiry-stat doc-expiry-stat--ok">${summary.valid || 0} valid</span>`;
+        }
+
+        renderTableBody(tbody, {
+          emptyMessage: "No documents with expiry dates yet.",
+          columns: [
+            { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+            {
+              key: "employee_name",
+              render: (row) => escapeHtml(row.employee_name || "Tenant-wide"),
+            },
+            { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
+            {
+              key: "expires_at",
+              render: (row) => expiryDateMarkup(row),
+            },
+            { key: "expiry_status", render: (row) => expiryStatusMarkup(row.expiry_status) },
+          ],
+          rows: data.items || [],
+        });
+      } catch {
+        renderTableBody(tbody, {
+          columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],
+          rows: [],
+          emptyMessage: "Could not load expiry overview.",
+        });
+        if (statsHost) statsHost.innerHTML = "";
+      }
+    };
+
+    await refreshExpiringDocuments();
+  }
 
   async function loadSettingsDocuments() {
     const tbody = document.getElementById("documents-table-body");
@@ -317,6 +521,7 @@
     bindDocumentTabs();
     mountUploadForm();
     mountDistributeForm();
+    await loadExpiringDocuments();
 
     document.getElementById("documents-export-csv")?.addEventListener("click", async () => {
       await downloadAuthenticated(
@@ -365,8 +570,13 @@
           emptyMessage: "No documents stored yet.",
           columns: [
             { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+            { key: "employee_id", render: (row) => escapeHtml(employeeLabel(row.employee_id)) },
             { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
             { key: "lifecycle_stage", render: (row) => escapeHtml(stageLabel(row.lifecycle_stage || "general")) },
+            {
+              key: "employee_visible",
+              render: (row) => (row.employee_visible ? "Yes" : "No"),
+            },
             {
               key: "has_file",
               render: (row) =>
@@ -383,7 +593,7 @@
             },
             {
               key: "expires_at",
-              render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set"),
+              render: (row) => expiryDateMarkup(row),
             },
             { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10)) },
             {
@@ -416,6 +626,7 @@
               return;
             }
             await refreshDocuments();
+            await refreshExpiringDocuments();
           });
         });
 
@@ -430,10 +641,13 @@
             mountEditForm(host.querySelector("#document-edit-form"), editFormSchema(row), {
               values: {
                 title: row.title,
+                employee_id: row.employee_id || "",
                 category: row.category,
-                lifecycle_stage: row.lifecycle_stage || "general",
+                lifecycle_stage: row.lifecycle_stage || "active",
                 document_url: row.document_url || "",
                 expires_at: (row.expires_at || "").slice(0, 10),
+                expiry_alert_days: row.expiry_alert_days || 30,
+                employee_visible: row.employee_visible,
                 original_filename: row.original_filename || "",
                 notes: row.notes || "",
               },
@@ -446,49 +660,71 @@
                     notes: payload.notes || null,
                     expires_at: payload.expires_at || null,
                     original_filename: payload.original_filename || null,
+                    employee_id: payload.employee_id || null,
+                    employee_visible: Boolean(payload.employee_visible),
                   }),
                 });
                 const body = await res.json();
                 if (!res.ok) throw new Error(body.detail || "Update failed");
                 host.hidden = true;
                 await refreshDocuments();
+                await refreshExpiringDocuments();
               },
             });
           });
         });
       } catch {
         renderTableBody(tbody, {
-          columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }, { key: "f" }, { key: "g" }, { key: "h" }],
+          columns: [
+            { key: "a" },
+            { key: "b" },
+            { key: "c" },
+            { key: "d" },
+            { key: "e" },
+            { key: "f" },
+            { key: "g" },
+            { key: "h" },
+            { key: "i" },
+            { key: "j" },
+          ],
           rows: [],
           emptyMessage: "Could not load documents.",
         });
       }
     };
 
-    if (formHost && !formHost.dataset.ready) {
-      mountEditForm(formHost, documentLinkFormSchema(), {
-        onSubmit: async (payload) => {
-          const res = await apiFetch("/admin/documents", {
-            method: "POST",
-            body: JSON.stringify({
-              ...payload,
-              document_url: payload.document_url || null,
-              notes: payload.notes || null,
-              expires_at: payload.expires_at || null,
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "Save failed");
-          formHost.querySelector("form")?.reset();
-          window.AdminSettings?.showSettingsToast?.("Document link saved ✓");
-          await refreshDocuments();
-        },
-      });
-      formHost.dataset.ready = "1";
-    }
-
+    mountLinkForm();
     await refreshDocuments();
   }
 
-  window.AdminDocuments = { loadSettingsDocuments };
+  function mountLinkForm() {
+    const formHost = document.getElementById("document-form");
+    if (!formHost || formHost.dataset.ready === "1") return;
+    formHost.innerHTML = `<p class="muted">Loading form…</p>`;
+    mountEditForm(formHost, documentLinkFormSchema(), {
+      onSubmit: async (payload) => {
+        const res = await apiFetch("/admin/documents", {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            document_url: payload.document_url || null,
+            notes: payload.notes || null,
+            expires_at: payload.expires_at || null,
+            employee_id: payload.employee_id || null,
+            employee_visible: Boolean(payload.employee_visible),
+            expiry_alert_days: Number(payload.expiry_alert_days || 30),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Save failed");
+        formHost.querySelector("form")?.reset();
+        window.AdminSettings?.showSettingsToast?.("Document link saved ✓");
+        await refreshDocuments();
+        await refreshExpiringDocuments();
+      },
+    });
+    formHost.dataset.ready = "1";
+  }
+
+  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm };
 })();

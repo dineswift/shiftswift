@@ -14,9 +14,10 @@
   }
 
   const token = localStorage.getItem("token");
+  const refresh = localStorage.getItem("refreshToken");
   const role = localStorage.getItem("userRole");
 
-  if (!token || role !== "admin") {
+  if ((!token && !refresh) || role !== "admin") {
     window.location.replace("./ops-9x7k2.html");
     return;
   }

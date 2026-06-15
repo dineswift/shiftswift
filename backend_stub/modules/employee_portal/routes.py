@@ -11,8 +11,14 @@ from auth_service import AuthUser
 from config import load_settings
 from core.database import get_connection
 from deps import client_ip, get_employee_user, resolve_tenant_id
-from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS, EMPLOYEE_SELF_SERVICE_CATEGORIES
-from modules.documents.service import get_employee_document, list_employee_documents
+from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
+from modules.documents.service import (
+    get_employee_document,
+    get_tenant_document,
+    list_employee_documents,
+    list_tenant_documents,
+    portal_document_visible,
+)
 from modules.documents.storage import download_filename, resolve_stored_file
 from modules.time_punch.service import resolve_employee
 
@@ -30,9 +36,10 @@ def _employee_for_user(*, tenant_id: int, user: AuthUser, conn: Any) -> dict[str
     return employee
 
 
-def _portal_document_row(doc: dict[str, Any]) -> dict[str, Any]:
+def _portal_document_row(doc: dict[str, Any], *, scope: str) -> dict[str, Any]:
     return {
         "id": doc["id"],
+        "scope": scope,
         "title": doc["title"],
         "category": doc["category"],
         "category_label": EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(doc["category"], doc["category"]),
@@ -46,14 +53,19 @@ def _portal_document_row(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _visible_portal_documents(docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _visible_portal_documents(
+    employee_docs: list[dict[str, Any]],
+    tenant_docs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     visible = []
-    for doc in docs:
-        if doc.get("category") not in EMPLOYEE_SELF_SERVICE_CATEGORIES:
+    for doc in employee_docs:
+        if not portal_document_visible(doc):
             continue
-        if not doc.get("has_file") and not doc.get("document_url"):
+        visible.append(_portal_document_row(doc, scope="employee"))
+    for doc in tenant_docs:
+        if not portal_document_visible(doc):
             continue
-        visible.append(_portal_document_row(doc))
+        visible.append(_portal_document_row(doc, scope="tenant"))
     return visible
 
 
@@ -66,8 +78,13 @@ def list_my_documents(
     conn = get_connection()
     try:
         employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
-        docs = list_employee_documents(tenant_id=tenant_id, employee_id=employee["id"], conn=conn)
-        items = _visible_portal_documents(docs)
+        employee_docs = list_employee_documents(tenant_id=tenant_id, employee_id=employee["id"], conn=conn)
+        tenant_docs = list_tenant_documents(
+            tenant_id=tenant_id,
+            conn=conn,
+            employee_id=employee["id"],
+        )
+        items = _visible_portal_documents(employee_docs, tenant_docs)
     finally:
         conn.close()
     return {
@@ -82,22 +99,28 @@ def download_my_document(
     document_id: int,
     current_user: Annotated[AuthUser, Depends(get_employee_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    scope: str = "employee",
 ):
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
         employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
-        doc = get_employee_document(
-            tenant_id=tenant_id,
-            employee_id=employee["id"],
-            document_id=document_id,
-            conn=conn,
-        )
+        if scope == "tenant":
+            doc = get_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+            if not doc or doc.get("employee_id") != employee["id"]:
+                doc = None
+        else:
+            doc = get_employee_document(
+                tenant_id=tenant_id,
+                employee_id=employee["id"],
+                document_id=document_id,
+                conn=conn,
+            )
     finally:
         conn.close()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    if doc.get("category") not in EMPLOYEE_SELF_SERVICE_CATEGORIES:
+    if not portal_document_visible(doc):
         raise HTTPException(status_code=403, detail="This document is not shared in the employee portal")
     if not doc.get("storage_path"):
         raise HTTPException(status_code=404, detail="No file stored for this document")

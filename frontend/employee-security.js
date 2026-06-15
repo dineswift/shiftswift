@@ -2,9 +2,17 @@
 (function () {
   "use strict";
 
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
+
+  async function mfaAuthFetch(path, options = {}) {
+    const response = await session.fetchWithAuth(path, options, { apiBase: API_BASE });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(typeof data.detail === "string" ? data.detail : data.message || "Request failed");
+    }
+    return data;
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -12,23 +20,6 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-  }
-
-  async function mfaAuthFetch(path, options = {}) {
-    const token = localStorage.getItem("token");
-    const response = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(typeof data.detail === "string" ? data.detail : data.message || "Request failed");
-    }
-    return data;
   }
 
   async function loadSecurityPanel() {

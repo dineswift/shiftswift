@@ -1,10 +1,9 @@
 (function () {
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
   const tenantId = localStorage.getItem("tenantId");
 
-  if (!localStorage.getItem("token") || !tenantId) return;
+  if (!session.hasSession() || !tenantId) return;
 
   const statusEl = document.getElementById("punch-status");
   const sitesEl = document.getElementById("punch-sites");
@@ -18,19 +17,13 @@
   let clockedInState = false;
   let geofenceWithin = false;
   let geofenceCheckInFlight = false;
-  let refreshInFlight = null;
-
-  function token() {
-    return localStorage.getItem("token");
-  }
 
   function authHeaders(json = true) {
-    const headers = {
-      Authorization: `Bearer ${token()}`,
-      "X-Tenant-Id": tenantId,
-    };
-    if (json) headers["Content-Type"] = "application/json";
-    return headers;
+    return session.authHeaders({ json, tenantId });
+  }
+
+  async function apiFetch(path, options = {}) {
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
   }
 
   function parseApiError(data, fallback) {
@@ -38,45 +31,6 @@
     if (typeof detail === "string") return detail;
     if (typeof detail === "object" && detail?.message) return detail.message;
     return data?.message || fallback;
-  }
-
-  async function refreshAccessToken() {
-    if (refreshInFlight) return refreshInFlight;
-    const refresh = localStorage.getItem("refreshToken");
-    if (!refresh) return false;
-    refreshInFlight = (async () => {
-      try {
-        const response = await fetch(`${API_BASE}/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: refresh }),
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) return false;
-        if (data.access_token) localStorage.setItem("token", data.access_token);
-        if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
-        return true;
-      } catch {
-        return false;
-      } finally {
-        refreshInFlight = null;
-      }
-    })();
-    return refreshInFlight;
-  }
-
-  async function apiFetch(path, options = {}) {
-    const request = async () =>
-      fetch(`${API_BASE}${path}`, {
-        ...options,
-        headers: { ...authHeaders(options.body != null), ...(options.headers || {}) },
-      });
-    let response = await request();
-    if (response.status === 401) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) response = await request();
-    }
-    return response;
   }
 
   function setMessage(text, type) {

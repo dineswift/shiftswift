@@ -1,26 +1,15 @@
 (function () {
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
-  const token = localStorage.getItem("token");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
   const tenantId = localStorage.getItem("tenantId");
 
-  if (!token || !tenantId) return;
+  if (!session.hasSession() || !tenantId) return;
 
   const listEl = document.getElementById("employee-week-shifts");
   const messageEl = document.getElementById("employee-shift-message");
 
-  function authHeaders(json = true) {
-    const headers = { Authorization: `Bearer ${token}`, "X-Tenant-Id": tenantId };
-    if (json) headers["Content-Type"] = "application/json";
-    return headers;
-  }
-
   async function apiFetch(path, options = {}) {
-    return fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: { ...authHeaders(options.body != null), ...(options.headers || {}) },
-    });
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
   }
 
   function setMessage(text) {

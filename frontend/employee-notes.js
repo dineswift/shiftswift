@@ -1,25 +1,16 @@
 /** Employee portal — messages HR has shared with the logged-in employee. */
 (function () {
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
   const tenantId = localStorage.getItem("tenantId");
 
-  if (!localStorage.getItem("token") || !tenantId) return;
+  if (!session.hasSession() || !tenantId) return;
 
   const listEl = document.getElementById("employee-notes-list");
   const summaryEl = document.getElementById("employee-notes-summary");
 
-  function token() {
-    return localStorage.getItem("token");
-  }
-
-  function authHeaders() {
-    return {
-      Authorization: `Bearer ${token()}`,
-      "X-Tenant-Id": tenantId,
-      "Content-Type": "application/json",
-    };
+  async function apiFetch(path, options = {}) {
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
   }
 
   function escapeHtml(value) {
@@ -70,7 +61,7 @@
 
   async function loadNotes() {
     try {
-      const res = await fetch(`${API_BASE}/employee/me/notes`, { headers: authHeaders() });
+      const res = await apiFetch("/employee/me/notes");
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Could not load notes");
       const items = data.items || [];

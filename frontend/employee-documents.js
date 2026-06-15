@@ -1,11 +1,10 @@
 /** Employee portal — view and download HR documents shared on their profile. */
 (function () {
-  const API_BASE =
-    localStorage.getItem("apiBaseUrl") ||
-    (window.ShiftSwiftBrand?.resolveApiBase ? window.ShiftSwiftBrand.resolveApiBase() : "http://localhost:3000");
+  const session = window.ShiftSwiftSession;
+  const API_BASE = session.getApiBase();
   const tenantId = localStorage.getItem("tenantId");
 
-  if (!localStorage.getItem("token") || !tenantId) return;
+  if (!session.hasSession() || !tenantId) return;
 
   const tbody = document.getElementById("employee-documents-body");
   const cardsHost = document.getElementById("employee-documents-cards");
@@ -23,17 +22,9 @@
     });
   }
 
-  function token() {
-    return localStorage.getItem("token");
-  }
 
-  function authHeaders(json = true) {
-    const headers = {
-      Authorization: `Bearer ${token()}`,
-      "X-Tenant-Id": tenantId,
-    };
-    if (json) headers["Content-Type"] = "application/json";
-    return headers;
+  async function apiFetch(path, options = {}) {
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
   }
 
   function escapeHtml(value) {
@@ -53,15 +44,11 @@
     }
   }
 
-  async function apiFetch(path, options = {}) {
-    return fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: { ...authHeaders(options.body != null), ...(options.headers || {}) },
+  async function downloadDocument(documentId, filename, scope = "employee") {
+    const scopeQuery = scope && scope !== "employee" ? `?scope=${encodeURIComponent(scope)}` : "";
+    const res = await apiFetch(`/employee/me/documents/${documentId}/file${scopeQuery}`, {
+      headers: session.authHeaders({ json: false, tenantId }),
     });
-  }
-
-  async function downloadDocument(documentId, filename) {
-    const res = await apiFetch(`/employee/me/documents/${documentId}/file`, { headers: authHeaders(false) });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.detail || "Download failed");
@@ -84,8 +71,10 @@
       btn.addEventListener("click", async () => {
         if (messageEl) messageEl.textContent = "Downloading…";
         try {
-          const row = items.find((item) => String(item.id) === btn.dataset.downloadDoc);
-          await downloadDocument(Number(btn.dataset.downloadDoc), row?.original_filename);
+          const row = items.find(
+            (item) => String(item.id) === btn.dataset.downloadDoc && (item.scope || "employee") === (btn.dataset.downloadScope || "employee")
+          );
+          await downloadDocument(Number(btn.dataset.downloadDoc), row?.original_filename, row?.scope || btn.dataset.downloadScope);
           if (messageEl) messageEl.textContent = "";
         } catch (error) {
           if (messageEl) messageEl.textContent = error.message || "Download failed";
@@ -98,7 +87,7 @@
     const actions = [];
     if (row.has_file) {
       actions.push(
-        `<button type="button" class="btn ghost" data-download-doc="${escapeHtml(row.id)}">Download</button>`
+        `<button type="button" class="btn ghost" data-download-doc="${escapeHtml(row.id)}" data-download-scope="${escapeHtml(row.scope || "employee")}">Download</button>`
       );
     }
     if (row.document_url) {

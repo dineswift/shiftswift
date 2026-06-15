@@ -18,15 +18,7 @@ ADVERT_PLATFORMS = [
     {"value": "Other", "label": "Other"},
 ]
 
-DOCUMENT_CATEGORIES = [
-    {"value": "general", "label": "General"},
-    {"value": "policy", "label": "Policy & handbook"},
-    {"value": "contract", "label": "Employment contract"},
-    {"value": "rtw", "label": "Right to work"},
-    {"value": "payroll", "label": "Payroll"},
-    {"value": "disciplinary", "label": "Disciplinary"},
-    {"value": "other", "label": "Other"},
-]
+from modules.documents.constants import TENANT_DOCUMENT_CATEGORIES as DOCUMENT_CATEGORIES
 
 EMPLOYEE_STATUSES = [
     {"value": "active", "label": "Active"},
