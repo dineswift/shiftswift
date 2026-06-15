@@ -35,7 +35,7 @@
       })();
     </script>
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v44" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v45" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1591,9 +1591,10 @@
                 <span id="rota-mode-badge" class="rota-mode-badge" hidden></span>
                 <span id="rota-week-status"></span>
               </div>
-              <p class="muted">Build your rota, save as draft, then publish — staff see shifts in the Time Clock app.</p>
+              <p class="muted rota-builder-lead rota-desktop-only">Build your rota, save as draft, then publish — staff see shifts in the Time Clock app.</p>
+              <p class="muted rota-builder-lead rota-mobile-only">Tap a day, then tap a staff member to add their shift. Save as draft or publish when ready.</p>
             </div>
-            <div class="section-actions rota-builder-actions">
+            <div class="section-actions rota-builder-actions rota-desktop-only">
               <div class="rota-week-nav">
                 <button type="button" class="btn ghost" id="rota-prev-week" aria-label="Previous week">←</button>
                 <strong id="rota-week-label" class="rota-week-nav__label">Week</strong>
@@ -1633,7 +1634,23 @@
             </div>
           </div>
           <article class="card hr-workspace">
-          <div class="rota-builder-subbar">
+          <div class="rota-mobile-only" id="rota-mobile-shell">
+            <nav class="rota-mobile-week-nav" aria-label="Week navigation">
+              <button type="button" class="btn ghost rota-mobile-week-btn" id="rota-mobile-prev-week" aria-label="Previous week">←</button>
+              <button type="button" class="rota-mobile-week-label-btn" id="rota-mobile-week-label-btn" aria-label="Jump to this week"></button>
+              <button type="button" class="btn ghost rota-mobile-week-btn" id="rota-mobile-next-week" aria-label="Next week">→</button>
+            </nav>
+            <div id="rota-mobile-day-strip" class="rota-mobile-day-strip" role="tablist" aria-label="Day of week"></div>
+            <p id="rota-mobile-day-status" class="rota-mobile-day-status" role="status" aria-live="polite"></p>
+            <div id="rota-mobile-staff-list" class="rota-mobile-staff-list" aria-label="Staff for selected day"></div>
+            <div class="rota-mobile-secondary" aria-label="More rota actions">
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
+              <button type="button" class="rota-mobile-chip rota-mobile-chip--toggle" id="rota-mobile-notify-btn" aria-pressed="true">Notify by email</button>
+            </div>
+          </div>
+
+          <div class="rota-builder-subbar rota-desktop-only">
             <div class="rota-builder-subbar__left">
               <div class="rota-view-toggle" role="tablist" aria-label="Rota view">
                 <button type="button" class="btn ghost is-active" id="rota-view-grid" data-view="grid">Grid</button>
@@ -1644,7 +1661,7 @@
             <p class="rota-builder-hint muted">Drag to move · Alt+drag to copy · Right-click for options · Click empty cell to add</p>
           </div>
 
-          <div class="rota-desktop-row">
+          <div class="rota-desktop-row rota-desktop-only">
           <div class="rota-builder-shell" id="rota-builder-shell">
           <div class="rota-builder-layout" id="rota-grid-view">
             <article class="card rota-builder-main">
@@ -1659,10 +1676,9 @@
           </div>
           </div>
           </div>
-          <article class="card" id="rota-list-panel" hidden>
+          <article class="card rota-desktop-only" id="rota-list-panel" hidden>
             <div class="rota-list-panel__head">
               <h3>Shifts this week</h3>
-              <button type="button" class="btn primary" id="rota-mobile-add-shift">+ Add shift</button>
             </div>
             <div id="rota-shifts-cards" class="rota-shift-cards" hidden aria-label="Shifts this week"></div>
             <div class="table-wrap rota-shifts-table-wrap">
@@ -1728,6 +1744,12 @@
             <button type="button" class="btn ghost" id="rota-clear-btn">Clear rota</button>
           </div>
           </article>
+          <div class="rota-mobile-footer rota-mobile-only" id="rota-mobile-footer">
+            <div class="rota-mobile-footer__inner">
+              <button type="button" class="btn outline rota-mobile-footer-btn" id="rota-mobile-save-btn">Save draft</button>
+              <button type="button" class="btn primary rota-mobile-footer-btn" id="rota-mobile-publish-btn">Publish rota</button>
+            </div>
+          </div>
           <div id="rota-panel-portal-home">
           <div id="rota-shift-backdrop" class="rota-shift-backdrop mobile-editor-backdrop" hidden aria-hidden="true"></div>
           <aside id="rota-shift-panel" class="rota-shift-panel mobile-editor-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rota-shift-popover-title">
@@ -2087,7 +2109,7 @@
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=4"></script>
-    <script src="./admin-mobile.js?v=5"></script>
+    <script src="./admin-mobile.js?v=6"></script>
     <script src="./admin-shared.js?v=admin-v16"></script>
     <script src="./admin-workspace.js?v=admin-v17"></script>
     <script src="./admin-settings.js?v=10"></script>
@@ -2103,7 +2125,7 @@
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=11"></script>
-    <script src="./admin-rota.js?v=15"></script>
+    <script src="./admin-rota.js?v=16"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=5"></script>

@@ -240,7 +240,7 @@
         document.body.classList.remove("admin-mobile-detail");
         setTab(tab.dataset.mobileTab);
         if (tab.dataset.mobileTab === "rota") {
-          window.setTimeout(() => document.getElementById("rota-view-list")?.click(), 80);
+          window.dispatchEvent(new CustomEvent("admin:rota-mobile-open"));
         }
       });
     });
