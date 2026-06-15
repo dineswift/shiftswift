@@ -3,7 +3,8 @@
   const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill } = window.Admin;
 
   let sectionReady = false;
-  let currentWeekStart = mondayIso(new Date());
+  let rotaWeekStartDay = 0;
+  let currentWeekStart = rotaWeekStartIso(new Date());
   let weekMeta = null;
   let rotaPolicy = null;
   let shifts = [];
@@ -84,12 +85,31 @@
     }
   }
 
-  function mondayIso(date) {
+  const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  function syncRotaWeekStartDay(day) {
+    if (day == null || Number.isNaN(Number(day))) return;
+    const parsed = Number(day);
+    if (parsed >= 0 && parsed <= 6) rotaWeekStartDay = parsed;
+  }
+
+  function jsDayFromPythonWeekday(pyDay) {
+    return pyDay === 6 ? 0 : pyDay + 1;
+  }
+
+  function rotaWeekStartIso(date, weekStartDay = rotaWeekStartDay) {
     const d = new Date(date);
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
+    const jsStart = jsDayFromPythonWeekday(weekStartDay);
+    const diff = (d.getDay() - jsStart + 7) % 7;
+    d.setDate(d.getDate() - diff);
     return d.toISOString().slice(0, 10);
+  }
+
+  function weekRangeShortLabel() {
+    const start = WEEKDAY_NAMES[rotaWeekStartDay].slice(0, 3);
+    const endDay = (rotaWeekStartDay + 6) % 7;
+    const end = WEEKDAY_NAMES[endDay].slice(0, 3);
+    return `${start}–${end}`;
   }
 
   function addDays(isoDate, days) {
@@ -711,10 +731,10 @@
       return;
     }
     if (!shiftCount) {
-      el.textContent = `0 shifts · ${staff.length} staff · Mon–Sun`;
+      el.textContent = `0 shifts · ${staff.length} staff · ${weekRangeShortLabel()}`;
       return;
     }
-    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff · Mon–Sun`;
+    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff · ${weekRangeShortLabel()}`;
   }
 
   function syncPanelVisibility() {
@@ -1285,6 +1305,7 @@
       }
       weekMeta = data.week || { status: "draft", version: 1 };
       rotaPolicy = data.policy || null;
+      if (data.week_start_day != null) syncRotaWeekStartDay(data.week_start_day);
       shifts = (data.shifts || []).map((s) => ({ ...s }));
       attendanceByShiftId = new Map();
       (data.attendance?.items || []).forEach((item) => {
@@ -1651,7 +1672,7 @@
     document.getElementById("rota-this-week")?.addEventListener("click", () => {
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
       closeShiftPanel();
-      currentWeekStart = mondayIso(new Date());
+      currentWeekStart = rotaWeekStartIso(new Date());
       loadWeek();
     });
     document.getElementById("rota-add-btn")?.addEventListener("click", addShiftFromForm);
@@ -1688,8 +1709,13 @@
     if (window.Admin?.loadTenantFeatures) {
       await window.Admin.loadTenantFeatures();
     }
+    syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
+    currentWeekStart = rotaWeekStartIso(new Date());
     applyRotaModeUi();
-    window.addEventListener("admin:features", applyRotaModeUi);
+    window.addEventListener("admin:features", () => {
+      syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
+      applyRotaModeUi();
+    });
     bindAdvancedUiOnce();
 
     syncViewForViewport();

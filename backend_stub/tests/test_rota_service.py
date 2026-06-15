@@ -26,10 +26,22 @@ from modules.rota.service import (
 )
 
 
-def test_parse_week_start_requires_monday() -> None:
-    assert parse_week_start("2026-06-08") == date(2026, 6, 8)
+def test_parse_week_start_requires_configured_day() -> None:
+    assert parse_week_start("2026-06-08", week_start_day=0) == date(2026, 6, 8)
+    assert parse_week_start("2026-06-09", week_start_day=1) == date(2026, 6, 9)
     with pytest.raises(RotaValidationError):
-        parse_week_start("2026-06-09")
+        parse_week_start("2026-06-09", week_start_day=0)
+    with pytest.raises(RotaValidationError):
+        parse_week_start("2026-06-08", week_start_day=1)
+
+
+def test_week_start_on_or_before_respects_start_day() -> None:
+    from modules.rota.service import week_start_on_or_before
+
+    # Wednesday 10 Jun 2026 with Tuesday week start -> Tue 9 Jun
+    assert week_start_on_or_before(date(2026, 6, 10), 1) == date(2026, 6, 9)
+    # Same day with Monday start -> Mon 8 Jun
+    assert week_start_on_or_before(date(2026, 6, 10), 0) == date(2026, 6, 8)
 
 
 def test_shift_window_overnight() -> None:

@@ -7,7 +7,7 @@ from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from admin_service import list_employees
-from modules.rota.service import monday_on_or_before
+from modules.rota.service import get_tenant_rota_week_start_day, week_start_on_or_before
 
 UK_TZ = ZoneInfo("Europe/London")
 ApprovalStatus = Literal["pending", "approved", "rejected"]
@@ -159,7 +159,8 @@ def weekly_timesheet(
     week_start: date | None,
     conn: Any,
 ) -> dict[str, Any]:
-    start = monday_on_or_before(week_start or date.today())
+    week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    start = week_start_on_or_before(week_start or date.today(), week_start_day)
     end = start + timedelta(days=6)
     employees = [
         e
@@ -244,7 +245,8 @@ def set_timesheet_approval(
 ) -> dict[str, Any]:
     if status not in {"approved", "rejected", "pending"}:
         raise ValueError("Invalid approval status")
-    week = monday_on_or_before(week_start)
+    week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    week = week_start_on_or_before(week_start, week_start_day)
     with conn.cursor() as cur:
         cur.execute(
             "SELECT id FROM employees WHERE id = %s AND tenant_id = %s",

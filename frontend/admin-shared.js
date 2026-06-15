@@ -67,6 +67,7 @@ window.Admin = (() => {
     api_access_enabled: false,
     rota_mode: "basic",
     rota_mode_options: ["basic"],
+    rota_week_start_day: 0,
     rota_advanced_addon: false,
     rota_multi_site_addon: false,
     rota_advanced_enabled: false,
@@ -154,6 +155,9 @@ window.Admin = (() => {
         api_access_enabled: Boolean(data.api_access_enabled),
         rota_mode: data.rota_mode || "basic",
         rota_mode_options: Array.isArray(data.rota_mode_options) ? data.rota_mode_options : ["basic"],
+        rota_week_start_day: Number.isFinite(Number(data.rota_week_start_day))
+          ? Number(data.rota_week_start_day)
+          : 0,
         rota_advanced_addon: Boolean(data.rota_advanced_addon),
         rota_multi_site_addon: Boolean(data.rota_multi_site_addon),
         rota_advanced_enabled: Boolean(data.rota_advanced_enabled),

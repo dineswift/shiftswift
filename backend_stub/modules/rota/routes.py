@@ -126,6 +126,17 @@ def _employee_for_user(*, tenant_id: int, user: AuthUser, conn) -> dict:
     return employee
 
 
+def _tenant_week_start_day(*, tenant_id: int, conn) -> int:
+    return rota_service.get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+
+
+def _parse_tenant_week_start(*, tenant_id: int, week_start: str, conn) -> date:
+    return rota_service.parse_week_start(
+        week_start,
+        week_start_day=_tenant_week_start_day(tenant_id=tenant_id, conn=conn),
+    )
+
+
 def _require_rota_advanced(*, tenant_id: int, conn) -> None:
     from admin_service import get_tenant_profile
 
@@ -177,13 +188,12 @@ def get_week_rota(
 ) -> dict[str, object]:
     check_permission(current_user, "employees.read")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    try:
-        parsed = rota_service.parse_week_start(week_start)
-    except RotaValidationError as exc:
-        raise _handle_rota_errors(exc) from exc
-
     conn = get_connection()
     try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+        except RotaValidationError as exc:
+            raise _handle_rota_errors(exc) from exc
         rota_service.get_or_create_week(
             tenant_id=tenant_id,
             week_start=parsed,
@@ -191,7 +201,13 @@ def get_week_rota(
             conn=conn,
         )
         conn.commit()
-        payload = rota_service.get_week_rota(tenant_id=tenant_id, week_start=parsed, conn=conn)
+        week_start_day = _tenant_week_start_day(tenant_id=tenant_id, conn=conn)
+        payload = rota_service.get_week_rota(
+            tenant_id=tenant_id,
+            week_start=parsed,
+            conn=conn,
+            week_start_day=week_start_day,
+        )
         if include_attendance and payload.get("shifts"):
             payload["attendance"] = rota_attendance.build_week_attendance(
                 tenant_id=tenant_id,
@@ -221,9 +237,12 @@ def get_week_attendance(
 ) -> dict[str, object]:
     check_permission(current_user, "employees.read")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    parsed = rota_service.parse_week_start(week_start)
     conn = get_connection()
     try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+        except RotaValidationError as exc:
+            raise _handle_rota_errors(exc) from exc
         _, shifts = rota_service.list_shifts_for_week(tenant_id=tenant_id, week_start=parsed, conn=conn)
         return rota_attendance.build_week_attendance(
             tenant_id=tenant_id,
@@ -244,10 +263,10 @@ def save_week_rota(
 ) -> dict[str, object]:
     check_permission(current_user, "employees.write")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
     try:
-        parsed = rota_service.parse_week_start(week_start)
-        conn = get_connection()
         try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
             return rota_service.save_week_shifts(
                 tenant_id=tenant_id,
                 week_start=parsed,
@@ -256,10 +275,10 @@ def save_week_rota(
                 actor_username=current_user.username,
                 conn=conn,
             )
-        finally:
-            conn.close()
-    except (RotaValidationError, RotaConflictError, ValueError) as exc:
-        raise _handle_rota_errors(exc) from exc
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
 
 
 @admin_router.post("/weeks/{week_start}/copy-previous")
@@ -271,10 +290,10 @@ def copy_previous_week(
 ) -> dict[str, object]:
     check_permission(current_user, "employees.write")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
     try:
-        parsed = rota_service.parse_week_start(week_start)
-        conn = get_connection()
         try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
             return rota_service.copy_week_from_previous(
                 tenant_id=tenant_id,
                 week_start=parsed,
@@ -282,10 +301,10 @@ def copy_previous_week(
                 actor_username=current_user.username,
                 conn=conn,
             )
-        finally:
-            conn.close()
-    except (RotaValidationError, RotaConflictError, ValueError) as exc:
-        raise _handle_rota_errors(exc) from exc
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
 
 
 @admin_router.post("/weeks/{week_start}/publish")
@@ -297,10 +316,10 @@ def publish_week_rota(
 ) -> dict[str, object]:
     check_permission(current_user, "employees.write")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
     try:
-        parsed = rota_service.parse_week_start(week_start)
-        conn = get_connection()
         try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
             return rota_service.publish_week(
                 tenant_id=tenant_id,
                 week_start=parsed,
@@ -309,10 +328,10 @@ def publish_week_rota(
                 conn=conn,
                 notify_staff=payload.notify_staff,
             )
-        finally:
-            conn.close()
-    except (RotaValidationError, RotaConflictError, ValueError) as exc:
-        raise _handle_rota_errors(exc) from exc
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
 
 
 @admin_router.get("/templates")
@@ -432,10 +451,10 @@ def generate_week_draft(
 ) -> dict[str, object]:
     check_permission(current_user, "employees.write")
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
     try:
-        parsed = rota_service.parse_week_start(week_start)
-        conn = get_connection()
         try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
             _require_rota_advanced(tenant_id=tenant_id, conn=conn)
             return rota_insights.generate_draft_from_template(
                 tenant_id=tenant_id,
@@ -445,10 +464,10 @@ def generate_week_draft(
                 actor_username=current_user.username,
                 conn=conn,
             )
-        finally:
-            conn.close()
-    except (RotaValidationError, RotaConflictError, ValueError) as exc:
-        raise _handle_rota_errors(exc) from exc
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
 
 
 @admin_router.get("/shift-requests")
@@ -505,10 +524,11 @@ def my_shifts(
     conn = get_connection()
     try:
         employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
+        week_start_day = _tenant_week_start_day(tenant_id=tenant_id, conn=conn)
         if week_start:
-            parsed = rota_service.parse_week_start(week_start)
+            parsed = rota_service.parse_week_start(week_start, week_start_day=week_start_day)
         else:
-            parsed = rota_service.monday_on_or_before(date.today())
+            parsed = rota_service.week_start_on_or_before(date.today(), week_start_day)
         shifts = rota_attendance.list_employee_week_shifts(
             tenant_id=tenant_id,
             employee_id=employee["id"],
@@ -518,6 +538,8 @@ def my_shifts(
         return {
             "week_start": parsed.isoformat(),
             "week_end": (parsed + timedelta(days=6)).isoformat(),
+            "week_start_day": week_start_day,
+            "week_start_day_name": rota_service.WEEKDAY_NAMES[week_start_day],
             "shifts": shifts,
         }
     except RotaValidationError as exc:

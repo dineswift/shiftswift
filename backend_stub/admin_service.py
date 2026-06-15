@@ -50,6 +50,7 @@ TENANT_PROFILE_FIELDS = (
     "payroll_accountant_email",
     "payroll_hours_report_enabled",
     "rota_mode",
+    "rota_week_start_day",
 )
 
 NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
@@ -122,6 +123,13 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         alias=None,
         null_sql="FALSE AS rota_multi_site_addon",
     )
+    rota_week_start_col = column_expr(
+        conn,
+        table="tenants",
+        column="rota_week_start_day",
+        alias=None,
+        null_sql="0 AS rota_week_start_day",
+    )
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -132,7 +140,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    holds_sponsor_licence, sponsor_licence_acknowledged_at,
                    sponsor_licence_acknowledged_by, sponsor_licence_ack_version,
                    payroll_accountant_email, payroll_hours_report_enabled,
-                   {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}
+                   {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -167,6 +175,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "rota_mode": row[22],
             "rota_advanced_addon": bool(row[23]),
             "rota_multi_site_addon": bool(row[24]),
+            "rota_week_start_day": int(row[25] or 0),
         }
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
@@ -222,6 +231,15 @@ def update_tenant_profile(
                 )
             except ValueError as exc:
                 raise ValueError(str(exc)) from exc
+
+    if "rota_week_start_day" in allowed:
+        from core.schema import table_columns
+        from modules.rota.service import normalize_week_start_day
+
+        if "rota_week_start_day" not in table_columns(conn, "tenants"):
+            allowed.pop("rota_week_start_day", None)
+        else:
+            allowed["rota_week_start_day"] = normalize_week_start_day(allowed["rota_week_start_day"])
 
     sets = ", ".join(f"{key} = %s" for key in allowed)
     values = list(allowed.values()) + [tenant_id]
@@ -653,7 +671,8 @@ def delete_document(
 def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     from datetime import date
 
-    from modules.rota.service import monday_on_or_before
+    from modules.rota import service as rota_service
+    from modules.rota.service import get_tenant_rota_week_start_day, week_start_on_or_before
     from plan_features import effective_features_for_tenant, plan_display_name
     from sponsor_licence_compliance import RTW_EXPIRING_SOON_DAYS
     from trial_service import trial_snapshot
@@ -661,7 +680,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
     trial = trial_snapshot(tenant_id=tenant_id, conn=conn)
     today = date.today()
-    week_start = monday_on_or_before(today)
+    rota_week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    week_start = week_start_on_or_before(today, rota_week_start_day)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -1037,6 +1057,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         "payroll_plan_id": profile["payroll_plan_id"],
         "trial_active": bool(plan_flags.get("trial_active")),
         "days_remaining": trial.get("days_remaining"),
+        "rota_week_start_day": rota_week_start_day,
+        "rota_week_start_day_name": rota_service.WEEKDAY_NAMES[rota_week_start_day],
         "holds_sponsor_licence": bool(profile.get("holds_sponsor_licence")),
         "sponsor_licence_acknowledged": bool(profile.get("sponsor_licence_acknowledged")),
         "open_actions_count": len(open_actions),

@@ -554,14 +554,15 @@ def employee_punch_status(*, tenant_id: int, employee_id: int, conn: Any) -> dic
     from datetime import date
 
     from modules.rota.attendance import expected_shift_for_employee_on_date, list_employee_week_shifts
-    from modules.rota.service import monday_on_or_before
+    from modules.rota.service import get_tenant_rota_week_start_day, week_start_on_or_before
 
     sites = eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     last = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     work_state = work_state_from_last(last)
     clocked_in = work_state != "off"
     today = date.today()
-    week_start = monday_on_or_before(today)
+    week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    week_start = week_start_on_or_before(today, week_start_day)
     expected_shift = expected_shift_for_employee_on_date(
         tenant_id=tenant_id,
         employee_id=employee_id,

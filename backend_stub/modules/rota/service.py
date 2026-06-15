@@ -8,6 +8,8 @@ from typing import Any
 MIN_SHIFT_MINUTES = 15
 MAX_SHIFT_HOURS = 16
 BILLABLE_EMPLOYEE_STATUSES = frozenset({"active", "onboarding", "suspended"})
+WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+DEFAULT_WEEK_START_DAY = 0
 
 
 class RotaValidationError(ValueError):
@@ -28,18 +30,54 @@ class RotaConflictError(ValueError):
         self.actual = actual
 
 
-def parse_week_start(value: str | date) -> date:
+def normalize_week_start_day(week_start_day: int | None) -> int:
+    if week_start_day is None:
+        return DEFAULT_WEEK_START_DAY
+    try:
+        day = int(week_start_day)
+    except (TypeError, ValueError):
+        return DEFAULT_WEEK_START_DAY
+    if day < 0 or day > 6:
+        return DEFAULT_WEEK_START_DAY
+    return day
+
+
+def get_tenant_rota_week_start_day(*, tenant_id: int, conn: Any) -> int:
+    from core.schema import table_columns
+
+    if "rota_week_start_day" not in table_columns(conn, "tenants"):
+        return DEFAULT_WEEK_START_DAY
+    with conn.cursor() as cur:
+        cur.execute("SELECT rota_week_start_day FROM tenants WHERE id = %s", (tenant_id,))
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("tenant not found")
+        return normalize_week_start_day(row[0])
+
+
+def parse_week_start(value: str | date, *, week_start_day: int = DEFAULT_WEEK_START_DAY) -> date:
+    week_start_day = normalize_week_start_day(week_start_day)
     if isinstance(value, date):
         week_start = value
     else:
         week_start = date.fromisoformat(str(value).strip()[:10])
-    if week_start.weekday() != 0:
-        raise RotaValidationError("week_start must be a Monday (ISO week)", field="week_start")
+    if week_start.weekday() != week_start_day:
+        expected = WEEKDAY_NAMES[week_start_day]
+        raise RotaValidationError(
+            f"week_start must be a {expected} (your rota week start day)",
+            field="week_start",
+        )
     return week_start
 
 
+def week_start_on_or_before(day: date, week_start_day: int = DEFAULT_WEEK_START_DAY) -> date:
+    week_start_day = normalize_week_start_day(week_start_day)
+    delta = (day.weekday() - week_start_day) % 7
+    return day - timedelta(days=delta)
+
+
 def monday_on_or_before(day: date) -> date:
-    return day - timedelta(days=day.weekday())
+    return week_start_on_or_before(day, DEFAULT_WEEK_START_DAY)
 
 
 def week_dates(week_start: date) -> list[date]:
@@ -298,12 +336,23 @@ def list_shifts_for_week(*, tenant_id: int, week_start: date, conn: Any) -> tupl
         return week, shifts
 
 
-def get_week_rota(*, tenant_id: int, week_start: date, conn: Any) -> dict[str, Any]:
+def get_week_rota(
+    *,
+    tenant_id: int,
+    week_start: date,
+    conn: Any,
+    week_start_day: int | None = None,
+) -> dict[str, Any]:
     week, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    resolved_day = normalize_week_start_day(
+        week_start_day if week_start_day is not None else get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    )
     return {
         "week_start": week_start.isoformat(),
         "week_end": week_end_date(week_start).isoformat(),
         "week_days": [day.isoformat() for day in week_dates(week_start)],
+        "week_start_day": resolved_day,
+        "week_start_day_name": WEEKDAY_NAMES[resolved_day],
         "week": week,
         "shifts": shifts,
         "policy": rota_week_policy(week_start, week),

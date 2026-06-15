@@ -378,15 +378,17 @@
       });
   }
 
-  const ROTA_DAY_OPTIONS = [
-    { value: 1, label: "Monday" },
-    { value: 2, label: "Tuesday" },
-    { value: 3, label: "Wednesday" },
-    { value: 4, label: "Thursday" },
-    { value: 5, label: "Friday" },
-    { value: 6, label: "Saturday" },
-    { value: 7, label: "Sunday" },
-  ];
+  const ROTA_WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  function rotaTemplateDayOptions(weekStartDay = 0) {
+    const start = Number.isFinite(Number(weekStartDay)) ? Number(weekStartDay) : 0;
+    return Array.from({ length: 7 }, (_, i) => {
+      const idx = (start + i) % 7;
+      return { value: i + 1, label: ROTA_WEEKDAY_NAMES[idx] };
+    });
+  }
+
+  const ROTA_DAY_OPTIONS = rotaTemplateDayOptions(0);
 
   function rotaReadinessStatusLabel(status) {
     if (status === "ok") return "Complete";
@@ -440,12 +442,15 @@
     }
   }
 
-  function rotaRequirementRowHtml(req = {}, index = 0) {
+  let settingsRotaWeekStartDay = 0;
+
+  function rotaRequirementRowHtml(req = {}, index = 0, weekStartDay = settingsRotaWeekStartDay) {
+    const dayOptions = rotaTemplateDayOptions(weekStartDay);
     return `
       <tr data-req-row="${index}">
         <td>
           <select data-req-day>
-            ${ROTA_DAY_OPTIONS.map(
+            ${dayOptions.map(
               (day) =>
                 `<option value="${day.value}" ${Number(req.day_of_week) === day.value ? "selected" : ""}>${day.label}</option>`
             ).join("")}
@@ -663,6 +668,7 @@
       const modeLabels = overview.rota_mode_labels || window.Admin?.tenantFeatures?.rota_mode_labels || {};
       const allModes = overview.rota_modes_all || window.Admin?.tenantFeatures?.rota_modes_all || ["basic", "advanced", "multi_site"];
       const current = profile.rota_mode_preference ?? overview.rota_mode ?? profile.rota_mode ?? "basic";
+      settingsRotaWeekStartDay = profile.rota_week_start_day ?? overview.rota_week_start_day ?? 0;
       const planName = overview.plan_display_name || "Starter";
       const supportMailto = window.ShiftSwiftBrand?.supportMailto?.("Advanced rota add-on") || "#";
 
@@ -670,6 +676,16 @@
         ${renderRotaReadinessHtml(readiness)}
         <p class="muted">Basic manual rota (weekly grid, copy week, publish, attendance) is included on your <strong>${escapeHtml(planName)}</strong> plan.</p>
         <p class="muted">Advanced scheduling and multi-site rota are <strong>paid add-ons</strong> — pricing to be confirmed. Contact <a href="${escapeHtml(supportMailto)}">support</a> to enable them on your account.</p>
+        <label class="edit-field">
+          Week starts on
+          <select id="settings-rota-week-start-day">
+            ${ROTA_WEEKDAY_NAMES.map(
+              (name, idx) =>
+                `<option value="${idx}" ${Number(settingsRotaWeekStartDay) === idx ? "selected" : ""}>${escapeHtml(name)}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <p class="muted">Your rota and timesheet weeks run for seven days from this day. Restaurants often use Tuesday or Wednesday.</p>
         <label class="edit-field">
           Scheduling mode
           <select id="settings-rota-mode-select">
@@ -691,6 +707,7 @@
       const statusLine = document.getElementById("settings-rota-status");
       const addonStatus = document.getElementById("settings-rota-addon-status");
       const select = document.getElementById("settings-rota-mode-select");
+      const weekStartSelect = document.getElementById("settings-rota-week-start-day");
 
       if (addonStatus) {
         const bits = [];
@@ -710,6 +727,32 @@
         }
       }
       updateHelp();
+
+      weekStartSelect?.addEventListener("change", async () => {
+        const day = Number(weekStartSelect.value);
+        if (!Number.isFinite(day) || day < 0 || day > 6) return;
+        if (statusLine) statusLine.textContent = "Saving week start day…";
+        try {
+          const saveRes = await apiFetch("/admin/tenant-profile", {
+            method: "PATCH",
+            body: JSON.stringify({ rota_week_start_day: day }),
+          });
+          const saveData = await saveRes.json();
+          if (!saveRes.ok) throw new Error(saveData.detail || "Save failed");
+          settingsRotaWeekStartDay = day;
+          showSettingsToast("Rota week start day saved ✓");
+          if (statusLine) statusLine.textContent = "";
+          await window.Admin.loadTenantFeatures();
+          window.dispatchEvent(new CustomEvent("admin:features-refresh"));
+          await renderRotaTemplatesEditor(
+            document.getElementById("settings-rota-templates-wrap"),
+            select?.value === "advanced" || select?.value === "multi_site"
+          );
+        } catch (error) {
+          if (statusLine) statusLine.textContent = error.message || "Could not save week start day";
+          showSettingsToast(error.message || "Could not save week start day");
+        }
+      });
 
       select?.addEventListener("change", async () => {
         updateHelp();

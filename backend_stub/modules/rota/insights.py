@@ -126,7 +126,7 @@ def coverage_gaps_for_week(
             gaps.append(
                 {
                     "shift_date": shift_date.isoformat(),
-                    "day_name": DAY_NAMES[day_of_week - 1],
+                    "day_name": shift_date.strftime("%a"),
                     "start_time": req["start_time"],
                     "end_time": req["end_time"],
                     "role_label": role_label,

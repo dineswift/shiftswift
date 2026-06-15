@@ -18,8 +18,9 @@
   let tenantProfile = null;
   let selectedSiteId = null;
   let activeTab = "sites";
-  let timesheetWeekStart = mondayIso();
+  let timesheetWeekStart = rotaWeekStartIso();
   let timesheetData = null;
+  let rotaWeekStartDay = 0;
   let filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
   let bound = false;
 
@@ -66,11 +67,26 @@
     };
   }
 
-  function mondayIso(d = new Date()) {
+  function syncRotaWeekStartDay(day) {
+    if (day == null || Number.isNaN(Number(day))) return;
+    const parsed = Number(day);
+    if (parsed >= 0 && parsed <= 6) rotaWeekStartDay = parsed;
+  }
+
+  function jsDayFromPythonWeekday(pyDay) {
+    return pyDay === 6 ? 0 : pyDay + 1;
+  }
+
+  function rotaWeekStartIso(d = new Date(), weekStartDay = rotaWeekStartDay) {
     const day = new Date(d);
-    const diff = (day.getDay() + 6) % 7;
+    const jsStart = jsDayFromPythonWeekday(weekStartDay);
+    const diff = (day.getDay() - jsStart + 7) % 7;
     day.setDate(day.getDate() - diff);
     return day.toISOString().slice(0, 10);
+  }
+
+  function mondayIso(d = new Date()) {
+    return rotaWeekStartIso(d);
   }
 
   function formatWhen(iso) {
@@ -736,6 +752,8 @@
       const res = await apiFetch("/admin/tenant-profile");
       if (!res.ok) throw new Error("Load failed");
       tenantProfile = await res.json();
+      syncRotaWeekStartDay(tenantProfile.rota_week_start_day);
+      timesheetWeekStart = rotaWeekStartIso();
       renderAccountantSettings();
     } catch {
       tenantProfile = null;
@@ -1156,7 +1174,7 @@
     $("punch-timesheet-prev")?.addEventListener("click", () => shiftTimesheetWeek(-1));
     $("punch-timesheet-next")?.addEventListener("click", () => shiftTimesheetWeek(1));
     $("punch-timesheet-this-week")?.addEventListener("click", () => {
-      timesheetWeekStart = mondayIso();
+      timesheetWeekStart = rotaWeekStartIso();
       loadTimesheet();
     });
     $("punch-timesheet-approve-all")?.addEventListener("click", () => approveAllTimesheets("approved"));
@@ -1214,6 +1232,11 @@
     bindEvents();
     setActiveTab(activeTab);
     showMessage("");
+    if (window.Admin?.loadTenantFeatures) {
+      await window.Admin.loadTenantFeatures();
+      syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
+      timesheetWeekStart = rotaWeekStartIso();
+    }
     await Promise.all([
       loadTenantProfile(),
       loadEmployeeList(),
