@@ -2831,6 +2831,12 @@ textarea:focus {
   body.admin-mobile-more-open #mobile-more-panel[hidden] {
     display: block !important;
   }
+  body.admin-mobile-detail #mobile-more-panel {
+    display: none !important;
+  }
+  body.admin-mobile-detail .admin-section.admin-section--active {
+    display: grid !important;
+  }
   body.admin-mobile-detail .mobile-tab-bar {
     display: none;
   }

@@ -51,6 +51,21 @@
     greetingEl.textContent = `${timeGreeting()}, ${displayFirstName()}`;
   }
 
+  function closeMorePanel() {
+    document.body.classList.remove("admin-mobile-more-open");
+    const morePanel = document.getElementById("mobile-more-panel");
+    if (morePanel) morePanel.hidden = true;
+  }
+
+  function navigateFromMore(hash) {
+    const raw = String(hash || "").replace(/^#/, "");
+    const section = raw.split("/")[0];
+    if (!section || section === "overview") return;
+    previousTab = "more";
+    closeMorePanel();
+    window.location.hash = raw;
+  }
+
   function syncTabUi(tab) {
     document.body.dataset.mobileTab = tab;
     document.querySelectorAll("[data-mobile-tab]").forEach((el) => {
@@ -60,7 +75,10 @@
     });
 
     const morePanel = document.getElementById("mobile-more-panel");
-    if (morePanel) morePanel.hidden = tab !== "more";
+    const inDetail = document.body.classList.contains("admin-mobile-detail");
+    if (morePanel) {
+      morePanel.hidden = inDetail || tab !== "more";
+    }
 
     document.querySelectorAll(".admin-mobile-home-only").forEach((el) => {
       if (!isMobile()) {
@@ -124,9 +142,9 @@
 
   function enterDetailView(sectionId) {
     previousTab = currentTab;
+    closeMorePanel();
     document.body.classList.add("admin-mobile-detail");
     document.body.dataset.mobileDetail = sectionId;
-    document.body.classList.remove("admin-mobile-more-open");
     const back = document.getElementById("mobile-back-btn");
     const toggle = document.getElementById("sidebar-toggle");
     if (back) back.hidden = false;
@@ -141,11 +159,22 @@
     const toggle = document.getElementById("sidebar-toggle");
     if (back) back.hidden = true;
     if (toggle) toggle.hidden = false;
-    setTab(previousTab || "home");
+    const returnTab = previousTab || "home";
+    if (returnTab === "more") {
+      currentTab = "more";
+      localStorage.setItem("adminMobileTab", "more");
+      syncTabUi("more");
+      document.querySelectorAll(".admin-section").forEach((section) => {
+        section.hidden = true;
+      });
+      window.location.hash = "overview";
+      return;
+    }
+    setTab(returnTab);
     const hash =
-      previousTab === "rota"
+      returnTab === "rota"
         ? "rota"
-        : previousTab === "compliance"
+        : returnTab === "compliance"
           ? "compliance"
           : "overview";
     window.location.hash = hash;
@@ -219,14 +248,28 @@
       });
     });
 
-    document.querySelectorAll("#mobile-more-panel .mobile-more-link[href^='#']").forEach((link) => {
-      link.addEventListener("click", () => {
+    document.querySelectorAll("#mobile-more-panel .mobile-more-link").forEach((link) => {
+      link.addEventListener("click", (event) => {
         if (!isMobile()) return;
-        const target = (link.getAttribute("href") || "").replace("#", "").split("/")[0];
-        if (target && !["overview", ""].includes(target)) {
-          previousTab = "more";
-          document.body.classList.remove("admin-mobile-more-open");
+        const href = link.getAttribute("href") || "";
+
+        if (link.hasAttribute("data-sign-out") || (link.target === "_blank" && !href.startsWith("#"))) {
+          closeMorePanel();
+          return;
         }
+
+        if (link.dataset.brandSupportMailto || href.startsWith("mailto:")) {
+          closeMorePanel();
+          return;
+        }
+
+        if (!href.startsWith("#") || href === "#") {
+          closeMorePanel();
+          return;
+        }
+
+        event.preventDefault();
+        navigateFromMore(href);
       });
     });
 
