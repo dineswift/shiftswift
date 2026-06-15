@@ -30,6 +30,8 @@ def parse_accounts_csv(raw: str) -> list[dict[str, str | None]]:
                 "email": _cell(row, "email") or None,
                 "phone": _cell(row, "phone") or None,
                 "website": _cell(row, "website", "url") or None,
+                "industry": _cell(row, "industry", "sector") or None,
+                "account_type": _cell(row, "account_type", "type") or "prospect",
                 "notes": _cell(row, "notes") or None,
             }
         )
@@ -49,6 +51,7 @@ def parse_contacts_csv(raw: str) -> list[dict[str, str | None]]:
                 "email": _cell(row, "email") or None,
                 "phone": _cell(row, "phone") or None,
                 "job_title": _cell(row, "job_title", "title", "role") or None,
+                "department": _cell(row, "department", "dept") or None,
                 "company": _cell(row, "company", "account", "company_name") or None,
                 "notes": _cell(row, "notes") or None,
             }
@@ -76,6 +79,8 @@ def import_accounts(
                 email=row.get("email"),
                 phone=row.get("phone"),
                 website=row.get("website"),
+                industry=row.get("industry"),
+                account_type=str(row.get("account_type") or "prospect"),
                 notes=row.get("notes"),
                 owner_username=owner_username,
                 conn=conn,
@@ -118,6 +123,7 @@ def import_contacts(
                 email=row.get("email"),
                 phone=row.get("phone"),
                 job_title=row.get("job_title"),
+                department=row.get("department"),
                 notes=row.get("notes"),
                 owner_username=owner_username,
                 conn=conn,

@@ -9781,7 +9781,19 @@ body.rota-week-readonly .rota-builder-hint {
   border-radius: 10px;
   background: #fff;
   padding: 0.65rem 0.75rem;
-  cursor: pointer;
+  cursor: grab;
+}
+
+.crm-deal-card.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+.crm-pipeline-column__body.is-drop-target {
+  outline: 2px dashed var(--accent, #2563eb);
+  outline-offset: -4px;
+  background: rgba(37, 99, 235, 0.04);
+  border-radius: 8px;
 }
 
 .crm-deal-card strong {
@@ -9793,6 +9805,10 @@ body.rota-week-readonly .rota-builder-hint {
   display: block;
   font-size: 0.8rem;
   color: var(--text-muted, #64748b);
+}
+
+.crm-toolbar select {
+  min-width: 10rem;
 }
 
 .crm-deal-card--empty {
@@ -9821,6 +9837,28 @@ body.rota-week-readonly .rota-builder-hint {
   margin: 1rem 0;
   display: grid;
   gap: 0.65rem;
+}
+
+.crm-ai-block,
+.crm-email-form {
+  margin: 1rem 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border, #dbe3ea);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.crm-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.crm-ai-output {
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: var(--surface-muted, #f8fafc);
+  white-space: pre-wrap;
 }
 
 .crm-activity-list {

@@ -220,7 +220,15 @@
                   <legend>Add-ons <span class="muted">(priced separately — enable when purchased)</span></legend>
                   <label class="signup-check"><input type="checkbox" id="detail-rota-advanced-addon" /> Advanced rota (templates, coverage, hours)</label>
                   <label class="signup-check"><input type="checkbox" id="detail-rota-multisite-addon" /> Multi-site rota</label>
-                  <label class="signup-check"><input type="checkbox" id="detail-crm-addon" /> Sales CRM (prospects &amp; deals)</label>
+                  <label class="signup-check"><input type="checkbox" id="detail-crm-addon" /> CRM — IT, HR &amp; B2B sales pipeline</label>
+                  <label class="master-change-plan__field">
+                    CRM monthly price (£, ex VAT)
+                    <input id="detail-crm-monthly-gbp" type="number" min="0" step="0.01" placeholder="e.g. 49.00" />
+                  </label>
+                  <label class="master-change-plan__field">
+                    CRM billing note
+                    <input id="detail-crm-billing-notes" type="text" placeholder="Invoice cadence, PO ref…" maxlength="2000" />
+                  </label>
                 </fieldset>
                 <div class="master-change-plan__actions">
                   <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-apply">Apply changes</button>

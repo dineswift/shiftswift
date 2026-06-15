@@ -413,7 +413,7 @@
       <div><dt>Platform access</dt><dd>${escapeHtml(tenant.platform_status || "active")}${tenant.deleted_at ? " · deleted" : ""}</dd></div>
       <div><dt>Plan</dt><dd>${escapeHtml(tenant.plan_label)} · ${escapeHtml(tenant.mrr_label)}</dd></div>
       <div><dt>Rota add-ons</dt><dd>${tenant.rota_advanced_addon ? "Advanced" : "—"}${tenant.rota_multi_site_addon ? " · Multi-site" : ""}${!tenant.rota_advanced_addon && !tenant.rota_multi_site_addon ? "None (basic manual rota only)" : ""}</dd></div>
-      <div><dt>CRM add-on</dt><dd>${tenant.crm_addon ? "Enabled" : "Not enabled"}</dd></div>
+      <div><dt>CRM add-on</dt><dd>${tenant.crm_addon ? `Enabled${tenant.crm_addon_monthly_gbp != null ? ` · £${Number(tenant.crm_addon_monthly_gbp).toFixed(2)}/mo ex VAT` : ""}` : "Not enabled"}${tenant.crm_addon_billing_notes ? `<br><small class="muted">${escapeHtml(tenant.crm_addon_billing_notes)}</small>` : ""}</dd></div>
       <div><dt>Employees</dt><dd>${active} active · ${tenant.employees_pending_portal || 0} portal pending
         <div class="master-staff-bar"><span style="width:${pct}%"></span></div><small>${escapeHtml(tenant.staff_label)}</small></dd></div>
       <div><dt>Last active</dt><dd>${escapeHtml(tenant.last_active?.label || "—")}</dd></div>`;
@@ -568,6 +568,8 @@
     const rotaAdvancedAddon = document.getElementById("detail-rota-advanced-addon");
     const rotaMultiSiteAddon = document.getElementById("detail-rota-multisite-addon");
     const crmAddon = document.getElementById("detail-crm-addon");
+    const crmMonthlyGbp = document.getElementById("detail-crm-monthly-gbp");
+    const crmBillingNotes = document.getElementById("detail-crm-billing-notes");
 
     const hideChangePlanPanel = () => {
       if (changePlanWrap) changePlanWrap.hidden = true;
@@ -600,6 +602,13 @@
           if (rotaAdvancedAddon) rotaAdvancedAddon.checked = Boolean(tenant.rota_advanced_addon);
           if (rotaMultiSiteAddon) rotaMultiSiteAddon.checked = Boolean(tenant.rota_multi_site_addon);
           if (crmAddon) crmAddon.checked = Boolean(tenant.crm_addon);
+          if (crmMonthlyGbp) {
+            crmMonthlyGbp.value =
+              tenant.crm_addon_monthly_gbp != null && tenant.crm_addon_monthly_gbp !== ""
+                ? String(tenant.crm_addon_monthly_gbp)
+                : "";
+          }
+          if (crmBillingNotes) crmBillingNotes.value = tenant.crm_addon_billing_notes || "";
           if (changePlanStatus) changePlanStatus.textContent = "Update plan and/or add-ons, then apply.";
         } catch (error) {
           hideChangePlanPanel();
@@ -623,11 +632,18 @@
         const advancedAddon = Boolean(rotaAdvancedAddon?.checked);
         const multiSiteAddon = Boolean(rotaMultiSiteAddon?.checked);
         const crmAddonEnabled = Boolean(crmAddon?.checked);
+        const crmMonthlyValue =
+          crmMonthlyGbp?.value && crmMonthlyGbp.value.trim() !== ""
+            ? Number(crmMonthlyGbp.value)
+            : null;
+        const crmNotesValue = (crmBillingNotes?.value || "").trim();
         const planChanged = planId !== tenant.plan_id;
         const addonsChanged =
           advancedAddon !== Boolean(tenant.rota_advanced_addon) ||
           multiSiteAddon !== Boolean(tenant.rota_multi_site_addon) ||
-          crmAddonEnabled !== Boolean(tenant.crm_addon);
+          crmAddonEnabled !== Boolean(tenant.crm_addon) ||
+          crmMonthlyValue !== (tenant.crm_addon_monthly_gbp ?? null) ||
+          crmNotesValue !== (tenant.crm_addon_billing_notes || "");
         if (!planChanged && !addonsChanged) {
           if (changePlanStatus) changePlanStatus.textContent = "No changes to apply.";
           return;
@@ -652,6 +668,8 @@
             rota_advanced_addon: advancedAddon,
             rota_multi_site_addon: multiSiteAddon,
             crm_addon: crmAddonEnabled,
+            crm_addon_monthly_gbp: crmMonthlyValue,
+            crm_addon_billing_notes: crmNotesValue,
           });
           hideChangePlanPanel();
           await refreshSelectedTenant();

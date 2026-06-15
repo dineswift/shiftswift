@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from modules.crm.constants import DEFAULT_PIPELINE_NAME, DEFAULT_STAGES
+from modules.crm.constants import DEFAULT_PIPELINE_NAME, DEFAULT_STAGES, ACCOUNT_TYPES, DEAL_CATEGORIES
 from modules.crm import repository
 
 
@@ -56,7 +56,13 @@ def ensure_default_pipeline(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     }
 
 
-def build_pipeline_board(*, tenant_id: int, conn: Any, q: str | None = None) -> dict[str, Any]:
+def build_pipeline_board(
+    *,
+    tenant_id: int,
+    conn: Any,
+    q: str | None = None,
+    category: str | None = None,
+) -> dict[str, Any]:
     pipeline = ensure_default_pipeline(tenant_id=tenant_id, conn=conn)
     stages = repository.list_stages(
         tenant_id=tenant_id,
@@ -68,6 +74,7 @@ def build_pipeline_board(*, tenant_id: int, conn: Any, q: str | None = None) -> 
         pipeline_id=pipeline["id"],
         conn=conn,
         q=q,
+        category=category,
     )
     deals_by_stage: dict[int, list[dict[str, Any]]] = {stage["id"]: [] for stage in stages}
     for deal in deals:
@@ -171,3 +178,17 @@ def validate_contact(*, tenant_id: int, contact_id: int | None, conn: Any) -> No
         )
         if not cur.fetchone():
             raise HTTPException(status_code=400, detail="Contact not found")
+
+
+def validate_deal_category(category: str | None) -> str:
+    value = (category or "general").strip()
+    if value not in DEAL_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid deal category")
+    return value
+
+
+def validate_account_type(account_type: str | None) -> str:
+    value = (account_type or "prospect").strip()
+    if value not in ACCOUNT_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid account type")
+    return value

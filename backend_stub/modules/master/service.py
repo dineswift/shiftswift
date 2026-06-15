@@ -578,6 +578,22 @@ def get_tenant_detail(
     tenant_id: int,
     as_of: datetime | None = None,
 ) -> dict[str, Any] | None:
+    from core.schema import column_expr
+
+    crm_monthly_col = column_expr(
+        conn,
+        table="tenants",
+        column="crm_addon_monthly_gbp",
+        alias=None,
+        null_sql="NULL::numeric AS crm_addon_monthly_gbp",
+    )
+    crm_notes_col = column_expr(
+        conn,
+        table="tenants",
+        column="crm_addon_billing_notes",
+        alias=None,
+        null_sql="NULL AS crm_addon_billing_notes",
+    )
     sql = _TENANT_LIST_SQL + " AND t.id = %s"
     with conn.cursor() as cur:
         cur.execute(sql, (master_tenant_id, tenant_id))
@@ -586,10 +602,11 @@ def get_tenant_detail(
             return None
 
         cur.execute(
-            """
+            f"""
             SELECT subscription_status, payroll_enabled, holds_sponsor_licence, trial_ends_at,
                    platform_status, deleted_at, internal_notes,
-                   rota_advanced_addon, rota_multi_site_addon, rota_mode, crm_addon
+                   rota_advanced_addon, rota_multi_site_addon, rota_mode, crm_addon,
+                   {crm_monthly_col}, {crm_notes_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -606,6 +623,8 @@ def get_tenant_detail(
         rota_multi_site_addon = bool(meta[8]) if meta else False
         rota_mode = meta[9] if meta else None
         crm_addon = bool(meta[10]) if meta else False
+        crm_addon_monthly_gbp = float(meta[11]) if meta and meta[11] is not None else None
+        crm_addon_billing_notes = meta[12] if meta else None
 
         trial_access = subscription_status in TRIALING_STATUSES
         features = effective_features_for_tenant(
@@ -675,4 +694,6 @@ def get_tenant_detail(
         "rota_multi_site_addon": rota_multi_site_addon,
         "rota_mode": rota_mode,
         "crm_addon": crm_addon,
+        "crm_addon_monthly_gbp": crm_addon_monthly_gbp,
+        "crm_addon_billing_notes": crm_addon_billing_notes or "",
     }

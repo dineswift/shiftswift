@@ -16,7 +16,7 @@ def _iso(value: Any) -> str:
 def build_accounts_csv(items: list[dict[str, Any]]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["name", "email", "phone", "website", "notes", "owner_email"])
+    writer.writerow(["name", "email", "phone", "website", "industry", "account_type", "notes", "owner_email"])
     for row in items:
         writer.writerow(
             [
@@ -24,6 +24,8 @@ def build_accounts_csv(items: list[dict[str, Any]]) -> str:
                 row.get("email") or "",
                 row.get("phone") or "",
                 row.get("website") or "",
+                row.get("industry") or "",
+                row.get("account_type") or "prospect",
                 (row.get("notes") or "").replace("\n", " "),
                 row.get("owner_username") or "",
             ]
@@ -34,7 +36,7 @@ def build_accounts_csv(items: list[dict[str, Any]]) -> str:
 def build_contacts_csv(items: list[dict[str, Any]]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["name", "email", "phone", "job_title", "company", "notes", "owner_email"])
+    writer.writerow(["name", "email", "phone", "job_title", "department", "company", "notes", "owner_email"])
     for row in items:
         writer.writerow(
             [
@@ -42,6 +44,7 @@ def build_contacts_csv(items: list[dict[str, Any]]) -> str:
                 row.get("email") or "",
                 row.get("phone") or "",
                 row.get("job_title") or "",
+                row.get("department") or "",
                 row.get("account_name") or "",
                 (row.get("notes") or "").replace("\n", " "),
                 row.get("owner_username") or "",
@@ -57,6 +60,7 @@ def build_deals_csv(*, deals: list[dict[str, Any]], stage_labels: dict[int, str]
         [
             "title",
             "stage",
+            "category",
             "company",
             "contact",
             "value_gbp",
@@ -70,6 +74,7 @@ def build_deals_csv(*, deals: list[dict[str, Any]], stage_labels: dict[int, str]
             [
                 row.get("title") or "",
                 stage_labels.get(row.get("stage_id"), ""),
+                row.get("deal_category") or "general",
                 row.get("account_name") or "",
                 row.get("contact_name") or "",
                 row.get("value_gbp") if row.get("value_gbp") is not None else "",

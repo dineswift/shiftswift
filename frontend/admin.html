@@ -74,7 +74,7 @@
           </a>
           <a class="nav-link" href="#crm" data-section="crm" data-addon="crm" hidden>
             <span class="nav-link__icon" data-nav-icon="building" aria-hidden="true"></span>
-            <span class="nav-link__label">Sales CRM</span>
+            <span class="nav-link__label">CRM</span>
           </a>
 
           <p class="nav-section-label">Compliance</p>
@@ -681,8 +681,8 @@
         <section id="crm" class="admin-section" data-addon="crm" hidden>
           <header class="section-header">
             <div>
-              <h2>Sales CRM</h2>
-              <p class="muted">Track prospects and customers separately from employee HR records — corporate events, catering enquiries, and B2B sales.</p>
+              <h2>CRM</h2>
+              <p class="muted">Track prospects and customers separately from employee HR records — IT services, HR software, consulting, support contracts, hospitality, and other B2B sales.</p>
             </div>
           </header>
 
@@ -729,6 +729,12 @@
               <p class="muted" id="crm-pipeline-name">Sales pipeline</p>
               <div class="crm-toolbar">
                 <label class="crm-search">
+                  <span class="visually-hidden">Filter by deal type</span>
+                  <select id="crm-pipeline-category">
+                    <option value="">All deal types</option>
+                  </select>
+                </label>
+                <label class="crm-search">
                   <span class="visually-hidden">Search deals</span>
                   <input type="search" id="crm-pipeline-search" placeholder="Search deals…" maxlength="120" />
                 </label>
@@ -756,13 +762,14 @@
                 <thead>
                   <tr>
                     <th>Company</th>
+                    <th>Type</th>
+                    <th>Industry</th>
                     <th>Email</th>
                     <th>Phone</th>
-                    <th>Owner</th>
                   </tr>
                 </thead>
                 <tbody id="crm-accounts-body">
-                  <tr><td colspan="4" class="muted">No companies yet.</td></tr>
+                  <tr><td colspan="5" class="muted">No companies yet.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -785,12 +792,13 @@
                   <tr>
                     <th>Name</th>
                     <th>Company</th>
+                    <th>Department</th>
                     <th>Email</th>
                     <th>Phone</th>
                   </tr>
                 </thead>
                 <tbody id="crm-contacts-body">
-                  <tr><td colspan="4" class="muted">No contacts yet.</td></tr>
+                  <tr><td colspan="5" class="muted">No contacts yet.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -801,6 +809,7 @@
               <h3 id="crm-deal-dialog-title">Add deal</h3>
               <input type="hidden" name="deal_id" id="crm-deal-id" value="" />
               <label>Title<input name="title" required maxlength="200" /></label>
+              <label>Deal type<select name="deal_category" id="crm-deal-category-select"></select></label>
               <label>Stage<select name="stage_id" id="crm-deal-stage-select"></select></label>
               <label>Company<select name="account_id" id="crm-deal-account-select"><option value="">— None —</option></select></label>
               <label>Contact<select name="contact_id" id="crm-deal-contact-select"><option value="">— None —</option></select></label>
@@ -819,6 +828,8 @@
               <h3 id="crm-account-dialog-title">Add company</h3>
               <input type="hidden" name="account_id" id="crm-account-id" value="" />
               <label>Company name<input name="name" required maxlength="200" /></label>
+              <label>Account type<select name="account_type" id="crm-account-type-select"></select></label>
+              <label>Industry<input name="industry" maxlength="120" placeholder="e.g. IT, HR, hospitality" /></label>
               <label>Email<input name="email" type="email" /></label>
               <label>Phone<input name="phone" maxlength="32" /></label>
               <label>Website<input name="website" maxlength="500" /></label>
@@ -837,6 +848,7 @@
               <input type="hidden" name="contact_id" id="crm-contact-id" value="" />
               <label>Name<input name="name" required maxlength="160" /></label>
               <label>Company<select name="account_id" id="crm-contact-account-select"><option value="">— None —</option></select></label>
+              <label>Department<input name="department" maxlength="120" placeholder="e.g. IT, HR, Finance" /></label>
               <label>Job title<input name="job_title" maxlength="120" /></label>
               <label>Email<input name="email" type="email" /></label>
               <label>Phone<input name="phone" maxlength="32" /></label>
@@ -869,6 +881,7 @@
                   <option value="call">Call</option>
                   <option value="email">Email</option>
                   <option value="meeting">Meeting</option>
+                  <option value="demo">Demo / presentation</option>
                 </select>
               </label>
               <label>Subject<input name="subject" maxlength="200" /></label>
@@ -901,6 +914,31 @@
             <label>Move to stage
               <select id="crm-deal-drawer-stage"></select>
             </label>
+            <label>Deal type
+              <select id="crm-deal-drawer-category"></select>
+            </label>
+            <div class="crm-ai-block">
+              <h4>AI assistant</h4>
+              <p class="muted" id="crm-ai-status">Summarise the deal or draft a follow-up email (requires AI enabled).</p>
+              <div class="crm-ai-actions">
+                <button type="button" class="btn btn--ghost btn--sm" id="crm-deal-ai-summary">Summarise deal</button>
+                <button type="button" class="btn btn--ghost btn--sm" id="crm-deal-ai-draft">Draft follow-up email</button>
+              </div>
+              <div id="crm-deal-ai-output" class="crm-ai-output" hidden></div>
+            </div>
+            <form id="crm-email-form" class="crm-email-form">
+              <h4>Send email</h4>
+              <label>Template
+                <select id="crm-email-template"><option value="">Custom message</option></select>
+              </label>
+              <label>Personal note (optional)
+                <input id="crm-email-custom" type="text" maxlength="2000" placeholder="Extra line for template…" />
+              </label>
+              <label>To<input id="crm-email-to" type="email" required /></label>
+              <label>Subject<input id="crm-email-subject" maxlength="200" required /></label>
+              <label>Message<textarea id="crm-email-body" rows="5" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Send email</button>
+            </form>
             <form id="crm-activity-form" class="crm-activity-form">
               <h4>Log activity</h4>
               <label>Type
@@ -909,6 +947,7 @@
                   <option value="call">Call</option>
                   <option value="email">Email</option>
                   <option value="meeting">Meeting</option>
+                  <option value="demo">Demo / presentation</option>
                 </select>
               </label>
               <label>Subject<input name="subject" maxlength="200" /></label>
@@ -2428,7 +2467,7 @@
     <script src="./admin-employees.js?v=18"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
-    <script src="./admin-crm.js?v=3"></script>
+    <script src="./admin-crm.js?v=5"></script>
     <script src="./admin-compliance.js?v=admin-v10"></script>
     <script src="./admin-absence.js?v=2"></script>
     <script src="./admin-rtw.js?v=2"></script>

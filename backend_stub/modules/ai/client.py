@@ -128,3 +128,87 @@ def _openai_generate(user_message: str) -> str:
         return data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
         raise AiProviderError(f"Unexpected OpenAI response: {data}") from exc
+
+
+CRM_SYSTEM_PROMPT = """You are ShiftSwift's sales CRM assistant for UK businesses — IT services, HR software,
+consulting, support contracts, and hospitality. Help managers follow up on B2B enquiries and client opportunities.
+Use UK English. Be concise and professional. Do not invent facts not provided in the context.
+Do not provide legal advice. Output plain text unless asked for an email draft."""
+
+
+def generate_crm_text(*, user_prompt: str, context: str | None = None) -> dict[str, str]:
+    """Generate CRM summaries or email drafts using the configured AI provider."""
+    provider = configured_provider()
+    if not provider:
+        raise AiConfigurationError(
+            "AI assistant is not configured. Set AI_ENABLED=1 and GEMINI_API_KEY (recommended) or OPENAI_API_KEY."
+        )
+
+    parts = [user_prompt.strip()]
+    if context:
+        parts.append(f"\n\nCRM context:\n{context.strip()}")
+    user_message = "\n".join(parts)
+
+    if provider == "gemini":
+        text = _gemini_generate_crm(user_message)
+        model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    else:
+        text = _openai_generate_crm(user_message)
+        model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
+
+    return {
+        "content": text.strip(),
+        "provider": provider,
+        "model": model,
+        "disclaimer": "AI-generated — review before sending to customers.",
+    }
+
+
+def _gemini_generate_crm(user_message: str) -> str:
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    payload = {
+        "systemInstruction": {"parts": [{"text": CRM_SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user_message}]}],
+        "generationConfig": {
+            "temperature": 0.35,
+            "maxOutputTokens": int(os.getenv("AI_MAX_OUTPUT_TOKENS", "2048")),
+        },
+    }
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(url, params={"key": api_key}, json=payload)
+    if response.status_code >= 400:
+        raise AiProviderError(f"Gemini API error ({response.status_code}): {response.text[:500]}")
+    data = response.json()
+    try:
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise AiProviderError(f"Unexpected Gemini response: {data}") from exc
+
+
+def _openai_generate_crm(user_message: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    model = os.getenv("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": CRM_SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": 0.35,
+        "max_tokens": int(os.getenv("AI_MAX_OUTPUT_TOKENS", "2048")),
+    }
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+        )
+    if response.status_code >= 400:
+        raise AiProviderError(f"OpenAI API error ({response.status_code}): {response.text[:500]}")
+    data = response.json()
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise AiProviderError(f"Unexpected OpenAI response: {data}") from exc

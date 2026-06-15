@@ -84,22 +84,26 @@ def list_deals(
     pipeline_id: int,
     conn: Any,
     q: str | None = None,
+    category: str | None = None,
 ) -> list[dict[str, Any]]:
     filters = ["d.tenant_id = %s", "d.pipeline_id = %s"]
     params: list[Any] = [tenant_id, pipeline_id]
     term = _search_term(q)
     if term:
         filters.append(
-            "(d.title ILIKE %s OR a.name ILIKE %s OR c.name ILIKE %s OR COALESCE(d.notes, '') ILIKE %s)"
+            "(d.title ILIKE %s OR a.name ILIKE %s OR c.name ILIKE %s OR COALESCE(d.notes, '') ILIKE %s OR COALESCE(a.industry, '') ILIKE %s)"
         )
-        params.extend([term, term, term, term])
+        params.extend([term, term, term, term, term])
+    if category:
+        filters.append("d.deal_category = %s")
+        params.append(category)
     with conn.cursor() as cur:
         cur.execute(
             f"""
             SELECT d.id, d.stage_id, d.title, d.value_gbp, d.expected_close_date,
                    d.notes, d.owner_username, d.account_id, d.contact_id,
                    d.created_at, d.updated_at,
-                   a.name, c.name
+                   a.name, c.name, d.deal_category
             FROM crm_deals d
             LEFT JOIN crm_accounts a ON a.id = d.account_id
             LEFT JOIN crm_contacts c ON c.id = d.contact_id
@@ -124,6 +128,7 @@ def list_deals(
             "updated_at": _iso(row[10]),
             "account_name": row[11],
             "contact_name": row[12],
+            "deal_category": row[13] or "general",
         }
         for row in rows
     ]
@@ -140,6 +145,8 @@ def _account_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "owner_username": row[6],
         "created_at": _iso(row[7]),
         "updated_at": _iso(row[8]),
+        "industry": row[9] if len(row) > 9 else None,
+        "account_type": row[10] if len(row) > 10 else "prospect",
     }
 
 
@@ -149,13 +156,14 @@ def list_accounts(*, tenant_id: int, conn: Any, q: str | None = None) -> list[di
     term = _search_term(q)
     if term:
         filters.append(
-            "(name ILIKE %s OR COALESCE(email, '') ILIKE %s OR COALESCE(phone, '') ILIKE %s OR COALESCE(website, '') ILIKE %s)"
+            "(name ILIKE %s OR COALESCE(email, '') ILIKE %s OR COALESCE(phone, '') ILIKE %s OR COALESCE(website, '') ILIKE %s OR COALESCE(industry, '') ILIKE %s)"
         )
-        params.extend([term, term, term, term])
+        params.extend([term, term, term, term, term])
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT id, name, email, phone, website, notes, owner_username, created_at, updated_at
+            SELECT id, name, email, phone, website, notes, owner_username, created_at, updated_at,
+                   industry, account_type
             FROM crm_accounts
             WHERE {" AND ".join(filters)}
             ORDER BY updated_at DESC, id DESC
@@ -170,7 +178,8 @@ def fetch_account(*, tenant_id: int, account_id: int, conn: Any) -> dict[str, An
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, name, email, phone, website, notes, owner_username, created_at, updated_at
+            SELECT id, name, email, phone, website, notes, owner_username, created_at, updated_at,
+                   industry, account_type
             FROM crm_accounts
             WHERE tenant_id = %s AND id = %s
             """,
@@ -193,7 +202,7 @@ def list_contacts(*, tenant_id: int, conn: Any, q: str | None = None) -> list[di
         cur.execute(
             f"""
             SELECT c.id, c.account_id, c.name, c.email, c.phone, c.job_title, c.notes,
-                   c.owner_username, c.created_at, c.updated_at, a.name
+                   c.owner_username, c.created_at, c.updated_at, a.name, c.department
             FROM crm_contacts c
             LEFT JOIN crm_accounts a ON a.id = c.account_id
             WHERE {" AND ".join(filters)}
@@ -202,22 +211,7 @@ def list_contacts(*, tenant_id: int, conn: Any, q: str | None = None) -> list[di
             params,
         )
         rows = cur.fetchall()
-    return [
-        {
-            "id": row[0],
-            "account_id": row[1],
-            "name": row[2],
-            "email": row[3],
-            "phone": row[4],
-            "job_title": row[5],
-            "notes": row[6],
-            "owner_username": row[7],
-            "created_at": _iso(row[8]),
-            "updated_at": _iso(row[9]),
-            "account_name": row[10],
-        }
-        for row in rows
-    ]
+    return [_contact_row(row) for row in rows]
 
 
 def _contact_row(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -233,6 +227,7 @@ def _contact_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "created_at": _iso(row[8]),
         "updated_at": _iso(row[9]),
         "account_name": row[10],
+        "department": row[11] if len(row) > 11 else None,
     }
 
 
@@ -241,7 +236,7 @@ def fetch_contact(*, tenant_id: int, contact_id: int, conn: Any) -> dict[str, An
         cur.execute(
             """
             SELECT c.id, c.account_id, c.name, c.email, c.phone, c.job_title, c.notes,
-                   c.owner_username, c.created_at, c.updated_at, a.name
+                   c.owner_username, c.created_at, c.updated_at, a.name, c.department
             FROM crm_contacts c
             LEFT JOIN crm_accounts a ON a.id = c.account_id
             WHERE c.tenant_id = %s AND c.id = %s
@@ -261,17 +256,19 @@ def create_account(
     website: str | None,
     notes: str | None,
     owner_username: str | None,
+    industry: str | None = None,
+    account_type: str = "prospect",
     conn: Any,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO crm_accounts (
-              tenant_id, name, email, phone, website, notes, owner_username
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+              tenant_id, name, email, phone, website, notes, owner_username, industry, account_type
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (tenant_id, name, email, phone, website, notes, owner_username),
+            (tenant_id, name, email, phone, website, notes, owner_username, industry, account_type),
         )
         account_id = int(cur.fetchone()[0])
     account = fetch_account(tenant_id=tenant_id, account_id=account_id, conn=conn)
@@ -289,7 +286,7 @@ def update_account(
 ) -> dict[str, Any] | None:
     allowed = {
         key: updates[key]
-        for key in ("name", "email", "phone", "website", "notes", "owner_username")
+        for key in ("name", "email", "phone", "website", "notes", "owner_username", "industry", "account_type")
         if key in updates
     }
     if not allowed:
@@ -330,17 +327,18 @@ def create_contact(
     job_title: str | None,
     notes: str | None,
     owner_username: str | None,
+    department: str | None = None,
     conn: Any,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO crm_contacts (
-              tenant_id, account_id, name, email, phone, job_title, notes, owner_username
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+              tenant_id, account_id, name, email, phone, job_title, notes, owner_username, department
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (tenant_id, account_id, name, email, phone, job_title, notes, owner_username),
+            (tenant_id, account_id, name, email, phone, job_title, notes, owner_username, department),
         )
         contact_id = int(cur.fetchone()[0])
     contact = fetch_contact(tenant_id=tenant_id, contact_id=contact_id, conn=conn)
@@ -358,7 +356,7 @@ def update_contact(
 ) -> dict[str, Any] | None:
     allowed = {
         key: updates[key]
-        for key in ("name", "account_id", "email", "phone", "job_title", "notes", "owner_username")
+        for key in ("name", "account_id", "email", "phone", "job_title", "notes", "owner_username", "department")
         if key in updates
     }
     if not allowed:
@@ -401,6 +399,7 @@ def create_deal(
     expected_close_date: date | None,
     notes: str | None,
     owner_username: str | None,
+    deal_category: str = "general",
     conn: Any,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
@@ -408,8 +407,8 @@ def create_deal(
             """
             INSERT INTO crm_deals (
               tenant_id, pipeline_id, stage_id, account_id, contact_id, title,
-              value_gbp, expected_close_date, notes, owner_username
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+              value_gbp, expected_close_date, notes, owner_username, deal_category
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
@@ -423,6 +422,7 @@ def create_deal(
                 expected_close_date,
                 notes,
                 owner_username,
+                deal_category,
             ),
         )
         deal_id = int(cur.fetchone()[0])
@@ -450,6 +450,7 @@ def update_deal(
             "expected_close_date",
             "notes",
             "owner_username",
+            "deal_category",
         )
         if key in updates
     }
@@ -490,10 +491,11 @@ def fetch_deal(*, tenant_id: int, deal_id: int, conn: Any) -> dict[str, Any] | N
             """
             SELECT d.id, d.pipeline_id, d.stage_id, d.title, d.value_gbp, d.expected_close_date,
                    d.notes, d.owner_username, d.account_id, d.contact_id,
-                   d.created_at, d.updated_at, a.name, c.name
+                   d.created_at, d.updated_at, a.name, c.name, a.email, c.email, s.label, d.deal_category
             FROM crm_deals d
             LEFT JOIN crm_accounts a ON a.id = d.account_id
             LEFT JOIN crm_contacts c ON c.id = d.contact_id
+            LEFT JOIN crm_deal_stages s ON s.id = d.stage_id
             WHERE d.tenant_id = %s AND d.id = %s
             """,
             (tenant_id, deal_id),
@@ -516,6 +518,10 @@ def fetch_deal(*, tenant_id: int, deal_id: int, conn: Any) -> dict[str, Any] | N
         "updated_at": _iso(row[11]),
         "account_name": row[12],
         "contact_name": row[13],
+        "account_email": row[14],
+        "contact_email": row[15],
+        "stage_label": row[16],
+        "deal_category": row[17] or "general",
     }
 
 

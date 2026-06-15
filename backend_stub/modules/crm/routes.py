@@ -13,7 +13,12 @@ from auth_service import AuthUser
 from config import load_settings
 from core.database import get_connection
 from deps import get_hr_user, require_tenant_subscription, resolve_tenant_id
-from modules.crm.constants import ACTIVITY_TYPES
+from modules.crm.constants import (
+    ACCOUNT_TYPE_LABELS,
+    ACTIVITY_TYPES,
+    ACTIVITY_TYPE_LABELS,
+    DEAL_CATEGORY_LABELS,
+)
 from modules.crm.export import build_accounts_csv, build_contacts_csv, build_deals_csv
 from modules.crm.import_csv import import_accounts, import_contacts, parse_accounts_csv, parse_contacts_csv
 from modules.crm import repository
@@ -24,9 +29,12 @@ from modules.crm.service import (
     build_pipeline_board,
     require_crm_addon,
     validate_account,
+    validate_account_type,
     validate_contact,
+    validate_deal_category,
     validate_stage,
 )
+from modules.crm import ai_service, email_service, email_templates
 
 router = APIRouter(
     prefix="/admin/crm",
@@ -41,6 +49,8 @@ class AccountCreate(BaseModel):
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=32)
     website: str | None = Field(default=None, max_length=500)
+    industry: str | None = Field(default=None, max_length=120)
+    account_type: str = Field(default="prospect", pattern="^(prospect|customer|partner)$")
     notes: str | None = Field(default=None, max_length=4000)
 
 
@@ -49,6 +59,8 @@ class AccountPatch(BaseModel):
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=32)
     website: str | None = Field(default=None, max_length=500)
+    industry: str | None = Field(default=None, max_length=120)
+    account_type: str | None = Field(default=None, pattern="^(prospect|customer|partner)$")
     notes: str | None = Field(default=None, max_length=4000)
 
 
@@ -58,6 +70,7 @@ class ContactCreate(BaseModel):
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=32)
     job_title: str | None = Field(default=None, max_length=120)
+    department: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=4000)
 
 
@@ -67,6 +80,7 @@ class ContactPatch(BaseModel):
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=32)
     job_title: str | None = Field(default=None, max_length=120)
+    department: str | None = Field(default=None, max_length=120)
     notes: str | None = Field(default=None, max_length=4000)
 
 
@@ -77,6 +91,7 @@ class DealCreate(BaseModel):
     contact_id: int | None = None
     value_gbp: float | None = Field(default=None, ge=0)
     expected_close_date: date | None = None
+    deal_category: str = Field(default="general", pattern="^(general|it_services|hr_software|consulting|support_contract|hospitality|other)$")
     notes: str | None = Field(default=None, max_length=4000)
 
 
@@ -87,13 +102,34 @@ class DealPatch(BaseModel):
     contact_id: int | None = None
     value_gbp: float | None = Field(default=None, ge=0)
     expected_close_date: date | None = None
+    deal_category: str | None = Field(
+        default=None,
+        pattern="^(general|it_services|hr_software|consulting|support_contract|hospitality|other)$",
+    )
     notes: str | None = Field(default=None, max_length=4000)
 
 
 class ActivityCreate(BaseModel):
-    activity_type: str = Field(default="note", pattern="^(note|call|email|meeting)$")
+    activity_type: str = Field(default="note", pattern="^(note|call|email|meeting|demo)$")
     subject: str | None = Field(default=None, max_length=200)
     body: str | None = Field(default=None, max_length=4000)
+
+
+class SendDealEmailRequest(BaseModel):
+    to_email: EmailStr
+    subject: str = Field(min_length=1, max_length=200)
+    body_html: str = Field(min_length=1, max_length=20000)
+    body_text: str | None = Field(default=None, max_length=20000)
+    template_key: str | None = Field(default=None, max_length=64)
+
+
+class EmailPreviewRequest(BaseModel):
+    template_key: str = Field(min_length=1, max_length=64)
+    custom_message: str | None = Field(default=None, max_length=2000)
+
+
+class AiDraftEmailRequest(BaseModel):
+    custom_message: str | None = Field(default=None, max_length=2000)
 
 
 def _crm_context(
@@ -104,6 +140,27 @@ def _crm_context(
     conn = get_connection()
     require_crm_addon(tenant_id=tenant_id, conn=conn)
     return tenant_id, current_user, conn
+
+
+@router.get("/meta")
+def crm_meta(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    _crm_context(current_user, x_tenant_id)
+    return {
+        "deal_categories": [
+            {"id": key, "label": DEAL_CATEGORY_LABELS[key]}
+            for key in ("general", "it_services", "hr_software", "consulting", "support_contract", "hospitality", "other")
+        ],
+        "account_types": [
+            {"id": key, "label": ACCOUNT_TYPE_LABELS[key]} for key in ("prospect", "customer", "partner")
+        ],
+        "activity_types": [
+            {"id": key, "label": ACTIVITY_TYPE_LABELS[key]}
+            for key in ("note", "call", "email", "meeting", "demo")
+        ],
+    }
 
 
 @router.get("/summary")
@@ -144,10 +201,13 @@ def crm_pipeline(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     q: str | None = Query(default=None, max_length=120),
+    category: str | None = Query(default=None, max_length=32),
 ) -> dict[str, object]:
     tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
     try:
-        board = build_pipeline_board(tenant_id=tenant_id, conn=conn, q=q)
+        if category:
+            validate_deal_category(category)
+        board = build_pipeline_board(tenant_id=tenant_id, conn=conn, q=q, category=category)
         conn.commit()
         return board
     finally:
@@ -198,6 +258,8 @@ def crm_create_account(
             email=str(payload.email) if payload.email else None,
             phone=payload.phone,
             website=payload.website,
+            industry=payload.industry,
+            account_type=validate_account_type(payload.account_type),
             notes=payload.notes,
             owner_username=current_user.username,
             conn=conn,
@@ -220,6 +282,8 @@ def crm_patch_account(
         updates = payload.model_dump(exclude_unset=True)
         if "email" in updates and updates["email"] is not None:
             updates["email"] = str(updates["email"])
+        if "account_type" in updates and updates["account_type"] is not None:
+            updates["account_type"] = validate_account_type(updates["account_type"])
         if not updates:
             item = repository.fetch_account(tenant_id=tenant_id, account_id=account_id, conn=conn)
         else:
@@ -329,6 +393,7 @@ def crm_create_contact(
             email=str(payload.email) if payload.email else None,
             phone=payload.phone,
             job_title=payload.job_title,
+            department=payload.department,
             notes=payload.notes,
             owner_username=current_user.username,
             conn=conn,
@@ -449,6 +514,7 @@ def crm_create_deal(
             contact_id=payload.contact_id,
             value_gbp=payload.value_gbp,
             expected_close_date=payload.expected_close_date,
+            deal_category=validate_deal_category(payload.deal_category),
             notes=payload.notes,
             owner_username=current_user.username,
             conn=conn,
@@ -501,6 +567,8 @@ def crm_patch_deal(
             validate_account(tenant_id=tenant_id, account_id=updates.get("account_id"), conn=conn)
         if "contact_id" in updates:
             validate_contact(tenant_id=tenant_id, contact_id=updates.get("contact_id"), conn=conn)
+        if "deal_category" in updates and updates["deal_category"] is not None:
+            updates["deal_category"] = validate_deal_category(updates["deal_category"])
         if not updates:
             return {"item": existing}
 
@@ -578,6 +646,125 @@ def crm_create_activity(
         )
         conn.commit()
         return {"item": item}
+    finally:
+        conn.close()
+
+
+def _business_name(*, tenant_id: int, conn: Any) -> str:
+    from admin_service import get_tenant_profile
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    return (profile.get("trading_name") or profile.get("name") or "Our team").strip()
+
+
+@router.get("/email-templates")
+def crm_email_templates(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        items = email_templates.list_templates(tenant_id=tenant_id, conn=conn)
+        conn.commit()
+        return {"items": items, "count": len(items)}
+    finally:
+        conn.close()
+
+
+@router.post("/deals/{deal_id}/email/preview")
+def crm_preview_deal_email(
+    deal_id: int,
+    payload: EmailPreviewRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, current_user, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        deal = repository.fetch_deal(tenant_id=tenant_id, deal_id=deal_id, conn=conn)
+        if not deal:
+            raise HTTPException(status_code=404, detail="Deal not found")
+        template = email_templates.fetch_template(
+            tenant_id=tenant_id,
+            template_key=payload.template_key,
+            conn=conn,
+        )
+        if not template:
+            raise HTTPException(status_code=404, detail="Email template not found")
+        context = email_service.build_email_context(
+            deal=deal,
+            business_name=_business_name(tenant_id=tenant_id, conn=conn),
+            sender_name=current_user.username,
+            custom_message=payload.custom_message or "",
+        )
+        rendered = email_templates.render_template(template, context=context)
+        conn.commit()
+        return {
+            "template_key": payload.template_key,
+            "to_email": deal.get("contact_email") or deal.get("account_email"),
+            **rendered,
+        }
+    finally:
+        conn.close()
+
+
+@router.post("/deals/{deal_id}/send-email")
+def crm_send_deal_email(
+    deal_id: int,
+    payload: SendDealEmailRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, current_user, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        result = email_service.send_deal_email(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            to_email=str(payload.to_email),
+            subject=payload.subject,
+            body_html=payload.body_html,
+            body_text=payload.body_text,
+            sender_name=current_user.username,
+            created_by=current_user.username,
+            conn=conn,
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/deals/{deal_id}/ai/summary")
+def crm_ai_deal_summary(
+    deal_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        result = ai_service.summarize_deal(tenant_id=tenant_id, deal_id=deal_id, conn=conn)
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/deals/{deal_id}/ai/draft-email")
+def crm_ai_draft_email(
+    deal_id: int,
+    payload: AiDraftEmailRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        result = ai_service.draft_follow_up_email(
+            tenant_id=tenant_id,
+            deal_id=deal_id,
+            conn=conn,
+            custom_message=payload.custom_message,
+        )
+        conn.commit()
+        return result
     finally:
         conn.close()
 

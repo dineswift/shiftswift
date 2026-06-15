@@ -175,6 +175,8 @@ def update_tenant_billing(
     rota_advanced_addon: bool | None = None,
     rota_multi_site_addon: bool | None = None,
     crm_addon: bool | None = None,
+    crm_addon_monthly_gbp: float | None = None,
+    crm_addon_billing_notes: str | None = None,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -245,6 +247,12 @@ def update_tenant_billing(
     if crm_addon is not None:
         updates.append("crm_addon = %s")
         params.append(bool(crm_addon))
+    if crm_addon_monthly_gbp is not None:
+        updates.append("crm_addon_monthly_gbp = %s")
+        params.append(crm_addon_monthly_gbp)
+    if crm_addon_billing_notes is not None:
+        updates.append("crm_addon_billing_notes = %s")
+        params.append(_normalize_notes(crm_addon_billing_notes))
 
     params.append(tenant_id)
     with conn.cursor() as cur:
@@ -264,6 +272,10 @@ def update_tenant_billing(
         "rota_advanced_addon": rota_advanced_addon,
         "rota_multi_site_addon": rota_multi_site_addon,
         "crm_addon": crm_addon,
+        "crm_addon_monthly_gbp": float(crm_addon_monthly_gbp) if crm_addon_monthly_gbp is not None else None,
+        "crm_addon_billing_notes": _normalize_notes(crm_addon_billing_notes)
+        if crm_addon_billing_notes is not None
+        else None,
         "stripe_subscription_cancelled": bool(stripe_cancel.get("cancelled")),
         "stripe_cancel": stripe_cancel,
     }
