@@ -560,6 +560,7 @@ def _module_usage(cur: Any, tenant_id: int) -> list[dict[str, Any]]:
         ("Rota", "SELECT EXISTS(SELECT 1 FROM rota_shifts WHERE tenant_id = %s LIMIT 1)"),
         ("Time punch", "SELECT EXISTS(SELECT 1 FROM punch_sites WHERE tenant_id = %s LIMIT 1)"),
         ("Recruitment", "SELECT EXISTS(SELECT 1 FROM recruitment_vacancies WHERE tenant_id = %s LIMIT 1)"),
+        ("CRM", "SELECT EXISTS(SELECT 1 FROM crm_deals WHERE tenant_id = %s LIMIT 1)"),
         ("Documents", "SELECT EXISTS(SELECT 1 FROM tenant_documents WHERE tenant_id = %s LIMIT 1)"),
     ]
     modules: list[dict[str, Any]] = []
@@ -588,7 +589,7 @@ def get_tenant_detail(
             """
             SELECT subscription_status, payroll_enabled, holds_sponsor_licence, trial_ends_at,
                    platform_status, deleted_at, internal_notes,
-                   rota_advanced_addon, rota_multi_site_addon, rota_mode
+                   rota_advanced_addon, rota_multi_site_addon, rota_mode, crm_addon
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -604,6 +605,7 @@ def get_tenant_detail(
         rota_advanced_addon = bool(meta[7]) if meta else False
         rota_multi_site_addon = bool(meta[8]) if meta else False
         rota_mode = meta[9] if meta else None
+        crm_addon = bool(meta[10]) if meta else False
 
         trial_access = subscription_status in TRIALING_STATUSES
         features = effective_features_for_tenant(
@@ -672,4 +674,5 @@ def get_tenant_detail(
         "rota_advanced_addon": rota_advanced_addon,
         "rota_multi_site_addon": rota_multi_site_addon,
         "rota_mode": rota_mode,
+        "crm_addon": crm_addon,
     }

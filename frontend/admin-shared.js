@@ -69,8 +69,13 @@ window.Admin = (() => {
     rota_multi_site_addon: false,
     rota_advanced_enabled: false,
     rota_multi_site_enabled: false,
+    crm_addon: false,
     plan_display_name: "Starter",
     plan_tier: "starter",
+  };
+
+  const ADDON_FLAG_KEYS = {
+    crm: "crm_addon",
   };
 
   const FEATURE_FLAG_KEYS = {
@@ -147,6 +152,7 @@ window.Admin = (() => {
         rota_multi_site_addon: Boolean(data.rota_multi_site_addon),
         rota_advanced_enabled: Boolean(data.rota_advanced_enabled),
         rota_multi_site_enabled: Boolean(data.rota_multi_site_enabled),
+        crm_addon: Boolean(data.crm_addon),
         plan_display_name: data.plan_display_name || "Starter",
         plan_tier: data.plan_tier || "starter",
         sponsored_employees: Number(data.sponsored_employees || 0),
@@ -164,6 +170,26 @@ window.Admin = (() => {
     const key = FEATURE_FLAG_KEYS[feature];
     if (key) return Boolean(tenantFeatures[key]);
     return true;
+  }
+
+  function isAddonEnabled(addon) {
+    const key = ADDON_FLAG_KEYS[addon];
+    if (key) return Boolean(tenantFeatures[key]);
+    return false;
+  }
+
+  function applyAddonGates() {
+    document.querySelectorAll("[data-addon]").forEach((el) => {
+      const addon = el.dataset.addon;
+      const enabled = isAddonEnabled(addon);
+      if (el.matches(".nav-link")) {
+        el.hidden = !enabled;
+        return;
+      }
+      if (el.matches(".admin-section") && !enabled) {
+        el.hidden = true;
+      }
+    });
   }
 
   function ensureFeatureUpgradeNotice(section, feature, enabled) {
@@ -242,6 +268,7 @@ window.Admin = (() => {
         }
       }
     });
+    applyAddonGates();
     window.dispatchEvent(new CustomEvent("admin:features", { detail: tenantFeatures }));
   }
 
@@ -260,6 +287,7 @@ window.Admin = (() => {
     if (baseSection === "payroll" || baseSection === "export") return "overview";
     if (baseSection === "overview-actions") return "overview";
     if (baseSection.startsWith("compliance")) return "compliance";
+    if (baseSection === "crm" && !isAddonEnabled("crm")) return "overview";
     return baseSection || "overview";
   }
 
@@ -776,6 +804,7 @@ window.Admin = (() => {
     loadTenantFeatures,
     applyFeatureGates,
     isFeatureEnabled,
+    isAddonEnabled,
     loadEmployees,
     downloadAuthenticated,
     isPlatformAdmin,

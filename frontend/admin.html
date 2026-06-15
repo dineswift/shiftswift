@@ -72,6 +72,10 @@
             <span class="nav-link__icon" data-nav-icon="trending-up" aria-hidden="true"></span>
             <span class="nav-link__label">Promotions</span>
           </a>
+          <a class="nav-link" href="#crm" data-section="crm" data-addon="crm" hidden>
+            <span class="nav-link__icon" data-nav-icon="building" aria-hidden="true"></span>
+            <span class="nav-link__label">Sales CRM</span>
+          </a>
 
           <p class="nav-section-label">Compliance</p>
           <a class="nav-link" href="#compliance" data-section="compliance" data-feature="sponsor-compliance">
@@ -672,6 +676,147 @@
               <div id="promo-detail-content" hidden></div>
             </aside>
           </div>
+        </section>
+
+        <section id="crm" class="admin-section" data-addon="crm" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Sales CRM</h2>
+              <p class="muted">Track prospects and customers separately from employee HR records — corporate events, catering enquiries, and B2B sales.</p>
+            </div>
+          </header>
+
+          <div class="crm-summary-strip" id="crm-summary-strip">
+            <span class="crm-summary-pill" id="crm-summary-deals">— deals</span>
+            <span class="crm-summary-pill" id="crm-summary-accounts">— companies</span>
+            <span class="crm-summary-pill" id="crm-summary-contacts">— contacts</span>
+          </div>
+
+          <div class="crm-tabs" role="tablist" aria-label="CRM views">
+            <button type="button" class="crm-tab is-active" data-crm-tab="pipeline" role="tab" aria-selected="true">Pipeline</button>
+            <button type="button" class="crm-tab" data-crm-tab="accounts" role="tab" aria-selected="false">Companies</button>
+            <button type="button" class="crm-tab" data-crm-tab="contacts" role="tab" aria-selected="false">Contacts</button>
+          </div>
+
+          <div id="crm-panel-pipeline" class="crm-panel" data-crm-panel="pipeline">
+            <div class="section-header section-header--compact">
+              <p class="muted" id="crm-pipeline-name">Sales pipeline</p>
+              <button type="button" class="btn btn--primary" id="crm-add-deal-btn">Add deal</button>
+            </div>
+            <div id="crm-pipeline-board" class="crm-pipeline-board">
+              <p class="muted">Open this section to load your pipeline…</p>
+            </div>
+          </div>
+
+          <div id="crm-panel-accounts" class="crm-panel" data-crm-panel="accounts" hidden>
+            <div class="section-header section-header--compact">
+              <p class="muted">Companies and organisations you sell to.</p>
+              <button type="button" class="btn btn--ghost" id="crm-add-account-btn">Add company</button>
+            </div>
+            <div class="hr-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Owner</th>
+                  </tr>
+                </thead>
+                <tbody id="crm-accounts-body">
+                  <tr><td colspan="4" class="muted">No companies yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="crm-panel-contacts" class="crm-panel" data-crm-panel="contacts" hidden>
+            <div class="section-header section-header--compact">
+              <p class="muted">People at your prospect and customer organisations.</p>
+              <button type="button" class="btn btn--ghost" id="crm-add-contact-btn">Add contact</button>
+            </div>
+            <div class="hr-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Company</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+                </thead>
+                <tbody id="crm-contacts-body">
+                  <tr><td colspan="4" class="muted">No contacts yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <dialog id="crm-deal-dialog" class="hr-dialog">
+            <form method="dialog" id="crm-deal-form" class="hr-dialog-form">
+              <h3 id="crm-deal-dialog-title">Add deal</h3>
+              <label>Title<input name="title" required maxlength="200" /></label>
+              <label>Stage<select name="stage_id" id="crm-deal-stage-select"></select></label>
+              <label>Value (£)<input name="value_gbp" type="number" min="0" step="0.01" /></label>
+              <label>Expected close<input name="expected_close_date" type="date" /></label>
+              <label>Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="hr-dialog-actions">
+                <button type="submit" class="btn btn--primary">Save deal</button>
+                <button type="button" class="btn btn--ghost" id="crm-deal-cancel">Cancel</button>
+              </div>
+            </form>
+          </dialog>
+
+          <dialog id="crm-account-dialog" class="hr-dialog">
+            <form method="dialog" id="crm-account-form" class="hr-dialog-form">
+              <h3>Add company</h3>
+              <label>Company name<input name="name" required maxlength="200" /></label>
+              <label>Email<input name="email" type="email" /></label>
+              <label>Phone<input name="phone" maxlength="32" /></label>
+              <label>Website<input name="website" maxlength="500" /></label>
+              <label>Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="hr-dialog-actions">
+                <button type="submit" class="btn btn--primary">Save company</button>
+                <button type="button" class="btn btn--ghost" id="crm-account-cancel">Cancel</button>
+              </div>
+            </form>
+          </dialog>
+
+          <dialog id="crm-contact-dialog" class="hr-dialog">
+            <form method="dialog" id="crm-contact-form" class="hr-dialog-form">
+              <h3>Add contact</h3>
+              <label>Name<input name="name" required maxlength="160" /></label>
+              <label>Company<select name="account_id" id="crm-contact-account-select"><option value="">— None —</option></select></label>
+              <label>Job title<input name="job_title" maxlength="120" /></label>
+              <label>Email<input name="email" type="email" /></label>
+              <label>Phone<input name="phone" maxlength="32" /></label>
+              <label>Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="hr-dialog-actions">
+                <button type="submit" class="btn btn--primary">Save contact</button>
+                <button type="button" class="btn btn--ghost" id="crm-contact-cancel">Cancel</button>
+              </div>
+            </form>
+          </dialog>
+
+          <aside id="crm-deal-drawer" class="crm-deal-drawer" hidden>
+            <header class="crm-deal-drawer__head">
+              <div>
+                <h3 id="crm-deal-drawer-title">Deal</h3>
+                <p class="muted" id="crm-deal-drawer-meta"></p>
+              </div>
+              <button type="button" class="btn btn--ghost" id="crm-deal-drawer-close" aria-label="Close">Close</button>
+            </header>
+            <label>Move to stage
+              <select id="crm-deal-drawer-stage"></select>
+            </label>
+            <form id="crm-activity-form" class="crm-activity-form">
+              <h4>Add note</h4>
+              <label>Subject<input name="subject" maxlength="200" /></label>
+              <label>Note<textarea name="body" rows="3" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Save note</button>
+            </form>
+            <div id="crm-activity-list" class="crm-activity-list"></div>
+          </aside>
         </section>
 
         <section id="templates" class="admin-section" hidden>
@@ -2168,13 +2313,14 @@
     <script src="./admin-icons.js?v=4"></script>
     <script src="./admin-mobile.js?v=10"></script>
     <script src="./admin-compliance-mobile.js?v=1"></script>
-    <script src="./admin-shared.js?v=admin-v17"></script>
+    <script src="./admin-shared.js?v=admin-v18"></script>
     <script src="./admin-workspace.js?v=admin-v17"></script>
     <script src="./admin-settings.js?v=12"></script>
     <script src="./admin-documents.js?v=6"></script>
     <script src="./admin-employees.js?v=18"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
+    <script src="./admin-crm.js?v=1"></script>
     <script src="./admin-compliance.js?v=admin-v10"></script>
     <script src="./admin-absence.js?v=2"></script>
     <script src="./admin-rtw.js?v=2"></script>

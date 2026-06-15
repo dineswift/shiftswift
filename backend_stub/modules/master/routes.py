@@ -132,6 +132,7 @@ class UpdateTenantBillingRequest(BaseModel):
     billing_notes: str | None = Field(default=None, max_length=2000)
     rota_advanced_addon: bool | None = None
     rota_multi_site_addon: bool | None = None
+    crm_addon: bool | None = None
 
 
 @router.get("/overview")
@@ -277,6 +278,7 @@ def master_update_tenant_billing(
                 billing_notes=payload.billing_notes,
                 rota_advanced_addon=payload.rota_advanced_addon,
                 rota_multi_site_addon=payload.rota_multi_site_addon,
+                crm_addon=payload.crm_addon,
             )
         except LookupError as exc:
             raise HTTPException(status_code=404, detail="Tenant not found") from exc

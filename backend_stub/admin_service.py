@@ -122,6 +122,13 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         alias=None,
         null_sql="0 AS rota_week_start_day",
     )
+    crm_addon_col = column_expr(
+        conn,
+        table="tenants",
+        column="crm_addon",
+        alias=None,
+        null_sql="FALSE AS crm_addon",
+    )
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -132,7 +139,8 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    holds_sponsor_licence, sponsor_licence_acknowledged_at,
                    sponsor_licence_acknowledged_by, sponsor_licence_ack_version,
                    payroll_accountant_email, payroll_hours_report_enabled,
-                   {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col}
+                   {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col},
+                   {crm_addon_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -168,6 +176,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "rota_advanced_addon": bool(row[23]),
             "rota_multi_site_addon": bool(row[24]),
             "rota_week_start_day": int(row[25] or 0),
+            "crm_addon": bool(row[26]),
         }
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
@@ -861,6 +870,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     plan_flags["rota_mode_labels"] = ROTA_MODE_LABELS
     plan_flags["rota_modes_all"] = list(ROTA_MODES)
     plan_flags["upgrade_messages"] = UPGRADE_MESSAGES
+    plan_flags["crm_addon"] = bool(profile.get("crm_addon"))
 
     rtw_needs_review = rtw_expired
     rtw_verified = max(rtw_total - rtw_expired - rtw_expiring_soon, 0)

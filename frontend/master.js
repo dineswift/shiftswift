@@ -413,6 +413,7 @@
       <div><dt>Platform access</dt><dd>${escapeHtml(tenant.platform_status || "active")}${tenant.deleted_at ? " · deleted" : ""}</dd></div>
       <div><dt>Plan</dt><dd>${escapeHtml(tenant.plan_label)} · ${escapeHtml(tenant.mrr_label)}</dd></div>
       <div><dt>Rota add-ons</dt><dd>${tenant.rota_advanced_addon ? "Advanced" : "—"}${tenant.rota_multi_site_addon ? " · Multi-site" : ""}${!tenant.rota_advanced_addon && !tenant.rota_multi_site_addon ? "None (basic manual rota only)" : ""}</dd></div>
+      <div><dt>CRM add-on</dt><dd>${tenant.crm_addon ? "Enabled" : "Not enabled"}</dd></div>
       <div><dt>Employees</dt><dd>${active} active · ${tenant.employees_pending_portal || 0} portal pending
         <div class="master-staff-bar"><span style="width:${pct}%"></span></div><small>${escapeHtml(tenant.staff_label)}</small></dd></div>
       <div><dt>Last active</dt><dd>${escapeHtml(tenant.last_active?.label || "—")}</dd></div>`;
@@ -566,6 +567,7 @@
     const changePlanCancel = document.getElementById("detail-change-plan-cancel");
     const rotaAdvancedAddon = document.getElementById("detail-rota-advanced-addon");
     const rotaMultiSiteAddon = document.getElementById("detail-rota-multisite-addon");
+    const crmAddon = document.getElementById("detail-crm-addon");
 
     const hideChangePlanPanel = () => {
       if (changePlanWrap) changePlanWrap.hidden = true;
@@ -597,7 +599,8 @@
           if (changePlanNotes) changePlanNotes.value = tenant.billing_notes || "";
           if (rotaAdvancedAddon) rotaAdvancedAddon.checked = Boolean(tenant.rota_advanced_addon);
           if (rotaMultiSiteAddon) rotaMultiSiteAddon.checked = Boolean(tenant.rota_multi_site_addon);
-          if (changePlanStatus) changePlanStatus.textContent = "Update plan and/or rota add-ons, then apply.";
+          if (crmAddon) crmAddon.checked = Boolean(tenant.crm_addon);
+          if (changePlanStatus) changePlanStatus.textContent = "Update plan and/or add-ons, then apply.";
         } catch (error) {
           hideChangePlanPanel();
           alert(error.message || "Could not load plans.");
@@ -619,10 +622,12 @@
         }
         const advancedAddon = Boolean(rotaAdvancedAddon?.checked);
         const multiSiteAddon = Boolean(rotaMultiSiteAddon?.checked);
+        const crmAddonEnabled = Boolean(crmAddon?.checked);
         const planChanged = planId !== tenant.plan_id;
         const addonsChanged =
           advancedAddon !== Boolean(tenant.rota_advanced_addon) ||
-          multiSiteAddon !== Boolean(tenant.rota_multi_site_addon);
+          multiSiteAddon !== Boolean(tenant.rota_multi_site_addon) ||
+          crmAddonEnabled !== Boolean(tenant.crm_addon);
         if (!planChanged && !addonsChanged) {
           if (changePlanStatus) changePlanStatus.textContent = "No changes to apply.";
           return;
@@ -646,6 +651,7 @@
             billing_notes: notes || tenant.billing_notes || "",
             rota_advanced_addon: advancedAddon,
             rota_multi_site_addon: multiSiteAddon,
+            crm_addon: crmAddonEnabled,
           });
           hideChangePlanPanel();
           await refreshSelectedTenant();
@@ -654,7 +660,7 @@
             result,
             planChanged
               ? `Plan updated to ${planLabel}.`
-              : "Rota add-ons updated.",
+              : "Add-ons updated.",
           );
         } catch (error) {
           if (changePlanStatus) changePlanStatus.textContent = error.message || "Plan change failed.";

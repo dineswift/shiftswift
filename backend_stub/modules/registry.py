@@ -102,6 +102,13 @@ MODULES: list[dict[str, object]] = [
         "setup": ["DATABASE_URL"],
     },
     {
+        "id": "crm",
+        "name": "Sales CRM Add-on",
+        "prefix": "/admin/crm",
+        "description": "Optional prospect/customer pipeline — accounts, contacts, deals (Master-gated).",
+        "setup": ["DATABASE_URL"],
+    },
+    {
         "id": "master",
         "name": "Platform Master Admin",
         "prefix": "/master",
