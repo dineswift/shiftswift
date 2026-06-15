@@ -701,7 +701,13 @@
           <div id="crm-panel-pipeline" class="crm-panel" data-crm-panel="pipeline">
             <div class="section-header section-header--compact">
               <p class="muted" id="crm-pipeline-name">Sales pipeline</p>
-              <button type="button" class="btn btn--primary" id="crm-add-deal-btn">Add deal</button>
+              <div class="crm-toolbar">
+                <label class="crm-search">
+                  <span class="visually-hidden">Search deals</span>
+                  <input type="search" id="crm-pipeline-search" placeholder="Search deals…" maxlength="120" />
+                </label>
+                <button type="button" class="btn btn--primary" id="crm-add-deal-btn">Add deal</button>
+              </div>
             </div>
             <div id="crm-pipeline-board" class="crm-pipeline-board">
               <p class="muted">Open this section to load your pipeline…</p>
@@ -711,10 +717,16 @@
           <div id="crm-panel-accounts" class="crm-panel" data-crm-panel="accounts" hidden>
             <div class="section-header section-header--compact">
               <p class="muted">Companies and organisations you sell to.</p>
-              <button type="button" class="btn btn--ghost" id="crm-add-account-btn">Add company</button>
+              <div class="crm-toolbar">
+                <label class="crm-search">
+                  <span class="visually-hidden">Search companies</span>
+                  <input type="search" id="crm-accounts-search" placeholder="Search companies…" maxlength="120" />
+                </label>
+                <button type="button" class="btn btn--ghost" id="crm-add-account-btn">Add company</button>
+              </div>
             </div>
             <div class="hr-table-wrap">
-              <table class="data-table">
+              <table class="data-table crm-clickable-table">
                 <thead>
                   <tr>
                     <th>Company</th>
@@ -733,10 +745,16 @@
           <div id="crm-panel-contacts" class="crm-panel" data-crm-panel="contacts" hidden>
             <div class="section-header section-header--compact">
               <p class="muted">People at your prospect and customer organisations.</p>
-              <button type="button" class="btn btn--ghost" id="crm-add-contact-btn">Add contact</button>
+              <div class="crm-toolbar">
+                <label class="crm-search">
+                  <span class="visually-hidden">Search contacts</span>
+                  <input type="search" id="crm-contacts-search" placeholder="Search contacts…" maxlength="120" />
+                </label>
+                <button type="button" class="btn btn--ghost" id="crm-add-contact-btn">Add contact</button>
+              </div>
             </div>
             <div class="hr-table-wrap">
-              <table class="data-table">
+              <table class="data-table crm-clickable-table">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -755,13 +773,16 @@
           <dialog id="crm-deal-dialog" class="hr-dialog">
             <form method="dialog" id="crm-deal-form" class="hr-dialog-form">
               <h3 id="crm-deal-dialog-title">Add deal</h3>
+              <input type="hidden" name="deal_id" id="crm-deal-id" value="" />
               <label>Title<input name="title" required maxlength="200" /></label>
               <label>Stage<select name="stage_id" id="crm-deal-stage-select"></select></label>
+              <label>Company<select name="account_id" id="crm-deal-account-select"><option value="">— None —</option></select></label>
+              <label>Contact<select name="contact_id" id="crm-deal-contact-select"><option value="">— None —</option></select></label>
               <label>Value (£)<input name="value_gbp" type="number" min="0" step="0.01" /></label>
               <label>Expected close<input name="expected_close_date" type="date" /></label>
               <label>Notes<textarea name="notes" rows="3"></textarea></label>
               <div class="hr-dialog-actions">
-                <button type="submit" class="btn btn--primary">Save deal</button>
+                <button type="submit" class="btn btn--primary" id="crm-deal-save-btn">Save deal</button>
                 <button type="button" class="btn btn--ghost" id="crm-deal-cancel">Cancel</button>
               </div>
             </form>
@@ -769,14 +790,16 @@
 
           <dialog id="crm-account-dialog" class="hr-dialog">
             <form method="dialog" id="crm-account-form" class="hr-dialog-form">
-              <h3>Add company</h3>
+              <h3 id="crm-account-dialog-title">Add company</h3>
+              <input type="hidden" name="account_id" id="crm-account-id" value="" />
               <label>Company name<input name="name" required maxlength="200" /></label>
               <label>Email<input name="email" type="email" /></label>
               <label>Phone<input name="phone" maxlength="32" /></label>
               <label>Website<input name="website" maxlength="500" /></label>
               <label>Notes<textarea name="notes" rows="3"></textarea></label>
               <div class="hr-dialog-actions">
-                <button type="submit" class="btn btn--primary">Save company</button>
+                <button type="submit" class="btn btn--primary" id="crm-account-save-btn">Save company</button>
+                <button type="button" class="btn btn--danger btn--ghost" id="crm-account-delete-btn" hidden>Delete</button>
                 <button type="button" class="btn btn--ghost" id="crm-account-cancel">Cancel</button>
               </div>
             </form>
@@ -784,7 +807,8 @@
 
           <dialog id="crm-contact-dialog" class="hr-dialog">
             <form method="dialog" id="crm-contact-form" class="hr-dialog-form">
-              <h3>Add contact</h3>
+              <h3 id="crm-contact-dialog-title">Add contact</h3>
+              <input type="hidden" name="contact_id" id="crm-contact-id" value="" />
               <label>Name<input name="name" required maxlength="160" /></label>
               <label>Company<select name="account_id" id="crm-contact-account-select"><option value="">— None —</option></select></label>
               <label>Job title<input name="job_title" maxlength="120" /></label>
@@ -792,11 +816,41 @@
               <label>Phone<input name="phone" maxlength="32" /></label>
               <label>Notes<textarea name="notes" rows="3"></textarea></label>
               <div class="hr-dialog-actions">
-                <button type="submit" class="btn btn--primary">Save contact</button>
+                <button type="submit" class="btn btn--primary" id="crm-contact-save-btn">Save contact</button>
+                <button type="button" class="btn btn--danger btn--ghost" id="crm-contact-delete-btn" hidden>Delete</button>
                 <button type="button" class="btn btn--ghost" id="crm-contact-cancel">Cancel</button>
               </div>
             </form>
           </dialog>
+
+          <aside id="crm-entity-drawer" class="crm-deal-drawer" hidden>
+            <header class="crm-deal-drawer__head">
+              <div>
+                <h3 id="crm-entity-drawer-title">Details</h3>
+                <p class="muted" id="crm-entity-drawer-meta"></p>
+              </div>
+              <div class="crm-drawer-actions">
+                <button type="button" class="btn btn--ghost" id="crm-entity-edit-btn">Edit</button>
+                <button type="button" class="btn btn--ghost" id="crm-entity-drawer-close">Close</button>
+              </div>
+            </header>
+            <div id="crm-entity-deals" class="crm-entity-deals"></div>
+            <form id="crm-entity-activity-form" class="crm-activity-form">
+              <h4>Log activity</h4>
+              <label>Type
+                <select name="activity_type">
+                  <option value="note">Note</option>
+                  <option value="call">Call</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">Meeting</option>
+                </select>
+              </label>
+              <label>Subject<input name="subject" maxlength="200" /></label>
+              <label>Details<textarea name="body" rows="3" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Save activity</button>
+            </form>
+            <div id="crm-entity-activity-list" class="crm-activity-list"></div>
+          </aside>
 
           <aside id="crm-deal-drawer" class="crm-deal-drawer" hidden>
             <header class="crm-deal-drawer__head">
@@ -804,16 +858,28 @@
                 <h3 id="crm-deal-drawer-title">Deal</h3>
                 <p class="muted" id="crm-deal-drawer-meta"></p>
               </div>
-              <button type="button" class="btn btn--ghost" id="crm-deal-drawer-close" aria-label="Close">Close</button>
+              <div class="crm-drawer-actions">
+                <button type="button" class="btn btn--ghost" id="crm-deal-edit-btn">Edit</button>
+                <button type="button" class="btn btn--danger btn--ghost" id="crm-deal-delete-btn">Delete</button>
+                <button type="button" class="btn btn--ghost" id="crm-deal-drawer-close" aria-label="Close">Close</button>
+              </div>
             </header>
             <label>Move to stage
               <select id="crm-deal-drawer-stage"></select>
             </label>
             <form id="crm-activity-form" class="crm-activity-form">
-              <h4>Add note</h4>
+              <h4>Log activity</h4>
+              <label>Type
+                <select name="activity_type">
+                  <option value="note">Note</option>
+                  <option value="call">Call</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">Meeting</option>
+                </select>
+              </label>
               <label>Subject<input name="subject" maxlength="200" /></label>
-              <label>Note<textarea name="body" rows="3" required></textarea></label>
-              <button type="submit" class="btn btn--primary">Save note</button>
+              <label>Details<textarea name="body" rows="3" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Save activity</button>
             </form>
             <div id="crm-activity-list" class="crm-activity-list"></div>
           </aside>
@@ -2320,7 +2386,7 @@
     <script src="./admin-employees.js?v=18"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
-    <script src="./admin-crm.js?v=1"></script>
+    <script src="./admin-crm.js?v=2"></script>
     <script src="./admin-compliance.js?v=admin-v10"></script>
     <script src="./admin-absence.js?v=2"></script>
     <script src="./admin-rtw.js?v=2"></script>

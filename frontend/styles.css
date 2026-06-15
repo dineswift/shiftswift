@@ -9563,6 +9563,54 @@ body.rota-week-readonly .rota-builder-hint {
   }
 }
 
+.crm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.crm-search {
+  min-width: min(100%, 220px);
+}
+
+.crm-search input {
+  width: 100%;
+}
+
+.crm-clickable-table .crm-row {
+  cursor: pointer;
+}
+
+.crm-clickable-table .crm-row:hover {
+  background: var(--surface-muted, #f8fafc);
+}
+
+.crm-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.crm-related-list {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+}
+
+.crm-link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--brand-primary, #0f766e);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.crm-entity-deals h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
 .crm-summary-strip {
   display: flex;
   flex-wrap: wrap;

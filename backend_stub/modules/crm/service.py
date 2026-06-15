@@ -56,7 +56,7 @@ def ensure_default_pipeline(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     }
 
 
-def build_pipeline_board(*, tenant_id: int, conn: Any) -> dict[str, Any]:
+def build_pipeline_board(*, tenant_id: int, conn: Any, q: str | None = None) -> dict[str, Any]:
     pipeline = ensure_default_pipeline(tenant_id=tenant_id, conn=conn)
     stages = repository.list_stages(
         tenant_id=tenant_id,
@@ -67,6 +67,7 @@ def build_pipeline_board(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         tenant_id=tenant_id,
         pipeline_id=pipeline["id"],
         conn=conn,
+        q=q,
     )
     deals_by_stage: dict[int, list[dict[str, Any]]] = {stage["id"]: [] for stage in stages}
     for deal in deals:
@@ -98,6 +99,44 @@ def validate_stage(*, tenant_id: int, pipeline_id: int, stage_id: int, conn: Any
         )
         if not cur.fetchone():
             raise HTTPException(status_code=400, detail="Invalid pipeline stage")
+
+
+def build_account_detail(*, tenant_id: int, account_id: int, conn: Any) -> dict[str, Any] | None:
+    account = repository.fetch_account(tenant_id=tenant_id, account_id=account_id, conn=conn)
+    if not account:
+        return None
+    return {
+        "account": account,
+        "deals": repository.list_deals_for_account(
+            tenant_id=tenant_id,
+            account_id=account_id,
+            conn=conn,
+        ),
+        "activities": repository.list_entity_activities(
+            tenant_id=tenant_id,
+            account_id=account_id,
+            conn=conn,
+        ),
+    }
+
+
+def build_contact_detail(*, tenant_id: int, contact_id: int, conn: Any) -> dict[str, Any] | None:
+    contact = repository.fetch_contact(tenant_id=tenant_id, contact_id=contact_id, conn=conn)
+    if not contact:
+        return None
+    return {
+        "contact": contact,
+        "deals": repository.list_deals_for_contact(
+            tenant_id=tenant_id,
+            contact_id=contact_id,
+            conn=conn,
+        ),
+        "activities": repository.list_entity_activities(
+            tenant_id=tenant_id,
+            contact_id=contact_id,
+            conn=conn,
+        ),
+    }
 
 
 def validate_account(*, tenant_id: int, account_id: int | None, conn: Any) -> None:

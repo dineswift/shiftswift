@@ -73,10 +73,29 @@ def list_stages(*, tenant_id: int, pipeline_id: int, conn: Any) -> list[dict[str
     ]
 
 
-def list_deals(*, tenant_id: int, pipeline_id: int, conn: Any) -> list[dict[str, Any]]:
+def _search_term(q: str | None) -> str | None:
+    cleaned = (q or "").strip()
+    return f"%{cleaned}%" if cleaned else None
+
+
+def list_deals(
+    *,
+    tenant_id: int,
+    pipeline_id: int,
+    conn: Any,
+    q: str | None = None,
+) -> list[dict[str, Any]]:
+    filters = ["d.tenant_id = %s", "d.pipeline_id = %s"]
+    params: list[Any] = [tenant_id, pipeline_id]
+    term = _search_term(q)
+    if term:
+        filters.append(
+            "(d.title ILIKE %s OR a.name ILIKE %s OR c.name ILIKE %s OR COALESCE(d.notes, '') ILIKE %s)"
+        )
+        params.extend([term, term, term, term])
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT d.id, d.stage_id, d.title, d.value_gbp, d.expected_close_date,
                    d.notes, d.owner_username, d.account_id, d.contact_id,
                    d.created_at, d.updated_at,
@@ -84,10 +103,10 @@ def list_deals(*, tenant_id: int, pipeline_id: int, conn: Any) -> list[dict[str,
             FROM crm_deals d
             LEFT JOIN crm_accounts a ON a.id = d.account_id
             LEFT JOIN crm_contacts c ON c.id = d.contact_id
-            WHERE d.tenant_id = %s AND d.pipeline_id = %s
+            WHERE {" AND ".join(filters)}
             ORDER BY d.updated_at DESC, d.id DESC
             """,
-            (tenant_id, pipeline_id),
+            params,
         )
         rows = cur.fetchall()
     return [
@@ -110,46 +129,77 @@ def list_deals(*, tenant_id: int, pipeline_id: int, conn: Any) -> list[dict[str,
     ]
 
 
-def list_accounts(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
+def _account_row(row: tuple[Any, ...]) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "name": row[1],
+        "email": row[2],
+        "phone": row[3],
+        "website": row[4],
+        "notes": row[5],
+        "owner_username": row[6],
+        "created_at": _iso(row[7]),
+        "updated_at": _iso(row[8]),
+    }
+
+
+def list_accounts(*, tenant_id: int, conn: Any, q: str | None = None) -> list[dict[str, Any]]:
+    filters = ["tenant_id = %s"]
+    params: list[Any] = [tenant_id]
+    term = _search_term(q)
+    if term:
+        filters.append(
+            "(name ILIKE %s OR COALESCE(email, '') ILIKE %s OR COALESCE(phone, '') ILIKE %s OR COALESCE(website, '') ILIKE %s)"
+        )
+        params.extend([term, term, term, term])
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT id, name, email, phone, website, notes, owner_username, created_at, updated_at
+            FROM crm_accounts
+            WHERE {" AND ".join(filters)}
+            ORDER BY updated_at DESC, id DESC
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+    return [_account_row(row) for row in rows]
+
+
+def fetch_account(*, tenant_id: int, account_id: int, conn: Any) -> dict[str, Any] | None:
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT id, name, email, phone, website, notes, owner_username, created_at, updated_at
             FROM crm_accounts
-            WHERE tenant_id = %s
-            ORDER BY updated_at DESC, id DESC
+            WHERE tenant_id = %s AND id = %s
             """,
-            (tenant_id,),
+            (tenant_id, account_id),
         )
-        rows = cur.fetchall()
-    return [
-        {
-            "id": row[0],
-            "name": row[1],
-            "email": row[2],
-            "phone": row[3],
-            "website": row[4],
-            "notes": row[5],
-            "owner_username": row[6],
-            "created_at": _iso(row[7]),
-            "updated_at": _iso(row[8]),
-        }
-        for row in rows
-    ]
+        row = cur.fetchone()
+    return _account_row(row) if row else None
 
 
-def list_contacts(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
+def list_contacts(*, tenant_id: int, conn: Any, q: str | None = None) -> list[dict[str, Any]]:
+    filters = ["c.tenant_id = %s"]
+    params: list[Any] = [tenant_id]
+    term = _search_term(q)
+    if term:
+        filters.append(
+            "(c.name ILIKE %s OR COALESCE(c.email, '') ILIKE %s OR COALESCE(c.phone, '') ILIKE %s OR COALESCE(c.job_title, '') ILIKE %s OR COALESCE(a.name, '') ILIKE %s)"
+        )
+        params.extend([term, term, term, term, term])
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT c.id, c.account_id, c.name, c.email, c.phone, c.job_title, c.notes,
                    c.owner_username, c.created_at, c.updated_at, a.name
             FROM crm_contacts c
             LEFT JOIN crm_accounts a ON a.id = c.account_id
-            WHERE c.tenant_id = %s
+            WHERE {" AND ".join(filters)}
             ORDER BY c.updated_at DESC, c.id DESC
             """,
-            (tenant_id,),
+            params,
         )
         rows = cur.fetchall()
     return [
@@ -168,6 +218,38 @@ def list_contacts(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
         }
         for row in rows
     ]
+
+
+def _contact_row(row: tuple[Any, ...]) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "account_id": row[1],
+        "name": row[2],
+        "email": row[3],
+        "phone": row[4],
+        "job_title": row[5],
+        "notes": row[6],
+        "owner_username": row[7],
+        "created_at": _iso(row[8]),
+        "updated_at": _iso(row[9]),
+        "account_name": row[10],
+    }
+
+
+def fetch_contact(*, tenant_id: int, contact_id: int, conn: Any) -> dict[str, Any] | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT c.id, c.account_id, c.name, c.email, c.phone, c.job_title, c.notes,
+                   c.owner_username, c.created_at, c.updated_at, a.name
+            FROM crm_contacts c
+            LEFT JOIN crm_accounts a ON a.id = c.account_id
+            WHERE c.tenant_id = %s AND c.id = %s
+            """,
+            (tenant_id, contact_id),
+        )
+        row = cur.fetchone()
+    return _contact_row(row) if row else None
 
 
 def create_account(
@@ -192,8 +274,50 @@ def create_account(
             (tenant_id, name, email, phone, website, notes, owner_username),
         )
         account_id = int(cur.fetchone()[0])
-    items = list_accounts(tenant_id=tenant_id, conn=conn)
-    return next(item for item in items if item["id"] == account_id)
+    account = fetch_account(tenant_id=tenant_id, account_id=account_id, conn=conn)
+    if not account:
+        raise LookupError("account not found")
+    return account
+
+
+def update_account(
+    *,
+    tenant_id: int,
+    account_id: int,
+    updates: dict[str, Any],
+    conn: Any,
+) -> dict[str, Any] | None:
+    allowed = {
+        key: updates[key]
+        for key in ("name", "email", "phone", "website", "notes", "owner_username")
+        if key in updates
+    }
+    if not allowed:
+        return fetch_account(tenant_id=tenant_id, account_id=account_id, conn=conn)
+    sets = [f"{key} = %s" for key in allowed]
+    sets.append("updated_at = NOW()")
+    params = list(allowed.values()) + [tenant_id, account_id]
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE crm_accounts
+            SET {", ".join(sets)}
+            WHERE tenant_id = %s AND id = %s
+            """,
+            params,
+        )
+        if cur.rowcount == 0:
+            return None
+    return fetch_account(tenant_id=tenant_id, account_id=account_id, conn=conn)
+
+
+def delete_account(*, tenant_id: int, account_id: int, conn: Any) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM crm_accounts WHERE tenant_id = %s AND id = %s",
+            (tenant_id, account_id),
+        )
+        return cur.rowcount > 0
 
 
 def create_contact(
@@ -219,8 +343,50 @@ def create_contact(
             (tenant_id, account_id, name, email, phone, job_title, notes, owner_username),
         )
         contact_id = int(cur.fetchone()[0])
-    items = list_contacts(tenant_id=tenant_id, conn=conn)
-    return next(item for item in items if item["id"] == contact_id)
+    contact = fetch_contact(tenant_id=tenant_id, contact_id=contact_id, conn=conn)
+    if not contact:
+        raise LookupError("contact not found")
+    return contact
+
+
+def update_contact(
+    *,
+    tenant_id: int,
+    contact_id: int,
+    updates: dict[str, Any],
+    conn: Any,
+) -> dict[str, Any] | None:
+    allowed = {
+        key: updates[key]
+        for key in ("name", "account_id", "email", "phone", "job_title", "notes", "owner_username")
+        if key in updates
+    }
+    if not allowed:
+        return fetch_contact(tenant_id=tenant_id, contact_id=contact_id, conn=conn)
+    sets = [f"{key} = %s" for key in allowed]
+    sets.append("updated_at = NOW()")
+    params = list(allowed.values()) + [tenant_id, contact_id]
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            UPDATE crm_contacts
+            SET {", ".join(sets)}
+            WHERE tenant_id = %s AND id = %s
+            """,
+            params,
+        )
+        if cur.rowcount == 0:
+            return None
+    return fetch_contact(tenant_id=tenant_id, contact_id=contact_id, conn=conn)
+
+
+def delete_contact(*, tenant_id: int, contact_id: int, conn: Any) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM crm_contacts WHERE tenant_id = %s AND id = %s",
+            (tenant_id, contact_id),
+        )
+        return cur.rowcount > 0
 
 
 def create_deal(
@@ -260,8 +426,10 @@ def create_deal(
             ),
         )
         deal_id = int(cur.fetchone()[0])
-    items = list_deals(tenant_id=tenant_id, pipeline_id=pipeline_id, conn=conn)
-    return next(item for item in items if item["id"] == deal_id)
+    deal = fetch_deal(tenant_id=tenant_id, deal_id=deal_id, conn=conn)
+    if not deal:
+        raise LookupError("deal not found")
+    return deal
 
 
 def update_deal(
@@ -307,6 +475,15 @@ def update_deal(
     return fetch_deal(tenant_id=tenant_id, deal_id=deal_id, conn=conn)
 
 
+def delete_deal(*, tenant_id: int, deal_id: int, conn: Any) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "DELETE FROM crm_deals WHERE tenant_id = %s AND id = %s",
+            (tenant_id, deal_id),
+        )
+        return cur.rowcount > 0
+
+
 def fetch_deal(*, tenant_id: int, deal_id: int, conn: Any) -> dict[str, Any] | None:
     with conn.cursor() as cur:
         cur.execute(
@@ -342,6 +519,20 @@ def fetch_deal(*, tenant_id: int, deal_id: int, conn: Any) -> dict[str, Any] | N
     }
 
 
+def _activity_row(row: tuple[Any, ...]) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "activity_type": row[1],
+        "subject": row[2],
+        "body": row[3],
+        "activity_at": _iso(row[4]),
+        "created_by": row[5],
+        "created_at": _iso(row[6]),
+        "deal_id": row[7] if len(row) > 7 else None,
+        "deal_title": row[8] if len(row) > 8 else None,
+    }
+
+
 def list_activities(*, tenant_id: int, deal_id: int, conn: Any) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(
@@ -354,15 +545,102 @@ def list_activities(*, tenant_id: int, deal_id: int, conn: Any) -> list[dict[str
             (tenant_id, deal_id),
         )
         rows = cur.fetchall()
+    return [_activity_row(row) for row in rows]
+
+
+def list_entity_activities(
+    *,
+    tenant_id: int,
+    conn: Any,
+    account_id: int | None = None,
+    contact_id: int | None = None,
+) -> list[dict[str, Any]]:
+    filters = ["a.tenant_id = %s"]
+    params: list[Any] = [tenant_id]
+    if account_id is not None:
+        filters.append(
+            "(a.account_id = %s OR d.account_id = %s)"
+        )
+        params.extend([account_id, account_id])
+    elif contact_id is not None:
+        filters.append(
+            "(a.contact_id = %s OR d.contact_id = %s)"
+        )
+        params.extend([contact_id, contact_id])
+    else:
+        return []
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT a.id, a.activity_type, a.subject, a.body, a.activity_at, a.created_by, a.created_at,
+                   a.deal_id, d.title
+            FROM crm_activities a
+            LEFT JOIN crm_deals d ON d.id = a.deal_id
+            WHERE {" AND ".join(filters)}
+            ORDER BY a.activity_at DESC, a.id DESC
+            LIMIT 50
+            """,
+            params,
+        )
+        rows = cur.fetchall()
+    return [_activity_row(row) for row in rows]
+
+
+def list_deals_for_account(*, tenant_id: int, account_id: int, conn: Any) -> list[dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.id, d.title, d.value_gbp, d.expected_close_date, d.updated_at,
+                   s.label, c.name
+            FROM crm_deals d
+            LEFT JOIN crm_deal_stages s ON s.id = d.stage_id
+            LEFT JOIN crm_contacts c ON c.id = d.contact_id
+            WHERE d.tenant_id = %s AND d.account_id = %s
+            ORDER BY d.updated_at DESC
+            LIMIT 20
+            """,
+            (tenant_id, account_id),
+        )
+        rows = cur.fetchall()
     return [
         {
             "id": row[0],
-            "activity_type": row[1],
-            "subject": row[2],
-            "body": row[3],
-            "activity_at": _iso(row[4]),
-            "created_by": row[5],
-            "created_at": _iso(row[6]),
+            "title": row[1],
+            "value_gbp": _money(row[2]),
+            "expected_close_date": _iso(row[3]),
+            "updated_at": _iso(row[4]),
+            "stage_label": row[5],
+            "contact_name": row[6],
+        }
+        for row in rows
+    ]
+
+
+def list_deals_for_contact(*, tenant_id: int, contact_id: int, conn: Any) -> list[dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT d.id, d.title, d.value_gbp, d.expected_close_date, d.updated_at,
+                   s.label, a.name
+            FROM crm_deals d
+            LEFT JOIN crm_deal_stages s ON s.id = d.stage_id
+            LEFT JOIN crm_accounts a ON a.id = d.account_id
+            WHERE d.tenant_id = %s AND d.contact_id = %s
+            ORDER BY d.updated_at DESC
+            LIMIT 20
+            """,
+            (tenant_id, contact_id),
+        )
+        rows = cur.fetchall()
+    return [
+        {
+            "id": row[0],
+            "title": row[1],
+            "value_gbp": _money(row[2]),
+            "expected_close_date": _iso(row[3]),
+            "updated_at": _iso(row[4]),
+            "stage_label": row[5],
+            "account_name": row[6],
         }
         for row in rows
     ]
@@ -371,33 +649,27 @@ def list_activities(*, tenant_id: int, deal_id: int, conn: Any) -> list[dict[str
 def create_activity(
     *,
     tenant_id: int,
-    deal_id: int,
+    deal_id: int | None,
     activity_type: str,
     subject: str | None,
     body: str | None,
     created_by: str | None,
+    account_id: int | None = None,
+    contact_id: int | None = None,
     conn: Any,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO crm_activities (
-              tenant_id, deal_id, activity_type, subject, body, created_by
-            ) VALUES (%s, %s, %s, %s, %s, %s)
+              tenant_id, deal_id, account_id, contact_id, activity_type, subject, body, created_by
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, activity_type, subject, body, activity_at, created_by, created_at
             """,
-            (tenant_id, deal_id, activity_type, subject, body, created_by),
+            (tenant_id, deal_id, account_id, contact_id, activity_type, subject, body, created_by),
         )
         row = cur.fetchone()
-    return {
-        "id": row[0],
-        "activity_type": row[1],
-        "subject": row[2],
-        "body": row[3],
-        "activity_at": _iso(row[4]),
-        "created_by": row[5],
-        "created_at": _iso(row[6]),
-    }
+    return _activity_row(row)
 
 
 def count_summary(*, tenant_id: int, conn: Any) -> dict[str, int]:
