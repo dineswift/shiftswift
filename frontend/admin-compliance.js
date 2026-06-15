@@ -416,7 +416,7 @@
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],
         rows: [],
-        emptyMessage: "Could not load absence streaks.",
+        emptyMessage: "No absence streak data yet — log absences as they occur.",
       });
     }
   }
@@ -471,7 +471,7 @@
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }, { key: "f" }],
         rows: [],
-        emptyMessage: "Could not load absence days.",
+        emptyMessage: "No absence days recorded yet.",
       });
     }
   }
@@ -515,7 +515,7 @@
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }],
         rows: [],
-        emptyMessage: "Could not load working calendar.",
+        emptyMessage: "No custom calendar entries. All weekdays count as working days.",
       });
     }
   }
@@ -621,7 +621,7 @@
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],
         rows: [],
-        emptyMessage: "Could not load reporting triggers.",
+        emptyMessage: "No open reporting triggers.",
       });
     }
   }

@@ -134,7 +134,7 @@
 
   const QUICK_ADD_SCHEMA = {
     id: "employee-quick-add",
-    columns: 2,
+    columns: 1,
     submitLabel: "Create employee",
     successMessage: "Employee created. Continue the lifecycle from step 1.",
     fields: [
@@ -143,6 +143,215 @@
       { name: "email", label: "Work email", type: "email" },
     ],
   };
+
+  const LIFECYCLE_STAGES = [
+    { id: "recruitment", label: "Recruitment", shortLabel: "Recruitment", icon: "user-plus", openDefault: true },
+    { id: "onboarding", label: "Onboarding", shortLabel: "Onboarding", icon: "clipboard" },
+    { id: "active", label: "Active employees", shortLabel: "Active", icon: "users" },
+    { id: "offboarding", label: "Offboarding", shortLabel: "Offboarding", icon: "user-minus" },
+  ];
+
+  const LIFECYCLE_HUB_PAGE_SIZE = 5;
+  const LIFECYCLE_EDITABLE_STEPS = 6;
+
+  let lifecycleHubOpenStage = "recruitment";
+  let lifecycleHubExpanded = { recruitment: true, onboarding: false, active: false, offboarding: false };
+  let lifecycleHubShowAll = { recruitment: false, onboarding: false, active: false, offboarding: false };
+  let quickAddMounted = false;
+
+  function isMobileEmployeesHub() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function lifecycleStage(row) {
+    if (!row) return "recruitment";
+    if (row.status === "terminated") return "offboarding";
+    if (row.status === "active" && !row.next_section) return "active";
+    if (row.next_section === "recruitment") return "recruitment";
+    if (row.status === "active" && (row.completion_pct ?? 0) >= 100) return "active";
+    if (row.status === "onboarding" || row.next_section) return "onboarding";
+    return "active";
+  }
+
+  function bucketEmployeesByStage(items = []) {
+    const buckets = { recruitment: [], onboarding: [], active: [], offboarding: [] };
+    items.forEach((row) => {
+      buckets[lifecycleStage(row)]?.push(row);
+    });
+    return buckets;
+  }
+
+  function progressCopy(row) {
+    const pct = row.completion_pct ?? 0;
+    const next = row.next_section ? sectionLabel(row.next_section) : null;
+    if (!next || pct >= 100) return null;
+    return `Onboarding ${pct}% complete — next: ${next}`;
+  }
+
+  function avatarPalette(employeeId) {
+    const palettes = [
+      { bg: "#E1F5EE", color: "#0F6E56" },
+      { bg: "#E6F1FB", color: "#185FA5" },
+      { bg: "#FAEEDA", color: "#854F0B" },
+      { bg: "#FBEAF0", color: "#993556" },
+    ];
+    return palettes[Math.abs(Number(employeeId)) % palettes.length];
+  }
+
+  function renderLifecycleStageRail(buckets) {
+    const rail = $("lifecycle-stage-rail");
+    if (!rail) return;
+    const stages = LIFECYCLE_STAGES.map((stage) => {
+      const count = buckets[stage.id]?.length ?? 0;
+      const isCurrent = lifecycleHubOpenStage === stage.id;
+      const isComplete =
+        stage.id === "recruitment"
+          ? count === 0 && (buckets.onboarding?.length || buckets.active?.length)
+          : false;
+      const stateClass = isComplete ? " lifecycle-stage-rail__step--done" : isCurrent ? " lifecycle-stage-rail__step--current" : "";
+      const marker = isComplete
+        ? `<span class="lifecycle-stage-rail__marker lifecycle-stage-rail__marker--done" aria-hidden="true">✓</span>`
+        : `<span class="lifecycle-stage-rail__marker">${LIFECYCLE_STAGES.indexOf(stage) + 1}</span>`;
+      return `<div class="lifecycle-stage-rail__step${stateClass}" data-lifecycle-stage="${stage.id}">
+        ${marker}
+        <span class="lifecycle-stage-rail__label">${escapeHtml(stage.shortLabel)}</span>
+      </div>`;
+    }).join(`<span class="lifecycle-stage-rail__line" aria-hidden="true"></span>`);
+    rail.innerHTML = `<div class="lifecycle-stage-rail__track">${stages}</div>`;
+    rail.querySelectorAll("[data-lifecycle-stage]").forEach((el) => {
+      el.addEventListener("click", () => {
+        lifecycleHubOpenStage = el.dataset.lifecycleStage;
+        lifecycleHubExpanded[lifecycleHubOpenStage] = true;
+        renderLifecycleHub(employeesCache);
+        document.querySelector(`[data-lifecycle-section="${lifecycleHubOpenStage}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }
+
+  function renderLifecycleEmployeeCard(row, stage) {
+    const palette = avatarPalette(row.id);
+    const initials = employeeInitials(row);
+    const roleLine = [row.job_title, row.department].filter(Boolean).join(" · ") || "Details not set yet";
+    const progress = progressCopy(row);
+    const progressBlock =
+      progress && stage !== "active"
+        ? `<div class="lifecycle-employee-card__progress">
+            <div class="lifecycle-progress-bar"><span style="width:${Math.min(100, row.completion_pct ?? 0)}%"></span></div>
+            <span class="lifecycle-progress-meta">${escapeHtml(progress)}</span>
+          </div>`
+        : `<span class="lifecycle-employee-card__meta muted">${escapeHtml(roleLine)}</span>`;
+    return `<button type="button" class="lifecycle-employee-card" data-employee-id="${row.id}">
+      <span class="lifecycle-employee-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+      <span class="lifecycle-employee-card__body">
+        <strong class="lifecycle-employee-card__name">${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>
+        ${progressBlock}
+      </span>
+      <span class="lifecycle-employee-card__chevron" aria-hidden="true"></span>
+    </button>`;
+  }
+
+  function relocateQuickAddForm(targetHost) {
+    const formHost = $("employee-quick-add-form");
+    if (!formHost || !targetHost) return;
+    targetHost.appendChild(formHost);
+  }
+
+  function renderLifecycleHub(items = employeesCache) {
+    const hub = $("employees-lifecycle-hub");
+    if (!hub) return;
+    const buckets = bucketEmployeesByStage(items);
+    renderLifecycleStageRail(buckets);
+
+    if (!isMobileEmployeesHub()) {
+      hub.hidden = true;
+      relocateQuickAddForm(document.querySelector(".employees-quick-add-panel"));
+      return;
+    }
+
+    hub.hidden = false;
+    const icon = (name) => window.AdminIcons?.svg?.(name) || "";
+
+    hub.innerHTML = LIFECYCLE_STAGES.map((stage) => {
+      const rows = buckets[stage.id] || [];
+      const isOpen = Boolean(lifecycleHubExpanded[stage.id]);
+      const showAll = Boolean(lifecycleHubShowAll[stage.id]);
+      const visibleRows = showAll ? rows : rows.slice(0, LIFECYCLE_HUB_PAGE_SIZE);
+      const cards = visibleRows.length
+        ? visibleRows.map((row) => renderLifecycleEmployeeCard(row, stage.id)).join("")
+        : `<div class="lifecycle-empty-state"><p class="muted">${escapeHtml(stageEmptyMessage(stage.id))}</p></div>`;
+      const viewAll =
+        rows.length > LIFECYCLE_HUB_PAGE_SIZE && !showAll
+          ? `<button type="button" class="btn ghost lifecycle-view-all-btn" data-lifecycle-view-all="${stage.id}">View all ${rows.length} employees</button>`
+          : "";
+      const recruitmentExtras =
+        stage.id === "recruitment"
+          ? `<div class="employees-recruitment-form-slot" id="employees-recruitment-form-slot"></div>
+             <button type="button" class="btn outline lifecycle-add-employee-btn" id="employees-hub-add-btn">+ Add employee</button>`
+          : "";
+      const bulkInvite =
+        stage.id === "active"
+          ? `<div class="lifecycle-bulk-invite">
+              <button type="button" class="btn outline" id="employees-hub-bulk-invite-btn">Invite all without portal accounts</button>
+              <p class="muted" id="employees-hub-bulk-invite-status" aria-live="polite"></p>
+            </div>`
+          : "";
+
+      return `<section class="lifecycle-hub-section${isOpen ? " is-open" : ""}" data-lifecycle-section="${stage.id}">
+        <button type="button" class="lifecycle-hub-section__header" data-lifecycle-toggle="${stage.id}" aria-expanded="${isOpen}">
+          <span class="lifecycle-hub-section__icon">${icon(stage.icon)}</span>
+          <span class="lifecycle-hub-section__title">${escapeHtml(stage.label)}</span>
+          <span class="lifecycle-hub-section__badge">${rows.length}</span>
+          <span class="lifecycle-hub-section__chevron" aria-hidden="true"></span>
+        </button>
+        <div class="lifecycle-hub-section__body"${isOpen ? "" : " hidden"}>
+          ${cards}
+          ${viewAll}
+          ${recruitmentExtras}
+          ${bulkInvite}
+        </div>
+      </section>`;
+    }).join("");
+
+    if (lifecycleHubExpanded.recruitment) {
+      relocateQuickAddForm($("employees-recruitment-form-slot"));
+    } else {
+      relocateQuickAddForm(document.querySelector(".employees-quick-add-panel"));
+    }
+
+    hub.querySelectorAll("[data-lifecycle-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const stageId = btn.dataset.lifecycleToggle;
+        lifecycleHubExpanded[stageId] = !lifecycleHubExpanded[stageId];
+        if (lifecycleHubExpanded[stageId]) lifecycleHubOpenStage = stageId;
+        renderLifecycleHub(items);
+      });
+    });
+
+    hub.querySelectorAll(".lifecycle-employee-card").forEach((card) => {
+      card.addEventListener("click", () => openEmployee(Number(card.dataset.employeeId)));
+    });
+
+    hub.querySelectorAll("[data-lifecycle-view-all]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        lifecycleHubShowAll[btn.dataset.lifecycleViewAll] = true;
+        renderLifecycleHub(items);
+      });
+    });
+
+    $("employees-hub-add-btn")?.addEventListener("click", () => {
+      $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("employee-quick-add-form")?.querySelector("input")?.focus();
+    });
+
+    $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
+  }
+
+  function stageEmptyMessage(stageId) {
+    if (stageId === "recruitment") return "No one in recruitment yet — add your first employee below.";
+    if (stageId === "onboarding") return "No employees currently onboarding.";
+    if (stageId === "active") return "No active employees yet.";
+    return "No employees in offboarding.";
+  }
 
   let activeEmployeeId = null;
   let selectedEmployeeId = null;
@@ -163,6 +372,7 @@
     workspaceCache = null;
     setSidebarBreadcrumb(null);
     window.location.hash = "employees";
+    renderLifecycleHub(employeesCache);
   }
 
   function showDetailView() {
@@ -319,8 +529,20 @@
     }
   }
 
-  async function sendBulkPortalInvites() {
-    const statusEl = document.getElementById("employees-bulk-invite-status");
+  async function sendBulkPortalInvites(statusId = "employees-bulk-invite-status") {
+    const statusEl = document.getElementById(statusId);
+    const pending = employeesCache.filter(
+      (row) => row.email && row.portal_setup_status !== "complete" && !row.portal_setup_pending
+    );
+    const message =
+      pending.length === 0
+        ? "No employees are waiting for a portal invite."
+        : `Send portal invite emails to ${pending.length} employee${pending.length === 1 ? "" : "s"} without accounts?`;
+    if (pending.length === 0) {
+      if (statusEl) statusEl.textContent = message;
+      return;
+    }
+    if (!window.confirm(`${message}\n\nEach person will receive an email with a setup link.`)) return;
     if (statusEl) statusEl.textContent = "Sending invites…";
     let data = {};
     try {
@@ -658,7 +880,10 @@
     const next = workspace.next_section ? sectionLabel(workspace.next_section) : null;
     const heading = $("employee-progress-heading");
     const nextEl = $("employee-progress-next");
-    if (heading) heading.textContent = `Lifecycle progress — ${pct}% complete`;
+    if (heading) {
+      heading.textContent =
+        pct >= 100 || !next ? "Lifecycle complete" : `Onboarding ${pct}% complete`;
+    }
     if (nextEl) {
       nextEl.textContent = next ? `Next: ${next}` : "All required steps complete";
     }
@@ -1068,18 +1293,22 @@
         tbody.innerHTML =
           '<tr><td colspan="4" class="muted">No employees yet. Add your first team member above.</td></tr>';
         renderEmployeeSidePanel(null);
+        renderLifecycleHub([]);
         return;
       }
 
       tbody.innerHTML = employeesCache
         .map((row) => {
           const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
-          const next = row.next_section ? sectionLabel(row.next_section) : "Complete";
+          const progress = progressCopy(row);
+          const progressCell = progress
+            ? `<span class="employee-profile-pill">${escapeHtml(String(row.completion_pct ?? 0))}%</span><div class="muted">${escapeHtml(progress)}</div>`
+            : `<span class="employee-profile-pill employee-profile-pill--ok">Complete</span>`;
           return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
             <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
             <td>${escapeHtml(row.department || "Not set")}</td>
             <td>${statusPill(row.status)}</td>
-            <td><span class="employee-profile-pill">${escapeHtml(String(row.completion_pct ?? 0))}%</span><div class="muted">${escapeHtml(next)}</div></td>
+            <td>${progressCell}</td>
           </tr>`;
         })
         .join("");
@@ -1097,6 +1326,7 @@
       if (selectedEmployeeId) {
         renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
       }
+      renderLifecycleHub(employeesCache);
     } catch (error) {
       const message = escapeHtml(error?.message || "Could not load employees.");
       tbody.innerHTML = `<tr><td colspan="4" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
@@ -1114,7 +1344,7 @@
     }
     empty?.setAttribute("hidden", "");
     content.hidden = false;
-    const next = row.next_section ? sectionLabel(row.next_section) : "Complete";
+    const progress = progressCopy(row);
     content.innerHTML = `
       <div class="hr-detail-head">
         <div>
@@ -1125,7 +1355,7 @@
       <dl class="hr-detail-grid">
         <div><dt>Job title</dt><dd>${escapeHtml(row.job_title || "Not set")}</dd></div>
         <div><dt>Department</dt><dd>${escapeHtml(row.department || "Not set")}</dd></div>
-        <div><dt>Lifecycle progress</dt><dd>${escapeHtml(String(row.completion_pct ?? 0))}% · ${escapeHtml(next)}</dd></div>
+        <div><dt>Lifecycle progress</dt><dd>${progress ? escapeHtml(progress) : "All required steps complete"}</dd></div>
         <div><dt>Email</dt><dd>${escapeHtml(row.email || "Not set")}</dd></div>
         <div><dt>Employee portal</dt><dd>${escapeHtml(portalStatusCopy(row))}</dd></div>
         <div><dt>Kiosk PIN</dt><dd id="employees-side-kiosk-pin">Loading…</dd></div>
@@ -1161,8 +1391,14 @@
   }
 
   function mountQuickAddForm() {
+    if (quickAddMounted) return;
     const host = $("employee-quick-add-form");
     if (!host) return;
+    quickAddMounted = true;
+    const stepEl = $("employees-step-indicator");
+    if (stepEl) {
+      stepEl.textContent = `Step 1 of ${LIFECYCLE_EDITABLE_STEPS} · Recruitment`;
+    }
     mountEditForm(host, QUICK_ADD_SCHEMA, {
       onSubmit: async (payload) => {
         const res = await apiFetch("/admin/employees", {
@@ -1186,7 +1422,8 @@
       await loadFormOptions();
       mountQuickAddForm();
       mountKioskPinForm();
-      document.getElementById("employees-bulk-invite-btn")?.addEventListener("click", sendBulkPortalInvites);
+      document.getElementById("employees-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites());
+      window.addEventListener("resize", () => renderLifecycleHub(employeesCache));
     }
     await refreshEmployeesTable();
   }

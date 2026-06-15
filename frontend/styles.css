@@ -1624,8 +1624,9 @@ textarea:focus {
   content: "";
 }
 
-.mobile-compliance-dashboard {
-  margin-bottom: 16px;
+.mobile-compliance-dashboard,
+.compliance-mobile-shell {
+  margin-bottom: 0;
 }
 
 .mobile-urgent-card {
@@ -1681,6 +1682,276 @@ textarea:focus {
 
 .mobile-compliance-export {
   width: 100%;
+}
+
+.compliance-mobile-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.compliance-mobile-header {
+  display: grid;
+  gap: 8px;
+}
+
+.compliance-mobile-title {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.compliance-mobile-lead {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.compliance-mobile-gov-link {
+  justify-self: start;
+}
+
+.compliance-mobile-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compliance-mobile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compliance-mobile-stat {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: #faf8f5;
+  border: 1px solid var(--card-border);
+  border-left-width: 4px;
+}
+
+.compliance-mobile-stat--neutral { border-left-color: #94a3b8; }
+.compliance-mobile-stat--ok { border-left-color: #0f6e56; }
+.compliance-mobile-stat--warn { border-left-color: #d97706; }
+.compliance-mobile-stat--danger { border-left-color: #dc2626; }
+
+.compliance-mobile-stat__value {
+  display: block;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ink-800);
+}
+
+.compliance-mobile-stat__label {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: var(--ink-600);
+}
+
+.compliance-mobile-stat__hint {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--ink-500);
+}
+
+.compliance-mobile-accordions {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.compliance-mobile-section {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 14px;
+  border: none;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--card);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.compliance-mobile-section:last-child {
+  border-bottom: none;
+}
+
+.compliance-mobile-section__icon {
+  display: inline-flex;
+  color: var(--green-700);
+}
+
+.compliance-mobile-section__title {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.compliance-mobile-section-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-600);
+}
+
+.compliance-mobile-section__chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-500);
+  border-bottom: 2px solid var(--ink-500);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.compliance-mobile-section.is-open .compliance-mobile-section__chevron {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.compliance-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.compliance-empty-state__icon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: var(--ink-500);
+}
+
+.compliance-empty-state p {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.84rem;
+  color: var(--ink-600);
+}
+
+.rtw-record-card,
+.absence-record-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rtw-record-card.is-selected,
+.absence-record-card.is-selected {
+  border-color: var(--green-700);
+  box-shadow: 0 0 0 1px rgba(15, 110, 86, 0.15);
+}
+
+.absence-record-card.is-critical {
+  border-left: 4px solid #dc2626;
+}
+
+.rtw-record-card__avatar,
+.absence-record-card__avatar {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.rtw-record-card__body,
+.absence-record-card__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rtw-record-card__name,
+.absence-record-card__name {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.rtw-record-card__meta,
+.absence-record-card__meta {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rtw-filter-scroll {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 100%;
+}
+
+.rtw-filter-scroll::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--card));
+}
+
+@media (max-width: 860px) {
+  .rtw-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rtw-filter-scroll .rtw-filter-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
+  }
+
+  .rtw-filter-scroll .rtw-filter-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rtw-filter-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .rtw-search {
+    width: 100%;
+  }
+
+  .rtw-search input {
+    width: 100%;
+  }
 }
 
 .topbar-user-menu--desktop {
@@ -2910,6 +3181,10 @@ textarea:focus {
     display: none !important;
   }
 
+  body[data-mobile-tab="rota"] .rota-desktop-only {
+    display: none !important;
+  }
+
   body[data-mobile-tab="rota"] .rota-builder-lead.rota-desktop-only {
     display: none;
   }
@@ -3327,12 +3602,69 @@ textarea:focus {
   body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > .section-header,
   body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #sponsor-enabled-banner,
   body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #sponsor-duties-section,
-  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #sponsor-licence-ack-panel,
-  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #compliance-tools-content {
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #sponsor-licence-ack-panel {
     display: none !important;
   }
   body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #sponsor-licence-ack-panel:not([hidden]) {
     display: block !important;
+  }
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance > #compliance-tools-content {
+    display: grid !important;
+    gap: 0;
+  }
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-tools-content > article {
+    display: none !important;
+    margin-top: 0;
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    box-shadow: none;
+    border-left: 1px solid var(--card-border);
+    border-right: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border);
+  }
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-tools-content > article.compliance-section--open {
+    display: block !important;
+  }
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-tools-content > article:not(#compliance-rtw):not(#compliance-absence):not(#compliance-working-calendar):not(#compliance-audit-export) {
+    display: none !important;
+  }
+  body[data-mobile-tab="compliance"] #compliance-rtw .rtw-workspace-header,
+  body[data-mobile-tab="compliance"] #compliance-rtw .rtw-stats-grid,
+  body[data-mobile-tab="compliance"] #compliance-absence .absence-workspace-header > div:first-child,
+  body[data-mobile-tab="compliance"] #compliance-absence .absence-stats-grid,
+  body[data-mobile-tab="compliance"] #compliance-working-calendar .hr-workspace-header > div:first-child,
+  body[data-mobile-tab="compliance"] #compliance-audit-export .hr-workspace-header > div:first-child {
+    display: none;
+  }
+  body[data-mobile-tab="compliance"] #compliance-absence .absence-workspace-header,
+  body[data-mobile-tab="compliance"] #compliance-audit-export .hr-workspace-header {
+    display: flex;
+    margin-bottom: 12px;
+  }
+  body[data-mobile-tab="compliance"] .absence-section-title {
+    display: none;
+  }
+  body[data-mobile-tab="compliance"] .rtw-desktop-table,
+  body[data-mobile-tab="compliance"] .absence-desktop-table,
+  body[data-mobile-tab="compliance"] .absence-section-title--muted,
+  body[data-mobile-tab="compliance"] .absence-table-wrap:has(.absence-table--resolved) {
+    display: none !important;
+  }
+  body[data-mobile-tab="compliance"] .rtw-mobile-cards:not([hidden]),
+  body[data-mobile-tab="compliance"] .absence-mobile-cards:not([hidden]) {
+    display: grid;
+    gap: 10px;
+  }
+  body[data-mobile-tab="compliance"] #absence-primary-banner:not(:empty):not([hidden]) {
+    display: grid;
+    margin-bottom: 12px;
+  }
+  body[data-mobile-tab="compliance"] #absence-primary-banner:empty,
+  body[data-mobile-tab="compliance"] #absence-primary-banner[hidden] {
+    display: none !important;
+  }
+  body[data-mobile-tab="compliance"] .rtw-detail-alert:empty {
+    display: none;
   }
   body.compliance-mobile-drill .admin-mobile-compliance-only {
     display: none !important;
@@ -8730,5 +9062,308 @@ body.rota-week-readonly .rota-builder-hint {
 
 .employees-register-actions .muted {
   margin: 0;
+}
+
+/* Employee lifecycle hub */
+.employees-step-indicator {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green-800);
+}
+
+.employees-quick-add-lead {
+  margin: 0 0 12px;
+}
+
+.employees-register-block {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--card-border);
+}
+
+.employees-register-head {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.lifecycle-stage-rail {
+  margin-bottom: 16px;
+}
+
+.lifecycle-stage-rail__track {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.lifecycle-stage-rail__step {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.lifecycle-stage-rail__marker {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid var(--card-border);
+  background: var(--card);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-500);
+}
+
+.lifecycle-stage-rail__marker--done {
+  border-color: var(--green-700);
+  background: #e1f5ee;
+  color: var(--green-800);
+}
+
+.lifecycle-stage-rail__step--current .lifecycle-stage-rail__marker {
+  border-color: var(--green-700);
+  background: #e1f5ee;
+  color: var(--green-800);
+}
+
+.lifecycle-stage-rail__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink-500);
+  line-height: 1.2;
+}
+
+.lifecycle-stage-rail__step--current .lifecycle-stage-rail__label {
+  color: var(--ink-800);
+}
+
+.lifecycle-stage-rail__line {
+  flex: 0 0 12px;
+  height: 2px;
+  margin-top: 14px;
+  background: var(--card-border);
+  border-radius: 999px;
+}
+
+.lifecycle-stage-rail__step--done + .lifecycle-stage-rail__line,
+.lifecycle-stage-rail__line:has(+ .lifecycle-stage-rail__step--current) {
+  background: rgba(15, 110, 86, 0.35);
+}
+
+.employees-lifecycle-hub {
+  display: grid;
+  gap: 12px;
+}
+
+.lifecycle-hub-section {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.lifecycle-hub-section__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: var(--card);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.lifecycle-hub-section__icon {
+  display: inline-flex;
+  color: var(--green-700);
+}
+
+.lifecycle-hub-section__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.lifecycle-hub-section__badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-600);
+}
+
+.lifecycle-hub-section__chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-500);
+  border-bottom: 2px solid var(--ink-500);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.lifecycle-hub-section.is-open .lifecycle-hub-section__chevron {
+  transform: rotate(-135deg);
+  margin-top: 4px;
+}
+
+.lifecycle-hub-section__body {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 14px;
+}
+
+.lifecycle-hub-section__body[hidden] {
+  display: none !important;
+}
+
+.lifecycle-employee-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #faf8f5;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.lifecycle-employee-card__avatar {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.lifecycle-employee-card__body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lifecycle-employee-card__name {
+  font-size: 0.88rem;
+}
+
+.lifecycle-employee-card__meta {
+  font-size: 0.74rem;
+}
+
+.lifecycle-employee-card__progress {
+  display: grid;
+  gap: 4px;
+}
+
+.lifecycle-progress-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: #e8ecef;
+  overflow: hidden;
+}
+
+.lifecycle-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green-700);
+}
+
+.lifecycle-progress-meta {
+  font-size: 0.7rem;
+  color: var(--ink-600);
+  line-height: 1.35;
+}
+
+.lifecycle-employee-card__chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-400);
+  border-top: 2px solid var(--ink-400);
+  transform: rotate(45deg);
+}
+
+.lifecycle-empty-state {
+  padding: 12px 4px;
+  text-align: center;
+}
+
+.lifecycle-add-employee-btn,
+.lifecycle-view-all-btn,
+.lifecycle-bulk-invite {
+  width: 100%;
+}
+
+.lifecycle-bulk-invite {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.employees-recruitment-form-slot {
+  padding-top: 4px;
+}
+
+.employee-profile-pill--ok {
+  color: var(--green-800);
+}
+
+.employees-mobile-only {
+  display: none;
+}
+
+.employees-desktop-only {
+  display: block;
+}
+
+@media (max-width: 860px) {
+  #employees.admin-section--active .employees-mobile-only {
+    display: block;
+  }
+
+  #employees.admin-section--active .employees-desktop-only,
+  #employees.admin-section--active .employees-desktop-layout {
+    display: none !important;
+  }
+
+  #employees.admin-section--active .employees-lifecycle-hub[hidden] {
+    display: none !important;
+  }
+
+  #employees.admin-section--active .employees-lifecycle-hub:not([hidden]) {
+    display: grid;
+  }
+
+  body.admin-mobile-detail[data-mobile-detail="employees"] .employees-page-title {
+    font-size: 1.35rem;
+  }
+
+  .lifecycle-stage-rail__label {
+    font-size: 0.58rem;
+  }
 }
 

@@ -65,29 +65,78 @@
     });
   }
 
+  function isMobileView() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function emptyStateHtml(message) {
+    return `<div class="compliance-empty-state">
+      <span class="compliance-empty-state__icon" aria-hidden="true">${window.AdminIcons?.svg?.("document") || "📄"}</span>
+      <p>${escapeHtml(message)}</p>
+    </div>`;
+  }
+
   function renderStats() {
     document.getElementById("rtw-stat-total").textContent = String(rtwStats.total ?? 0);
     document.getElementById("rtw-stat-verified").textContent = String(rtwStats.verified ?? 0);
     document.getElementById("rtw-stat-expiring").textContent = String(rtwStats.expiring_soon ?? 0);
     document.getElementById("rtw-stat-review").textContent = String(rtwStats.needs_review ?? 0);
+    window.dispatchEvent(new CustomEvent("admin:rtw-stats", { detail: { stats: rtwStats } }));
+  }
+
+  function renderMobileCards() {
+    const host = document.getElementById("rtw-mobile-cards");
+    if (!host) return;
+    const rows = filteredItems();
+    if (!rows.length) {
+      const message =
+        rtwItems.length === 0
+          ? "No RTW records yet — add your first check above."
+          : "No RTW records match this filter.";
+      host.innerHTML = emptyStateHtml(message);
+      host.hidden = false;
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = rows
+      .map((item) => {
+        const palette = avatarStyle(item.employee_id);
+        const selected = Number(selectedCheckId) === Number(item.id) ? " is-selected" : "";
+        return `<button type="button" class="rtw-record-card${selected}" data-rtw-id="${item.id}">
+          <span class="rtw-record-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
+          <span class="rtw-record-card__body">
+            <span class="rtw-record-card__name">${escapeHtml(item.employee_short_name || item.employee_name)}</span>
+            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)} · Expires ${escapeHtml(formatDate(item.expiry_date))}</span>
+          </span>
+          <span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span>
+        </button>`;
+      })
+      .join("");
+
+    host.querySelectorAll(".rtw-record-card").forEach((card) => {
+      card.addEventListener("click", () => selectCheck(Number(card.getAttribute("data-rtw-id"))));
+    });
   }
 
   function renderTable() {
     const tbody = document.getElementById("rtw-table-body");
-    if (!tbody) return;
-    const rows = filteredItems();
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">No RTW records match this filter.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = rows
-      .map((item) => {
-        const palette = avatarStyle(item.employee_id);
-        const selected = Number(selectedCheckId) === Number(item.id) ? " is-selected" : "";
-        const sponsoredTag = item.is_sponsored
-          ? `<span class="rtw-sponsored-tag">Sponsored</span>`
-          : `<span class="rtw-standard-tag">Standard</span>`;
-        return `<tr class="rtw-table-row${selected}" data-rtw-id="${item.id}" tabindex="0">
+    if (tbody) {
+      const rows = filteredItems();
+      if (!rows.length) {
+        const message =
+          rtwItems.length === 0
+            ? "No RTW records yet — add your first check above."
+            : "No RTW records match this filter.";
+        tbody.innerHTML = `<tr><td colspan="5">${emptyStateHtml(message)}</td></tr>`;
+      } else {
+        tbody.innerHTML = rows
+          .map((item) => {
+            const palette = avatarStyle(item.employee_id);
+            const selected = Number(selectedCheckId) === Number(item.id) ? " is-selected" : "";
+            const sponsoredTag = item.is_sponsored
+              ? `<span class="rtw-sponsored-tag">Sponsored</span>`
+              : `<span class="rtw-standard-tag">Standard</span>`;
+            return `<tr class="rtw-table-row${selected}" data-rtw-id="${item.id}" tabindex="0">
           <td>
             <div class="rtw-employee-cell">
               <span class="rtw-employee-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
@@ -102,19 +151,26 @@
           <td><span class="${expiryClass(item)}">${escapeHtml(formatDate(item.expiry_date))}</span></td>
           <td><span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span></td>
         </tr>`;
-      })
-      .join("");
+          })
+          .join("");
 
-    tbody.querySelectorAll(".rtw-table-row").forEach((row) => {
-      const open = () => selectCheck(Number(row.getAttribute("data-rtw-id")));
-      row.addEventListener("click", open);
-      row.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          open();
-        }
-      });
-    });
+        tbody.querySelectorAll(".rtw-table-row").forEach((row) => {
+          const open = () => selectCheck(Number(row.getAttribute("data-rtw-id")));
+          row.addEventListener("click", open);
+          row.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              open();
+            }
+          });
+        });
+      }
+    }
+    if (isMobileView()) renderMobileCards();
+    else {
+      const host = document.getElementById("rtw-mobile-cards");
+      if (host) host.hidden = true;
+    }
   }
 
   function renderDetailAlert(item) {
@@ -214,7 +270,9 @@
 
   async function loadRtwRecords() {
     const tbody = document.getElementById("rtw-table-body");
+    const cardsHost = document.getElementById("rtw-mobile-cards");
     if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading RTW records…</td></tr>`;
+    if (cardsHost) cardsHost.innerHTML = `<p class="muted">Loading RTW records…</p>`;
     try {
       const res = await apiFetch("/compliance/sponsor-licence/rtw-checks");
       if (!res.ok) throw new Error("Load failed");
@@ -231,8 +289,14 @@
       }
     } catch {
       rtwItems = [];
+      rtwStats = { total: 0, verified: 0, expiring_soon: 0, needs_review: 0 };
       renderStats();
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="muted">Could not load RTW records.</td></tr>`;
+      const message = "No RTW records yet — add your first check above.";
+      if (tbody) tbody.innerHTML = `<tr><td colspan="5">${emptyStateHtml(message)}</td></tr>`;
+      if (cardsHost) {
+        cardsHost.hidden = false;
+        cardsHost.innerHTML = emptyStateHtml(message);
+      }
     }
   }
 

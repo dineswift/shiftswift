@@ -152,61 +152,8 @@
   }
 
   function renderMobileCompliance(data) {
-    const host = document.getElementById("mobile-compliance-dashboard");
-    if (!host) return;
-    const absence = data.modules?.absence || {};
-    const rtw = data.modules?.rtw || {};
-    const day9 = Number(absence.day9_alerts) || 0;
-    const escapeHtml =
-      window.Admin?.escapeHtml ||
-      ((v) =>
-        String(v ?? "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;"));
-
-    host.innerHTML = `
-      ${
-        day9
-          ? `<article class="mobile-urgent-card">
-              <span class="mobile-urgent-card__dot" aria-hidden="true"></span>
-              <div>
-                <strong>${escapeHtml(day9)} day-9 absence alert${day9 === 1 ? "" : "s"}</strong>
-                <p class="muted">Sponsored worker absences need immediate Home Office action.</p>
-              </div>
-              <a class="btn primary btn-sm" href="#compliance-absence">Review</a>
-            </article>`
-          : ""
-      }
-      <div class="mobile-compliance-grid">
-        <a class="mobile-compliance-tile" href="#compliance-rtw">
-          ${window.AdminIcons?.svg?.("passport") || ""}
-          <span class="mobile-compliance-tile__title">Right to work</span>
-          <span class="mobile-compliance-tile__value">${escapeHtml(rtw.needs_review ?? 0)} need review</span>
-        </a>
-        <a class="mobile-compliance-tile" href="#compliance-absence">
-          ${window.AdminIcons?.svg?.("medical") || ""}
-          <span class="mobile-compliance-tile__title">Absences</span>
-          <span class="mobile-compliance-tile__value">${escapeHtml(absence.active_this_month ?? 0)} days this month</span>
-        </a>
-        <a class="mobile-compliance-tile" href="#compliance">
-          ${window.AdminIcons?.svg?.("scale") || ""}
-          <span class="mobile-compliance-tile__title">Sponsor licence</span>
-          <span class="mobile-compliance-tile__value">Duty checklist</span>
-        </a>
-        <a class="mobile-compliance-tile" href="#compliance-audit-export">
-          ${window.AdminIcons?.svg?.("folder") || ""}
-          <span class="mobile-compliance-tile__title">Audit export</span>
-          <span class="mobile-compliance-tile__value">Download pack</span>
-        </a>
-      </div>
-      <button type="button" class="btn primary mobile-compliance-export" id="mobile-audit-export-btn">
-        Export audit pack
-      </button>`;
-
-    document.getElementById("mobile-audit-export-btn")?.addEventListener("click", () => {
-      document.getElementById("sponsor-banner-export-btn")?.click();
-    });
+    window.AdminComplianceMobile?.renderShell?.(data);
+    window.AdminComplianceMobile?.openSectionFromHash?.();
   }
 
   function syncComplianceDrill() {
@@ -215,6 +162,21 @@
       return;
     }
     const hash = window.location.hash.replace("#", "").split("/")[0];
+    const sectionHashes = new Set([
+      "compliance-rtw",
+      "compliance-absence",
+      "compliance-working-calendar",
+      "compliance-audit-export",
+    ]);
+    if (sectionHashes.has(hash) && currentTab === "compliance") {
+      window.AdminComplianceMobile?.setOpenSection?.(hash, { scroll: true, toggle: false });
+      document.body.classList.remove("compliance-mobile-drill");
+      const back = document.getElementById("mobile-back-btn");
+      const toggle = document.getElementById("sidebar-toggle");
+      if (back) back.hidden = true;
+      if (toggle) toggle.hidden = false;
+      return;
+    }
     const drill = hash.startsWith("compliance-") && hash !== "compliance";
     const active = drill && currentTab === "compliance";
     document.body.classList.toggle("compliance-mobile-drill", active);
@@ -230,6 +192,18 @@
     }
   }
 
+  function syncTabFromHash() {
+    if (!isMobile()) return;
+    const hash = window.location.hash.replace("#", "").split("/")[0];
+    if (hash === "rota") {
+      currentTab = "rota";
+      localStorage.setItem("adminMobileTab", "rota");
+    } else if (hash.startsWith("compliance")) {
+      currentTab = "compliance";
+      localStorage.setItem("adminMobileTab", "compliance");
+    }
+  }
+
   function init() {
     const bar = document.getElementById("mobile-tab-bar");
     if (!bar) return;
@@ -241,6 +215,17 @@
         setTab(tab.dataset.mobileTab);
         if (tab.dataset.mobileTab === "rota") {
           window.dispatchEvent(new CustomEvent("admin:rota-mobile-open"));
+        }
+      });
+    });
+
+    document.querySelectorAll("#mobile-more-panel .mobile-more-link[href^='#']").forEach((link) => {
+      link.addEventListener("click", () => {
+        if (!isMobile()) return;
+        const target = (link.getAttribute("href") || "").replace("#", "").split("/")[0];
+        if (target && !["overview", ""].includes(target)) {
+          previousTab = "more";
+          document.body.classList.remove("admin-mobile-more-open");
         }
       });
     });
@@ -287,6 +272,10 @@
 
     window.addEventListener("hashchange", () => {
       if (!isMobile()) return;
+      syncTabFromHash();
+      if (document.body.dataset.mobileTab !== currentTab) {
+        syncTabUi(currentTab);
+      }
       syncComplianceDrill();
     });
 
@@ -309,6 +298,7 @@
 
     refreshGreeting();
     if (isMobile()) {
+      syncTabFromHash();
       if (currentTab === "rota" || currentTab === "compliance") {
         window.location.hash = currentTab;
       } else if (currentTab === "more") {

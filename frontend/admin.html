@@ -35,7 +35,7 @@
       })();
     </script>
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v45" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v48" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -239,57 +239,61 @@
         </section>
 
         <section id="employees" class="admin-section" hidden>
-          <header class="section-header">
+          <header class="section-header employees-page-header">
             <div>
-              <h2>Employees</h2>
-              <p class="muted">Follow the employee lifecycle from recruitment through off-boarding, one step at a time.</p>
+              <h2 class="employees-page-title">Employee lifecycle</h2>
+              <p class="muted employees-page-lead">Follow each employee from recruitment through to active employment and offboarding.</p>
             </div>
-            <div class="section-actions">
-              <a class="btn ghost" href="#recruitment">Recruitment</a>
-              <a class="btn ghost" href="#offboarding">Offboarding</a>
+            <div class="section-actions employees-desktop-only">
+              <a class="btn ghost" href="#recruitment">Recruitment pipeline</a>
+              <a class="btn ghost" href="#offboarding">Offboarding workflow</a>
             </div>
           </header>
 
-          <div class="hr-status-workflow" aria-label="Employee lifecycle overview">
-            <span class="hr-workflow-step">Recruitment</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Onboarding</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Active</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Offboarding</span>
-          </div>
+          <div class="lifecycle-stage-rail" id="lifecycle-stage-rail" aria-label="Employee lifecycle stages"></div>
 
           <div id="employees-list-view">
-            <div class="hr-workspace-layout">
+            <div id="employees-lifecycle-hub" class="employees-lifecycle-hub employees-mobile-only" hidden aria-label="Employee lifecycle overview"></div>
+
+            <div class="employees-desktop-layout hr-workspace-layout">
               <div class="hr-main-pane">
-                <article class="hr-surface-panel hr-log-panel">
-                  <h4 class="hr-section-title">Add employee</h4>
-                  <p class="muted">Start at step 1 (Recruitment). Employee type and sponsor licence steps unlock as you progress.</p>
+                <article class="hr-surface-panel hr-log-panel employees-quick-add-panel">
+                  <div class="employees-quick-add-head">
+                    <div>
+                      <h4 class="hr-section-title">Add employee</h4>
+                      <p class="employees-step-indicator" id="employees-step-indicator">Step 1 of 6 · Recruitment</p>
+                    </div>
+                  </div>
+                  <p class="muted employees-quick-add-lead">We'll create a basic profile first — add job details, documents, and compliance steps after.</p>
                   <div id="employee-quick-add-form"></div>
                 </article>
-                <h4 class="hr-section-title">Employee register</h4>
-                <div class="employees-register-actions link-row">
-                  <button type="button" class="btn outline" id="employees-bulk-invite-btn">Invite all without portal accounts</button>
-                  <p class="muted" id="employees-bulk-invite-status" aria-live="polite"></p>
-                </div>
-                <div class="hr-table-wrap">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Department</th>
-                        <th>Status</th>
-                        <th>Progress</th>
-                      </tr>
-                    </thead>
-                    <tbody id="employees-table-body">
-                      <tr><td colspan="4" class="muted">Open this section to load employees…</td></tr>
-                    </tbody>
-                  </table>
+                <div class="employees-register-block">
+                  <div class="employees-register-head">
+                    <h4 class="hr-section-title">Employee register</h4>
+                    <div class="employees-register-actions link-row">
+                      <button type="button" class="btn outline" id="employees-bulk-invite-btn">Invite all without portal accounts</button>
+                      <p class="muted" id="employees-bulk-invite-status" aria-live="polite"></p>
+                    </div>
+                  </div>
+                  <div class="hr-table-wrap employees-desktop-table">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Department</th>
+                          <th>Status</th>
+                          <th>Progress</th>
+                        </tr>
+                      </thead>
+                      <tbody id="employees-table-body">
+                        <tr><td colspan="4" class="muted">Open this section to load employees…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div id="employees-mobile-cards" class="employees-mobile-cards employees-mobile-only" hidden aria-live="polite"></div>
                 </div>
               </div>
-              <aside class="hr-detail-panel" id="employees-side-panel">
+              <aside class="hr-detail-panel employees-desktop-only" id="employees-side-panel">
                 <div id="employees-side-empty" class="hr-detail-empty muted">
                   <p>Select an employee to preview lifecycle progress and open their workspace.</p>
                 </div>
@@ -300,7 +304,7 @@
 
           <div id="employees-detail-view" hidden>
             <article class="card employee-workspace">
-              <button type="button" class="employee-back-link" id="employee-back-btn">← Back to employee register</button>
+              <button type="button" class="employee-back-link" id="employee-back-btn">← Back to lifecycle</button>
               <div class="employee-profile-header">
                 <div class="employee-profile-main">
                   <div class="employee-avatar" id="employee-avatar" aria-hidden="true">?</div>
@@ -771,7 +775,7 @@
         </section>
 
         <section id="compliance" class="admin-section" hidden data-feature="sponsor-compliance">
-          <div id="mobile-compliance-dashboard" class="mobile-compliance-dashboard admin-mobile-compliance-only"></div>
+          <div id="mobile-compliance-shell" class="compliance-mobile-shell admin-mobile-compliance-only"></div>
           <header class="section-header">
             <div>
               <h2>Sponsor Licence Safeguards</h2>
@@ -881,7 +885,8 @@
                   Active absences — sponsored workers
                   <span class="absence-count-badge" id="absence-active-count">0 active</span>
                 </h4>
-                <div class="absence-table-wrap">
+                <div id="absence-mobile-cards" class="absence-mobile-cards" hidden aria-live="polite"></div>
+                <div class="absence-table-wrap absence-desktop-table">
                   <table class="absence-table" aria-label="Active sponsored absences">
                     <thead>
                       <tr>
@@ -950,7 +955,7 @@
             </div>
           </article>
 
-          <article class="card hr-workspace hr-workspace--compact">
+          <article class="card hr-workspace hr-workspace--compact" id="compliance-working-calendar">
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
                 <h3>Working calendar (bank holidays)</h3>
@@ -1008,21 +1013,23 @@
             </div>
 
             <div class="rtw-toolbar">
-              <div class="rtw-filter-tabs" role="tablist" aria-label="Filter RTW records">
-                <button type="button" class="rtw-filter-tab is-active" data-rtw-filter="all">All</button>
-                <button type="button" class="rtw-filter-tab" data-rtw-filter="verified">Verified</button>
-                <button type="button" class="rtw-filter-tab" data-rtw-filter="expiring_soon">Expiring soon</button>
-                <button type="button" class="rtw-filter-tab" data-rtw-filter="needs_review">Needs review</button>
-                <button type="button" class="rtw-filter-tab" data-rtw-filter="sponsored">Sponsored</button>
+              <div class="rtw-filter-scroll">
+                <div class="rtw-filter-tabs" role="tablist" aria-label="Filter RTW records">
+                  <button type="button" class="rtw-filter-tab is-active" data-rtw-filter="all">All</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="verified">Verified</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="expiring_soon">Expiring soon</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="needs_review">Needs review</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="sponsored">Sponsored</button>
+                </div>
               </div>
               <label class="rtw-search">
                 <span class="sr-only">Search RTW records</span>
-                <input type="search" id="rtw-search-input" placeholder="Search name or document type…" autocomplete="off" />
+                <input type="search" id="rtw-search-input" placeholder="Search records" autocomplete="off" />
               </label>
             </div>
 
             <div class="rtw-workspace-layout">
-              <div class="rtw-table-wrap">
+              <div class="rtw-table-wrap rtw-desktop-table">
                 <table class="rtw-table" aria-label="Right to work checks">
                   <thead>
                     <tr>
@@ -1038,6 +1045,7 @@
                   </tbody>
                 </table>
               </div>
+              <div id="rtw-mobile-cards" class="rtw-mobile-cards" hidden aria-live="polite"></div>
               <aside id="rtw-detail-panel" class="rtw-detail-panel" hidden>
                 <div class="rtw-detail-panel__head">
                   <h4>RTW record</h4>
@@ -1646,6 +1654,7 @@
             <div class="rota-mobile-secondary" aria-label="More rota actions">
               <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-clear">Clear rota</button>
               <button type="button" class="rota-mobile-chip rota-mobile-chip--toggle" id="rota-mobile-notify-btn" aria-pressed="true">Notify by email</button>
             </div>
           </div>
@@ -1720,7 +1729,7 @@
               </table>
             </div>
           </article>
-          <article class="card" id="rota-requests-panel">
+          <article class="card rota-desktop-only" id="rota-requests-panel">
             <h3>Cover &amp; swap requests</h3>
             <div class="table-wrap">
               <table class="data-table">
@@ -1739,8 +1748,7 @@
               </table>
             </div>
           </article>
-          <article class="card edit-panel" id="rota-add-shift-card" hidden aria-hidden="true"></article>
-          <div class="rota-builder-footer">
+          <div class="rota-builder-footer rota-desktop-only">
             <button type="button" class="btn ghost" id="rota-clear-btn">Clear rota</button>
           </div>
           </article>
@@ -2109,23 +2117,24 @@
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=4"></script>
-    <script src="./admin-mobile.js?v=6"></script>
+    <script src="./admin-mobile.js?v=9"></script>
+    <script src="./admin-compliance-mobile.js?v=1"></script>
     <script src="./admin-shared.js?v=admin-v16"></script>
     <script src="./admin-workspace.js?v=admin-v17"></script>
     <script src="./admin-settings.js?v=10"></script>
     <script src="./admin-documents.js?v=4"></script>
-    <script src="./admin-employees.js?v=16"></script>
+    <script src="./admin-employees.js?v=17"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
-    <script src="./admin-compliance.js?v=admin-v9"></script>
-    <script src="./admin-absence.js?v=1"></script>
-    <script src="./admin-rtw.js?v=1"></script>
+    <script src="./admin-compliance.js?v=admin-v10"></script>
+    <script src="./admin-absence.js?v=2"></script>
+    <script src="./admin-rtw.js?v=2"></script>
     <script src="./admin-grievance.js?v=5"></script>
     <script src="./admin-disciplinary.js?v=1"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=11"></script>
-    <script src="./admin-rota.js?v=16"></script>
+    <script src="./admin-rota.js?v=17"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=5"></script>

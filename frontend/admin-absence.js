@@ -66,6 +66,49 @@
     if (activeCount) activeCount.textContent = `${stats?.active_absences ?? 0} active`;
     const resolvedCount = document.getElementById("absence-resolved-count");
     if (resolvedCount) resolvedCount.textContent = `${stats?.resolved_this_month ?? 0} this month`;
+    window.dispatchEvent(
+      new CustomEvent("admin:absence-stats", { detail: { active: stats?.active_absences ?? 0 } })
+    );
+  }
+
+  function emptyStateHtml(message) {
+    return `<div class="compliance-empty-state">
+      <span class="compliance-empty-state__icon" aria-hidden="true">${window.AdminIcons?.svg?.("medical") || "📋"}</span>
+      <p>${escapeHtml(message)}</p>
+    </div>`;
+  }
+
+  function isMobileView() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function renderMobileAbsenceCards(items) {
+    const host = document.getElementById("absence-mobile-cards");
+    if (!host) return;
+    if (!items?.length) {
+      host.hidden = false;
+      host.innerHTML = emptyStateHtml("No active absences — sponsored workers are all clear.");
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = items
+      .map((item) => {
+        const palette = avatarStyle(item.employee_id, item.is_critical);
+        const dayLabel =
+          item.unexcused_streak > 0 ? `Day ${item.unexcused_streak}` : `Day ${item.working_days}`;
+        return `<button type="button" class="absence-record-card${item.is_critical ? " is-critical" : ""}" data-employee-id="${item.employee_id}">
+          <span class="absence-record-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
+          <span class="absence-record-card__body">
+            <span class="absence-record-card__name">${escapeHtml(item.employee_short_name || item.employee_name)}</span>
+            <span class="absence-record-card__meta muted">${escapeHtml(item.type_label)} · Since ${escapeHtml(formatDate(item.start_date))}</span>
+          </span>
+          <span class="${statusBadgeClass(item.status_key)}">${escapeHtml(item.status_label || dayLabel)}</span>
+        </button>`;
+      })
+      .join("");
+    host.querySelectorAll(".absence-record-card").forEach((card) => {
+      card.addEventListener("click", () => selectEmployee(Number(card.dataset.employeeId)));
+    });
   }
 
   function renderPrimaryBanner(alert) {
@@ -92,12 +135,11 @@
 
   function renderActiveTable(items) {
     const tbody = document.getElementById("absence-active-body");
-    if (!tbody) return;
-    if (!items?.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="muted">No active absences for sponsored workers.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = items
+    if (tbody) {
+      if (!items?.length) {
+        tbody.innerHTML = `<tr><td colspan="7">${emptyStateHtml("No active absences — sponsored workers are all clear.")}</td></tr>`;
+      } else {
+        tbody.innerHTML = items
       .map((item) => {
         const palette = avatarStyle(item.employee_id, item.is_critical);
         const selected = Number(selectedEmployeeId) === Number(item.employee_id) ? " is-selected" : "";
@@ -137,6 +179,13 @@
         }
       });
     });
+      }
+    }
+    if (isMobileView()) renderMobileAbsenceCards(items);
+    else {
+      const host = document.getElementById("absence-mobile-cards");
+      if (host) host.hidden = true;
+    }
   }
 
   function renderResolvedTable(items) {
@@ -278,7 +327,16 @@
       }
     } catch {
       dashboardData = null;
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load absence monitoring data.</td></tr>`;
+      renderStats({ day9_alerts: 0, active_absences: 0, resolved_this_month: 0, sponsored_workers: 0 });
+      const banner = document.getElementById("absence-primary-banner");
+      if (banner) {
+        banner.hidden = true;
+        banner.innerHTML = "";
+      }
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7">${emptyStateHtml("No active absences — sponsored workers are all clear.")}</td></tr>`;
+      }
+      renderMobileAbsenceCards([]);
     }
   }
 

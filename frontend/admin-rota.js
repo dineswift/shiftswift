@@ -1873,6 +1873,7 @@
       closeShiftPanel();
       loadWeek();
     });
+    document.getElementById("rota-mobile-clear")?.addEventListener("click", clearRota);
     document.getElementById("rota-mobile-save-btn")?.addEventListener("click", saveRota);
     document.getElementById("rota-mobile-publish-btn")?.addEventListener("click", publishRota);
     document.getElementById("rota-mobile-notify-btn")?.addEventListener("click", () => {
