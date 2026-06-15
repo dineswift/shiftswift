@@ -690,7 +690,33 @@
             <span class="crm-summary-pill" id="crm-summary-deals">— deals</span>
             <span class="crm-summary-pill" id="crm-summary-accounts">— companies</span>
             <span class="crm-summary-pill" id="crm-summary-contacts">— contacts</span>
+            <span class="crm-summary-pill" id="crm-summary-value">— pipeline</span>
+            <span class="crm-summary-pill" id="crm-summary-activity">— activity</span>
           </div>
+
+          <div id="crm-dashboard-stages" class="crm-dashboard-stages" hidden></div>
+
+          <div class="crm-tools-bar">
+            <div class="crm-tools-group">
+              <span class="crm-tools-label">Export</span>
+              <button type="button" class="btn btn--ghost btn--sm" id="crm-export-deals">Deals CSV</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="crm-export-accounts">Companies CSV</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="crm-export-contacts">Contacts CSV</button>
+            </div>
+            <div class="crm-tools-group">
+              <span class="crm-tools-label">Import</span>
+              <label class="btn btn--ghost btn--sm crm-import-label">
+                Companies CSV
+                <input type="file" id="crm-import-accounts" accept=".csv,text/csv" hidden />
+              </label>
+              <label class="btn btn--ghost btn--sm crm-import-label">
+                Contacts CSV
+                <input type="file" id="crm-import-contacts" accept=".csv,text/csv" hidden />
+              </label>
+            </div>
+            <p class="muted crm-import-hint">Import companies first, then contacts with a matching company column.</p>
+          </div>
+          <p id="crm-import-result" class="promo-result" hidden aria-live="polite"></p>
 
           <div class="crm-tabs" role="tablist" aria-label="CRM views">
             <button type="button" class="crm-tab is-active" data-crm-tab="pipeline" role="tab" aria-selected="true">Pipeline</button>
@@ -850,6 +876,14 @@
               <button type="submit" class="btn btn--primary">Save activity</button>
             </form>
             <div id="crm-entity-activity-list" class="crm-activity-list"></div>
+            <div class="crm-documents-block">
+              <h4>Documents</h4>
+              <label class="crm-upload-label btn btn--ghost btn--sm">
+                Upload file
+                <input type="file" id="crm-entity-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
+              </label>
+              <div id="crm-entity-documents" class="crm-documents-list"></div>
+            </div>
           </aside>
 
           <aside id="crm-deal-drawer" class="crm-deal-drawer" hidden>
@@ -882,6 +916,14 @@
               <button type="submit" class="btn btn--primary">Save activity</button>
             </form>
             <div id="crm-activity-list" class="crm-activity-list"></div>
+            <div class="crm-documents-block">
+              <h4>Documents</h4>
+              <label class="crm-upload-label btn btn--ghost btn--sm">
+                Upload file
+                <input type="file" id="crm-deal-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
+              </label>
+              <div id="crm-deal-documents" class="crm-documents-list"></div>
+            </div>
           </aside>
         </section>
 
@@ -2386,7 +2428,7 @@
     <script src="./admin-employees.js?v=18"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
-    <script src="./admin-crm.js?v=2"></script>
+    <script src="./admin-crm.js?v=3"></script>
     <script src="./admin-compliance.js?v=admin-v10"></script>
     <script src="./admin-absence.js?v=2"></script>
     <script src="./admin-rtw.js?v=2"></script>

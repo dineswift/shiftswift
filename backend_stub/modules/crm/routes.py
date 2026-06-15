@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, EmailStr, Field
 
 from auth_service import AuthUser
@@ -13,7 +14,10 @@ from config import load_settings
 from core.database import get_connection
 from deps import get_hr_user, require_tenant_subscription, resolve_tenant_id
 from modules.crm.constants import ACTIVITY_TYPES
+from modules.crm.export import build_accounts_csv, build_contacts_csv, build_deals_csv
+from modules.crm.import_csv import import_accounts, import_contacts, parse_accounts_csv, parse_contacts_csv
 from modules.crm import repository
+from modules.crm.storage import resolve_crm_file, validate_upload, write_crm_file
 from modules.crm.service import (
     build_account_detail,
     build_contact_detail,
@@ -109,14 +113,28 @@ def crm_summary(
 ) -> dict[str, object]:
     tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
     try:
-        summary = repository.count_summary(tenant_id=tenant_id, conn=conn)
+        dashboard = repository.build_dashboard_stats(tenant_id=tenant_id, conn=conn)
         board = build_pipeline_board(tenant_id=tenant_id, conn=conn)
         conn.commit()
         return {
-            **summary,
+            **dashboard,
             "pipeline_name": board["pipeline"]["name"],
-            "open_deals": board["deal_count"] - summary.get("deals_won", 0),
         }
+    finally:
+        conn.close()
+
+
+@router.get("/dashboard")
+def crm_dashboard(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        board = build_pipeline_board(tenant_id=tenant_id, conn=conn)
+        stats = repository.build_dashboard_stats(tenant_id=tenant_id, conn=conn)
+        conn.commit()
+        return {**stats, "pipeline_name": board["pipeline"]["name"]}
     finally:
         conn.close()
 
@@ -527,7 +545,8 @@ def crm_deal_activities(
         if not deal:
             raise HTTPException(status_code=404, detail="Deal not found")
         items = repository.list_activities(tenant_id=tenant_id, deal_id=deal_id, conn=conn)
-        return {"items": items, "count": len(items), "deal": deal}
+        documents = repository.list_documents(tenant_id=tenant_id, deal_id=deal_id, conn=conn)
+        return {"items": items, "count": len(items), "deal": deal, "documents": documents}
     finally:
         conn.close()
 
@@ -559,5 +578,236 @@ def crm_create_activity(
         )
         conn.commit()
         return {"item": item}
+    finally:
+        conn.close()
+
+
+@router.get("/export/accounts.csv")
+def crm_export_accounts_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        items = repository.list_accounts(tenant_id=tenant_id, conn=conn)
+        body = build_accounts_csv(items)
+        return Response(
+            content=body,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="crm-companies-{tenant_id}.csv"'},
+        )
+    finally:
+        conn.close()
+
+
+@router.get("/export/contacts.csv")
+def crm_export_contacts_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        items = repository.list_contacts(tenant_id=tenant_id, conn=conn)
+        body = build_contacts_csv(items)
+        return Response(
+            content=body,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="crm-contacts-{tenant_id}.csv"'},
+        )
+    finally:
+        conn.close()
+
+
+@router.get("/export/deals.csv")
+def crm_export_deals_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        board = build_pipeline_board(tenant_id=tenant_id, conn=conn)
+        stage_labels = {stage["id"]: stage["label"] for stage in board.get("stages", [])}
+        deals: list[dict[str, object]] = []
+        for stage in board.get("stages", []):
+            deals.extend(stage.get("deals") or [])
+        body = build_deals_csv(deals=deals, stage_labels=stage_labels)
+        return Response(
+            content=body,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="crm-deals-{tenant_id}.csv"'},
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/import/accounts")
+async def crm_import_accounts_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    file: UploadFile = File(...),
+) -> dict[str, object]:
+    tenant_id, current_user, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        raw = (await file.read()).decode("utf-8-sig", errors="replace")
+        rows = parse_accounts_csv(raw)
+        if not rows:
+            raise HTTPException(status_code=400, detail="No valid rows found — need a name column")
+        result = import_accounts(
+            tenant_id=tenant_id,
+            rows=rows,
+            owner_username=current_user.username,
+            conn=conn,
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/import/contacts")
+async def crm_import_contacts_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    file: UploadFile = File(...),
+) -> dict[str, object]:
+    tenant_id, current_user, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        raw = (await file.read()).decode("utf-8-sig", errors="replace")
+        rows = parse_contacts_csv(raw)
+        if not rows:
+            raise HTTPException(status_code=400, detail="No valid rows found — need a name column")
+        result = import_contacts(
+            tenant_id=tenant_id,
+            rows=rows,
+            owner_username=current_user.username,
+            conn=conn,
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/documents")
+async def crm_upload_document(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    file: UploadFile = File(...),
+    title: str | None = Form(default=None),
+    account_id: int | None = Form(default=None),
+    contact_id: int | None = Form(default=None),
+    deal_id: int | None = Form(default=None),
+) -> dict[str, object]:
+    tenant_id, current_user, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        targets = sum(1 for value in (account_id, contact_id, deal_id) if value is not None)
+        if targets != 1:
+            raise HTTPException(status_code=400, detail="Attach to exactly one company, contact, or deal")
+        if account_id is not None and not repository.fetch_account(
+            tenant_id=tenant_id, account_id=account_id, conn=conn
+        ):
+            raise HTTPException(status_code=404, detail="Company not found")
+        if contact_id is not None and not repository.fetch_contact(
+            tenant_id=tenant_id, contact_id=contact_id, conn=conn
+        ):
+            raise HTTPException(status_code=404, detail="Contact not found")
+        if deal_id is not None and not repository.fetch_deal(tenant_id=tenant_id, deal_id=deal_id, conn=conn):
+            raise HTTPException(status_code=404, detail="Deal not found")
+
+        data = await file.read()
+        content_type, ext = validate_upload(
+            data=data,
+            content_type=file.content_type,
+            filename=file.filename,
+        )
+        doc_title = (title or file.filename or "Attachment").strip()[:200]
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO crm_documents (
+                  tenant_id, account_id, contact_id, deal_id, title, original_filename,
+                  storage_path, content_type, file_size_bytes, content_sha256, uploaded_by
+                ) VALUES (%s, %s, %s, %s, %s, %s, '', %s, 0, '', %s)
+                RETURNING id
+                """,
+                (
+                    tenant_id,
+                    account_id,
+                    contact_id,
+                    deal_id,
+                    doc_title,
+                    file.filename,
+                    content_type,
+                    current_user.username,
+                ),
+            )
+            document_id = int(cur.fetchone()[0])
+        storage_path, digest, size = write_crm_file(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            title=doc_title,
+            original_filename=file.filename,
+            data=data,
+            content_type=content_type,
+            ext=ext,
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE crm_documents
+                SET storage_path = %s, content_sha256 = %s, file_size_bytes = %s
+                WHERE tenant_id = %s AND id = %s
+                """,
+                (storage_path, digest, size, tenant_id, document_id),
+            )
+        item = repository.fetch_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+        if item:
+            item.pop("storage_path", None)
+        conn.commit()
+        return {"item": item}
+    finally:
+        conn.close()
+
+
+@router.get("/documents/{document_id}/download")
+def crm_download_document(
+    document_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> FileResponse:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        doc = repository.fetch_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+        path = resolve_crm_file(tenant_id=tenant_id, storage_path=doc["storage_path"])
+        filename = doc.get("original_filename") or doc.get("title") or f"crm-document-{document_id}"
+        return FileResponse(
+            path,
+            media_type=doc.get("content_type") or "application/octet-stream",
+            filename=filename,
+        )
+    finally:
+        conn.close()
+
+
+@router.delete("/documents/{document_id}")
+def crm_delete_document(
+    document_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id, _, conn = _crm_context(current_user, x_tenant_id)
+    try:
+        doc = repository.delete_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+        try:
+            path = resolve_crm_file(tenant_id=tenant_id, storage_path=doc["storage_path"])
+            path.unlink(missing_ok=True)
+        except HTTPException:
+            pass
+        conn.commit()
+        return {"deleted": True, "id": document_id}
     finally:
         conn.close()

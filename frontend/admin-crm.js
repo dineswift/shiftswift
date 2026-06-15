@@ -1,6 +1,6 @@
 /** Sales CRM add-on — pipeline, companies, contacts (Master-gated). */
 (async function initAdminCrm() {
-  const { apiFetch, escapeHtml, isAddonEnabled, parseHashBaseSection } = window.Admin;
+  const { apiFetch, escapeHtml, isAddonEnabled, parseHashBaseSection, downloadAuthenticated } = window.Admin;
 
   let pipelineData = null;
   let accounts = [];
@@ -59,6 +59,14 @@
     entityDeals: document.getElementById("crm-entity-deals"),
     entityActivityForm: document.getElementById("crm-entity-activity-form"),
     entityActivityList: document.getElementById("crm-entity-activity-list"),
+    entityDocuments: document.getElementById("crm-entity-documents"),
+    entityDocumentInput: document.getElementById("crm-entity-document-input"),
+    dealDocuments: document.getElementById("crm-deal-documents"),
+    dealDocumentInput: document.getElementById("crm-deal-document-input"),
+    dashboardStages: document.getElementById("crm-dashboard-stages"),
+    summaryValue: document.getElementById("crm-summary-value"),
+    summaryActivity: document.getElementById("crm-summary-activity"),
+    importResult: document.getElementById("crm-import-result"),
   };
 
   function formatMoney(value) {
@@ -105,13 +113,99 @@
   function renderSummary(summary) {
     if (!summary) return;
     if (els.summaryDeals) {
-      els.summaryDeals.textContent = `${summary.deals || 0} deals · ${summary.deals_won || 0} won`;
+      els.summaryDeals.textContent = `${summary.deals || 0} deals · ${summary.deals_won || 0} won · ${summary.deals_lost || 0} lost`;
     }
     if (els.summaryAccounts) els.summaryAccounts.textContent = `${summary.accounts || 0} companies`;
     if (els.summaryContacts) els.summaryContacts.textContent = `${summary.contacts || 0} contacts`;
+    if (els.summaryValue) {
+      const openValue = formatMoney(summary.open_pipeline_value_gbp);
+      els.summaryValue.textContent = openValue ? `${openValue} open pipeline` : "— pipeline value";
+    }
+    if (els.summaryActivity) {
+      els.summaryActivity.textContent = `${summary.activities_last_7_days || 0} activities (7d) · ${summary.documents || 0} files`;
+    }
     if (els.pipelineName && summary.pipeline_name) {
       els.pipelineName.textContent = summary.pipeline_name;
     }
+    if (els.dashboardStages) {
+      const stages = summary.stage_counts || [];
+      if (!stages.length) {
+        els.dashboardStages.hidden = true;
+      } else {
+        els.dashboardStages.hidden = false;
+        els.dashboardStages.innerHTML = stages
+          .map(
+            (stage) =>
+              `<span class="crm-stage-pill">${escapeHtml(stage.label)} <strong>${stage.count}</strong></span>`,
+          )
+          .join("");
+      }
+    }
+  }
+
+  function renderDocuments(container, documents, onRefresh) {
+    if (!container) return;
+    if (!documents?.length) {
+      container.innerHTML = '<p class="muted">No documents attached.</p>';
+      return;
+    }
+    container.innerHTML = documents
+      .map(
+        (doc) => `<div class="crm-document-row">
+          <button type="button" class="crm-link-btn" data-download-doc="${doc.id}">${escapeHtml(doc.title || doc.original_filename || "Document")}</button>
+          <span class="muted">${escapeHtml(doc.original_filename || "")}</span>
+          <button type="button" class="btn btn--ghost btn--sm" data-delete-doc="${doc.id}">Delete</button>
+        </div>`,
+      )
+      .join("");
+    container.querySelectorAll("[data-download-doc]").forEach((button) => {
+      button.addEventListener("click", () => {
+        void downloadAuthenticated(
+          `/admin/crm/documents/${button.dataset.downloadDoc}/download`,
+          button.textContent.trim() || "crm-document",
+        );
+      });
+    });
+    container.querySelectorAll("[data-delete-doc]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!window.confirm("Delete this document?")) return;
+        try {
+          const res = await apiFetch(`/admin/crm/documents/${button.dataset.deleteDoc}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Could not delete document");
+          await onRefresh?.();
+          await loadSummary();
+        } catch (error) {
+          alert(error.message || "Could not delete document");
+        }
+      });
+    });
+  }
+
+  async function uploadDocument({ file, accountId, contactId, dealId, onDone }) {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (accountId) formData.append("account_id", String(accountId));
+    if (contactId) formData.append("contact_id", String(contactId));
+    if (dealId) formData.append("deal_id", String(dealId));
+    const res = await apiFetch("/admin/crm/documents", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Upload failed");
+    await onDone?.();
+    await loadSummary();
+  }
+
+  function showImportResult(result, label) {
+    if (!els.importResult) return;
+    els.importResult.hidden = false;
+    const errors = (result.errors || []).slice(0, 5);
+    els.importResult.classList.toggle("promo-result--error", Boolean(result.skipped && !result.imported));
+    els.importResult.classList.toggle("promo-result--ok", Boolean(result.imported));
+    els.importResult.innerHTML = `
+      <p><strong>${escapeHtml(label)}:</strong> ${result.imported || 0} imported${result.skipped ? `, ${result.skipped} skipped` : ""}.</p>
+      ${errors.length ? `<ul class="crm-import-errors">${errors.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>` : ""}`;
   }
 
   function populateSelect(select, items, { valueKey = "id", labelKey = "name", includeEmpty = true } = {}) {
@@ -398,6 +492,7 @@
     }
     if (els.dealDrawerStage) els.dealDrawerStage.value = String(deal.stage_id);
     if (els.activityList) els.activityList.innerHTML = renderActivities(data.items || []);
+    renderDocuments(els.dealDocuments, data.documents || [], () => openDealDrawer(dealId));
     els.dealDrawer.dataset.deal = JSON.stringify(deal);
     els.dealDrawer.hidden = false;
   }
@@ -448,6 +543,9 @@
       });
     }
     if (els.entityActivityList) els.entityActivityList.innerHTML = renderActivities(data.activities || []);
+    renderDocuments(els.entityDocuments, data.documents || [], () =>
+      openEntityDrawer(type, id, true),
+    );
     els.entityDrawer.dataset.entity = JSON.stringify(record);
     els.entityDrawer.dataset.entityType = type;
     els.entityDrawer.hidden = false;
@@ -519,6 +617,84 @@
   });
   els.contactsSearch?.addEventListener("input", () => {
     debouncedSearch("contacts", loadContacts, els.contactsSearch);
+  });
+
+  document.getElementById("crm-export-deals")?.addEventListener("click", () => {
+    void downloadAuthenticated("/admin/crm/export/deals.csv", "crm-deals.csv");
+  });
+  document.getElementById("crm-export-accounts")?.addEventListener("click", () => {
+    void downloadAuthenticated("/admin/crm/export/accounts.csv", "crm-companies.csv");
+  });
+  document.getElementById("crm-export-contacts")?.addEventListener("click", () => {
+    void downloadAuthenticated("/admin/crm/export/contacts.csv", "crm-contacts.csv");
+  });
+
+  els.importAccountsInput = document.getElementById("crm-import-accounts");
+  els.importContactsInput = document.getElementById("crm-import-contacts");
+
+  els.importAccountsInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await apiFetch("/admin/crm/import/accounts", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Import failed");
+      showImportResult(data, "Companies import");
+      await refreshAll();
+    } catch (error) {
+      showImportResult({ imported: 0, skipped: 1, errors: [error.message] }, "Companies import");
+    }
+  });
+
+  els.importContactsInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await apiFetch("/admin/crm/import/contacts", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Import failed");
+      showImportResult(data, "Contacts import");
+      await refreshAll();
+    } catch (error) {
+      showImportResult({ imported: 0, skipped: 1, errors: [error.message] }, "Contacts import");
+    }
+  });
+
+  els.dealDocumentInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedDealId) return;
+    try {
+      await uploadDocument({
+        file,
+        dealId: selectedDealId,
+        onDone: () => openDealDrawer(selectedDealId),
+      });
+    } catch (error) {
+      alert(error.message || "Upload failed");
+    }
+  });
+
+  els.entityDocumentInput?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedEntity) return;
+    try {
+      await uploadDocument({
+        file,
+        accountId: selectedEntity.type === "account" ? selectedEntity.id : null,
+        contactId: selectedEntity.type === "contact" ? selectedEntity.id : null,
+        onDone: () => openEntityDrawer(selectedEntity.type, selectedEntity.id, true),
+      });
+    } catch (error) {
+      alert(error.message || "Upload failed");
+    }
   });
 
   els.dealForm?.addEventListener("submit", async (event) => {

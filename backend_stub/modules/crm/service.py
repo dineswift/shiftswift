@@ -117,6 +117,11 @@ def build_account_detail(*, tenant_id: int, account_id: int, conn: Any) -> dict[
             account_id=account_id,
             conn=conn,
         ),
+        "documents": repository.list_documents(
+            tenant_id=tenant_id,
+            account_id=account_id,
+            conn=conn,
+        ),
     }
 
 
@@ -132,6 +137,11 @@ def build_contact_detail(*, tenant_id: int, contact_id: int, conn: Any) -> dict[
             conn=conn,
         ),
         "activities": repository.list_entity_activities(
+            tenant_id=tenant_id,
+            contact_id=contact_id,
+            conn=conn,
+        ),
+        "documents": repository.list_documents(
             tenant_id=tenant_id,
             contact_id=contact_id,
             conn=conn,

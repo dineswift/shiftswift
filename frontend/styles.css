@@ -9611,6 +9611,91 @@ body.rota-week-readonly .rota-builder-hint {
   font-size: 0.95rem;
 }
 
+.crm-stage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--border, #e2e8f0);
+  font-size: 0.82rem;
+}
+
+.crm-dashboard-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.crm-tools-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  background: var(--surface-muted, #f8fafc);
+}
+
+.crm-tools-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.crm-tools-label {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  margin-right: 0.25rem;
+}
+
+.crm-import-label {
+  cursor: pointer;
+  margin: 0;
+}
+
+.crm-import-hint {
+  flex: 1 1 220px;
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.crm-import-errors {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.crm-documents-block {
+  margin-top: 1rem;
+}
+
+.crm-documents-block h4 {
+  margin: 0 0 0.5rem;
+}
+
+.crm-documents-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.crm-document-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+
+.crm-upload-label {
+  cursor: pointer;
+  margin: 0 0 0.5rem;
+}
+
 .crm-summary-strip {
   display: flex;
   flex-wrap: wrap;
