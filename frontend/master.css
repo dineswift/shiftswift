@@ -167,20 +167,50 @@ body.master-app textarea {
 }
 
 .master-nav__group {
-  margin: 1rem 0 0.3rem;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.38);
+  margin: 0.85rem 0 0.25rem;
+  padding: 0 0.65rem;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
 }
 
 .master-nav__link {
-  display: block;
-  padding: 0.55rem 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.65rem;
   border-radius: 0.5rem;
   color: rgba(255, 255, 255, 0.82);
   text-decoration: none;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.master-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  flex-shrink: 0;
+  opacity: 0.72;
+}
+
+.master-nav__icon .admin-icon {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+}
+
+.master-nav__label {
+  min-width: 0;
+  flex: 1;
+}
+
+.master-nav__link.is-active .master-nav__icon,
+.master-nav__link:hover:not(.is-disabled) .master-nav__icon {
+  opacity: 1;
 }
 
 .master-nav__link.is-active,
@@ -325,22 +355,22 @@ body.master-app textarea {
 }
 
 .master-main {
-  padding: 0.85rem 1rem 1rem;
+  padding: 0.75rem 0.85rem 0.85rem;
 }
 
 .master-page-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.55rem;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.55rem;
 }
 
 .master-page-head h1 {
   margin: 0;
-  font-size: 1.35rem;
-  line-height: 1.2;
+  font-size: 1.28rem;
+  line-height: 1.15;
 }
 
 .master-page-sub {
@@ -349,24 +379,52 @@ body.master-app textarea {
   font-size: 0.82rem;
 }
 
+.master-page-toolbar {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: end;
+}
+
 .master-page-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
   align-items: center;
 }
 
+.master-page-actions--secondary {
+  gap: 0.5rem;
+}
+
 .master-btn {
-  border-radius: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
   border: 1px solid var(--master-border);
   background: var(--master-card);
   color: var(--master-text);
-  padding: 0.55rem 0.9rem;
+  padding: 0.48rem 0.78rem;
   font-family: var(--font-body);
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
+  line-height: 1.2;
+}
+
+.master-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.master-btn__icon .admin-icon {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .master-btn:disabled {
@@ -378,15 +436,19 @@ body.master-app textarea {
   background: transparent;
 }
 
+.master-btn--outline {
+  background: var(--master-card);
+}
+
 .master-btn--primary {
-  background: var(--master-navy);
-  border-color: var(--master-navy);
+  background: var(--green-700);
+  border-color: var(--green-700);
   color: #fff;
 }
 
 .master-btn--primary:hover:not(:disabled) {
-  background: #1a2d47;
-  border-color: #1a2d47;
+  background: var(--green-800);
+  border-color: var(--green-800);
 }
 
 .master-btn--gold {
@@ -403,11 +465,16 @@ body.master-app textarea {
 
 .master-btn--danger {
   color: var(--master-red);
-  border-color: rgba(197, 48, 48, 0.35);
+  border-color: rgba(197, 48, 48, 0.45);
+  background: transparent;
 }
 
 .master-btn--ghost.master-btn--danger {
   background: transparent;
+}
+
+.master-btn--ghost.master-btn--danger:not(:disabled):hover {
+  background: rgba(197, 48, 48, 0.06);
 }
 
 .master-btn--danger:disabled {
@@ -426,16 +493,18 @@ body.master-app textarea {
 
 .master-metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.45rem;
-  margin-bottom: 0.65rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.55rem;
 }
 
 .master-metric {
   background: var(--master-card);
   border: 1px solid var(--master-border);
   border-radius: 0.55rem;
-  padding: 0.55rem 0.65rem;
+  padding: 0.5rem 0.6rem;
+  display: grid;
+  gap: 0.12rem;
 }
 
 .master-metric--hero {
@@ -445,9 +514,10 @@ body.master-app textarea {
 }
 
 .master-metric__label {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--master-muted);
   line-height: 1.25;
 }
@@ -457,24 +527,28 @@ body.master-app textarea {
 }
 
 .master-metric__value {
-  font-size: 1.35rem;
+  font-size: 1.28rem;
   font-weight: 700;
-  margin-top: 0.2rem;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
+.master-metric__value--accent,
 .master-metric__value--gold {
-  color: var(--master-gold);
+  color: var(--green-700);
 }
 
 .master-metric--hero .master-metric__value--gold {
-  color: var(--master-gold-soft);
+  color: var(--green-300);
+}
+
+.master-metric--hero .master-metric__value--accent {
+  color: var(--green-300);
 }
 
 .master-metric__sub {
-  margin-top: 0.25rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--master-muted);
+  line-height: 1.25;
 }
 
 .master-metric--hero .master-metric__sub {
@@ -578,14 +652,14 @@ body.master-app textarea {
 }
 
 .master-table tbody tr.is-selected .master-row-picker {
-  border-color: var(--master-gold);
-  background: var(--master-gold);
+  border-color: var(--green-700);
+  background: var(--green-700);
   box-shadow: inset 0 0 0 2px #fff;
 }
 
 .master-table tbody tr.is-selected {
-  background: rgba(212, 160, 23, 0.1);
-  box-shadow: inset 3px 0 0 var(--master-gold);
+  background: rgba(15, 110, 86, 0.08);
+  box-shadow: inset 3px 0 0 var(--green-700);
 }
 
 .master-table th {
@@ -605,7 +679,7 @@ body.master-app textarea {
 }
 
 .master-table tbody tr.is-selected:hover {
-  background: rgba(212, 160, 23, 0.14);
+  background: rgba(15, 110, 86, 0.12);
 }
 
 .master-business {
@@ -745,8 +819,8 @@ body.master-app textarea {
 }
 
 .plan-badge--growth {
-  background: #feebc8;
-  color: #9c4221;
+  background: #e6fffa;
+  color: var(--green-800);
 }
 
 .plan-badge--scale {
@@ -1098,6 +1172,15 @@ body.master-app textarea {
 
   .master-page-actions {
     width: 100%;
+  }
+
+  .master-page-toolbar {
+    width: 100%;
+    justify-items: stretch;
+  }
+
+  .master-page-actions--secondary {
+    flex-wrap: wrap;
   }
 
   .master-table--desktop {

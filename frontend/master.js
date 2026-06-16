@@ -198,32 +198,50 @@
   function renderMetrics() {
     const stats = state.overview || {};
     const cards = [
-      { label: "Estimated ex-VAT", value: formatMoney(stats.mrr_gbp), valueClass: "master-metric__value--gold" },
-      { label: "Registered businesses", value: stats.total_tenants ?? "0" },
       {
-        label: `${stats.conversion_rate_pct ?? 0}% conversion`,
+        label: "MRR",
+        value: formatMoney(stats.mrr_gbp),
+        sub: "Estimated ex-VAT",
+        valueClass: "master-metric__value--accent",
+      },
+      { label: "Total tenants", value: stats.total_tenants ?? "0", sub: "Registered businesses" },
+      {
+        label: "Active (paying)",
         value: stats.active_paying ?? "0",
+        sub: `${stats.conversion_rate_pct ?? 0}% conversion`,
         valueStyle: "color: var(--master-green)",
       },
       {
-        label: stats.avg_trial_days_remaining != null ? `Avg ${stats.avg_trial_days_remaining} days left` : "Trial accounts",
+        label: "Trialing",
         value: stats.trialing ?? "0",
+        sub: stats.avg_trial_days_remaining != null ? `Avg ${stats.avg_trial_days_remaining} days left` : "",
       },
-      { label: "Platform disabled", value: stats.suspended ?? "0" },
-      {
-        label: `${stats.payment_failures ?? stats.overdue ?? 0} payment failures`,
-        value: stats.overdue ?? "0",
-        valueStyle: stats.overdue ? "color: var(--master-red)" : "",
-      },
+      { label: "Suspended", value: stats.suspended ?? "0", sub: "Platform disabled" },
     ];
     if (!els.metrics) return;
     els.metrics.innerHTML = cards
       .map((card) => {
         const valueCls = card.valueClass ? ` ${card.valueClass}` : "";
         const valueStyle = card.valueStyle ? ` style="${card.valueStyle}"` : "";
-        return `<article class="master-metric"><div class="master-metric__label">${card.label}</div><div class="master-metric__value${valueCls}"${valueStyle}>${card.value}</div></article>`;
+        const sub = card.sub ? `<div class="master-metric__sub">${card.sub}</div>` : "";
+        return `<article class="master-metric"><div class="master-metric__label">${card.label}</div><div class="master-metric__value${valueCls}"${valueStyle}>${card.value}</div>${sub}</article>`;
       })
       .join("");
+  }
+
+  function initMasterIcons() {
+    document.querySelectorAll("[data-nav-icon]").forEach((el) => {
+      const name = el.dataset.navIcon;
+      if (window.AdminIcons?.svg && name) {
+        el.innerHTML = window.AdminIcons.svg(name);
+      }
+    });
+    document.querySelectorAll("[data-btn-icon]").forEach((el) => {
+      const name = el.dataset.btnIcon;
+      if (window.AdminIcons?.svg && name) {
+        el.innerHTML = window.AdminIcons.svg(name);
+      }
+    });
   }
 
   function renderFilters() {
@@ -576,17 +594,19 @@
       host.innerHTML = `
         <div class="master-revenue-summary">
           <article class="master-metric master-metric--hero">
-            <div class="master-metric__label">${escapeHtml(stats.reporting_month || "Current month")} · est. ex-VAT</div>
-            <div class="master-metric__value master-metric__value--gold">${formatMoney(stats.mrr_gbp)}</div>
-            <div class="master-metric__sub">ARR projection ${formatMoney(stats.arr_gbp)}</div>
+            <div class="master-metric__label">Total MRR (est.)</div>
+            <div class="master-metric__value master-metric__value--accent">${formatMoney(stats.mrr_gbp)}</div>
+            <div class="master-metric__sub">Estimated ex-VAT · ARR ${formatMoney(stats.arr_gbp)}</div>
           </article>
           <article class="master-metric">
-            <div class="master-metric__label">${stats.active_paying ?? 0} paying · ${stats.trialing ?? 0} trialing</div>
+            <div class="master-metric__label">Conversion</div>
             <div class="master-metric__value">${stats.conversion_rate_pct ?? 0}%</div>
+            <div class="master-metric__sub">${stats.active_paying ?? 0} paying · ${stats.trialing ?? 0} trialing</div>
           </article>
           <article class="master-metric">
-            <div class="master-metric__label">7d · ${expiring["14d"] ?? 0} in 14d · ${expiring["30d"] ?? 0} in 30d</div>
+            <div class="master-metric__label">Trials expiring</div>
             <div class="master-metric__value">${expiring["7d"] ?? 0}</div>
+            <div class="master-metric__sub">7d · ${expiring["14d"] ?? 0} in 14d · ${expiring["30d"] ?? 0} in 30d</div>
           </article>
         </div>
         <p class="master-panel-note muted">${escapeHtml(stats.mrr_note || "")}</p>
@@ -937,6 +957,7 @@
   }
 
   async function bootstrap() {
+    initMasterIcons();
     try {
       const verify = await apiGet("/auth/verify");
       const session = window.ShiftSwiftMasterSession;

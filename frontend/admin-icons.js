@@ -55,6 +55,13 @@
       '<path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 8h18"/><path d="M5 6h14a2 2 0 0 1 2 2v2"/><path d="M16 16l-8-8"/><path d="M8 16l8-8"/>',
     "external-link":
       '<path d="M12 6h6v6"/><path d="M10 14L18 6"/><path d="M15 10h3v9H6v-12h9"/>',
+    download: '<path d="M12 3v12"/><path d="M8 11l4 4l4-4"/><path d="M4 21h16"/>',
+    plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    trash:
+      '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+    mail:
+      '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/><path d="M22 6l-10 7L2 6"/>',
+    search: '<path d="M10 10a6 6 0 1 1 0-12a6 6 0 0 1 0 12"/><path d="M14.5 14.5L20 20"/>',
   };
 
   function svg(name, className) {

@@ -11,7 +11,7 @@
     <title>ShiftSwift | Master Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./master.css?v=22" />
+    <link rel="stylesheet" href="./master.css?v=23" />
   </head>
   <body class="master-app">
     <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
@@ -20,28 +20,28 @@
       <div class="master-sidebar__head">
         <div class="master-brand">
           <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" class="master-brand__logo" />
-          <span class="master-badge master-badge--admin">Master Admin</span>
+          <span class="master-badge master-badge--admin">Master admin</span>
         </div>
         <button type="button" class="master-sidebar__close" id="master-sidebar-close" aria-label="Close menu">×</button>
       </div>
 
       <nav class="master-nav">
         <p class="master-nav__group">Platform</p>
-        <a class="master-nav__link is-active" href="#tenants" data-master-section="tenants">Tenants</a>
-        <a class="master-nav__link" href="#revenue" data-master-section="revenue">MRR &amp; revenue</a>
-        <a class="master-nav__link" href="#billing" data-master-section="billing">Billing &amp; Stripe</a>
-        <a class="master-nav__link" href="#alerts" data-master-section="alerts">Platform alerts</a>
+        <a class="master-nav__link is-active" href="#tenants" data-master-section="tenants"><span class="master-nav__icon" data-nav-icon="building" aria-hidden="true"></span><span class="master-nav__label">Tenants</span></a>
+        <a class="master-nav__link" href="#revenue" data-master-section="revenue"><span class="master-nav__icon" data-nav-icon="trending-up" aria-hidden="true"></span><span class="master-nav__label">MRR &amp; revenue</span></a>
+        <a class="master-nav__link" href="#billing" data-master-section="billing"><span class="master-nav__icon" data-nav-icon="card" aria-hidden="true"></span><span class="master-nav__label">Billing &amp; Stripe</span></a>
+        <a class="master-nav__link" href="#alerts" data-master-section="alerts"><span class="master-nav__icon" data-nav-icon="bell" aria-hidden="true"></span><span class="master-nav__label">Platform alerts</span></a>
 
         <p class="master-nav__group">Operations</p>
-        <a class="master-nav__link" href="#support" data-master-section="support">Support tickets</a>
-        <a class="master-nav__link" href="#audit" data-master-section="audit">Audit log</a>
-        <a class="master-nav__link" href="#email-log" data-master-section="email-log">Email logs</a>
+        <a class="master-nav__link" href="#support" data-master-section="support"><span class="master-nav__icon" data-nav-icon="clipboard" aria-hidden="true"></span><span class="master-nav__label">Support tickets</span></a>
+        <a class="master-nav__link" href="#audit" data-master-section="audit"><span class="master-nav__icon" data-nav-icon="file-text" aria-hidden="true"></span><span class="master-nav__label">Audit log</span></a>
+        <a class="master-nav__link" href="#email-log" data-master-section="email-log"><span class="master-nav__icon" data-nav-icon="mail" aria-hidden="true"></span><span class="master-nav__label">Email logs</span></a>
 
         <p class="master-nav__group">System</p>
-        <a class="master-nav__link" href="#infrastructure" data-master-section="infrastructure">Infrastructure</a>
-        <a class="master-nav__link" href="#api-keys" data-master-section="api-keys">API keys</a>
-        <a class="master-nav__link" href="#settings" data-master-section="settings">Platform settings</a>
-        <a class="master-nav__link" href="#account" data-master-section="account">Master account</a>
+        <a class="master-nav__link" href="#infrastructure" data-master-section="infrastructure"><span class="master-nav__icon" data-nav-icon="plug" aria-hidden="true"></span><span class="master-nav__label">Infrastructure</span></a>
+        <a class="master-nav__link" href="#api-keys" data-master-section="api-keys"><span class="master-nav__icon" data-nav-icon="lock" aria-hidden="true"></span><span class="master-nav__label">API keys</span></a>
+        <a class="master-nav__link" href="#settings" data-master-section="settings"><span class="master-nav__icon" data-nav-icon="settings" aria-hidden="true"></span><span class="master-nav__label">Platform settings</span></a>
+        <a class="master-nav__link" href="#account" data-master-section="account"><span class="master-nav__icon" data-nav-icon="users" aria-hidden="true"></span><span class="master-nav__label">Master account</span></a>
       </nav>
 
       <div class="master-sidebar__foot">
@@ -70,7 +70,7 @@
         </button>
         <div class="master-topbar__brand">
           <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="" class="master-topbar__logo" />
-          <span class="master-badge master-badge--admin">Master Admin</span>
+          <span class="master-badge master-badge--admin">Master admin</span>
         </div>
         <button type="button" class="master-signout-btn master-signout-btn--compact" data-master-sign-out>
           <svg class="master-signout-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -89,19 +89,32 @@
             <h1>Tenant accounts</h1>
             <p class="master-page-sub" id="master-page-sub">Loading…</p>
           </div>
-          <div class="master-page-actions">
-            <button type="button" class="master-btn master-btn--ghost" id="master-export-btn" disabled>Export CSV</button>
-            <button type="button" class="master-btn master-btn--ghost" id="master-cleanup-duplicates-btn">Remove duplicate trials</button>
-            <button type="button" class="master-btn master-btn--primary" id="master-create-tenant-btn">Create account</button>
-            <button type="button" class="master-btn master-btn--ghost master-btn--danger" id="master-delete-selected-btn" disabled title="Select a tenant to delete">Delete selected</button>
-            <label class="master-check master-page-actions__check">
-              <input type="checkbox" id="master-exclude-test" />
-              <span>Hide test accounts</span>
-            </label>
-            <label class="master-check master-page-actions__check">
-              <input type="checkbox" id="master-include-deleted" />
-              <span>Show deleted</span>
-            </label>
+          <div class="master-page-toolbar">
+            <div class="master-page-actions">
+              <button type="button" class="master-btn master-btn--outline" id="master-export-btn" disabled>
+                <span class="master-btn__icon" data-btn-icon="download" aria-hidden="true"></span>
+                Export CSV
+              </button>
+              <button type="button" class="master-btn master-btn--outline" id="master-cleanup-duplicates-btn">Remove duplicate trials</button>
+              <button type="button" class="master-btn master-btn--primary" id="master-create-tenant-btn">
+                <span class="master-btn__icon" data-btn-icon="plus" aria-hidden="true"></span>
+                Create account
+              </button>
+            </div>
+            <div class="master-page-actions master-page-actions--secondary">
+              <button type="button" class="master-btn master-btn--ghost master-btn--danger" id="master-delete-selected-btn" disabled title="Select a tenant to delete">
+                <span class="master-btn__icon" data-btn-icon="trash" aria-hidden="true"></span>
+                Delete selected
+              </button>
+              <label class="master-check master-page-actions__check">
+                <input type="checkbox" id="master-exclude-test" />
+                <span>Hide test accounts</span>
+              </label>
+              <label class="master-check master-page-actions__check">
+                <input type="checkbox" id="master-include-deleted" />
+                <span>Show deleted</span>
+              </label>
+            </div>
           </div>
         </header>
 
@@ -343,6 +356,7 @@
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=5"></script>
     <script src="./master-tenant-detail.js?v=3"></script>
-    <script src="./master.js?v=20"></script>
+    <script src="./admin-icons.js?v=5"></script>
+    <script src="./master.js?v=21"></script>
   </body>
 </html>
