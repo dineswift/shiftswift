@@ -128,6 +128,45 @@ window.Admin = (() => {
     });
   }
 
+  let tenantProfileSnapshot = null;
+
+  function tenantRegisteredAddressCacheKey() {
+    return `tenantRegisteredAddress_${localStorage.getItem("tenantId") || TENANT_ID || "default"}`;
+  }
+
+  function rememberTenantRegisteredAddress(value) {
+    const trimmed = String(value || "").trim();
+    const key = tenantRegisteredAddressCacheKey();
+    if (trimmed) localStorage.setItem(key, trimmed);
+    else localStorage.removeItem(key);
+  }
+
+  function getCachedTenantRegisteredAddress() {
+    const fromProfile = String(tenantProfileSnapshot?.registered_address || "").trim();
+    if (fromProfile) return fromProfile;
+    return String(localStorage.getItem(tenantRegisteredAddressCacheKey()) || "").trim();
+  }
+
+  async function prefetchTenantProfile() {
+    try {
+      const res = await apiFetch("/admin/tenant-profile");
+      if (!res.ok) return tenantProfileSnapshot;
+      tenantProfileSnapshot = await res.json();
+      rememberTenantRegisteredAddress(tenantProfileSnapshot?.registered_address);
+      return tenantProfileSnapshot;
+    } catch {
+      return tenantProfileSnapshot;
+    }
+  }
+
+  void prefetchTenantProfile();
+
+  window.addEventListener("admin:tenant-profile-saved", (event) => {
+    if (!event.detail || typeof event.detail !== "object") return;
+    tenantProfileSnapshot = { ...(tenantProfileSnapshot || {}), ...event.detail };
+    rememberTenantRegisteredAddress(tenantProfileSnapshot.registered_address);
+  });
+
   async function loadTenantFeatures() {
     try {
       const res = await apiFetch("/admin/overview");
@@ -800,6 +839,12 @@ window.Admin = (() => {
     FORM_SCHEMAS,
     authHeaders,
     apiFetch,
+    prefetchTenantProfile,
+    rememberTenantRegisteredAddress,
+    getCachedTenantRegisteredAddress,
+    get tenantProfileSnapshot() {
+      return tenantProfileSnapshot;
+    },
     loadFormOptions,
     loadTenantFeatures,
     applyFeatureGates,

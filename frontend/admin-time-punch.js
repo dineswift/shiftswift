@@ -23,22 +23,16 @@
   let rotaWeekStartDay = 0;
   let filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
   let bound = false;
-  const REGISTERED_ADDRESS_CACHE_KEY = `tenantRegisteredAddress_${window.Admin?.TENANT_ID ?? "default"}`;
-
-  function rememberRegisteredAddress(value) {
-    const trimmed = String(value || "").trim();
-    if (trimmed) localStorage.setItem(REGISTERED_ADDRESS_CACHE_KEY, trimmed);
-    else localStorage.removeItem(REGISTERED_ADDRESS_CACHE_KEY);
-  }
-
-  function cachedRegisteredAddress() {
-    return String(localStorage.getItem(REGISTERED_ADDRESS_CACHE_KEY) || "").trim();
-  }
 
   function mergeTenantProfile(data) {
     if (!data || typeof data !== "object") return;
     tenantProfile = { ...(tenantProfile || {}), ...data };
-    rememberRegisteredAddress(tenantProfile.registered_address);
+    window.Admin?.rememberTenantRegisteredAddress?.(tenantProfile.registered_address);
+  }
+
+  function registeredAddressFromDom() {
+    const field = document.querySelector('[data-form-id="tenant-profile"] [name="registered_address"]');
+    return String(field?.value || "").trim();
   }
 
   function $(id) {
@@ -149,11 +143,14 @@
   }
 
   function hasBusinessAddress() {
-    const fromProfile = String(tenantProfile?.registered_address || "").trim();
-    if (fromProfile) return true;
-    if (cachedRegisteredAddress()) return true;
-    const site = primarySite();
-    return Boolean(String(site?.address || "").trim());
+    const candidates = [
+      tenantProfile?.registered_address,
+      window.Admin?.tenantProfileSnapshot?.registered_address,
+      window.Admin?.getCachedTenantRegisteredAddress?.(),
+      primarySite()?.address,
+      registeredAddressFromDom(),
+    ];
+    return candidates.some((value) => Boolean(String(value || "").trim()));
   }
 
   function primarySite() {
@@ -813,14 +810,20 @@
 
   async function loadTenantProfile() {
     try {
-      const res = await apiFetch("/admin/tenant-profile");
-      if (!res.ok) throw new Error("Load failed");
-      mergeTenantProfile(await res.json());
-      syncRotaWeekStartDay(tenantProfile.rota_week_start_day);
-      timesheetWeekStart = rotaWeekStartIso();
-      renderAccountantSettings();
+      if (window.Admin?.prefetchTenantProfile) {
+        mergeTenantProfile(await window.Admin.prefetchTenantProfile());
+      } else {
+        const res = await apiFetch("/admin/tenant-profile");
+        if (!res.ok) throw new Error("Load failed");
+        mergeTenantProfile(await res.json());
+      }
+      if (tenantProfile) {
+        syncRotaWeekStartDay(tenantProfile.rota_week_start_day);
+        timesheetWeekStart = rotaWeekStartIso();
+        renderAccountantSettings();
+      }
     } catch {
-      /* Keep cached profile/address on transient load errors. */
+      mergeTenantProfile(window.Admin?.tenantProfileSnapshot);
     }
   }
 
@@ -1307,35 +1310,58 @@
     $("punch-accountant-send-btn")?.addEventListener("click", () => sendAccountantReportNow());
   }
 
+  async function maybeAutoSyncPrimarySite() {
+    if (sites.length || !hasBusinessAddress()) return;
+    await syncFromAddress($("sync-punch-site-btn"));
+  }
+
   async function initSection() {
     bindEvents();
     setActiveTab(activeTab);
     showMessage("");
-    if (window.Admin?.loadTenantFeatures) {
-      await window.Admin.loadTenantFeatures();
-      syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
-      timesheetWeekStart = rotaWeekStartIso();
+    try {
+      if (window.Admin?.loadTenantFeatures) {
+        await window.Admin.loadTenantFeatures();
+        syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
+        timesheetWeekStart = rotaWeekStartIso();
+      }
+      await loadTenantProfile();
+      await Promise.all([
+        loadEmployeeList(),
+        loadSites(),
+        loadPunches(),
+        loadTodayPunches(),
+        loadWeekPunches(),
+      ]);
+    } catch (error) {
+      console.warn("Time punch section load failed:", error);
+    } finally {
+      updatePunchStats();
+      if (!sites.length && hasBusinessAddress()) {
+        await maybeAutoSyncPrimarySite();
+      }
     }
-    await loadTenantProfile();
-    await Promise.all([
-      loadEmployeeList(),
-      loadSites(),
-      loadPunches(),
-      loadTodayPunches(),
-      loadWeekPunches(),
-    ]);
-    updatePunchStats();
+  }
+
+  function bootTimePunchSection() {
+    if (parseHashBaseSection(window.location.hash) !== "time-punch") return;
+    void initSection();
   }
 
   window.addEventListener("admin:section", (event) => {
-    if (event.detail?.section === "time-punch") initSection();
+    if (event.detail?.section === "time-punch") void initSection();
   });
 
   window.addEventListener("admin:tenant-profile-saved", (event) => {
     mergeTenantProfile(event.detail);
     updateSetupUi();
+    if (parseHashBaseSection(window.location.hash) === "time-punch") {
+      void initSection();
+      return;
+    }
     void loadTenantProfile().then(updateSetupUi);
   });
 
-  if (parseHashBaseSection(window.location.hash) === "time-punch") initSection();
+  window.addEventListener("hashchange", bootTimePunchSection);
+  bootTimePunchSection();
 })();

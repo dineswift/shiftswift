@@ -9186,6 +9186,10 @@ body.rota-week-readonly .rota-builder-hint {
   margin-bottom: 16px;
 }
 
+.punch-alert[hidden] {
+  display: none !important;
+}
+
 .punch-alert-actions {
   display: flex;
   flex-wrap: wrap;

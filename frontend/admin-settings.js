@@ -42,12 +42,9 @@
     },
   };
   const SAVED_AT_KEY = `settings_business_saved_${window.Admin?.TENANT_ID ?? "default"}`;
-  const REGISTERED_ADDRESS_CACHE_KEY = `tenantRegisteredAddress_${window.Admin?.TENANT_ID ?? "default"}`;
 
   function cacheRegisteredAddress(value) {
-    const trimmed = String(value || "").trim();
-    if (trimmed) localStorage.setItem(REGISTERED_ADDRESS_CACHE_KEY, trimmed);
-    else localStorage.removeItem(REGISTERED_ADDRESS_CACHE_KEY);
+    window.Admin?.rememberTenantRegisteredAddress?.(value);
   }
 
   let sectionReady = false;
