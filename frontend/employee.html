@@ -131,6 +131,18 @@
               <span class="overview-module-card__title">Notes from HR</span>
               <span class="overview-module-card__value" data-mirror="employee-notes-summary">Loading…</span>
             </a>
+            <a class="overview-module-card" href="#time-clock">
+              <div class="overview-module-card__head">
+                <span class="overview-module-card__icon" aria-hidden="true">
+                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 7v5l3 3"/><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18"/></svg>
+                </span>
+                <span class="overview-module-card__chevron" aria-hidden="true">
+                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
+                </span>
+              </div>
+              <span class="overview-module-card__title">Time clock</span>
+              <span class="overview-module-card__value" data-mirror="employee-punch-summary">Loading…</span>
+            </a>
             <a class="overview-module-card" href="#leave">
               <div class="overview-module-card__head">
                 <span class="overview-module-card__icon" aria-hidden="true">
@@ -168,6 +180,11 @@
               <p class="muted">Messages your employer has shared with you in the portal.</p>
               <p class="muted" id="employee-notes-summary">Loading…</p>
               <a class="btn ghost" href="#notes">View notes</a>
+            </article>
+            <article class="card">
+              <h3>Time clock</h3>
+              <p class="muted" id="employee-punch-summary">Loading…</p>
+              <a class="btn ghost" href="#time-clock">Clock in or out</a>
             </article>
             <article class="card">
               <h3>Leave balance</h3>
@@ -229,6 +246,10 @@
             <p id="punch-status" class="muted">Loading punch status…</p>
             <div id="punch-geofence-status" class="punch-geofence-status punch-geofence-status--loading" aria-live="polite">
               Getting your location…
+            </div>
+            <div class="punch-scan-row">
+              <button type="button" class="btn outline" id="punch-scan-btn">Scan premises QR</button>
+              <p id="punch-site-scan-status" class="punch-site-scan-status muted" hidden aria-live="polite"></p>
             </div>
             <div class="punch-actions">
               <button type="button" class="btn primary" id="punch-in-btn">Clock in</button>
@@ -421,6 +442,23 @@
       </div>
     </div>
 
+    <dialog id="punch-scan-dialog" class="punch-scan-dialog">
+      <form method="dialog" class="punch-scan-dialog__inner">
+        <header class="punch-scan-dialog__head">
+          <h2>Scan premises QR</h2>
+          <button type="button" class="btn ghost" id="punch-scan-close" aria-label="Close">Close</button>
+        </header>
+        <p class="muted">Point your camera at the QR code at your work site, or paste the premises link below.</p>
+        <video id="punch-scan-video" class="punch-scan-video" playsinline muted></video>
+        <p id="punch-scan-message" class="punch-message" aria-live="polite"></p>
+        <label class="edit-field">
+          <span class="edit-label">Paste QR link or code</span>
+          <input type="text" id="punch-scan-manual" placeholder="Paste QR link or code" autocomplete="off" />
+        </label>
+        <button type="button" class="btn primary" id="punch-scan-manual-btn">Verify code</button>
+      </form>
+    </dialog>
+
     <script src="./brand-config.js?v=brand-v4"></script>
     <script src="./session-auth.js?v=1"></script>
     <script src="./push-notifications.js?v=1"></script>
@@ -436,7 +474,7 @@
     <script src="./admin-icons.js?v=1"></script>
     <script src="./employee-mobile.js?v=2"></script>
     <script src="./employee.js?v=6"></script>
-    <script src="./employee-time-punch.js?v=5"></script>
+    <script src="./employee-time-punch.js?v=6"></script>
     <script src="./employee-rota.js?v=2"></script>
     <script src="./employee-documents.js?v=4"></script>
     <script src="./employee-notes.js?v=2"></script>

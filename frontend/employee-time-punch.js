@@ -12,11 +12,27 @@
   const clockInBtn = document.getElementById("punch-in-btn");
   const clockOutBtn = document.getElementById("punch-out-btn");
   const expectedEl = document.getElementById("employee-expected-shift");
+  const scanBtn = document.getElementById("punch-scan-btn");
+  const siteScanStatusEl = document.getElementById("punch-site-scan-status");
+  const scanDialog = document.getElementById("punch-scan-dialog");
+  const scanVideo = document.getElementById("punch-scan-video");
+  const scanMessageEl = document.getElementById("punch-scan-message");
+  const scanManualInput = document.getElementById("punch-scan-manual");
+  const scanManualBtn = document.getElementById("punch-scan-manual-btn");
+  const scanCloseBtn = document.getElementById("punch-scan-close");
+
+  const SITE_SCAN_KEY = "employeePortalSiteScan";
+  const SITE_SCAN_TTL_MS = 10 * 60 * 1000;
 
   let punchInFlight = false;
   let clockedInState = false;
   let geofenceWithin = false;
   let geofenceCheckInFlight = false;
+  let siteScanReady = false;
+  let siteScanToken = null;
+  let siteScanName = "";
+  let scanStream = null;
+  let scanFrameHandle = null;
 
   function authHeaders(json = true) {
     return session.authHeaders({ json, tenantId });
@@ -48,16 +64,32 @@
       : "punch-geofence-status";
   }
 
+  function setSiteScanStatus(text) {
+    if (!siteScanStatusEl) return;
+    if (text) {
+      siteScanStatusEl.textContent = text;
+      siteScanStatusEl.hidden = false;
+    } else {
+      siteScanStatusEl.textContent = "";
+      siteScanStatusEl.hidden = true;
+    }
+  }
+
+  function clockReady() {
+    return geofenceWithin || siteScanReady;
+  }
+
   function syncClockButtons() {
     const online = navigator.onLine;
+    const ready = clockReady();
     if (clockInBtn) {
       clockInBtn.disabled =
-        punchInFlight || !online || clockedInState || !geofenceWithin || geofenceCheckInFlight;
-      clockInBtn.classList.toggle("is-ready", geofenceWithin && !clockedInState && online && !punchInFlight);
+        punchInFlight || !online || clockedInState || !ready || geofenceCheckInFlight;
+      clockInBtn.classList.toggle("is-ready", ready && !clockedInState && online && !punchInFlight);
     }
     if (clockOutBtn) {
       clockOutBtn.disabled =
-        punchInFlight || !online || !clockedInState || !geofenceWithin || geofenceCheckInFlight;
+        punchInFlight || !online || !clockedInState || !ready || geofenceCheckInFlight;
     }
   }
 
@@ -68,6 +100,19 @@
     } catch {
       return iso;
     }
+  }
+
+  function updatePunchSummary(data) {
+    const text = data?.clocked_in
+      ? `Clocked in at ${data.last_punch?.site_name || "work site"}`
+      : data?.last_punch
+        ? `Last punch: ${data.last_punch.punch_type === "in" ? "in" : "out"}`
+        : "Ready to clock in";
+    document.querySelectorAll("[data-mirror='employee-punch-summary']").forEach((el) => {
+      el.textContent = text;
+    });
+    const summary = document.getElementById("employee-punch-summary");
+    if (summary) summary.textContent = text;
   }
 
   async function loadStatus() {
@@ -91,7 +136,7 @@
         const sites = data.assigned_sites || [];
         sitesEl.innerHTML = sites.length
           ? sites.map((s) => `<li>${s.name}: ${s.address} (${s.radius_meters}m radius)</li>`).join("")
-          : "<li>No punch sites configured. Ask HR.</li>";
+          : "<li>No punch sites configured. Ask HR to sync a site in Admin → Time punch.</li>";
       }
       if (expectedEl && data.expected_shift_today) {
         const s = data.expected_shift_today;
@@ -100,6 +145,7 @@
       } else if (expectedEl) {
         expectedEl.hidden = true;
       }
+      updatePunchSummary(data);
       syncClockButtons();
       refreshGeofencePreview();
     } catch {
@@ -107,10 +153,153 @@
     }
   }
 
+  function loadSiteScanSession() {
+    try {
+      const raw = sessionStorage.getItem(SITE_SCAN_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data?.expires_at || Date.now() > data.expires_at) return null;
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveSiteScanSession(data) {
+    sessionStorage.setItem(
+      SITE_SCAN_KEY,
+      JSON.stringify({
+        ...data,
+        expires_at: Date.now() + SITE_SCAN_TTL_MS,
+      }),
+    );
+  }
+
+  function clearSiteScanSession() {
+    sessionStorage.removeItem(SITE_SCAN_KEY);
+    siteScanReady = false;
+    siteScanToken = null;
+    siteScanName = "";
+    setSiteScanStatus("");
+    syncClockButtons();
+  }
+
+  function applySiteScanSession(data) {
+    siteScanReady = true;
+    siteScanToken = data.token;
+    siteScanName = data.site_name || "your site";
+    saveSiteScanSession(data);
+    setSiteScanStatus(`Premises verified — ${siteScanName}. You can clock in or out without GPS.`);
+    syncClockButtons();
+  }
+
+  function restoreSiteScanSession() {
+    const saved = loadSiteScanSession();
+    if (saved) {
+      applySiteScanSession(saved);
+      return true;
+    }
+    clearSiteScanSession();
+    return false;
+  }
+
+  function extractClockTokenFromText(text) {
+    const trimmed = String(text || "").trim();
+    if (!trimmed) return null;
+    try {
+      const url = new URL(trimmed, window.location.origin);
+      const fromQuery = url.searchParams.get("clock");
+      if (fromQuery) return fromQuery;
+    } catch {
+      /* not a URL */
+    }
+    if (/^[A-Za-z0-9_-]{16,}$/.test(trimmed)) return trimmed;
+    return null;
+  }
+
+  async function validateSiteScan(clockToken) {
+    const tokenValue = extractClockTokenFromText(clockToken);
+    if (!tokenValue) {
+      throw new Error("Could not read a premises code from that QR.");
+    }
+    const response = await apiFetch("/time-punch/scan", {
+      method: "POST",
+      body: JSON.stringify({ clock_token: tokenValue }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(parseApiError(data, "Could not verify premises QR."));
+    }
+    applySiteScanSession({
+      token: tokenValue,
+      site_id: data.site_id,
+      site_name: data.site_name,
+    });
+    setMessage(data.message || `Premises verified — ${data.site_name}.`, "success");
+    if (scanDialog?.open) scanDialog.close();
+    stopQrScanner();
+    return data;
+  }
+
+  function stopQrScanner() {
+    if (scanFrameHandle) {
+      cancelAnimationFrame(scanFrameHandle);
+      scanFrameHandle = null;
+    }
+    if (scanStream) {
+      scanStream.getTracks().forEach((track) => track.stop());
+      scanStream = null;
+    }
+    if (scanVideo) scanVideo.srcObject = null;
+  }
+
+  async function startQrScanner() {
+    if (!scanDialog || !scanVideo) return;
+    if (scanMessageEl) scanMessageEl.textContent = "";
+    stopQrScanner();
+
+    if (!("BarcodeDetector" in window)) {
+      if (scanMessageEl) {
+        scanMessageEl.textContent =
+          "Camera QR scan is not supported here. Paste the premises link below instead.";
+      }
+      return;
+    }
+
+    try {
+      scanStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      scanVideo.srcObject = scanStream;
+      await scanVideo.play();
+      const detector = new BarcodeDetector({ formats: ["qr_code"] });
+      const tick = async () => {
+        if (!scanVideo.srcObject) return;
+        try {
+          const codes = await detector.detect(scanVideo);
+          const value = codes[0]?.rawValue;
+          if (value) {
+            await validateSiteScan(value);
+            return;
+          }
+        } catch {
+          /* keep scanning */
+        }
+        scanFrameHandle = requestAnimationFrame(tick);
+      };
+      scanFrameHandle = requestAnimationFrame(tick);
+    } catch {
+      if (scanMessageEl) {
+        scanMessageEl.textContent = "Camera access denied. Paste the premises link below instead.";
+      }
+    }
+  }
+
   function friendlyGeoError(error) {
     if (error?.code === 1) return "Location permission denied. Enable location in your device settings.";
-    if (error?.code === 2) return "Location unavailable. Try moving outdoors.";
-    if (error?.code === 3) return "Location timed out. Check GPS and try again.";
+    if (error?.code === 2) return "Location unavailable. Try moving outdoors or scan the premises QR.";
+    if (error?.code === 3) return "Location timed out. Check GPS or scan the premises QR.";
     return error?.message || "Could not read your location.";
   }
 
@@ -150,14 +339,14 @@
     if (!window.ShiftSwiftPush) return;
     window.ShiftSwiftPush.promptSubscribe({
       apiBase: API_BASE,
-      token: token(),
+      token: session.getToken(),
       tenantId,
       reason: "Get shift reminders and clock-in alerts on this device.",
     }).catch(() => null);
   }
 
   async function refreshGeofencePreview() {
-    if (!geofenceEl || !navigator.onLine) return;
+    if (!geofenceEl || !navigator.onLine || siteScanReady) return;
     if (geofenceCheckInFlight) return;
 
     geofenceCheckInFlight = true;
@@ -195,25 +384,42 @@
       setMessage("Connect to the internet to clock in or out.", "error");
       return;
     }
+    if (!clockReady()) {
+      setMessage("Move within your site geofence or scan the premises QR code first.", "error");
+      return;
+    }
+
     punchInFlight = true;
     syncClockButtons();
-    setMessage("Reading your location…", "info");
+    setMessage("Submitting punch…", "info");
+
     try {
-      const location = await readLocation();
-      setMessage("Submitting punch…", "info");
-      const response = await apiFetch("/time-punch/punch", {
-        method: "POST",
-        body: JSON.stringify({ punch_type: punchType, ...location }),
-      });
-      const data = await response.json().catch(() => ({}));
+      let response;
+      let data;
+      if (siteScanReady && siteScanToken) {
+        response = await apiFetch("/time-punch/punch-site", {
+          method: "POST",
+          body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken }),
+        });
+        data = await response.json().catch(() => ({}));
+      } else {
+        setMessage("Reading your location…", "info");
+        const location = await readLocation();
+        response = await apiFetch("/time-punch/punch", {
+          method: "POST",
+          body: JSON.stringify({ punch_type: punchType, ...location }),
+        });
+        data = await response.json().catch(() => ({}));
+      }
       if (!response.ok) {
         setMessage(parseApiError(data, "Punch failed."), "error");
         return;
       }
-      setMessage(
-        `${punchType === "in" ? "Clocked in" : "Clocked out"} at ${data.site_name} (${Math.round(data.distance_meters)}m from site).`,
-        "success"
-      );
+      const detail =
+        data.punch_method === "site_qr"
+          ? `${punchType === "in" ? "Clocked in" : "Clocked out"} at ${data.site_name} (premises QR).`
+          : `${punchType === "in" ? "Clocked in" : "Clocked out"} at ${data.site_name} (${Math.round(data.distance_meters)}m from site).`;
+      setMessage(detail, "success");
       await loadStatus();
     } catch (error) {
       setMessage(error.message || "Punch failed.", "error");
@@ -223,6 +429,26 @@
     }
   }
 
+  scanBtn?.addEventListener("click", () => {
+    if (scanDialog?.showModal) scanDialog.showModal();
+    else if (scanDialog) scanDialog.open = true;
+    void startQrScanner();
+  });
+
+  scanCloseBtn?.addEventListener("click", () => {
+    stopQrScanner();
+    if (scanDialog?.close) scanDialog.close();
+  });
+
+  scanManualBtn?.addEventListener("click", () => {
+    const value = scanManualInput?.value || "";
+    validateSiteScan(value).catch((error) => {
+      if (scanMessageEl) scanMessageEl.textContent = error.message || "Could not verify code.";
+    });
+  });
+
+  scanDialog?.addEventListener("close", stopQrScanner);
+
   clockInBtn?.addEventListener("click", () => submitPunch("in"));
   clockOutBtn?.addEventListener("click", () => submitPunch("out"));
   window.addEventListener("online", loadStatus);
@@ -230,5 +456,13 @@
     if (!document.hidden && navigator.onLine) loadStatus();
   });
 
+  window.addEventListener("employee:section", (event) => {
+    if (event.detail?.section === "time-clock") {
+      restoreSiteScanSession();
+      void loadStatus();
+    }
+  });
+
+  restoreSiteScanSession();
   loadStatus();
 })();
