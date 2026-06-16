@@ -7186,12 +7186,52 @@ body.rota-week-readonly .rota-builder-hint {
     position: fixed;
     top: max(76px, calc(env(safe-area-inset-top) + 64px));
     right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
+    left: auto;
+    bottom: auto;
     width: min(320px, calc(100vw - 24px));
+    max-height: min(85vh, 640px);
+    height: auto;
     z-index: 95;
-    max-height: none;
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-card);
+  }
+
+  #rota-shift-panel.rota-shift-panel--positioned {
+    right: auto;
+  }
+
+  .rota-shift-panel__head {
+    cursor: grab;
+    user-select: none;
+  }
+
+  .rota-shift-panel--dragging .rota-shift-panel__head {
+    cursor: grabbing;
+  }
+
+  .rota-shift-panel__head-main {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .rota-shift-panel__drag-hint {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--gray-400);
+    letter-spacing: 0.02em;
+  }
+
+  .rota-desktop-only {
+    display: block;
+  }
+
+  .rota-shift-panel__foot {
+    flex-wrap: wrap;
+  }
+
+  .rota-shift-panel__foot #rota-panel-copy-btn {
+    margin-right: auto;
   }
 
   .rota-shift-head-save {
@@ -7506,11 +7546,80 @@ body.rota-week-readonly .rota-builder-hint {
 
 .rota-copy-modal__panel {
   position: relative;
-  width: min(360px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(85vh, 560px);
+  overflow-y: auto;
   padding: 18px;
   border-radius: var(--radius-md);
   background: var(--card);
   box-shadow: var(--shadow-card);
+}
+
+.rota-copy-modal__section {
+  margin-bottom: 14px;
+}
+
+.rota-copy-modal__section-title {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-700);
+}
+
+.rota-copy-modal__employees {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rota-bulk-times {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--gray-200, #e5e7eb);
+}
+
+.rota-bulk-times__hint {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.rota-bulk-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 10px;
+}
+
+.rota-bulk-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--gray-200, #e5e7eb);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.rota-bulk-day input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--green-700, #0f6e56);
+}
+
+@media (max-width: 860px) {
+  .rota-desktop-only {
+    display: none !important;
+  }
+
+  .rota-shift-panel__head {
+    cursor: default;
+  }
 }
 
 .rota-copy-modal__panel h3 {
@@ -8910,12 +9019,14 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .hr-detail-panel {
-  flex: 0 0 340px;
-  width: 340px;
+  flex: 0 0 400px;
+  width: 400px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
   background: var(--card);
   padding: 16px 18px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
 }
 
 .hr-detail-empty {
@@ -9448,8 +9559,290 @@ body.rota-week-readonly .rota-builder-hint {
 .employees-step-indicator {
   margin: 4px 0 0;
   font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+
+.employee-record-card {
+  display: grid;
+  gap: 16px;
+}
+
+.employee-record-loading {
+  padding: 24px 8px;
+  text-align: center;
+}
+
+.employee-record-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.employee-record-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.employee-record-avatar {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
   font-weight: 700;
+}
+
+.employee-record-name {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.employee-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.employee-record-remove {
+  color: #b42318;
+  border-color: #fecdca;
+}
+
+.employee-record-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.employee-record-progress__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--ink-600);
+}
+
+.employee-record-progress__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #ece8df;
+  overflow: hidden;
+}
+
+.employee-record-progress__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green-700);
+}
+
+.employee-record-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.employee-record-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.employee-record-field__label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.employee-record-field input,
+.employee-record-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font: inherit;
+}
+
+.employee-record-field input:focus,
+.employee-record-field select:focus {
+  outline: 2px solid rgba(29, 158, 117, 0.25);
+  border-color: var(--green-700);
+}
+
+.employee-record-kiosk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: #faf9f6;
+}
+
+.employee-record-link {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--green-800);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.employee-record-link:hover {
+  text-decoration: underline;
+}
+
+.employee-record-field-status {
+  margin: -8px 0 0;
+  min-height: 1.2em;
+  font-size: 0.78rem;
+}
+
+.employee-record-checklist-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.employee-record-checklist-title {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.employee-record-checklist {
+  display: grid;
+  gap: 8px;
+}
+
+.employee-record-check {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #faf9f6;
+}
+
+.employee-record-check__icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 2px dashed var(--ink-300);
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  color: transparent;
+}
+
+.employee-record-check__icon--done {
+  border: none;
+  background: var(--green-700);
+  color: #fff;
+}
+
+.employee-record-check__icon--active {
+  border-color: #d48806;
+  border-style: dotted;
+}
+
+.employee-record-check__label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.employee-record-check__status {
+  font-size: 0.78rem;
+  color: var(--ink-500);
+}
+
+.employee-record-section-expand {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: #faf9f6;
+}
+
+.employee-record-section-expand__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.employee-record-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-top: 4px;
+  font-size: 0.82rem;
+}
+
+.employee-record-portal-icon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ink-400);
+  position: relative;
+}
+
+.employee-record-portal-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 10px;
+  height: 5px;
+  margin-left: -5px;
+  border: 1.5px solid var(--ink-400);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.employee-register-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 88px;
+}
+
+.employee-register-progress__pct {
+  flex: 0 0 2.5em;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-600);
+}
+
+.employee-register-progress__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: #e8ecef;
+  overflow: hidden;
+  min-width: 48px;
+}
+
+.employee-register-progress__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green-700);
 }
 
 .employees-quick-add-lead {

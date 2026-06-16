@@ -136,7 +136,7 @@
     id: "employee-quick-add",
     columns: 1,
     submitLabel: "Create employee",
-    successMessage: "Employee created. Continue the lifecycle from step 1.",
+    successMessage: "Employee added — complete their profile in the panel on the right.",
     fields: [
       { name: "first_name", label: "First name", type: "text", required: true },
       { name: "last_name", label: "Last name", type: "text", required: true },
@@ -153,6 +153,13 @@
 
   const LIFECYCLE_HUB_PAGE_SIZE = 5;
   const LIFECYCLE_EDITABLE_STEPS = 6;
+
+  const SIDE_PANEL_CHECKLIST = [
+    { key: "recruitment", sectionKey: "recruitment", label: "Recruitment" },
+    { key: "induction", sectionKey: "induction", label: "Personal information" },
+    { key: "rtw", sectionKey: "document_store", docCategory: "rtw", label: "Right to work" },
+    { key: "contract", sectionKey: "document_store", docCategory: "contract", label: "Contract" },
+  ];
 
   let lifecycleHubOpenStage = "recruitment";
   let lifecycleHubExpanded = { recruitment: true, onboarding: false, active: false, offboarding: false };
@@ -186,6 +193,64 @@
     const next = row.next_section ? sectionLabel(row.next_section) : null;
     if (!next || pct >= 100) return null;
     return `Onboarding ${pct}% complete — next: ${next}`;
+  }
+
+  function editableSections(workspace) {
+    return (workspace?.sections || []).filter((section) => section.kind === "form" || section.kind === "documents");
+  }
+
+  function sectionProgressMeta(workspace) {
+    const editable = editableSections(workspace);
+    const completed = editable.filter((section) => section.complete).length;
+    const total = editable.length || LIFECYCLE_EDITABLE_STEPS;
+    const pct = workspace?.completion_pct ?? 0;
+    return { completed, total, pct };
+  }
+
+  function checklistItemComplete(workspace, item) {
+    if (item.docCategory) {
+      const req = (workspace.document_requirements?.items || []).find((entry) => entry.category === item.docCategory);
+      return Boolean(req?.satisfied);
+    }
+    const section = (workspace.sections || []).find((entry) => entry.key === item.sectionKey);
+    return Boolean(section?.complete);
+  }
+
+  function checklistItemStarted(workspace, item) {
+    if (item.docCategory) {
+      return (workspace.documents || []).some((doc) => doc.category === item.docCategory);
+    }
+    const section = (workspace.sections || []).find((entry) => entry.key === item.sectionKey);
+    if (!section?.data) return false;
+    return Object.values(section.data).some((value) => value !== null && value !== undefined && String(value).trim() !== "");
+  }
+
+  function departmentSelectOptions(currentValue) {
+    const options = window.Admin.formOptions?.recruitment_departments || [];
+    const values = new Set(options.map((item) => item.value || item.label));
+    let html = `<option value="">Not set</option>`;
+    if (currentValue && !values.has(currentValue)) {
+      html += `<option value="${escapeHtml(currentValue)}" selected>${escapeHtml(currentValue)}</option>`;
+    }
+    html += options
+      .map((item) => {
+        const value = item.value || item.label;
+        const selected = value === currentValue ? " selected" : "";
+        return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(item.label || value)}</option>`;
+      })
+      .join("");
+    return html;
+  }
+
+  function renderRegisterProgressCell(row) {
+    const pct = row.completion_pct ?? 0;
+    if (pct >= 100 && !row.next_section) {
+      return `<span class="employee-profile-pill employee-profile-pill--ok">Done</span>`;
+    }
+    return `<div class="employee-register-progress" title="Profile completeness">
+      <span class="employee-register-progress__pct">${escapeHtml(String(pct))}%</span>
+      <div class="employee-register-progress__bar"><span style="width:${Math.min(100, pct)}%"></span></div>
+    </div>`;
   }
 
   function avatarPalette(employeeId) {
@@ -355,6 +420,10 @@
 
   let activeEmployeeId = null;
   let selectedEmployeeId = null;
+  let sidePanelEmployeeId = null;
+  let sidePanelWorkspace = null;
+  let sidePanelExpandedSection = null;
+  let sidePanelRenderRequest = 0;
   let employeesCache = [];
   let activeSection = "recruitment";
   let workspaceCache = null;
@@ -690,17 +759,188 @@
   }
 
   async function refreshEmployeeSidePanelKioskPin(employeeId) {
-    const cell = document.getElementById("employees-side-kiosk-pin");
-    if (!cell || !employeeId) return;
-    cell.textContent = "Loading…";
+    const host = document.getElementById("employees-side-kiosk-pin");
+    if (!host || !employeeId) return;
+    host.innerHTML = `<span class="muted">Loading…</span>`;
     try {
       const res = await apiFetch(`/admin/time-punch/employees/${employeeId}/kiosk-pin`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error();
-      cell.textContent = data.kiosk_pin_set ? "Set (kiosk ready)" : "Not set";
+      host.innerHTML = data.kiosk_pin_set
+        ? `<span class="employee-record-kiosk__status">Set</span>`
+        : `<span class="employee-record-kiosk__status muted">Not set</span>
+           <button type="button" class="employee-record-link" data-generate-kiosk-pin>Generate</button>`;
+      host.querySelector("[data-generate-kiosk-pin]")?.addEventListener("click", () => {
+        void generateKioskPin(employeeId);
+      });
     } catch {
-      cell.textContent = "Unknown";
+      host.innerHTML = `<span class="muted">Unknown</span>`;
     }
+  }
+
+  async function generateKioskPin(employeeId) {
+    const host = document.getElementById("employees-side-kiosk-pin");
+    const pin = String(Math.floor(1000 + Math.random() * 9000));
+    try {
+      if (host) host.innerHTML = `<span class="muted">Generating…</span>`;
+      const res = await apiFetch(`/admin/time-punch/employees/${employeeId}/kiosk-pin`, {
+        method: "PUT",
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not set PIN");
+      await refreshEmployeeSidePanelKioskPin(employeeId);
+      const status = document.getElementById("employees-side-invite-status");
+      if (status) status.textContent = `Kiosk PIN set to ${pin} — share it with the employee privately.`;
+    } catch (error) {
+      if (host) host.innerHTML = `<span class="muted">Could not generate PIN</span>`;
+      alert(error.message || "Could not generate PIN");
+    }
+  }
+
+  async function saveSidePanelSection(employeeId, sectionKey, updates) {
+    const res = await apiFetch(`/admin/employees/${employeeId}/sections/${sectionKey}`, {
+      method: "PATCH",
+      body: JSON.stringify(normalizePayload(sectionKey, updates)),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Save failed");
+    sidePanelWorkspace = data;
+    const idx = employeesCache.findIndex((item) => item.id === employeeId);
+    if (idx >= 0) {
+      employeesCache[idx] = { ...employeesCache[idx], ...data.employee, completion_pct: data.completion_pct, next_section: data.next_section };
+    }
+    return data;
+  }
+
+  function bindSidePanelInlineFields(employee, workspace) {
+    const employeeId = employee.id;
+    const statusEl = document.getElementById("employees-side-field-status");
+
+    const saveField = async (sectionKey, updates) => {
+      try {
+        if (statusEl) statusEl.textContent = "Saving…";
+        const data = await saveSidePanelSection(employeeId, sectionKey, updates);
+        if (statusEl) statusEl.textContent = "Saved.";
+        updateSidePanelProgress(data);
+        refreshEmployeesTableRowFromCache(employeeId);
+        window.setTimeout(() => {
+          if (statusEl?.textContent === "Saved.") statusEl.textContent = "";
+        }, 1800);
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error.message || "Save failed";
+      }
+    };
+
+    document.getElementById("employees-side-job-title")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { job_title: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-department")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { department: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-email")?.addEventListener("change", (event) => {
+      void saveField("recruitment", { email: event.target.value.trim() || null });
+    });
+  }
+
+  function updateSidePanelProgress(workspace) {
+    const meta = sectionProgressMeta(workspace);
+    const fill = document.getElementById("employees-side-progress-fill");
+    const copy = document.getElementById("employees-side-progress-copy");
+    if (fill) fill.style.width = `${Math.min(100, meta.pct)}%`;
+    if (copy) copy.textContent = `${meta.completed} of ${meta.total} sections done`;
+    renderSidePanelChecklist(workspace);
+  }
+
+  function renderSidePanelChecklist(workspace) {
+    const host = document.getElementById("employees-side-checklist");
+    if (!host) return;
+    host.innerHTML = SIDE_PANEL_CHECKLIST.map((item) => {
+      const complete = checklistItemComplete(workspace, item);
+      const started = checklistItemStarted(workspace, item);
+      const iconClass = complete
+        ? "employee-record-check__icon employee-record-check__icon--done"
+        : started
+          ? "employee-record-check__icon employee-record-check__icon--active"
+          : "employee-record-check__icon";
+      const action = complete
+        ? `<span class="employee-record-check__status">Complete</span>`
+        : `<button type="button" class="employee-record-link" data-side-section="${escapeHtml(item.sectionKey)}">${started ? "Continue" : "Start"} ↗</button>`;
+      return `<div class="employee-record-check">
+        <span class="${iconClass}" aria-hidden="true">${complete ? "✓" : ""}</span>
+        <span class="employee-record-check__label">${escapeHtml(item.label)}</span>
+        ${action}
+      </div>`;
+    }).join("");
+    host.querySelectorAll("[data-side-section]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openEmployeeSectionFromPanel(workspace.employee?.id, btn.dataset.sideSection);
+      });
+    });
+  }
+
+  function renderSidePanelSectionExpand(workspace) {
+    const host = document.getElementById("employees-side-section-host");
+    if (!host) return;
+    if (!sidePanelExpandedSection) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    sidePanelEmployeeId = workspace.employee?.id || selectedEmployeeId;
+    host.innerHTML = `<div class="employee-record-section-expand">
+      <div class="employee-record-section-expand__head">
+        <strong>${escapeHtml(sectionLabel(sidePanelExpandedSection))}</strong>
+        <button type="button" class="employee-record-link" id="employees-side-section-close">Close</button>
+      </div>
+      <div id="employees-side-section-content"></div>
+    </div>`;
+    host.querySelector("#employees-side-section-close")?.addEventListener("click", () => {
+      sidePanelExpandedSection = null;
+      sidePanelEmployeeId = null;
+      renderSidePanelSectionExpand(workspace);
+    });
+    const contentHost = host.querySelector("#employees-side-section-content");
+    if (contentHost) {
+      renderSectionContent(workspace, sidePanelExpandedSection, contentHost);
+    }
+  }
+
+  function openEmployeeSectionFromPanel(employeeId, sectionKey) {
+    if (isMobileEmployeesHub() || sectionKey === "document_store") {
+      void openEmployee(employeeId, sectionKey);
+      return;
+    }
+    sidePanelExpandedSection = sectionKey;
+    if (sidePanelWorkspace?.employee?.id === employeeId) {
+      renderSidePanelSectionExpand(sidePanelWorkspace);
+      document.getElementById("employees-side-section-host")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
+    selectedEmployeeId = employeeId;
+    void renderEmployeeSidePanel(employeesCache.find((item) => item.id === employeeId));
+  }
+
+  function refreshEmployeesTableProgressOnly() {
+    const tbody = $("employees-table-body");
+    if (!tbody) return;
+    tbody.querySelectorAll(".hr-register-row").forEach((rowEl) => {
+      const employeeId = Number(rowEl.dataset.employeeId);
+      refreshEmployeesTableRowFromCache(employeeId, rowEl);
+    });
+  }
+
+  function refreshEmployeesTableRowFromCache(employeeId, rowEl = null) {
+    const row = employeesCache.find((item) => item.id === employeeId);
+    const target = rowEl || document.querySelector(`.hr-register-row[data-employee-id="${employeeId}"]`);
+    if (!row || !target) return;
+    target.cells[0].innerHTML = `<strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${
+      row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""
+    }`;
+    target.cells[1].textContent = row.department || "Not set";
+    target.cells[2].innerHTML = statusPill(row.status);
+    target.cells[3].innerHTML = renderRegisterProgressCell(row);
   }
 
   function normalizePayload(section, payload) {
@@ -1215,30 +1455,55 @@
 
     const formSchema = {
       ...schema,
-      submitLabel: "Save & continue",
+      submitLabel: sidePanelEmployeeId && !activeEmployeeId ? "Save" : "Save & continue",
       secondaryAction: {
         label: "Cancel",
-        onClick: () => collapseLifecycleSection(workspace),
+        onClick: () => {
+          if (sidePanelEmployeeId && !activeEmployeeId) {
+            sidePanelExpandedSection = null;
+            sidePanelEmployeeId = null;
+            renderSidePanelSectionExpand(sidePanelWorkspace || workspace);
+            return;
+          }
+          collapseLifecycleSection(workspace);
+        },
       },
     };
 
     mountEditForm(container.querySelector("#employee-section-form"), formSchema, {
       values: section.data || {},
       onSubmit: async (payload) => {
-        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/sections/${sectionKey}`, {
+        const employeeId = activeEmployeeId || sidePanelEmployeeId;
+        const res = await apiFetch(`/admin/employees/${employeeId}/sections/${sectionKey}`, {
           method: "PATCH",
           body: JSON.stringify(normalizePayload(sectionKey, payload)),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Save failed");
         workspaceCache = data;
+        sidePanelWorkspace = data;
         if (sectionKey === "recruitment") {
           window.dispatchEvent(new CustomEvent("admin:features-refresh"));
+        }
+        if (sidePanelEmployeeId && !activeEmployeeId) {
+          const idx = employeesCache.findIndex((item) => item.id === employeeId);
+          if (idx >= 0) {
+            employeesCache[idx] = {
+              ...employeesCache[idx],
+              ...data.employee,
+              completion_pct: data.completion_pct,
+              next_section: data.next_section,
+            };
+          }
+          updateSidePanelProgress(data);
+          refreshEmployeesTableProgressOnly();
+          renderSidePanelSectionExpand(data);
+          return;
         }
         const next = data.next_section;
         if (next && next !== sectionKey) {
           activeSection = next;
-          window.location.hash = `employees/${activeEmployeeId}/${next}`;
+          window.location.hash = `employees/${employeeId}/${next}`;
         }
         renderWorkspace(data);
       },
@@ -1313,26 +1578,26 @@
       tbody.innerHTML = employeesCache
         .map((row) => {
           const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
-          const progress = progressCopy(row);
-          const progressCell = progress
-            ? `<span class="employee-profile-pill">${escapeHtml(String(row.completion_pct ?? 0))}%</span><div class="muted">${escapeHtml(progress)}</div>`
-            : `<span class="employee-profile-pill employee-profile-pill--ok">Complete</span>`;
           return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
             <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
             <td>${escapeHtml(row.department || "Not set")}</td>
             <td>${statusPill(row.status)}</td>
-            <td>${progressCell}</td>
+            <td>${renderRegisterProgressCell(row)}</td>
           </tr>`;
         })
         .join("");
 
       tbody.querySelectorAll(".hr-register-row").forEach((row) => {
         row.addEventListener("click", () => {
-          selectedEmployeeId = Number(row.dataset.employeeId);
+          const newId = Number(row.dataset.employeeId);
+          if (selectedEmployeeId !== newId) {
+            sidePanelExpandedSection = null;
+          }
+          selectedEmployeeId = newId;
           tbody.querySelectorAll(".hr-register-row").forEach((el) => {
             el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
           });
-          renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+          void renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
         });
       });
 
@@ -1346,61 +1611,125 @@
     }
   }
 
-  function renderEmployeeSidePanel(row) {
+  async function renderEmployeeSidePanel(row) {
     const empty = $("employees-side-empty");
     const content = $("employees-side-content");
     if (!content) return;
     if (!row) {
+      sidePanelWorkspace = null;
+      sidePanelExpandedSection = null;
+      sidePanelEmployeeId = null;
       empty?.removeAttribute("hidden");
       content.hidden = true;
+      content.innerHTML = "";
       return;
     }
     empty?.setAttribute("hidden", "");
     content.hidden = false;
-    const progress = progressCopy(row);
-    content.innerHTML = `
-      <div class="hr-detail-head">
-        <div>
-          <h3>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</h3>
-          ${statusPill(row.status)}
-        </div>
-      </div>
-      <dl class="hr-detail-grid">
-        <div><dt>Job title</dt><dd>${escapeHtml(row.job_title || "Not set")}</dd></div>
-        <div><dt>Department</dt><dd>${escapeHtml(row.department || "Not set")}</dd></div>
-        <div><dt>Lifecycle progress</dt><dd>${progress ? escapeHtml(progress) : "All required steps complete"}</dd></div>
-        <div><dt>Email</dt><dd>${escapeHtml(row.email || "Not set")}</dd></div>
-        <div><dt>Employee portal</dt><dd>${escapeHtml(portalStatusCopy(row))}</dd></div>
-        <div><dt>Kiosk PIN</dt><dd id="employees-side-kiosk-pin">Loading…</dd></div>
-      </dl>
-      <div class="hr-detail-foot">
-        <button type="button" class="btn" id="employees-side-open-btn">Open lifecycle</button>
-        <button type="button" class="btn outline" id="employees-side-invite-btn" ${
-          row.email && row.portal_setup_status !== "complete" ? "" : "disabled"
-        }>${
-          row.portal_setup_pending || row.portal_setup_status === "pending"
-            ? "Resend portal link"
-            : "Send portal invite"
-        }</button>
-        <button type="button" class="btn ghost" id="employees-side-delete-btn">Remove</button>
-      </div>
-      <p class="muted" id="employees-side-invite-status" aria-live="polite"></p>`;
-    void refreshEmployeeSidePanelKioskPin(row.id);
-    content.querySelector("#employees-side-open-btn")?.addEventListener("click", () => openEmployee(row.id));
-    content.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
-      void sendPortalInvite(row.id, "employees-side-invite-status");
-    });
-    content.querySelector("#employees-side-delete-btn")?.addEventListener("click", async () => {
-      if (!window.confirm("Remove this employee record?")) return;
-      const res = await apiFetch(`/admin/employees/${row.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.detail || "Delete failed");
-        return;
-      }
-      selectedEmployeeId = null;
-      await refreshEmployeesTable();
-    });
+
+    const requestId = ++sidePanelRenderRequest;
+    content.innerHTML = `<p class="muted employee-record-loading">Loading profile…</p>`;
+
+    try {
+      const res = await apiFetch(`/admin/employees/${row.id}/workspace`);
+      if (requestId !== sidePanelRenderRequest) return;
+      const workspace = await res.json();
+      if (!res.ok) throw new Error(workspace.detail || "Could not load employee");
+
+      sidePanelWorkspace = workspace;
+      const employee = workspace.employee || row;
+      const palette = avatarPalette(employee.id);
+      const initials = employeeInitials(employee);
+      const progress = sectionProgressMeta(workspace);
+      const inviteDisabled = !(employee.email && employee.portal_setup_status !== "complete");
+      const inviteLabel =
+        employee.portal_setup_pending || employee.portal_setup_status === "pending"
+          ? "Resend portal link"
+          : "Send portal invite";
+
+      content.innerHTML = `
+        <article class="employee-record-card">
+          <header class="employee-record-head">
+            <div class="employee-record-identity">
+              <span class="employee-record-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+              <div>
+                <h3 class="employee-record-name">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
+                ${statusPill(employee.status)}
+              </div>
+            </div>
+            <div class="employee-record-actions">
+              <button type="button" class="btn outline btn-sm" id="employees-side-invite-btn" ${inviteDisabled ? "disabled" : ""}>${escapeHtml(inviteLabel)}</button>
+              <button type="button" class="btn outline btn-sm employee-record-remove" id="employees-side-delete-btn">Remove</button>
+            </div>
+          </header>
+
+          <div class="employee-record-progress">
+            <div class="employee-record-progress__meta">
+              <span>Profile completeness</span>
+              <span id="employees-side-progress-copy">${progress.completed} of ${progress.total} sections done</span>
+            </div>
+            <div class="employee-record-progress__bar"><span id="employees-side-progress-fill" style="width:${Math.min(100, progress.pct)}%"></span></div>
+          </div>
+
+          <div class="employee-record-fields">
+            <label class="employee-record-field">
+              <span class="employee-record-field__label">Job title</span>
+              <input type="text" id="employees-side-job-title" value="${escapeHtml(employee.job_title || "")}" placeholder="Not set" />
+            </label>
+            <label class="employee-record-field">
+              <span class="employee-record-field__label">Department</span>
+              <select id="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
+            </label>
+            <label class="employee-record-field">
+              <span class="employee-record-field__label">Email</span>
+              <input type="email" id="employees-side-email" value="${escapeHtml(employee.email || "")}" placeholder="Not set" />
+            </label>
+            <div class="employee-record-field">
+              <span class="employee-record-field__label">Kiosk PIN</span>
+              <div class="employee-record-kiosk" id="employees-side-kiosk-pin">Loading…</div>
+            </div>
+          </div>
+          <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
+
+          <div class="employee-record-checklist-wrap">
+            <h4 class="employee-record-checklist-title">Lifecycle sections</h4>
+            <div class="employee-record-checklist" id="employees-side-checklist"></div>
+          </div>
+
+          <div id="employees-side-section-host" hidden></div>
+
+          <footer class="employee-record-foot muted">
+            <span class="employee-record-portal-icon" aria-hidden="true"></span>
+            ${escapeHtml(portalStatusCopy(employee))}
+          </footer>
+          <p class="muted" id="employees-side-invite-status" aria-live="polite"></p>
+        </article>`;
+
+      renderSidePanelChecklist(workspace);
+      renderSidePanelSectionExpand(workspace);
+      void refreshEmployeeSidePanelKioskPin(employee.id);
+      bindSidePanelInlineFields(employee, workspace);
+
+      content.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
+        void sendPortalInvite(employee.id, "employees-side-invite-status");
+      });
+      content.querySelector("#employees-side-delete-btn")?.addEventListener("click", async () => {
+        if (!window.confirm("Remove this employee record?")) return;
+        const deleteRes = await apiFetch(`/admin/employees/${employee.id}`, { method: "DELETE" });
+        if (!deleteRes.ok) {
+          const err = await deleteRes.json();
+          alert(err.detail || "Delete failed");
+          return;
+        }
+        selectedEmployeeId = null;
+        sidePanelExpandedSection = null;
+        sidePanelWorkspace = null;
+        await refreshEmployeesTable();
+      });
+    } catch (error) {
+      if (requestId !== sidePanelRenderRequest) return;
+      content.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load employee profile.")}</p>`;
+    }
   }
 
   function mountQuickAddForm() {
@@ -1410,7 +1739,7 @@
     quickAddMounted = true;
     const stepEl = $("employees-step-indicator");
     if (stepEl) {
-      stepEl.textContent = `Step 1 of ${LIFECYCLE_EDITABLE_STEPS} · Recruitment`;
+      stepEl.textContent = "Quick capture";
     }
     mountEditForm(host, QUICK_ADD_SCHEMA, {
       onSubmit: async (payload) => {
@@ -1423,8 +1752,14 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Create failed");
+        selectedEmployeeId = data.id;
+        sidePanelExpandedSection = null;
         await refreshEmployeesTable();
-        await openEmployee(data.id, "recruitment");
+        if (isMobileEmployeesHub()) {
+          await openEmployee(data.id, "recruitment");
+        } else {
+          document.getElementById("employees-side-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
       },
     });
   }

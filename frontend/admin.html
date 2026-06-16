@@ -35,7 +35,7 @@
       })();
     </script>
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v55" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v57" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -265,10 +265,10 @@
                   <div class="employees-quick-add-head">
                     <div>
                       <h4 class="hr-section-title">Add employee</h4>
-                      <p class="employees-step-indicator" id="employees-step-indicator">Step 1 of 6 · Recruitment</p>
+                      <p class="employees-step-indicator" id="employees-step-indicator">Quick capture</p>
                     </div>
                   </div>
-                  <p class="muted employees-quick-add-lead">We'll create a basic profile first — add job details, documents, and compliance steps after.</p>
+                  <p class="muted employees-quick-add-lead">Name and email only — job details, documents, and compliance go in the employee record after you create them.</p>
                   <div id="employee-quick-add-form"></div>
                 </article>
                 <div class="employees-register-block">
@@ -299,7 +299,7 @@
               </div>
               <aside class="hr-detail-panel employees-desktop-only" id="employees-side-panel">
                 <div id="employees-side-empty" class="hr-detail-empty muted">
-                  <p>Select an employee to preview lifecycle progress and open their workspace.</p>
+                  <p>Select an employee to view and edit their profile, or create someone new above.</p>
                 </div>
                 <div id="employees-side-content" hidden></div>
               </aside>
@@ -2055,7 +2055,10 @@
           <aside id="rota-shift-panel" class="rota-shift-panel mobile-editor-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rota-shift-popover-title">
             <div class="mobile-editor-sheet__grabber" aria-hidden="true"></div>
             <div class="rota-shift-panel__head mobile-editor-sheet__head">
-              <h3 id="rota-shift-popover-title">Add shift</h3>
+              <div class="rota-shift-panel__head-main">
+                <h3 id="rota-shift-popover-title">Add shift</h3>
+                <span class="rota-shift-panel__drag-hint rota-desktop-only" aria-hidden="true">Drag to move</span>
+              </div>
               <div class="rota-shift-panel__head-actions">
                 <button type="button" class="btn primary rota-shift-head-save" id="rota-shift-head-save">Save shift</button>
                 <button type="button" class="rota-shift-panel__close mobile-editor-sheet__close" id="rota-shift-popover-close" aria-label="Close panel">×</button>
@@ -2092,10 +2095,17 @@
                 <input id="rota-add-notes" type="text" maxlength="500" placeholder="e.g. cover for absence" />
               </label>
               <datalist id="rota-role-suggestions"></datalist>
+              <div id="rota-bulk-times" class="rota-bulk-times" hidden>
+                <p class="rota-field-label">Apply these hours to other days (same employee)</p>
+                <p class="rota-bulk-times__hint muted">Updates existing shifts or adds new ones with the times above.</p>
+                <div id="rota-bulk-days" class="rota-bulk-days"></div>
+                <button type="button" class="btn ghost btn-sm" id="rota-bulk-apply-btn">Apply times to selected days</button>
+              </div>
               <p class="rota-overlap-hint muted">Several employees can share the same hours. Overlap only blocks one person being scheduled twice on the same day.</p>
               <p id="rota-overlap-status" class="rota-overlap-status rota-overlap-status--ok"></p>
             </div>
             <div class="rota-shift-panel__foot mobile-editor-sheet__foot">
+              <button type="button" class="btn ghost" id="rota-panel-copy-btn" hidden>Copy shift…</button>
               <button type="button" class="btn ghost" id="rota-shift-cancel-btn">Cancel</button>
               <button type="button" class="btn primary" id="rota-add-btn">Add to rota</button>
             </div>
@@ -2465,7 +2475,7 @@
     <script src="./admin-workspace.js?v=admin-v17"></script>
     <script src="./admin-settings.js?v=12"></script>
     <script src="./admin-documents.js?v=6"></script>
-    <script src="./admin-employees.js?v=18"></script>
+    <script src="./admin-employees.js?v=19"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
     <script src="./admin-crm.js?v=5"></script>
@@ -2477,7 +2487,7 @@
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=11"></script>
-    <script src="./admin-rota.js?v=19"></script>
+    <script src="./admin-rota.js?v=20"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=5"></script>
