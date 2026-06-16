@@ -18,11 +18,12 @@
   let tenantProfile = null;
   let selectedSiteId = null;
   let activeTab = "sites";
+  let rotaWeekStartDay = 0;
   let timesheetWeekStart = rotaWeekStartIso();
   let timesheetData = null;
-  let rotaWeekStartDay = 0;
   let filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
   let bound = false;
+  let sectionReady = false;
   let punchDataLoadedAt = null;
   let punchHistoryDate = todayIso();
   let punchRefreshTimer = null;
@@ -155,9 +156,10 @@
     return pyDay === 6 ? 0 : pyDay + 1;
   }
 
-  function rotaWeekStartIso(d = new Date(), weekStartDay = rotaWeekStartDay) {
+  function rotaWeekStartIso(d = new Date(), weekStartDay) {
+    const startDay = weekStartDay != null ? weekStartDay : rotaWeekStartDay;
     const day = new Date(d);
-    const jsStart = jsDayFromPythonWeekday(weekStartDay);
+    const jsStart = jsDayFromPythonWeekday(startDay);
     const diff = (day.getDay() - jsStart + 7) % 7;
     day.setDate(day.getDate() - diff);
     return toLocalIsoDate(day);
@@ -2008,12 +2010,20 @@
 
   function bootTimePunchSection() {
     if (parseHashBaseSection(window.location.hash) !== "time-punch") return;
+    if (sectionReady) return;
+    sectionReady = true;
     void initSection();
   }
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "time-punch") {
-      void initSection();
+      if (!sectionReady) {
+        sectionReady = true;
+        void initSection();
+      } else {
+        startPunchAutoRefresh();
+        void refreshPunchFeed({ quiet: true });
+      }
       return;
     }
     stopPunchAutoRefresh();

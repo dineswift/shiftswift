@@ -249,9 +249,10 @@
     return pyDay === 6 ? 0 : pyDay + 1;
   }
 
-  function rotaWeekStartIso(date, weekStartDay = rotaWeekStartDay) {
+  function rotaWeekStartIso(date = new Date(), weekStartDay) {
+    const startDay = weekStartDay != null ? weekStartDay : rotaWeekStartDay;
     const d = new Date(date);
-    const jsStart = jsDayFromPythonWeekday(weekStartDay);
+    const jsStart = jsDayFromPythonWeekday(startDay);
     const diff = (d.getDay() - jsStart + 7) % 7;
     d.setDate(d.getDate() - diff);
     return d.toISOString().slice(0, 10);
