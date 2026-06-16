@@ -51,7 +51,7 @@
   }
 
   function todayIso() {
-    return new Date().toISOString().slice(0, 10);
+    return toLocalIsoDate(new Date());
   }
 
   function firstOfMonthIso(d = new Date()) {
@@ -93,7 +93,7 @@
     const jsStart = jsDayFromPythonWeekday(weekStartDay);
     const diff = (day.getDay() - jsStart + 7) % 7;
     day.setDate(day.getDate() - diff);
-    return day.toISOString().slice(0, 10);
+    return toLocalIsoDate(day);
   }
 
   function mondayIso(d = new Date()) {
@@ -301,8 +301,22 @@
     document.querySelectorAll(".punch-tab-panel").forEach((panel) => {
       panel.hidden = panel.dataset.punchPanel !== tab;
     });
-    if (tab === "summary") renderActivityChart();
+    if (tab === "sites") {
+      void Promise.all([loadSites(), loadTodayPunches()]).then(updatePunchStats);
+    }
+    if (tab === "log") void loadPunches();
+    if (tab === "summary") void loadWeekPunches().then(renderActivityChart);
     if (tab === "timesheet") loadTimesheet();
+  }
+
+  function resetPunchFilters() {
+    filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
+    ["punch-filter-from", "punch-filter-to", "punch-filter-employee", "punch-filter-site", "punch-filter-type"].forEach(
+      (id) => {
+        const el = $(id);
+        if (el) el.value = "";
+      }
+    );
   }
 
   function populateSelect(select, items, placeholder) {
@@ -734,7 +748,7 @@
   }
 
   function buildPunchQuery(extra) {
-    const params = new URLSearchParams({ limit: "50", ...extra });
+    const params = new URLSearchParams({ limit: "100", ...extra });
     if (filters.date_from) params.set("date_from", filters.date_from);
     if (filters.date_to) params.set("date_to", filters.date_to);
     if (filters.employee_id) params.set("employee_id", filters.employee_id);
@@ -860,11 +874,14 @@
   async function loadPunches() {
     try {
       const res = await apiFetch(buildPunchQuery());
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not load punch log."));
       punches = data.items || [];
-    } catch {
+    } catch (error) {
       punches = [];
+      if (parseHashBaseSection(window.location.hash) === "time-punch" && activeTab === "log") {
+        showMessage(error.message || "Could not load punch log.");
+      }
     }
     renderPunchesTable();
   }
@@ -873,8 +890,8 @@
     const iso = todayIso();
     try {
       const res = await apiFetch(`/admin/time-punch/punches?limit=100&date_from=${iso}&date_to=${iso}`);
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not load today's punches."));
       todayPunches = data.items || [];
     } catch {
       todayPunches = [];
@@ -887,8 +904,8 @@
       const res = await apiFetch(
         `/admin/time-punch/punches?limit=500&date_from=${mondayIso()}&date_to=${todayIso()}`
       );
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not load weekly punches."));
       weekPunches = data.items || [];
     } catch {
       weekPunches = [];
@@ -1317,7 +1334,7 @@
 
   async function initSection() {
     bindEvents();
-    setActiveTab(activeTab);
+    resetPunchFilters();
     showMessage("");
     try {
       if (window.Admin?.loadTenantFeatures) {
@@ -1326,20 +1343,20 @@
         timesheetWeekStart = rotaWeekStartIso();
       }
       await loadTenantProfile();
-      await Promise.all([
-        loadEmployeeList(),
-        loadSites(),
-        loadPunches(),
-        loadTodayPunches(),
-        loadWeekPunches(),
-      ]);
     } catch (error) {
-      console.warn("Time punch section load failed:", error);
-    } finally {
-      updatePunchStats();
-      if (!sites.length && hasBusinessAddress()) {
-        await maybeAutoSyncPrimarySite();
-      }
+      console.warn("Time punch profile load failed:", error);
+    }
+    await Promise.all([
+      loadEmployeeList(),
+      loadSites(),
+      loadPunches(),
+      loadTodayPunches(),
+      loadWeekPunches(),
+    ]);
+    setActiveTab(activeTab);
+    updatePunchStats();
+    if (!sites.length && hasBusinessAddress()) {
+      await maybeAutoSyncPrimarySite();
     }
   }
 

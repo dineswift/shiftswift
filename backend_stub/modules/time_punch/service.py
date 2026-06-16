@@ -7,10 +7,32 @@ import io
 import math
 import os
 import secrets
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from modules.time_punch.geocode import geocode_address
+
+UK_TZ = ZoneInfo("Europe/London")
+
+
+def uk_day_range_bounds(
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> tuple[datetime | None, datetime | None]:
+    """Inclusive local (Europe/London) calendar dates → UTC timestamptz bounds."""
+    start = None
+    end = None
+    if date_from is not None:
+        start = datetime.combine(date_from, time.min, tzinfo=UK_TZ).astimezone(timezone.utc)
+    if date_to is not None:
+        end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UK_TZ).astimezone(timezone.utc)
+    return start, end
+
+
+def uk_today() -> date:
+    return datetime.now(UK_TZ).date()
 
 PunchType = Literal["in", "out", "break_start", "break_end"]
 PunchMethod = Literal["gps", "site_qr", "admin", "kiosk"]
@@ -841,12 +863,13 @@ def list_recent_punches(
     if punch_type is not None:
         clauses.append("tp.punch_type = %s")
         params.append(punch_type)
-    if date_from is not None:
-        clauses.append("tp.punched_at >= %s::date")
-        params.append(date_from.isoformat())
-    if date_to is not None:
-        clauses.append("tp.punched_at < (%s::date + INTERVAL '1 day')")
-        params.append(date_to.isoformat())
+    range_start, range_end = uk_day_range_bounds(date_from=date_from, date_to=date_to)
+    if range_start is not None:
+        clauses.append("tp.punched_at >= %s")
+        params.append(range_start)
+    if range_end is not None:
+        clauses.append("tp.punched_at < %s")
+        params.append(range_end)
     where = " AND ".join(clauses)
     params.append(limit)
     with conn.cursor() as cur:

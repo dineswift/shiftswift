@@ -832,13 +832,16 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             (tenant_id,),
         )
         punch_sites = int(cur.fetchone()[0])
+        from modules.time_punch.service import uk_day_range_bounds, uk_today
+
+        today_start, _ = uk_day_range_bounds(date_from=uk_today())
         cur.execute(
             """
             SELECT COUNT(*), MAX(punched_at)
             FROM time_punches
-            WHERE tenant_id = %s AND punched_at >= %s::date
+            WHERE tenant_id = %s AND punched_at >= %s
             """,
-            (tenant_id, today.isoformat()),
+            (tenant_id, today_start),
         )
         punch_row = cur.fetchone()
         today_punches = int(punch_row[0])
