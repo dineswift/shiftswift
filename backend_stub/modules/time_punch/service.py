@@ -627,11 +627,14 @@ def employee_punch_status(*, tenant_id: int, employee_id: int, conn: Any) -> dic
         week_start=week_start,
         conn=conn,
     )
+    from employee_portal_consent import tenant_display_name
+
     return {
         "clocked_in": clocked_in,
         "on_break": work_state == "on_break",
         "work_state": work_state,
         "last_punch": last,
+        "tenant_name": tenant_display_name(tenant_id=tenant_id, conn=conn),
         "assigned_sites": [
             {
                 "id": s["id"],

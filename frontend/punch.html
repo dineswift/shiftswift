@@ -15,7 +15,7 @@
     <title>ShiftSwift Time Clock</title>
     <link rel="manifest" href="./punch-manifest.webmanifest?v=4" />
     <link rel="stylesheet" href="./theme.css?v=brand-v1" />
-    <link rel="stylesheet" href="./punch.css?v=4" />
+    <link rel="stylesheet" href="./punch.css?v=5" />
   </head>
   <body class="punch-app">
     <div class="punch-shell">
@@ -41,11 +41,11 @@
         <button type="button" class="punch-btn punch-btn--primary" id="punch-update-btn">Update now</button>
       </div>
 
-      <div id="pwa-install-banner" class="punch-install-banner" hidden>
-        <p id="pwa-install-copy">Install ShiftSwift Time Clock on your home screen for quick access.</p>
+      <div id="pwa-install-banner" class="punch-install-banner punch-install-banner--slim" hidden>
+        <p id="pwa-install-copy">Add to home screen for faster access.</p>
         <div class="punch-install-actions">
-          <button type="button" class="punch-btn punch-btn--primary" id="pwa-install-btn">Install app</button>
-          <button type="button" class="punch-btn punch-btn--ghost" id="pwa-install-dismiss">Not now</button>
+          <button type="button" class="punch-btn punch-btn--outline punch-btn--compact" id="pwa-install-btn">Install</button>
+          <button type="button" class="punch-link-btn punch-install-dismiss" id="pwa-install-dismiss" aria-label="Dismiss">×</button>
         </div>
       </div>
 
@@ -126,41 +126,49 @@
       </section>
 
       <section id="punch-clock-view" class="punch-view" hidden>
-        <article class="punch-card">
-          <h1 id="punch-greeting">Time clock</h1>
-          <p class="punch-lead" id="punch-user-line">Loading your shift status…</p>
+        <article class="punch-card punch-card--clock">
+          <header class="punch-clock-head">
+            <div>
+              <h1 id="punch-greeting">Time clock</h1>
+              <p class="punch-user-line" id="punch-user-line">Loading your shift status…</p>
+            </div>
+          </header>
 
-          <div id="punch-clock-status" class="punch-clock-status is-out">Loading punch status…</div>
+          <p class="punch-work-state" id="punch-work-state">Not clocked in</p>
+          <p class="punch-live-time" id="punch-live-time" aria-hidden="true">--:--</p>
 
-          <div id="punch-expected-shift" class="punch-expected-shift" hidden></div>
-
-          <div id="punch-geofence-status" class="punch-geofence-status punch-geofence-status--loading" aria-live="polite">
+          <div id="punch-geofence-status" class="punch-location-pill punch-location-pill--loading" aria-live="polite" hidden>
             Getting your location…
           </div>
 
-          <div class="punch-scan-row">
-            <button type="button" class="punch-btn punch-btn--ghost" id="punch-scan-btn">Scan premises QR</button>
-            <p id="punch-site-scan-status" class="punch-site-scan-status" hidden aria-live="polite"></p>
-          </div>
+          <div id="punch-expected-shift" class="punch-expected-shift" hidden></div>
 
           <div class="punch-clock-actions">
             <button type="button" class="punch-btn punch-btn--in" id="punch-in-btn">Clock in</button>
-            <button type="button" class="punch-btn punch-btn--break" id="punch-break-start-btn" disabled>Start break</button>
-            <button type="button" class="punch-btn punch-btn--break" id="punch-break-end-btn" hidden disabled>End break</button>
-            <button type="button" class="punch-btn punch-btn--out punch-btn--ghost" id="punch-out-btn" disabled>Clock out</button>
+            <div class="punch-clock-actions__secondary">
+              <button type="button" class="punch-btn punch-btn--secondary" id="punch-break-start-btn" disabled>Start break</button>
+              <button type="button" class="punch-btn punch-btn--secondary" id="punch-break-end-btn" hidden disabled>End break</button>
+              <button type="button" class="punch-btn punch-btn--secondary" id="punch-out-btn" disabled>Clock out</button>
+            </div>
+            <button type="button" class="punch-btn punch-btn--outline" id="punch-scan-btn">Scan premises QR instead</button>
           </div>
 
+          <p id="punch-site-scan-status" class="punch-site-scan-status" hidden aria-live="polite"></p>
           <p id="punch-message" class="punch-message" aria-live="polite"></p>
 
-          <h2 class="punch-sites-title">Your shifts this week</h2>
-          <ul id="punch-week-shifts" class="punch-shift-list">
-            <li class="muted">Loading…</li>
-          </ul>
+          <section class="punch-info-card">
+            <h2 class="punch-info-card__title">This week&rsquo;s shifts</h2>
+            <ul id="punch-week-shifts" class="punch-shift-list">
+              <li class="muted">Loading…</li>
+            </ul>
+          </section>
 
-          <h2 class="punch-sites-title">Your punch sites</h2>
-          <ul id="punch-sites" class="punch-site-list">
-            <li>Loading…</li>
-          </ul>
+          <section class="punch-info-card">
+            <h2 class="punch-info-card__title">Your punch sites</h2>
+            <ul id="punch-sites" class="punch-site-list">
+              <li>Loading…</li>
+            </ul>
+          </section>
         </article>
 
         <p class="punch-portal-link">
@@ -211,7 +219,7 @@
 
     <script src="./brand-config.js?v=brand-v4"></script>
     <script src="./push-notifications.js?v=1"></script>
-    <script src="./punch.js?v=7"></script>
+    <script src="./punch.js?v=8"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

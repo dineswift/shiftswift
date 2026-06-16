@@ -11,7 +11,8 @@
   const mfaForm = document.getElementById("punch-mfa-form");
   const loginStatus = document.getElementById("punch-login-status");
   const mfaStatus = document.getElementById("punch-mfa-status");
-  const statusEl = document.getElementById("punch-clock-status");
+  const workStateEl = document.getElementById("punch-work-state");
+  const liveTimeEl = document.getElementById("punch-live-time");
   const sitesEl = document.getElementById("punch-sites");
   const messageEl = document.getElementById("punch-message");
   const userLine = document.getElementById("punch-user-line");
@@ -56,6 +57,8 @@
   let scanStream = null;
   let scanFrameHandle = null;
   let pendingClockToken = null;
+  let currentUsername = "";
+  let liveTimeTimer = null;
 
   function secureHostLabel() {
     const fromBrand = window.ShiftSwiftBrand?.domain;
@@ -138,8 +141,8 @@
     geofenceEl.textContent = text || "";
     geofenceEl.hidden = !text;
     geofenceEl.className = tone
-      ? `punch-geofence-status punch-geofence-status--${tone}`
-      : "punch-geofence-status";
+      ? `punch-location-pill punch-location-pill--${tone}`
+      : "punch-location-pill";
   }
 
   function clockReady() {
@@ -245,12 +248,63 @@
   }
 
   function formatTime(iso) {
-    if (!iso) return "Not set";
+    if (!iso) return "—";
     try {
-      return new Date(iso).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+      return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     } catch {
-      return iso;
+      return String(iso);
     }
+  }
+
+  function updateLiveTime() {
+    if (!liveTimeEl) return;
+    liveTimeEl.textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function startLiveTimeClock() {
+    stopLiveTimeClock();
+    updateLiveTime();
+    liveTimeTimer = window.setInterval(updateLiveTime, 30000);
+  }
+
+  function stopLiveTimeClock() {
+    if (liveTimeTimer) {
+      window.clearInterval(liveTimeTimer);
+      liveTimeTimer = null;
+    }
+  }
+
+  function renderWorkState(last) {
+    if (!workStateEl) return;
+    if (workState === "on_break") {
+      workStateEl.textContent = `On break since ${formatTime(last?.punched_at)}`;
+      if (liveTimeEl) liveTimeEl.hidden = true;
+      stopLiveTimeClock();
+      return;
+    }
+    if (workState === "clocked_in") {
+      const site = last?.site_name ? ` · ${last.site_name}` : "";
+      workStateEl.textContent = `Clocked in since ${formatTime(last?.punched_at)}${site}`;
+      if (liveTimeEl) liveTimeEl.hidden = true;
+      stopLiveTimeClock();
+      return;
+    }
+    if (last && last.punch_type) {
+      workStateEl.textContent = `Last punch: ${last.punch_type === "in" ? "in" : "out"} at ${formatTime(last.punched_at)}`;
+    } else {
+      workStateEl.textContent = "Not clocked in";
+    }
+    if (liveTimeEl) {
+      liveTimeEl.hidden = false;
+      startLiveTimeClock();
+    }
+  }
+
+  function setUserLine(username, tenantName) {
+    if (!userLine) return;
+    if (username) currentUsername = username;
+    const email = currentUsername || username || "Employee";
+    userLine.textContent = tenantName ? `${email} · ${tenantName}` : `Signed in as ${email}`;
   }
 
   function setSiteScanStatus(text) {
@@ -450,10 +504,8 @@
     if (!navigator.onLine) {
       showView(clockView);
       if (userLine) userLine.textContent = "Signed in (offline — reconnect to refresh status)";
-      if (statusEl) {
-        statusEl.textContent = "Offline. Connect to load your latest punch status.";
-        statusEl.className = "punch-clock-status is-out";
-      }
+      if (workStateEl) workStateEl.textContent = "Offline — connect to refresh status";
+      if (liveTimeEl) liveTimeEl.hidden = true;
       setOnlineState(false);
       maybeShowInstallBanner();
       return true;
@@ -477,9 +529,7 @@
         showView(loginView);
         return false;
       }
-      if (userLine) {
-        userLine.textContent = `Signed in as ${user.username}`;
-      }
+      setUserLine(user.username, null);
       showView(clockView);
       setOnlineState(true);
       maybeShowInstallBanner();
@@ -490,12 +540,12 @@
     } catch {
       showView(clockView);
       setOnlineState(navigator.onLine);
-      if (statusEl) {
-        statusEl.textContent = navigator.onLine
+      if (workStateEl) {
+        workStateEl.textContent = navigator.onLine
           ? "Could not verify your session. Try signing in again."
-          : "Offline. Connect to refresh your punch status.";
-        statusEl.className = "punch-clock-status is-out";
+          : "Offline — connect to refresh status";
       }
+      if (liveTimeEl) liveTimeEl.hidden = true;
       maybeShowInstallBanner();
       return true;
     }
@@ -517,7 +567,13 @@
                 : status === "attended"
                   ? "Today’s shift is recorded."
                   : `Today: ${expected.start_time}–${expected.end_time}${expected.role_label ? ` (${expected.role_label})` : ""}.`;
-        expectedShiftEl.innerHTML = `<strong>Today’s shift</strong> ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}<br /><span class="punch-expected-shift__note">${statusNote}</span>`;
+        const tag =
+          status === "no_show"
+            ? `<span class="punch-expected-shift__tag">Missed shift</span>`
+            : status === "late"
+              ? `<span class="punch-expected-shift__tag">Late</span>`
+              : "";
+        expectedShiftEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
         expectedShiftEl.className = `punch-expected-shift punch-expected-shift--${status || "scheduled"}`;
       } else {
         expectedShiftEl.hidden = true;
@@ -540,7 +596,7 @@
   }
 
   async function loadStatus() {
-    if (!statusEl || !token()) return;
+    if (!workStateEl || !token()) return;
     if (!navigator.onLine) {
       setOnlineState(false);
       return;
@@ -556,27 +612,16 @@
       }
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        statusEl.textContent = parseApiError(err, "Could not load punch status.");
-        statusEl.className = "punch-clock-status is-out";
+        workStateEl.textContent = parseApiError(err, "Could not load punch status.");
+        if (liveTimeEl) liveTimeEl.hidden = true;
         return;
       }
       const data = await response.json();
       const last = data.last_punch;
       workState = data.work_state || (data.clocked_in ? "clocked_in" : "off");
       clockedInState = workState !== "off";
-      if (workState === "on_break") {
-        statusEl.innerHTML = `<strong>On break</strong> since ${formatTime(last?.punched_at)}.`;
-        statusEl.className = "punch-clock-status is-in";
-      } else if (workState === "clocked_in") {
-        statusEl.innerHTML = `<strong>Clocked in</strong> since ${formatTime(last?.punched_at)}${last?.site_name ? ` at ${last.site_name}` : ""}.`;
-        statusEl.className = "punch-clock-status is-in";
-      } else if (last) {
-        statusEl.textContent = `Last punch: ${last.punch_type === "in" ? "in" : "out"} at ${formatTime(last.punched_at)}.`;
-        statusEl.className = "punch-clock-status is-out";
-      } else {
-        statusEl.textContent = "Not clocked in yet today.";
-        statusEl.className = "punch-clock-status is-out";
-      }
+      renderWorkState(last);
+      setUserLine(currentUsername, data.tenant_name || null);
       if (sitesEl) {
         const sites = data.assigned_sites || [];
         sitesEl.innerHTML = sites.length
@@ -588,8 +633,8 @@
       syncClockButtons();
       refreshGeofencePreview();
     } catch {
-      statusEl.textContent = "Could not reach the time punch service.";
-      statusEl.className = "punch-clock-status is-out";
+      workStateEl.textContent = "Could not reach the time punch service.";
+      if (liveTimeEl) liveTimeEl.hidden = true;
       setOnlineState(navigator.onLine);
     }
   }
@@ -689,7 +734,8 @@
       const accuracyNote =
         data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
       if (geofenceWithin) {
-        setGeofenceStatus(`${data.message}${accuracyNote}`, "ok");
+        const distance = data.distance_meters != null ? `${Math.round(data.distance_meters)}m from site` : "Within site";
+        setGeofenceStatus(`${distance} · within range${accuracyNote}`, "ok");
         maybePromptPushNotifications();
       } else {
         setGeofenceStatus(`${data.message}${accuracyNote}`, "warn");
@@ -816,11 +862,11 @@
     if (deferredInstallPrompt) {
       installBanner.hidden = false;
       if (installCopy) {
-        installCopy.textContent = "Install ShiftSwift Time Clock on your home screen for quick access.";
+        installCopy.textContent = "Add to home screen for faster access.";
       }
       if (installBtn) {
         installBtn.hidden = false;
-        installBtn.textContent = "Install app";
+        installBtn.textContent = "Install";
       }
       return;
     }
@@ -828,12 +874,12 @@
     installBanner.hidden = false;
     if (installCopy) {
       installCopy.textContent = isIos()
-        ? "On iPhone: tap Share, then Add to Home Screen to install the Time Clock app."
-        : "Add ShiftSwift Time Clock to your home screen for quick access.";
+        ? "Add to home screen — tap Share, then Add to Home Screen."
+        : "Add to home screen for faster access.";
     }
     if (installBtn) {
       installBtn.hidden = false;
-      installBtn.textContent = "How to install";
+      installBtn.textContent = isIos() ? "How to" : "Install";
     }
   }
 

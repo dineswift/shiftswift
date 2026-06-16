@@ -11,7 +11,7 @@
     <title>ShiftSwift | Master Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./master.css?v=21" />
+    <link rel="stylesheet" href="./master.css?v=22" />
   </head>
   <body class="master-app">
     <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
@@ -92,8 +92,8 @@
           <div class="master-page-actions">
             <button type="button" class="master-btn master-btn--ghost" id="master-export-btn" disabled>Export CSV</button>
             <button type="button" class="master-btn master-btn--ghost" id="master-cleanup-duplicates-btn">Remove duplicate trials</button>
-            <button type="button" class="master-btn master-btn--ghost" id="master-create-tenant-btn">Create account</button>
-            <button type="button" class="master-btn master-btn--danger" id="master-delete-selected-btn" disabled title="Select a tenant to delete">Delete selected</button>
+            <button type="button" class="master-btn master-btn--primary" id="master-create-tenant-btn">Create account</button>
+            <button type="button" class="master-btn master-btn--ghost master-btn--danger" id="master-delete-selected-btn" disabled title="Select a tenant to delete">Delete selected</button>
             <label class="master-check master-page-actions__check">
               <input type="checkbox" id="master-exclude-test" />
               <span>Hide test accounts</span>
@@ -149,7 +149,7 @@
             <label class="master-check"><input type="checkbox" name="send_welcome_email" checked /> Send welcome email</label>
             <p class="master-inline-status muted" id="master-create-status" aria-live="polite"></p>
             <div class="master-create-form__actions">
-              <button type="submit" class="master-btn master-btn--gold">Create workspace</button>
+              <button type="submit" class="master-btn master-btn--primary">Create workspace</button>
               <button type="button" class="master-btn master-btn--ghost" id="master-create-cancel">Cancel</button>
             </div>
           </form>
@@ -343,6 +343,6 @@
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=5"></script>
     <script src="./master-tenant-detail.js?v=3"></script>
-    <script src="./master.js?v=19"></script>
+    <script src="./master.js?v=20"></script>
   </body>
 </html>

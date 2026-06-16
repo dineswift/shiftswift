@@ -64,6 +64,9 @@ body.admin-portal .sidebar {
 
 body.admin-portal .nav-section-label {
   padding: 8px 10px 1px;
+  font-size: 0.62rem;
+  color: #a8a8a8;
+  letter-spacing: 0.03em;
 }
 
 body.admin-portal .nav-section-label:first-of-type {
@@ -1126,10 +1129,10 @@ textarea:focus {
 .nav-section-label {
   margin: 0;
   padding: 10px 14px 2px;
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  color: #888;
+  letter-spacing: 0.03em;
+  color: #a8a8a8;
 }
 
 .nav-section-label:first-of-type {

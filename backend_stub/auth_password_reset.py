@@ -33,7 +33,10 @@ def _find_business_user(
     row = fetch_user_from_db(settings, email.strip())
     if not row or not row.get("is_active"):
         return None
-    if row.get("role") == "admin" or row.get("login_portal") != "business":
+    if row.get("role") == "admin":
+        return None
+    portal = row.get("login_portal") or "business"
+    if portal != "business":
         return None
     if role_hint == "hr" and row.get("role") != "hr":
         return None
@@ -98,8 +101,8 @@ def send_account_setup_email(
     if not isinstance(content, EmailContent):
         raise TypeError("content_factory must return EmailContent")
     audience = "employee" if user.get("role") == "employee" else "hr"
-    purpose = "employee" if user.get("role") == "employee" else "password_reset"
-    send_email_content(
+    purpose = "password_reset"
+    payload = send_email_content(
         conn=conn,
         tenant_id=int(user["tenant_id"]),
         content=content,
@@ -109,6 +112,8 @@ def send_account_setup_email(
         deliver_now=True,
         commit=False,
     )
+    if payload.get("delivery_error"):
+        raise RuntimeError(payload["delivery_error"])
     log_security_event(
         settings,
         event_type=security_event_type,
@@ -138,20 +143,30 @@ def request_password_reset(
         role_label = "employee" if user["role"] == "employee" else "HR admin"
         from core.email_templates import password_reset_email
 
-        send_account_setup_email(
-            settings=settings,
-            conn=conn,
-            user=user,
-            content_factory=lambda reset_url: password_reset_email(
-                role_label=role_label,
-                reset_url=reset_url,
-                reset_hours=RESET_HOURS,
-            ),
-            ip_address=ip_address,
-            user_agent=user_agent,
-            security_event_type="password_reset_requested",
-            commit=True,
-        )
+        try:
+            send_account_setup_email(
+                settings=settings,
+                conn=conn,
+                user=user,
+                content_factory=lambda reset_url: password_reset_email(
+                    role_label=role_label,
+                    reset_url=reset_url,
+                    reset_hours=RESET_HOURS,
+                ),
+                ip_address=ip_address,
+                user_agent=user_agent,
+                security_event_type="password_reset_requested",
+                commit=True,
+            )
+        except RuntimeError as exc:
+            import logging
+
+            logging.getLogger(__name__).error(
+                "Password reset email failed for %s: %s",
+                user.get("username"),
+                exc,
+            )
+            conn.rollback()
     return {
         "message": (
             "If an account exists for that email, we sent a password reset link. "
