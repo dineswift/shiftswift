@@ -90,7 +90,7 @@
 
     host.innerHTML = `
       <header class="compliance-mobile-header">
-        <h2 class="compliance-mobile-title">Sponsor licence safeguards</h2>
+        <h2 class="compliance-mobile-title">Sponsor compliance</h2>
         <p class="compliance-mobile-lead muted">
           Recording tools and alerts for UK sponsor duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.
         </p>

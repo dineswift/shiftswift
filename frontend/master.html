@@ -8,8 +8,10 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#142033" />
     <script src="./app-icons.js?v=brandkit-v5"></script>
-    <title>ShiftSwift OPS | Master Admin</title>
-    <link rel="stylesheet" href="./master.css?v=13" />
+    <title>ShiftSwift | Master Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./master.css?v=20" />
   </head>
   <body class="master-app">
     <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
@@ -17,10 +19,9 @@
     <aside class="master-sidebar" id="master-sidebar">
       <div class="master-sidebar__head">
         <div class="master-brand">
-          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift" class="master-brand__logo app-mark app-mark--chrome" />
-          <span class="master-badge master-badge--ops">OPS</span>
+          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" class="master-brand__logo" />
+          <span class="master-badge master-badge--admin">Master Admin</span>
         </div>
-        <span class="master-badge master-badge--admin">Master Admin</span>
         <button type="button" class="master-sidebar__close" id="master-sidebar-close" aria-label="Close menu">×</button>
       </div>
 
@@ -68,7 +69,7 @@
           <span></span><span></span><span></span>
         </button>
         <div class="master-topbar__brand">
-          <span class="master-badge master-badge--ops">OPS</span>
+          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="" class="master-topbar__logo" />
           <span class="master-badge master-badge--admin">Master Admin</span>
         </div>
         <button type="button" class="master-signout-btn master-signout-btn--compact" data-master-sign-out>
@@ -111,6 +112,7 @@
           <label class="master-search">
             <span class="sr-only">Search tenants</span>
             <input type="search" id="master-search" placeholder="Search business, email, location…" autocomplete="off" />
+            <kbd class="master-search-kbd" aria-hidden="true">⌘K</kbd>
           </label>
         </div>
 
@@ -155,7 +157,7 @@
 
         <div class="master-layout" id="master-layout">
           <section class="master-table-panel" aria-label="Tenant register">
-            <p class="master-table-hint">Select a business row to open actions on the right.</p>
+            <p class="master-table-hint">Click a business row or <strong>View</strong> to open tenant details in a new window. Use the row selector for bulk delete.</p>
             <div class="master-table-wrap">
               <table class="master-table master-table--desktop">
                 <thead>
@@ -177,82 +179,6 @@
             <div class="master-cards" id="master-card-list"></div>
             <p class="master-empty" id="master-empty" hidden>No tenants match this filter.</p>
           </section>
-
-          <aside class="master-detail" id="master-detail" hidden>
-            <div class="master-detail__inner">
-              <div class="master-detail__head">
-                <div>
-                  <h2 id="detail-name">—</h2>
-                  <span class="master-status" id="detail-status"></span>
-                </div>
-                <button type="button" class="master-detail__close" id="master-detail-close" aria-label="Close detail">×</button>
-              </div>
-
-              <div class="master-alert">
-                All impersonation actions are logged with timestamp and master admin ID.
-              </div>
-
-              <dl class="master-detail-grid" id="detail-grid"></dl>
-
-              <div class="master-modules">
-                <h3>Modules active</h3>
-                <div class="master-module-pills" id="detail-modules"></div>
-              </div>
-
-              <div class="master-notes">
-                <h3>Internal notes</h3>
-                <textarea id="detail-notes" rows="3" placeholder="Support notes visible to platform admins only"></textarea>
-                <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
-                <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
-              </div>
-
-              <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
-                <h3>Change plan</h3>
-                <label class="master-change-plan__field">
-                  New plan
-                  <select id="detail-change-plan-select"></select>
-                </label>
-                <label class="master-change-plan__field">
-                  Billing note
-                  <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
-                </label>
-                <fieldset class="master-change-plan__addons">
-                  <legend>Add-ons <span class="muted">(priced separately — enable when purchased)</span></legend>
-                  <label class="signup-check"><input type="checkbox" id="detail-rota-advanced-addon" /> Advanced rota (templates, coverage, hours)</label>
-                  <label class="signup-check"><input type="checkbox" id="detail-rota-multisite-addon" /> Multi-site rota</label>
-                  <label class="signup-check"><input type="checkbox" id="detail-crm-addon" /> CRM — IT, HR &amp; B2B sales pipeline</label>
-                  <label class="master-change-plan__field">
-                    CRM monthly price (£, ex VAT)
-                    <input id="detail-crm-monthly-gbp" type="number" min="0" step="0.01" placeholder="e.g. 49.00" />
-                  </label>
-                  <label class="master-change-plan__field">
-                    CRM billing note
-                    <input id="detail-crm-billing-notes" type="text" placeholder="Invoice cadence, PO ref…" maxlength="2000" />
-                  </label>
-                </fieldset>
-                <div class="master-change-plan__actions">
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-apply">Apply changes</button>
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-cancel">Cancel</button>
-                </div>
-                <p class="master-inline-status muted" id="detail-change-plan-status" aria-live="polite"></p>
-              </div>
-
-              <div class="master-detail-actions">
-                <button type="button" class="master-btn master-btn--gold" id="detail-impersonate">Impersonate this account</button>
-                <div class="master-detail-actions__row">
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-offline-trial">Offline billing (keep trial)</button>
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-offline-active">Offline billing (active)</button>
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan">Change plan</button>
-                  <button type="button" class="master-btn master-btn--ghost" id="detail-email-tenant">Email tenant</button>
-                </div>
-                <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
-                <p class="master-detail-hint muted" id="detail-delete-hint" hidden></p>
-                <button type="button" class="master-btn master-btn--ghost" id="detail-restore-tenant" hidden>Restore deleted tenant</button>
-                <button type="button" class="master-btn master-btn--danger" id="detail-delete-tenant">Delete tenant</button>
-              </div>
-            </div>
-          </aside>
         </div>
         </section>
 
@@ -312,6 +238,6 @@
     <script src="./session-auth.js?v=1"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=5"></script>
-    <script src="./master.js?v=15"></script>
+    <script src="./master.js?v=18"></script>
   </body>
 </html>

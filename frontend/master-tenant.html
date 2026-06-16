@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#142033" />
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <title>Tenant details | ShiftSwift Master Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./master.css?v=20" />
+  </head>
+  <body class="master-app master-tenant-page">
+    <header class="master-tenant-page__topbar">
+      <div class="master-tenant-page__topbar-main">
+        <a class="master-tenant-page__back" href="./master.html#tenants">← Tenants</a>
+        <div class="master-tenant-page__title-wrap">
+          <div class="master-tenant-page__title-row">
+            <h1 id="detail-name">Loading tenant…</h1>
+            <p class="master-tenant-page__last-active muted" id="detail-last-active-top">—</p>
+          </div>
+          <p class="master-tenant-page__meta">
+            <span class="master-status" id="detail-status">…</span>
+            <span id="detail-tenant-meta">—</span>
+          </p>
+        </div>
+      </div>
+      <button type="button" class="master-signout-btn master-signout-btn--compact" data-master-sign-out>
+        Sign out
+      </button>
+    </header>
+
+    <main class="master-tenant-page__main">
+      <div class="master-tenant-page__card" id="detail-card">
+        <div class="master-alert master-alert--compact">
+          Impersonation actions are logged with timestamp and admin ID.
+        </div>
+
+        <div class="master-tenant-tabs" role="tablist" aria-label="Tenant sections">
+          <button type="button" class="master-tenant-tabs__btn is-active" role="tab" aria-selected="true" data-tenant-tab="account">Account</button>
+          <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="billing">Billing</button>
+          <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="usage">Usage</button>
+          <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="admin">Admin</button>
+        </div>
+
+        <section class="master-tenant-tab-panel" data-tenant-tab-panel="account" role="tabpanel">
+          <div id="detail-account-sections"></div>
+        </section>
+
+        <section class="master-tenant-tab-panel" data-tenant-tab-panel="billing" role="tabpanel" hidden>
+          <div id="detail-billing-sections"></div>
+
+          <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
+            <h3>Change plan</h3>
+            <label class="master-change-plan__field">
+              New plan
+              <select id="detail-change-plan-select"></select>
+            </label>
+            <label class="master-change-plan__field">
+              Billing note
+              <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
+            </label>
+            <fieldset class="master-change-plan__addons">
+              <legend>Add-ons <span class="muted">(priced separately — enable when purchased)</span></legend>
+              <label class="signup-check"><input type="checkbox" id="detail-rota-advanced-addon" /> Advanced rota (templates, coverage, hours)</label>
+              <label class="signup-check"><input type="checkbox" id="detail-rota-multisite-addon" /> Multi-site rota</label>
+              <label class="signup-check"><input type="checkbox" id="detail-crm-addon" /> CRM — IT, HR &amp; B2B sales pipeline</label>
+              <label class="master-change-plan__field">
+                CRM monthly price (£, ex VAT)
+                <input id="detail-crm-monthly-gbp" type="number" min="0" step="0.01" placeholder="e.g. 49.00" />
+              </label>
+              <label class="master-change-plan__field">
+                CRM billing note
+                <input id="detail-crm-billing-notes" type="text" placeholder="Invoice cadence, PO ref…" maxlength="2000" />
+              </label>
+            </fieldset>
+            <div class="master-change-plan__actions">
+              <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-apply">Apply changes</button>
+              <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-cancel">Cancel</button>
+            </div>
+            <p class="master-inline-status muted" id="detail-change-plan-status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="master-tenant-tab-panel" data-tenant-tab-panel="usage" role="tabpanel" hidden>
+          <div id="detail-usage-sections"></div>
+        </section>
+
+        <section class="master-tenant-tab-panel" data-tenant-tab-panel="admin" role="tabpanel" hidden>
+          <div class="master-notes">
+            <h3>Internal notes</h3>
+            <textarea id="detail-notes" rows="3" placeholder="Support notes visible to platform admins only"></textarea>
+            <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
+            <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
+          </div>
+
+          <div class="master-tenant-actions" id="detail-actions">
+            <button type="button" class="master-btn master-btn--gold master-tenant-actions__primary" id="detail-impersonate">Impersonate this account</button>
+            <div class="master-tenant-actions__grid">
+              <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
+              <button type="button" class="master-btn master-btn--ghost" id="detail-action-change-plan">Change plan</button>
+              <button type="button" class="master-btn master-btn--ghost" id="detail-email-tenant">Email tenant</button>
+              <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
+            </div>
+            <div class="master-tenant-actions__secondary">
+              <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-trial">Offline billing (keep trial)</button>
+              <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-active">Offline billing (active)</button>
+              <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-restore-tenant" hidden>Restore deleted tenant</button>
+            </div>
+            <button type="button" class="master-btn master-btn--ghost master-tenant-actions__danger" id="detail-delete-tenant">Delete tenant</button>
+            <p class="master-detail-hint muted" id="detail-delete-hint" hidden></p>
+          </div>
+        </section>
+      </div>
+
+      <p id="master-tenant-load-error" class="master-tenant-page__error" hidden></p>
+    </main>
+
+    <script src="./session-auth.js?v=1"></script>
+    <script src="./master-session.js?v=1"></script>
+    <script src="./master-auth-guard.js?v=5"></script>
+    <script src="./master-tenant-detail.js?v=3"></script>
+    <script src="./master-tenant.js?v=2"></script>
+  </body>
+</html>

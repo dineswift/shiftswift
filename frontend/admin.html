@@ -35,7 +35,9 @@
       })();
     </script>
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v60" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./styles.css?v=admin-v62" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -190,7 +192,7 @@
               </summary>
               <div class="topbar-user-menu__panel">
                 <p class="topbar-user-menu__label muted" id="topbar-user-label">Admin account</p>
-                <a class="topbar-user-menu__link" href="#settings">Settings</a>
+                <a class="topbar-user-menu__link" href="#settings/business">Settings</a>
                 <a class="topbar-user-menu__link topbar-user-menu__link--signout" href="./business-login.html" data-sign-out>Sign out</a>
               </div>
             </details>
@@ -202,10 +204,27 @@
         <div id="mobile-more-panel" class="mobile-more-panel" hidden>
           <h2 class="mobile-panel-title">More</h2>
           <nav class="mobile-more-menu" aria-label="More options">
+            <p class="mobile-more-group">Workspace</p>
             <a class="mobile-more-link" href="#settings/business">Settings</a>
             <a class="mobile-more-link" href="#settings/billing">Billing &amp; plan</a>
+            <a class="mobile-more-link" href="#settings/documents">Documents</a>
             <a class="mobile-more-link" href="#settings/notifications">Notifications</a>
-            <a class="mobile-more-link" href="#employees">Users &amp; employees</a>
+            <p class="mobile-more-group">People</p>
+            <a class="mobile-more-link" href="#employees">Employees</a>
+            <a class="mobile-more-link" href="#recruitment">Recruitment</a>
+            <a class="mobile-more-link" href="#offboarding">Offboarding</a>
+            <a class="mobile-more-link" href="#promotions">Promotions</a>
+            <a class="mobile-more-link" href="#crm" data-addon="crm" hidden>CRM</a>
+            <p class="mobile-more-group">Cases &amp; contracts</p>
+            <a class="mobile-more-link" href="#employment-contracts">Employment contracts</a>
+            <a class="mobile-more-link" href="#grievance" data-feature="grievance">Grievance</a>
+            <a class="mobile-more-link" href="#disciplinary" data-feature="disciplinary">Disciplinary</a>
+            <a class="mobile-more-link" href="#contracts">Service agreements</a>
+            <p class="mobile-more-group">Operations</p>
+            <a class="mobile-more-link" href="#time-punch">Time punch</a>
+            <a class="mobile-more-link" href="#leave">Leave</a>
+            <a class="mobile-more-link" href="#templates">HR Templates &amp; AI</a>
+            <p class="mobile-more-group">Support</p>
             <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
             <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
             <a class="mobile-more-link mobile-more-link--signout" href="./business-login.html" data-sign-out>Sign out</a>
@@ -245,8 +264,8 @@
         <section id="employees" class="admin-section" hidden>
           <header class="section-header employees-page-header">
             <div>
-              <h2 class="employees-page-title">Employee lifecycle</h2>
-              <p class="muted employees-page-lead">Follow each employee from recruitment through to active employment and offboarding.</p>
+              <h2 class="employees-page-title">Employees</h2>
+              <p class="muted employees-page-lead">Manage your register, onboarding progress, and employee records.</p>
             </div>
             <div class="section-actions employees-desktop-only">
               <a class="btn ghost" href="#recruitment">Recruitment pipeline</a>
@@ -441,9 +460,9 @@
         </section>
 
         <section id="grievance" class="admin-section" data-feature="grievance" hidden>
-          <header class="section-header grievance-page-header">
+          <header class="section-header cases-page-header">
             <div>
-              <h2>Grievance cases</h2>
+              <h2>Grievance</h2>
               <p class="muted">Encrypted investigation notes, ACAS deadlines, and compliance cross-triggers.</p>
             </div>
             <div class="section-actions">
@@ -492,9 +511,9 @@
         </section>
 
         <section id="disciplinary" class="admin-section" data-feature="disciplinary" hidden>
-          <header class="section-header grievance-page-header">
+          <header class="section-header cases-page-header">
             <div>
-              <h2>Disciplinary cases</h2>
+              <h2>Disciplinary</h2>
               <p class="muted">Investigation register with encrypted notes and hearing outcomes — ACAS code aligned.</p>
             </div>
             <div class="section-actions">
@@ -603,8 +622,8 @@
         <section id="promotions" class="admin-section" hidden>
           <header class="section-header">
             <div>
-              <h2>Discount &amp; referral codes</h2>
-              <p class="muted">Validate promotion codes against platform plans before signup or checkout.</p>
+              <h2>Promotions</h2>
+              <p class="muted">Validate discount and referral codes against platform plans before signup or checkout.</p>
             </div>
           </header>
 
@@ -969,7 +988,7 @@
         <section id="templates" class="admin-section" hidden>
           <header class="section-header">
             <div>
-              <h2>HR templates & AI assistant</h2>
+              <h2>HR Templates &amp; AI</h2>
               <p class="muted">Platform templates update automatically when UK law changes. Download the latest version or keep your custom copy. Version labels show which is which.</p>
             </div>
           </header>
@@ -1070,7 +1089,7 @@
           <div id="mobile-compliance-shell" class="compliance-mobile-shell admin-mobile-compliance-only"></div>
           <header class="section-header">
             <div>
-              <h2>Sponsor Licence Safeguards</h2>
+              <h2>Sponsor compliance</h2>
               <p class="muted">Recording tools and alerts for UK sponsor licence duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.</p>
             </div>
             <a class="btn secondary" id="rtw-checklist-link" href="#" target="_blank" rel="noopener">GOV.UK: Right to work checks guidance →</a>
@@ -1137,7 +1156,7 @@
           <article class="card absence-workspace" id="compliance-absence">
             <header class="absence-workspace-header section-header section-header--compact">
               <div>
-                <h3>Absence Monitoring</h3>
+                <h3>Absence monitoring</h3>
                 <p class="muted">Track unauthorised absences for sponsored workers — day-9 threshold alerts for Home Office reporting.</p>
               </div>
               <div class="section-actions absence-workspace-actions">
@@ -1276,7 +1295,7 @@
           <article class="card rtw-workspace" id="compliance-rtw">
             <header class="rtw-workspace-header section-header section-header--compact">
               <div>
-                <h3>Right to Work</h3>
+                <h3>Right to work</h3>
                 <p class="muted">Immutable RTW records, expiry tracking, and document audit trail for all staff.</p>
               </div>
               <div class="section-actions rtw-workspace-actions">
@@ -2118,7 +2137,7 @@
         <section id="leave" class="admin-section" hidden>
           <header class="section-header">
             <div>
-              <h2>Leave &amp; holiday</h2>
+              <h2>Leave</h2>
               <p class="muted">Staff submit requests in the employee portal. Approve or reject here — working days Mon–Fri are counted automatically.</p>
             </div>
           </header>
@@ -2472,9 +2491,9 @@
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=4"></script>
     <script src="./admin-mobile.js?v=10"></script>
-    <script src="./admin-compliance-mobile.js?v=1"></script>
-    <script src="./admin-shared.js?v=admin-v20"></script>
-    <script src="./admin-workspace.js?v=admin-v17"></script>
+    <script src="./admin-compliance-mobile.js?v=2"></script>
+    <script src="./admin-shared.js?v=admin-v21"></script>
+    <script src="./admin-workspace.js?v=admin-v18"></script>
     <script src="./admin-settings.js?v=16"></script>
     <script src="./admin-documents.js?v=6"></script>
     <script src="./admin-employees.js?v=20"></script>

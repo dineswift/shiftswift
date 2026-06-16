@@ -2,6 +2,12 @@
 
 * { box-sizing: border-box; }
 
+body.admin-portal {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 body {
   font-family: var(--font-body);
   font-size: var(--text-body-size);
@@ -988,6 +994,52 @@ textarea:focus {
   color: var(--green-800);
 }
 
+.btn.primary,
+.btn.btn--primary {
+  background: var(--green-700);
+  color: var(--white);
+}
+
+.btn.primary:hover,
+.btn.btn--primary:hover {
+  background: var(--green-800);
+  color: var(--white);
+}
+
+.btn.btn--ghost {
+  background: transparent;
+  color: var(--green-700);
+  border: 1.5px solid var(--green-700);
+}
+
+.btn.btn--ghost:hover {
+  background: var(--green-100);
+}
+
+.btn.btn--danger {
+  color: #a32d2d;
+  border-color: rgba(163, 45, 45, 0.45);
+}
+
+.btn.btn--danger.btn--ghost,
+.btn.btn--ghost.btn--danger {
+  background: transparent;
+  color: #a32d2d;
+  border: 1.5px solid rgba(163, 45, 45, 0.45);
+}
+
+.btn.btn--danger.btn--ghost:hover,
+.btn.btn--ghost.btn--danger:hover {
+  background: rgba(163, 45, 45, 0.08);
+  color: #8b2525;
+}
+
+.btn.btn--sm,
+.btn.btn--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1074,10 +1126,9 @@ textarea:focus {
 .nav-section-label {
   margin: 0;
   padding: 10px 14px 2px;
-  font-size: 10px;
+  font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: #888;
 }
 
@@ -1596,6 +1647,18 @@ textarea:focus {
 .mobile-more-menu {
   display: grid;
   gap: 2px;
+}
+
+.mobile-more-group {
+  margin: 14px 12px 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-500);
+}
+
+.mobile-more-group:first-child {
+  margin-top: 0;
 }
 
 .mobile-more-link {
@@ -4990,8 +5053,8 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .hr-table th {
   background: var(--gray-50, #fafafa);
   font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: var(--ink-500);
 }
 
@@ -5155,6 +5218,12 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 /* ── Settings workspace ── */
 #settings > .section-header {
   margin-bottom: 12px;
+}
+
+@media (max-width: 980px) {
+  #settings > .section-header {
+    display: none;
+  }
 }
 
 .settings-workspace {
@@ -5376,11 +5445,10 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin: 18px 0 8px;
   padding-top: 16px;
   border-top: 1px solid var(--card-border);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-500);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-600);
 }
 
 .edit-form > .settings-form-section__title:first-child {

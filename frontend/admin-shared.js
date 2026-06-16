@@ -221,7 +221,7 @@ window.Admin = (() => {
     document.querySelectorAll("[data-addon]").forEach((el) => {
       const addon = el.dataset.addon;
       const enabled = isAddonEnabled(addon);
-      if (el.matches(".nav-link")) {
+      if (el.matches(".nav-link") || el.matches(".mobile-more-link")) {
         el.hidden = !enabled;
         return;
       }
@@ -280,6 +280,10 @@ window.Admin = (() => {
         el.classList.toggle("nav-link--locked", !enabled);
         syncNavLinkLock(el, !enabled);
         el.setAttribute("aria-disabled", enabled ? "false" : "true");
+        return;
+      }
+      if (el.matches(".mobile-more-link")) {
+        el.hidden = !enabled;
         return;
       }
       if (el.matches(".admin-section")) {

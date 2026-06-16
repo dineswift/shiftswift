@@ -310,7 +310,7 @@
           label: "Subscription",
           value: data.subscription_status || "Not set",
           sub: `${data.plan_display_name || data.subscription_plan || "No plan"} plan`,
-          href: "#settings",
+          href: "#settings/billing",
           valueText: true,
           extraClass: "hr-stat-card--subscription",
         })}`;
@@ -325,7 +325,7 @@
           </div>
           <p class="mobile-subscription-card__value">${escapeHtml(data.subscription_status || "Not set")}</p>
           <p class="mobile-subscription-card__sub muted">${escapeHtml(data.plan_display_name || data.subscription_plan || "No plan")} plan</p>
-          <a class="mobile-subscription-card__link" href="#settings">Manage plan ›</a>`;
+          <a class="mobile-subscription-card__link" href="#settings/billing">Manage plan ›</a>`;
       }
 
       if (modulesHost) {
@@ -457,11 +457,32 @@
             tone: (leave.pending_requests ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
+            icon: "trending-up",
+            title: "Promotions",
+            value: "Codes",
+            sub: "Discount & referral validation",
+            href: "#promotions",
+          }),
+          moduleCard({
+            icon: "file-certificate",
+            title: "Service agreements",
+            value: "Contracts",
+            sub: "Templates & e-signing",
+            href: "#contracts",
+          }),
+          moduleCard({
+            icon: "sparkles",
+            title: "HR Templates & AI",
+            value: "Tools",
+            sub: "Documents & AI assistant",
+            href: "#templates",
+          }),
+          moduleCard({
             icon: "folder",
             title: "Documents",
             value: String(docs.count ?? data.document_count ?? 0),
             sub: "In tenant document store",
-            href: "#settings",
+            href: "#settings/documents",
           }),
         ].join("");
         if (!window.matchMedia("(max-width: 860px)").matches) {
