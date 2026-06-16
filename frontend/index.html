@@ -33,7 +33,27 @@
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
     <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v23" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v25" />
+    <style>
+      /* Critical hero band — survives stale CSS cache / missing theme import */
+      .hero-band {
+        background-color: #0f2e22;
+        color: #eaf3de;
+        padding-left: clamp(20px, 4vw, 56px);
+        padding-right: clamp(20px, 4vw, 56px);
+      }
+      .hero-band .hero-copy h1 {
+        color: #ffffff;
+      }
+      .hero-band .hero-lead,
+      .hero-band .hero-trust {
+        color: rgba(234, 243, 222, 0.88);
+      }
+      .hero-band .hero-gradient-text {
+        color: #9fe1cb;
+        -webkit-text-fill-color: #9fe1cb;
+      }
+    </style>
     <link rel="stylesheet" href="./pricing.css?v=10" />
   </head>
   <body>

@@ -224,9 +224,11 @@ a { color: inherit; text-decoration: none; }
 .page {
   position: relative;
   z-index: 1;
-  max-width: 1320px;
+  --page-gutter: 24px;
+  --page-max: 1320px;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--page-gutter);
   opacity: 1;
   transition: opacity 0.45s ease;
 }
@@ -615,15 +617,22 @@ body.is-loading .page {
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 580px) minmax(280px, 520px);
-  gap: 32px 40px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 520px);
+  gap: 32px clamp(24px, 3vw, 56px);
   align-items: center;
+  justify-items: start;
+  width: 100%;
   padding: 0;
 }
 
 .hero-band {
-  margin: 0 -24px 8px;
-  padding: 36px 24px 52px;
+  --hero-inline: clamp(20px, 4vw, 56px);
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-bottom: 8px;
+  padding: 28px var(--hero-inline) 44px;
   background-color: #0f2e22;
   background-image:
     radial-gradient(ellipse 80% 60% at 100% 0%, rgba(29, 158, 117, 0.14) 0%, transparent 55%),
@@ -632,11 +641,12 @@ body.is-loading .page {
 }
 
 .hero-band .hero-copy h1 {
-  color: var(--white);
+  color: #ffffff;
   font-family: var(--font-heading);
   font-size: clamp(2.25rem, 4.5vw, 3.75rem);
   font-weight: 800;
   line-height: 1.06;
+  letter-spacing: -0.035em;
 }
 
 .hero-band .hero-lead {
@@ -659,12 +669,15 @@ body.is-loading .page {
 }
 
 .hero-band .hero-gradient-text {
-  background: linear-gradient(120deg, var(--green-300) 0%, var(--verdant) 42%, #ffffff 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient-shift 5s ease-in-out infinite;
+  color: #9fe1cb;
+  -webkit-text-fill-color: #9fe1cb;
+  background: none;
+  animation: none;
+}
+
+.hero-band .hero-copy {
+  max-width: none;
+  width: 100%;
 }
 
 .hero-copy {
@@ -1994,10 +2007,14 @@ body.is-loading .page {
 }
 
 @media (max-width: 900px) {
+  .page {
+    --page-gutter: 20px;
+  }
+
   .hero-band {
-    margin-left: 0;
-    margin-right: 0;
-    padding: 28px 20px 36px;
+    --hero-inline: 20px;
+    padding-top: 24px;
+    padding-bottom: 32px;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
 
@@ -2127,12 +2144,12 @@ body.is-loading .page {
 /* ── Landing motion polish (brandkit-v20) ── */
 
 .hero-gradient-text {
-  background: linear-gradient(120deg, var(--pine) 0%, var(--verdant) 45%, var(--green-800) 90%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient-shift 5s ease-in-out infinite;
+  color: var(--verdant, #1d9e75);
+}
+
+.hero-band .hero-gradient-text {
+  color: #9fe1cb;
+  -webkit-text-fill-color: #9fe1cb;
 }
 
 @keyframes gradient-shift {
