@@ -9182,6 +9182,11 @@ body.rota-week-readonly .rota-builder-hint {
   line-height: 1.25;
 }
 
+.punch-data-loaded-at {
+  margin: -4px 0 14px;
+  font-size: 0.875rem;
+}
+
 .punch-alert {
   margin-bottom: 16px;
 }

@@ -23,6 +23,7 @@
   let rotaWeekStartDay = 0;
   let filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
   let bound = false;
+  let punchDataLoadedAt = null;
 
   function mergeTenantProfile(data) {
     if (!data || typeof data !== "object") return;
@@ -212,6 +213,30 @@
     msg.hidden = false;
     msg.textContent = text;
     msg.className = tone === "ok" ? "punch-admin-message punch-admin-message--ok" : "muted punch-admin-message";
+  }
+
+  function markPunchDataLoaded() {
+    punchDataLoadedAt = new Date();
+    updatePunchDataLoadedLabel();
+  }
+
+  function updatePunchDataLoadedLabel() {
+    const el = $("punch-data-loaded-at");
+    if (!el) return;
+    if (!punchDataLoadedAt) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    const when = punchDataLoadedAt.toLocaleString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    el.hidden = false;
+    el.textContent = `Last loaded · ${when}`;
   }
 
   function parseApiDetail(data, fallback = "Request failed") {
@@ -877,6 +902,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(parseApiDetail(data, "Could not load punch log."));
       punches = data.items || [];
+      markPunchDataLoaded();
     } catch (error) {
       punches = [];
       if (parseHashBaseSection(window.location.hash) === "time-punch" && activeTab === "log") {
@@ -893,6 +919,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(parseApiDetail(data, "Could not load today's punches."));
       todayPunches = data.items || [];
+      markPunchDataLoaded();
     } catch {
       todayPunches = [];
     }
