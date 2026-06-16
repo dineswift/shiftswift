@@ -225,6 +225,10 @@
   }
 
   function resolveRegisteredCoords() {
+    const pending = window.AdminAddressPicker?.getPendingSelection?.();
+    if (pending?.latitude != null && pending?.longitude != null) {
+      return { latitude: Number(pending.latitude), longitude: Number(pending.longitude) };
+    }
     const sources = [tenantProfile, window.Admin?.tenantProfileSnapshot];
     for (const source of sources) {
       const lat = source?.registered_latitude;
@@ -233,7 +237,7 @@
         return { latitude: Number(lat), longitude: Number(lng) };
       }
     }
-    return null;
+    return window.Admin?.getCachedTenantRegisteredCoords?.() || null;
   }
 
   function validateRegisteredAddress(address) {
@@ -249,6 +253,8 @@
   }
 
   function resolveRegisteredAddress() {
+    const pending = window.AdminAddressPicker?.getPendingSelection?.();
+    if (pending?.address) return normalizeRegisteredAddress(pending.address);
     const normalize = normalizeRegisteredAddress;
     const candidates = [
       tenantProfile?.registered_address,
@@ -272,18 +278,26 @@
     return normalized[0] || "";
   }
 
-  async function ensureRegisteredAddressSaved(address) {
+  async function ensureRegisteredAddressSaved(address, coords = null) {
     const trimmed = normalizeRegisteredAddress(address);
     if (!trimmed) return "";
-    const current = String(tenantProfile?.registered_address || "").trim();
-    const lat = tenantProfile?.registered_latitude;
-    const lng = tenantProfile?.registered_longitude;
+    const syncCoords = coords || resolveRegisteredCoords();
     const body = { registered_address: trimmed };
-    if (lat != null && lng != null) {
-      body.registered_latitude = lat;
-      body.registered_longitude = lng;
+    if (syncCoords) {
+      body.registered_latitude = syncCoords.latitude;
+      body.registered_longitude = syncCoords.longitude;
     }
-    if (current === trimmed) return trimmed;
+    const current = normalizeRegisteredAddress(tenantProfile?.registered_address || "");
+    const profileLat = tenantProfile?.registered_latitude;
+    const profileLng = tenantProfile?.registered_longitude;
+    const sameAddress = current === trimmed;
+    const sameCoords =
+      !syncCoords ||
+      (profileLat != null &&
+        profileLng != null &&
+        Number(profileLat) === Number(syncCoords.latitude) &&
+        Number(profileLng) === Number(syncCoords.longitude));
+    if (sameAddress && sameCoords) return trimmed;
     const res = await apiFetch("/admin/tenant-profile", {
       method: "PATCH",
       body: JSON.stringify(body),
@@ -440,8 +454,7 @@
     const selectHint = $("punch-detail-select-hint");
     const noSites = !sites.length;
     const address = resolveRegisteredAddress();
-    const addressCheck = validateRegisteredAddress(address);
-    const hasAddress = addressCheck.ok;
+    const hasAddress = hasBusinessAddress();
     const activeSites = (sites || []).filter((site) => site.is_active);
     const addressExample =
       window.Admin?.BUSINESS_ADDRESS_EXAMPLE || "156 Front street, Nottingham, NG5 7EG";
@@ -450,9 +463,10 @@
       warning.hidden = hasAddress;
       const copy = warning.querySelector(".alert-copy");
       if (copy) {
+        const addressCheck = validateRegisteredAddress(address);
         copy.textContent = address
           ? `${addressCheck.message} Example: ${addressExample}.`
-          : `Set a registered business address before syncing your first punch site. Include the full street address and UK postcode (e.g. ${addressExample}).`;
+          : `Search your premises below on OpenStreetMap, pick a result, then click Sync from address. Example: ${addressExample}.`;
       }
     }
     const syncMeta = $("punch-sync-meta");
@@ -463,8 +477,8 @@
       if (!btn) return;
       btn.disabled = false;
       btn.title = hasAddress
-        ? "Create or refresh your primary punch site from the registered business address"
-        : "Add your registered business address in Settings → Business profile first (full UK postcode required)";
+        ? "Create or refresh your primary punch site from the pinned address"
+        : "Search your premises on the map below, pick a result, then sync";
     });
 
     ["punch-setup-poster-btn", "punch-setup-view-qr-btn"].forEach((id) => {
@@ -1368,25 +1382,26 @@
   async function syncFromAddress(sourceBtn) {
     const btn = sourceBtn || $("sync-punch-site-btn");
     await loadTenantProfile();
+    const syncCoords = resolveRegisteredCoords();
     let address = normalizeRegisteredAddress(resolveRegisteredAddress());
     const addressCheck = validateRegisteredAddress(address);
     if (!addressCheck.ok) {
       const hint = address
-        ? `${addressCheck.message} Example: ${window.Admin?.BUSINESS_ADDRESS_EXAMPLE || "156 Front street, Nottingham, NG5 7EG"}.`
-        : addressCheck.message;
+        ? `${addressCheck.message} Search below, pick your premises, then sync again.`
+        : "Search your premises on the map below, pick a result, then click Sync from address.";
       showPunchNote(hint, address ? "warn" : "error");
       updateSetupUi();
       return;
     }
     if (btn) btn.disabled = true;
-    showPunchNote("Syncing from registered business address…");
+    showPunchNote("Syncing from pinned business address…");
     try {
-      address = await ensureRegisteredAddressSaved(address);
+      address = await ensureRegisteredAddressSaved(address, syncCoords);
       const syncBody = { registered_address: address };
-      const syncCoords = resolveRegisteredCoords();
-      if (syncCoords) {
-        syncBody.registered_latitude = syncCoords.latitude;
-        syncBody.registered_longitude = syncCoords.longitude;
+      const coords = resolveRegisteredCoords();
+      if (coords) {
+        syncBody.registered_latitude = coords.latitude;
+        syncBody.registered_longitude = coords.longitude;
       }
       const res = await apiFetch("/admin/time-punch/sites/sync-from-address", {
         method: "POST",
@@ -1948,6 +1963,16 @@
     await syncFromAddress($("sync-punch-site-btn"));
   }
 
+  function mountPunchSyncPicker() {
+    const host = $("punch-sync-address-host");
+    if (!host) return;
+    window.AdminAddressPicker?.mountSyncPanel?.(host, {
+      address: tenantProfile?.registered_address || window.Admin?.getCachedTenantRegisteredAddress?.(),
+      latitude: tenantProfile?.registered_latitude ?? window.Admin?.getCachedTenantRegisteredCoords?.()?.latitude,
+      longitude: tenantProfile?.registered_longitude ?? window.Admin?.getCachedTenantRegisteredCoords?.()?.longitude,
+    });
+  }
+
   async function initSection() {
     bindEvents();
     resetPunchFilters();
@@ -1965,6 +1990,7 @@
     } catch (error) {
       console.warn("Time punch profile load failed:", error);
     }
+    mountPunchSyncPicker();
     await Promise.all([
       loadEmployeeList(),
       loadSites(),
@@ -1993,8 +2019,13 @@
     stopPunchAutoRefresh();
   });
 
+  window.addEventListener("admin:address-picked", () => {
+    updateSetupUi();
+  });
+
   window.addEventListener("admin:tenant-profile-saved", (event) => {
     mergeTenantProfile(event.detail);
+    mountPunchSyncPicker();
     updateSetupUi();
     if (parseHashBaseSection(window.location.hash) === "time-punch") {
       void loadTenantProfile().then(() => {

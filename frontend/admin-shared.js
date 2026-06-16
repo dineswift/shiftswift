@@ -134,11 +134,40 @@ window.Admin = (() => {
     return `tenantRegisteredAddress_${localStorage.getItem("tenantId") || TENANT_ID || "default"}`;
   }
 
+  function tenantRegisteredCoordsCacheKey() {
+    return `tenantRegisteredCoords_${localStorage.getItem("tenantId") || TENANT_ID || "default"}`;
+  }
+
   function rememberTenantRegisteredAddress(value) {
     const trimmed = String(value || "").trim();
     const key = tenantRegisteredAddressCacheKey();
     if (trimmed) localStorage.setItem(key, trimmed);
     else localStorage.removeItem(key);
+  }
+
+  function rememberTenantRegisteredCoords(latitude, longitude) {
+    const key = tenantRegisteredCoordsCacheKey();
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      localStorage.setItem(key, JSON.stringify({ latitude: lat, longitude: lng }));
+    } else {
+      localStorage.removeItem(key);
+    }
+  }
+
+  function getCachedTenantRegisteredCoords() {
+    try {
+      const raw = localStorage.getItem(tenantRegisteredCoordsCacheKey());
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const lat = Number(parsed?.latitude);
+      const lng = Number(parsed?.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return { latitude: lat, longitude: lng };
+    } catch {
+      return null;
+    }
   }
 
   const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
@@ -192,7 +221,10 @@ window.Admin = (() => {
     const profile = source || tenantProfileSnapshot || {};
     const lat = profile.registered_latitude;
     const lng = profile.registered_longitude;
-    return lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+    if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      return true;
+    }
+    return Boolean(getCachedTenantRegisteredCoords());
   }
 
   function getCachedTenantRegisteredAddress() {
@@ -207,6 +239,10 @@ window.Admin = (() => {
       if (!res.ok) return tenantProfileSnapshot;
       tenantProfileSnapshot = await res.json();
       rememberTenantRegisteredAddress(tenantProfileSnapshot?.registered_address);
+      rememberTenantRegisteredCoords(
+        tenantProfileSnapshot?.registered_latitude,
+        tenantProfileSnapshot?.registered_longitude
+      );
       return tenantProfileSnapshot;
     } catch {
       return tenantProfileSnapshot;
@@ -219,6 +255,10 @@ window.Admin = (() => {
     if (!event.detail || typeof event.detail !== "object") return;
     tenantProfileSnapshot = { ...(tenantProfileSnapshot || {}), ...event.detail };
     rememberTenantRegisteredAddress(tenantProfileSnapshot.registered_address);
+    rememberTenantRegisteredCoords(
+      tenantProfileSnapshot.registered_latitude,
+      tenantProfileSnapshot.registered_longitude
+    );
   });
 
   async function loadTenantFeatures() {
@@ -932,7 +972,9 @@ window.Admin = (() => {
     apiFetch,
     prefetchTenantProfile,
     rememberTenantRegisteredAddress,
+    rememberTenantRegisteredCoords,
     getCachedTenantRegisteredAddress,
+    getCachedTenantRegisteredCoords,
     normalizeBusinessAddress,
     validateBusinessAddress,
     hasPinnedBusinessCoords,

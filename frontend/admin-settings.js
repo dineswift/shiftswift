@@ -55,8 +55,16 @@
   };
   const SAVED_AT_KEY = `settings_business_saved_${window.Admin?.TENANT_ID ?? "default"}`;
 
-  function cacheRegisteredAddress(value) {
-    window.Admin?.rememberTenantRegisteredAddress?.(value);
+  function cacheRegisteredAddress(profileOrValue) {
+    if (profileOrValue && typeof profileOrValue === "object") {
+      window.Admin?.rememberTenantRegisteredAddress?.(profileOrValue.registered_address);
+      window.Admin?.rememberTenantRegisteredCoords?.(
+        profileOrValue.registered_latitude,
+        profileOrValue.registered_longitude
+      );
+      return;
+    }
+    window.Admin?.rememberTenantRegisteredAddress?.(profileOrValue);
   }
 
   let sectionReady = false;
@@ -432,7 +440,7 @@
             toast = `${toast} Punch site sync failed: ${sync.message}`;
           }
           showSettingsToast(toast);
-          cacheRegisteredAddress(data.registered_address);
+          cacheRegisteredAddress(data);
           window.dispatchEvent(new CustomEvent("admin:tenant-profile-saved", { detail: data }));
         },
       });
