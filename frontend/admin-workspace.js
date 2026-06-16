@@ -290,7 +290,7 @@
           label: "Today's punches",
           value: String(punch.today_punches ?? 0),
           sub: punch.last_punch_at ? `Last punch ${formatOverviewTime(punch.last_punch_at)}` : "No punches yet",
-          href: "#time-punch",
+          href: punch.today_punches ? "#time-punch/today" : "#time-punch",
           tone: "ok",
         })}
         ${statCard({
@@ -361,7 +361,7 @@
                   : employees.onboarding
                     ? `${employees.onboarding} onboarding`
                     : "Active register",
-            href: "#employees",
+            href: employees.portal_setup_pending ? "#employees/portal-pending" : "#employees",
             tone:
               (qualifications.expired ?? 0) > 0
                 ? "danger"
@@ -406,7 +406,7 @@
               : punch.sites
                 ? "No punches today"
                 : "Set up geofence sites",
-            href: "#time-punch",
+            href: punch.today_punches ? "#time-punch/today" : "#time-punch",
             tone: !punch.sites ? "warn" : "",
           }),
           moduleCard({

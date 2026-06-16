@@ -213,6 +213,12 @@
     return `<span class="punch-distance punch-distance--warn" title="Outside geofence">⚠ ${Math.round(punch.distance_meters)}m${accuracy}</span>`;
   }
 
+  function renderLocationCell(punch) {
+    const siteName = punch.site_name ? escapeHtml(punch.site_name) : "Unknown site";
+    const meta = renderDistanceCell(punch);
+    return `<div class="punch-location-cell"><strong class="punch-location-cell__site">${siteName}</strong><span class="punch-location-cell__meta">${meta}</span></div>`;
+  }
+
   function renderTypeBadge(type) {
     const labels = {
       in: ["Clock in", "in"],
@@ -733,10 +739,28 @@
           <td>${escapeHtml(formatTimeShort(row.punched_at))}</td>
           <td>${escapeHtml(row.employee_name)}</td>
           <td>${renderTypeBadge(row.punch_type)}</td>
-          <td>${renderDistanceCell(row)}</td>
+          <td>${renderLocationCell(row)}</td>
         </tr>`
       )
       .join("");
+  }
+
+  function scrollToTodayPreview() {
+    const target = $("punch-today-preview-body")?.closest(".punch-today-preview");
+    if (!target) return;
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function applyTimePunchRoute() {
+    const path = window.location.hash.replace("#", "");
+    if (path === "time-punch/today") {
+      setActiveTab("sites");
+      scrollToTodayPreview();
+      return true;
+    }
+    return false;
   }
 
   function renderPunchesTable() {
@@ -1410,6 +1434,7 @@
     ]);
     setActiveTab(activeTab);
     updatePunchStats();
+    applyTimePunchRoute();
     if (!sites.length && hasBusinessAddress()) {
       await maybeAutoSyncPrimarySite();
     }
@@ -1434,6 +1459,10 @@
     void loadTenantProfile().then(updateSetupUi);
   });
 
-  window.addEventListener("hashchange", bootTimePunchSection);
+  window.addEventListener("hashchange", () => {
+    if (parseHashBaseSection(window.location.hash) !== "time-punch") return;
+    if (applyTimePunchRoute()) return;
+    bootTimePunchSection();
+  });
   bootTimePunchSection();
 })();

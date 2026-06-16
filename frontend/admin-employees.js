@@ -253,6 +253,129 @@
     </div>`;
   }
 
+  function isPortalSetupPending(row) {
+    return Boolean(row?.portal_setup_pending || row?.portal_setup_status === "pending");
+  }
+
+  function renderPortalStatusCell(row) {
+    if (row?.portal_setup_complete || row?.portal_setup_status === "complete") {
+      return `<span class="employee-portal-pill employee-portal-pill--ok">Active</span>`;
+    }
+    if (isPortalSetupPending(row)) {
+      return `<span class="employee-portal-pill employee-portal-pill--warn">Setup pending</span>`;
+    }
+    if (!row?.email) return `<span class="muted">No email</span>`;
+    return `<span class="employee-portal-pill employee-portal-pill--muted">Not invited</span>`;
+  }
+
+  function getFilteredEmployees() {
+    if (employeeRegisterFilter === "portal-pending") {
+      return employeesCache.filter((row) => isPortalSetupPending(row));
+    }
+    return employeesCache;
+  }
+
+  function renderEmployeeRegisterFilterBanner() {
+    const banner = $("employees-register-filter-banner");
+    if (!banner) return;
+    if (employeeRegisterFilter !== "portal-pending") {
+      banner.hidden = true;
+      banner.innerHTML = "";
+      return;
+    }
+    const count = getFilteredEmployees().length;
+    banner.hidden = false;
+    banner.innerHTML = `
+      <div class="employees-register-filter-banner__copy">
+        <strong>Portal setup pending</strong>
+        <span class="muted">${count} employee${count === 1 ? "" : "s"} invited but has not set a portal password yet. Ask them to check junk mail or resend the link.</span>
+      </div>
+      <button type="button" class="btn ghost btn-sm" id="employees-clear-register-filter">Show all employees</button>`;
+    banner.querySelector("#employees-clear-register-filter")?.addEventListener("click", () => {
+      employeeRegisterFilter = null;
+      if (window.location.hash.replace("#", "") === "employees/portal-pending") {
+        window.location.hash = "employees";
+        return;
+      }
+      renderEmployeeRegister();
+    });
+  }
+
+  function renderEmployeeRegister() {
+    const tbody = $("employees-table-body");
+    if (!tbody) return;
+
+    renderEmployeeRegisterFilterBanner();
+    const rows = getFilteredEmployees();
+
+    if (!employeesCache.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" class="muted">No employees yet. Add your first team member above.</td></tr>';
+      renderEmployeeSidePanel(null);
+      renderLifecycleHub([]);
+      return;
+    }
+
+    if (!rows.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows
+      .map((row) => {
+        const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
+        return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
+          <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
+          <td>${escapeHtml(row.department || "Not set")}</td>
+          <td>${statusPill(row.status)}</td>
+          <td>${renderPortalStatusCell(row)}</td>
+          <td>${renderRegisterProgressCell(row)}</td>
+        </tr>`;
+      })
+      .join("");
+
+    tbody.querySelectorAll(".hr-register-row").forEach((row) => {
+      row.addEventListener("click", () => {
+        const newId = Number(row.dataset.employeeId);
+        if (selectedEmployeeId !== newId) {
+          sidePanelExpandedSection = null;
+        }
+        selectedEmployeeId = newId;
+        tbody.querySelectorAll(".hr-register-row").forEach((el) => {
+          el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+        });
+        void renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+      });
+    });
+
+    if (selectedEmployeeId && rows.some((row) => row.id === selectedEmployeeId)) {
+      renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+    } else if (employeeRegisterFilter === "portal-pending" && rows.length === 1) {
+      selectedEmployeeId = rows[0].id;
+      tbody.querySelectorAll(".hr-register-row").forEach((el) => {
+        el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+      });
+      void renderEmployeeSidePanel(rows[0]);
+    }
+    renderLifecycleHub(employeesCache);
+  }
+
+  function applyEmployeesListRoute() {
+    const hash = window.location.hash.replace("#", "");
+    if (hash === "employees/portal-pending") {
+      employeeRegisterFilter = "portal-pending";
+      showListView();
+      renderEmployeeRegister();
+      return true;
+    }
+    if (/^employees\/\d+/.test(hash)) return false;
+    employeeRegisterFilter = null;
+    showListView();
+    renderEmployeeRegister();
+    return true;
+  }
+
   function avatarPalette(employeeId) {
     const palettes = [
       { bg: "#E1F5EE", color: "#0F6E56" },
@@ -425,6 +548,7 @@
   let sidePanelExpandedSection = null;
   let sidePanelRenderRequest = 0;
   let employeesCache = [];
+  let employeeRegisterFilter = null;
   let activeSection = "recruitment";
   let workspaceCache = null;
   let sectionLoaded = false;
@@ -974,7 +1098,8 @@
     }`;
     target.cells[1].textContent = row.department || "Not set";
     target.cells[2].innerHTML = statusPill(row.status);
-    target.cells[3].innerHTML = renderRegisterProgressCell(row);
+    target.cells[3].innerHTML = renderPortalStatusCell(row);
+    target.cells[4].innerHTML = renderRegisterProgressCell(row);
   }
 
   function normalizePayload(section, payload) {
@@ -1600,48 +1725,10 @@
       }
       const data = await res.json();
       employeesCache = data.items || [];
-
-      if (!employeesCache.length) {
-        tbody.innerHTML =
-          '<tr><td colspan="4" class="muted">No employees yet. Add your first team member above.</td></tr>';
-        renderEmployeeSidePanel(null);
-        renderLifecycleHub([]);
-        return;
-      }
-
-      tbody.innerHTML = employeesCache
-        .map((row) => {
-          const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
-          return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
-            <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
-            <td>${escapeHtml(row.department || "Not set")}</td>
-            <td>${statusPill(row.status)}</td>
-            <td>${renderRegisterProgressCell(row)}</td>
-          </tr>`;
-        })
-        .join("");
-
-      tbody.querySelectorAll(".hr-register-row").forEach((row) => {
-        row.addEventListener("click", () => {
-          const newId = Number(row.dataset.employeeId);
-          if (selectedEmployeeId !== newId) {
-            sidePanelExpandedSection = null;
-          }
-          selectedEmployeeId = newId;
-          tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-            el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
-          });
-          void renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
-        });
-      });
-
-      if (selectedEmployeeId) {
-        renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
-      }
-      renderLifecycleHub(employeesCache);
+      renderEmployeeRegister();
     } catch (error) {
       const message = escapeHtml(error?.message || "Could not load employees.");
-      tbody.innerHTML = `<tr><td colspan="4" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
     }
   }
 
@@ -1826,18 +1913,19 @@
       const hash = window.location.hash.replace("#", "");
       const match = hash.match(/^employees\/(\d+)(?:\/([\w_]+))?$/);
       if (match) {
+        employeeRegisterFilter = null;
         await openEmployee(Number(match[1]), match[2] || null);
       } else {
-        showListView();
+        applyEmployeesListRoute();
       }
     })();
   });
 
   window.addEventListener("hashchange", () => {
     const hash = window.location.hash.replace("#", "");
-    if (hash === "employees") {
+    if (hash === "employees" || hash === "employees/portal-pending") {
       if (document.getElementById("employees")?.classList.contains("admin-section--active")) {
-        showListView();
+        applyEmployeesListRoute();
       }
       return;
     }

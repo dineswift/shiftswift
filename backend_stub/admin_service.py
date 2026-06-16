@@ -1113,7 +1113,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                 "severity": "warn",
                 "title": f"{portal_setup_pending} employee portal setup{'s' if portal_setup_pending != 1 else ''} pending",
                 "detail": "Invited employees have not set their portal password yet. Ask them to check junk mail or resend the link.",
-                "href": "#employees",
+                "href": "#employees/portal-pending",
                 "section": "employees",
             }
         )

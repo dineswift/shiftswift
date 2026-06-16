@@ -10092,9 +10092,71 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employees-register-head {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
+}
+
+.employees-register-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid #fac775;
+  border-radius: var(--radius-md);
+  background: #fffbf0;
+}
+
+.employees-register-filter-banner__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.employee-portal-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.employee-portal-pill--ok {
+  background: var(--green-100);
+  color: var(--green-800);
+}
+
+.employee-portal-pill--warn {
+  background: #fff3d6;
+  color: #854f0b;
+}
+
+.employee-portal-pill--muted {
+  background: var(--gray-100);
+  color: var(--ink-500);
+}
+
+.punch-location-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.punch-location-cell__site {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+.punch-location-cell__meta {
+  display: block;
 }
 
 .lifecycle-stage-rail {
