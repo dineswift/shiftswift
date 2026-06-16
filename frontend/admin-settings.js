@@ -42,6 +42,13 @@
     },
   };
   const SAVED_AT_KEY = `settings_business_saved_${window.Admin?.TENANT_ID ?? "default"}`;
+  const REGISTERED_ADDRESS_CACHE_KEY = `tenantRegisteredAddress_${window.Admin?.TENANT_ID ?? "default"}`;
+
+  function cacheRegisteredAddress(value) {
+    const trimmed = String(value || "").trim();
+    if (trimmed) localStorage.setItem(REGISTERED_ADDRESS_CACHE_KEY, trimmed);
+    else localStorage.removeItem(REGISTERED_ADDRESS_CACHE_KEY);
+  }
 
   let sectionReady = false;
   let settingsNavBound = false;
@@ -330,6 +337,7 @@
     } catch {
       /* optional */
     }
+    cacheRegisteredAddress(values.registered_address);
 
     try {
       host.innerHTML = '<div id="tenant-profile-form-mount"></div><p id="tenant-profile-last-saved" class="settings-last-saved muted"></p>';
@@ -350,6 +358,7 @@
           localStorage.setItem(SAVED_AT_KEY, now);
           updateLastSavedLabel(now);
           showSettingsToast("Business details saved ✓");
+          cacheRegisteredAddress(data.registered_address);
           window.dispatchEvent(new CustomEvent("admin:tenant-profile-saved", { detail: data }));
         },
       });
