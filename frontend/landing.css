@@ -624,9 +624,10 @@ body.is-loading .page {
 .hero-band {
   margin: 0 -24px 8px;
   padding: 36px 24px 52px;
-  background:
+  background-color: #0f2e22;
+  background-image:
     radial-gradient(ellipse 80% 60% at 100% 0%, rgba(29, 158, 117, 0.14) 0%, transparent 55%),
-    linear-gradient(155deg, var(--pine) 0%, #0a3d2e 100%);
+    linear-gradient(155deg, var(--pine, #0f2e22) 0%, #0a3d2e 100%);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
@@ -644,25 +645,26 @@ body.is-loading .page {
 }
 
 .hero-band .badge {
-  background: rgba(29, 158, 117, 0.18);
-  color: var(--verdant);
-  border: 1px solid rgba(29, 158, 117, 0.35);
+  background: rgba(234, 243, 222, 0.14);
+  color: var(--sage-50);
+  border: 1px solid rgba(234, 243, 222, 0.32);
 }
 
 .hero-band .hero-trust {
-  color: rgba(234, 243, 222, 0.82);
+  color: rgba(234, 243, 222, 0.88);
 }
 
 .hero-band .hero-trust li::before {
-  color: var(--verdant);
+  color: var(--green-300);
 }
 
 .hero-band .hero-gradient-text {
-  background: linear-gradient(120deg, var(--verdant) 0%, var(--sage-50) 50%, var(--green-300) 100%);
+  background: linear-gradient(120deg, var(--green-300) 0%, var(--verdant) 42%, #ffffff 100%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  animation: gradient-shift 5s ease-in-out infinite;
 }
 
 .hero-copy {
@@ -789,8 +791,9 @@ body.is-loading .page {
   max-width: 520px;
   padding: 14px;
   border-radius: calc(var(--radius-xl) + 10px);
-  background: rgba(0, 0, 0, 0.22);
-  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.35);
+  background: rgba(15, 46, 34, 0.35);
+  border: 1px solid rgba(234, 243, 222, 0.12);
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.28);
 }
 
 .hero-visual__frame .hero-preview {
@@ -820,7 +823,7 @@ body.is-loading .page {
   font-family: var(--font-ui);
   font-size: 0.72rem;
   font-weight: 700;
-  color: #7c4a0a;
+  color: var(--pine);
   margin-bottom: 2px;
 }
 
@@ -828,7 +831,7 @@ body.is-loading .page {
   margin: 0;
   font-size: 0.68rem;
   line-height: 1.4;
-  color: #8b5a12;
+  color: var(--amber);
 }
 
 .hero-alert--day9 {
@@ -956,8 +959,8 @@ body.is-loading .page {
   align-items: center;
   gap: 6px;
   padding: 12px 16px;
-  background: var(--green-100);
-  border-bottom: 1px solid var(--gray-200);
+  background: var(--sage-50);
+  border-bottom: 1px solid rgba(29, 158, 117, 0.18);
 }
 
 .dashboard-mock__dot {
@@ -1012,8 +1015,8 @@ body.is-loading .page {
     background: var(--page-bg);
   }
   50% {
-    border-color: rgba(15, 110, 86, 0.35);
-    background: rgba(225, 245, 238, 0.65);
+    border-color: rgba(29, 158, 117, 0.35);
+    background: var(--sage-50);
   }
 }
 
@@ -1959,25 +1962,28 @@ body.is-loading .page {
   color: var(--gray-600);
 }
 
-.product-mock__row--warn span:last-child { color: #b45309; font-weight: 600; }
+.product-mock__row--warn span:last-child { color: var(--amber); font-weight: 600; }
 
 .product-mock__step {
   font-size: 0.75rem;
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   margin-bottom: 6px;
-  background: var(--gray-100);
+  background: var(--paper);
   color: var(--gray-500);
+  border: 1px solid var(--gray-200);
 }
 
 .product-mock__step--done {
-  background: rgba(93, 202, 165, 0.2);
-  color: var(--green-800);
+  background: var(--sage-50);
+  color: var(--pine);
+  border-color: rgba(29, 158, 117, 0.28);
 }
 
 .product-mock__step--active {
-  background: var(--green-700);
-  color: #fff;
+  background: var(--verdant);
+  color: var(--pine);
+  border-color: transparent;
   font-weight: 600;
 }
 
@@ -2121,7 +2127,7 @@ body.is-loading .page {
 /* ── Landing motion polish (brandkit-v20) ── */
 
 .hero-gradient-text {
-  background: linear-gradient(120deg, var(--green-900) 0%, var(--green-500) 45%, var(--green-800) 90%);
+  background: linear-gradient(120deg, var(--pine) 0%, var(--verdant) 45%, var(--green-800) 90%);
   background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;

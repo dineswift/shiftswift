@@ -81,6 +81,7 @@ rsync -a --delete --delete-excluded \
   --include='staff-export-guide.html' \
   --include='compliance-checklist.html' \
   --include='landing.css' \
+  --include='theme.css' \
   --include='pricing.css' \
   --include='landing-*.js' \
   --include='pricing.js' \
@@ -114,6 +115,15 @@ for page in "${WWW_FORBIDDEN[@]}"; do
   fi
 done
 echo "    www has no HR app login pages"
+
+echo "==> verify marketing assets (WWW)"
+for page in index.html landing.css theme.css pricing.css; do
+  if [ ! -f "${WWW_ROOT}/${page}" ]; then
+    echo "ERROR: missing ${WWW_ROOT}/${page} after rsync — theme.css is required for landing.css variables"
+    exit 1
+  fi
+done
+echo "    marketing CSS OK"
 
 echo "==> verify legal pages (WWW + App)"
 LEGAL_PAGES=(
