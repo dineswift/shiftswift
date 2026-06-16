@@ -458,7 +458,19 @@ window.Admin = (() => {
   function mountEditForm(container, schema, { values = {}, onSubmit, statusEl } = {}) {
     if (!container) return null;
     const columns = schema.columns || 2;
-    const fieldsHtml = schema.fields.map((field) => renderField(field, values, formOptions)).join("");
+    let fieldsHtml;
+    if (schema.sections?.length) {
+      fieldsHtml = schema.sections
+        .map((section) => {
+          const sectionFields = section.fields
+            .map((field) => renderField(field, values, formOptions))
+            .join("");
+          return `<h4 class="settings-form-section__title">${escapeHtml(section.title)}</h4>${sectionFields}`;
+        })
+        .join("");
+    } else {
+      fieldsHtml = schema.fields.map((field) => renderField(field, values, formOptions)).join("");
+    }
     container.innerHTML = `
       <form class="edit-form edit-form--cols-${columns}" data-form-id="${escapeHtml(schema.id)}">
         ${fieldsHtml}
@@ -622,17 +634,32 @@ window.Admin = (() => {
       columns: 2,
       submitLabel: "Save business details",
       successMessage: "Business information updated.",
-      fields: [
-        { name: "name", label: "Legal company name", type: "text", required: true },
-        { name: "trading_name", label: "Trading name", type: "text" },
-        { name: "company_number", label: "Company number", type: "text" },
-        { name: "vat_number", label: "VAT number", type: "text" },
-        { name: "registered_address", label: "Registered address", type: "textarea", span: 2 },
-        { name: "phone", label: "Phone", type: "tel" },
-        { name: "billing_email", label: "Billing email", type: "email" },
-        { name: "signatory_name", label: "Signatory name", type: "text" },
-        { name: "signatory_title", label: "Signatory title", type: "text", defaultValue: "Director" },
-        { name: "signatory_email", label: "Signatory email", type: "email" },
+      sections: [
+        {
+          title: "Legal & registration",
+          fields: [
+            { name: "name", label: "Legal company name", type: "text", required: true },
+            { name: "trading_name", label: "Trading name", type: "text" },
+            { name: "company_number", label: "Company number", type: "text" },
+            { name: "vat_number", label: "VAT number", type: "text" },
+            { name: "registered_address", label: "Registered address", type: "textarea", span: 2 },
+          ],
+        },
+        {
+          title: "Contact",
+          fields: [
+            { name: "phone", label: "Phone", type: "tel" },
+            { name: "billing_email", label: "Billing email", type: "email" },
+          ],
+        },
+        {
+          title: "Signatory",
+          fields: [
+            { name: "signatory_name", label: "Signatory name", type: "text" },
+            { name: "signatory_title", label: "Signatory title", type: "text", defaultValue: "Director" },
+            { name: "signatory_email", label: "Signatory email", type: "email", span: 2 },
+          ],
+        },
       ],
     },
     employee: {

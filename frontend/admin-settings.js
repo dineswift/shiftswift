@@ -98,6 +98,8 @@
   }
 
   function mountSettingsAccordion() {
+    if (!isMobileSettingsLayout()) return;
+
     const workspace = document.querySelector(".settings-workspace");
     const nav = document.querySelector(".settings-nav");
     const main = document.querySelector(".settings-main");
@@ -173,41 +175,63 @@
 
   function activateSettingsPanel(panelId, options = {}) {
     const { collapse = false } = options;
-    const items = document.querySelectorAll(".settings-accordion-item");
-    const targetItem = panelId
-      ? document.querySelector(`.settings-accordion-item[data-settings-section="${panelId}"]`)
-      : null;
+    const mobile = isMobileSettingsLayout();
 
-    items.forEach((item) => {
-      item.classList.remove("is-open");
-      const btn = item.querySelector(".settings-nav__item");
-      const body = item.querySelector(".settings-accordion-body");
-      if (btn) {
-        btn.classList.remove("settings-nav__item--active");
-        btn.removeAttribute("aria-current");
-        btn.setAttribute("aria-expanded", "false");
+    if (mobile) {
+      const items = document.querySelectorAll(".settings-accordion-item");
+      const targetItem = panelId
+        ? document.querySelector(`.settings-accordion-item[data-settings-section="${panelId}"]`)
+        : null;
+
+      items.forEach((item) => {
+        item.classList.remove("is-open");
+        const btn = item.querySelector(".settings-nav__item");
+        const body = item.querySelector(".settings-accordion-body");
+        if (btn) {
+          btn.classList.remove("settings-nav__item--active");
+          btn.removeAttribute("aria-current");
+          btn.setAttribute("aria-expanded", "false");
+        }
+        if (body) body.hidden = true;
+      });
+
+      if (collapse || !panelId) {
+        const titleEl = document.getElementById("settings-panel-title");
+        const subtitleEl = document.getElementById("settings-panel-subtitle");
+        if (titleEl) titleEl.textContent = "Settings";
+        if (subtitleEl) subtitleEl.textContent = "Choose a section below.";
+        return;
       }
-      if (body) body.hidden = true;
-    });
 
-    if (collapse || !panelId) {
-      const titleEl = document.getElementById("settings-panel-title");
-      const subtitleEl = document.getElementById("settings-panel-subtitle");
-      if (titleEl) titleEl.textContent = "Settings";
-      if (subtitleEl) subtitleEl.textContent = "Choose a section below.";
-      return;
-    }
-
-    if (targetItem) {
-      targetItem.classList.add("is-open");
-      const btn = targetItem.querySelector(".settings-nav__item");
-      const body = targetItem.querySelector(".settings-accordion-body");
-      if (btn) {
-        btn.classList.add("settings-nav__item--active");
-        btn.setAttribute("aria-current", "page");
-        btn.setAttribute("aria-expanded", "true");
+      if (targetItem) {
+        targetItem.classList.add("is-open");
+        const btn = targetItem.querySelector(".settings-nav__item");
+        const body = targetItem.querySelector(".settings-accordion-body");
+        if (btn) {
+          btn.classList.add("settings-nav__item--active");
+          btn.setAttribute("aria-current", "page");
+          btn.setAttribute("aria-expanded", "true");
+        }
+        if (body) body.hidden = false;
       }
-      if (body) body.hidden = false;
+    } else {
+      document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+        panel.hidden = collapse || !panelId || panel.dataset.settingsPanel !== panelId;
+      });
+      document.querySelectorAll(".settings-nav [data-settings-nav]").forEach((btn) => {
+        const active = !collapse && panelId && btn.dataset.settingsNav === panelId;
+        btn.classList.toggle("settings-nav__item--active", Boolean(active));
+        if (active) btn.setAttribute("aria-current", "page");
+        else btn.removeAttribute("aria-current");
+      });
+
+      if (collapse || !panelId) {
+        const titleEl = document.getElementById("settings-panel-title");
+        const subtitleEl = document.getElementById("settings-panel-subtitle");
+        if (titleEl) titleEl.textContent = "Settings";
+        if (subtitleEl) subtitleEl.textContent = "Choose a section below.";
+        return;
+      }
     }
 
     const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
@@ -217,10 +241,13 @@
     if (subtitleEl) subtitleEl.textContent = copy.subtitle;
     loadPanelContent(panelId);
 
-    if (targetItem && isMobileSettingsLayout()) {
-      requestAnimationFrame(() => {
-        targetItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      });
+    if (mobile && panelId) {
+      const targetItem = document.querySelector(`.settings-accordion-item[data-settings-section="${panelId}"]`);
+      if (targetItem) {
+        requestAnimationFrame(() => {
+          targetItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      }
     }
   }
 

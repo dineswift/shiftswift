@@ -5153,18 +5153,29 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 /* ── Settings workspace ── */
+#settings > .section-header {
+  margin-bottom: 12px;
+}
+
 .settings-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+  gap: 12px;
   align-items: start;
+}
+
+@media (min-width: 981px) {
+  .settings-workspace {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 16px 20px;
+  }
 }
 
 .settings-main {
   min-width: 0;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 16px 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
 }
 
@@ -5285,12 +5296,12 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .settings-topbar {
-  grid-column: 2;
+  grid-column: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px 20px;
+  gap: 8px 16px;
   margin-bottom: 0;
 }
 
@@ -5329,8 +5340,8 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .settings-toast {
-  grid-column: 2;
-  margin-bottom: 12px;
+  grid-column: 1;
+  margin-bottom: 0;
   padding: 10px 14px;
   border: 1px solid #9fe1cb;
   border-radius: var(--radius-md);
@@ -5352,17 +5363,44 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   display: none !important;
 }
 
+.settings-panel.hr-workspace > .hr-workspace-body {
+  padding: 14px 18px 18px;
+}
+
 .settings-form-section {
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .settings-form-section__title {
-  margin: 0 0 12px;
+  grid-column: 1 / -1;
+  margin: 18px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-500);
+}
+
+.edit-form > .settings-form-section__title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+#tenant-profile-form .edit-form {
+  gap: 12px;
+}
+
+#tenant-profile-form .edit-form-actions {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+#tenant-profile-form .settings-last-saved {
+  margin: 8px 0 0;
 }
 
 .settings-form-actions {
