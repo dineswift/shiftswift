@@ -12,6 +12,7 @@ POSTCODES_IO_URL = "https://api.postcodes.io/postcodes"
 USER_AGENT = os.getenv("GEOCODE_USER_AGENT", "ShiftSwiftHR/1.0 (time-punch; contact=support@shiftswifthr.co.uk)")
 
 UK_POSTCODE_RE = re.compile(r"\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b", re.IGNORECASE)
+MIN_GEOCODE_ADDRESS_LEN = 10
 
 
 def extract_uk_postcode(address: str) -> str | None:
@@ -19,6 +20,16 @@ def extract_uk_postcode(address: str) -> str | None:
     if not match:
         return None
     return match.group(1).upper()
+
+
+def validate_geocode_address(address: str) -> tuple[bool, str | None]:
+    """Return (ok, error_message). Requires a full UK address with a valid postcode."""
+    query = (address or "").strip()
+    if len(query) < MIN_GEOCODE_ADDRESS_LEN:
+        return False, "Enter the full street address including town or city — not just a postcode."
+    if not extract_uk_postcode(query):
+        return False, "Include a valid UK postcode (e.g. M3 3AP or NG5 7EG)."
+    return True, None
 
 
 def _geocode_nominatim(query: str) -> tuple[float, float] | None:
@@ -69,6 +80,9 @@ def _geocode_uk_postcode(postcode: str) -> tuple[float, float] | None:
 
 def geocode_address(address: str) -> tuple[float, float] | None:
     query = (address or "").strip()
+    valid, _ = validate_geocode_address(query)
+    if not valid:
+        return None
     if len(query) < 5:
         return None
     postcode = extract_uk_postcode(query)

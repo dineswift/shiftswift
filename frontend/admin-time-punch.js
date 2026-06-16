@@ -144,7 +144,8 @@
   }
 
   function hasBusinessAddress() {
-    return Boolean(resolveRegisteredAddress());
+    const address = resolveRegisteredAddress();
+    return validateRegisteredAddress(address).ok;
   }
 
   function resolveRegisteredAddress() {
@@ -230,18 +231,62 @@
     return `<span class="punch-type-badge punch-type-badge--${tone}">${label}</span>`;
   }
 
-  function showMessage(text, tone) {
-    const msg = $("punch-admin-message");
-    if (!msg) return;
+  function showPunchNote(text, tone = "info") {
+    const toast = $("punch-toast");
+    const inline = $("punch-admin-message");
+
     if (!text) {
-      msg.hidden = true;
-      msg.textContent = "";
-      msg.className = "muted punch-admin-message";
+      if (toast) {
+        toast.hidden = true;
+        toast.textContent = "";
+        toast.className = "punch-toast";
+        window.clearTimeout(showPunchNote._timer);
+        window.clearTimeout(showPunchNote._hideTimer);
+      }
+      if (inline) {
+        inline.hidden = true;
+        inline.textContent = "";
+        inline.className = "muted punch-admin-message punch-admin-message--info";
+      }
       return;
     }
-    msg.hidden = false;
-    msg.textContent = text;
-    msg.className = tone === "ok" ? "punch-admin-message punch-admin-message--ok" : "muted punch-admin-message";
+
+    if (tone === "info") {
+      if (toast) {
+        toast.hidden = true;
+        toast.classList.remove("punch-toast--visible");
+      }
+      if (inline) {
+        inline.hidden = false;
+        inline.textContent = text;
+        inline.className = "muted punch-admin-message punch-admin-message--info";
+      }
+      return;
+    }
+
+    const toastTone = tone === "ok" || tone === "warn" || tone === "error" ? tone : "ok";
+    if (toast) {
+      toast.textContent = text;
+      toast.hidden = false;
+      toast.className = `punch-toast punch-toast--visible punch-toast--${toastTone}`;
+      window.clearTimeout(showPunchNote._timer);
+      window.clearTimeout(showPunchNote._hideTimer);
+      const dismissMs = toastTone === "error" ? 5200 : 3800;
+      showPunchNote._timer = window.setTimeout(() => {
+        toast.classList.remove("punch-toast--visible");
+        showPunchNote._hideTimer = window.setTimeout(() => {
+          toast.hidden = true;
+        }, 220);
+      }, dismissMs);
+    }
+    if (inline) {
+      inline.hidden = true;
+      inline.textContent = "";
+    }
+  }
+
+  function validateRegisteredAddress(address) {
+    return window.Admin?.validateBusinessAddress?.(address) || { ok: Boolean(String(address || "").trim()) };
   }
 
   function markPunchDataLoaded() {
@@ -282,10 +327,22 @@
     const setupQrActions = $("punch-setup-qr-actions");
     const selectHint = $("punch-detail-select-hint");
     const noSites = !sites.length;
-    const hasAddress = hasBusinessAddress();
+    const address = resolveRegisteredAddress();
+    const addressCheck = validateRegisteredAddress(address);
+    const hasAddress = addressCheck.ok;
     const activeSites = (sites || []).filter((site) => site.is_active);
+    const addressExample =
+      window.Admin?.BUSINESS_ADDRESS_EXAMPLE || "1 Spinningfields, Manchester M3 3AP";
 
-    if (warning) warning.hidden = hasAddress;
+    if (warning) {
+      warning.hidden = hasAddress;
+      const copy = warning.querySelector(".alert-copy");
+      if (copy) {
+        copy.textContent = address
+          ? `${addressCheck.message} Example: ${addressExample}.`
+          : `Set a registered business address before syncing your first punch site. Include the full street address and UK postcode (e.g. ${addressExample}).`;
+      }
+    }
     const syncMeta = $("punch-sync-meta");
     if (syncMeta) syncMeta.textContent = lastSyncLabel();
 
@@ -515,7 +572,7 @@
     cardUrl.searchParams.set("layout", layout);
     const win = window.open(cardUrl.toString(), "_blank", "noopener");
     if (!win) {
-      showMessage("Allow pop-ups to open the QR print page.");
+      showPunchNote("Allow pop-ups to open the QR print page.", "warn");
     }
     return win;
   }
@@ -531,7 +588,7 @@
   function bindQrGalleryTile(siteId, data) {
     document.querySelector(`[data-gallery-download="${siteId}"]`)?.addEventListener("click", () => {
       void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
-        showMessage(error.message || "Could not download QR.");
+        showPunchNote(error.message || "Could not download QR.", "error");
       });
     });
     document.querySelector(`[data-gallery-print-card="${siteId}"]`)?.addEventListener("click", () => {
@@ -543,9 +600,9 @@
     document.querySelector(`[data-gallery-copy-url="${siteId}"]`)?.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(data.clock_url);
-        showMessage("Premises clock link copied.", "ok");
+        showPunchNote("Premises clock link copied.", "ok");
       } catch {
-        showMessage("Could not copy link.");
+        showPunchNote("Could not copy link.", "error");
       }
     });
     document.querySelector(`[data-gallery-select="${siteId}"]`)?.addEventListener("click", () => {
@@ -614,7 +671,7 @@
       `/admin/time-punch/sites/${siteId}/clock-qr.png`,
       `premises-clock-qr-${safeName || "site"}.png`,
     );
-    showMessage("Premises QR downloaded.", "ok");
+    showPunchNote("Premises QR downloaded.", "ok");
   }
 
   function portalLinksMarkup({ includeMaster = true, includeClock = true } = {}) {
@@ -659,14 +716,14 @@
       host.querySelector("#punch-copy-clock-url")?.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(data.clock_url);
-          showMessage("Premises clock link copied.", "ok");
+          showPunchNote("Premises clock link copied.", "ok");
         } catch {
-          showMessage("Could not copy link.");
+          showPunchNote("Could not copy link.", "error");
         }
       });
       host.querySelector("#punch-download-clock-qr")?.addEventListener("click", () => {
         void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
-          showMessage(error.message || "Could not download QR.");
+          showPunchNote(error.message || "Could not download QR.", "error");
         });
       });
       host.querySelector("#punch-print-clock-card")?.addEventListener("click", () => {
@@ -683,17 +740,17 @@
       });
       host.querySelector("#punch-rotate-clock-token")?.addEventListener("click", async () => {
         if (!window.confirm("Rotate this QR code? Old printed codes will stop working.")) return;
-        showMessage("Rotating premises QR…");
+        showPunchNote("Rotating premises QR…");
         try {
           const rotateRes = await apiFetch(`/admin/time-punch/sites/${siteId}/rotate-clock-token`, {
             method: "POST",
           });
           const rotateData = await rotateRes.json().catch(() => ({}));
           if (!rotateRes.ok) throw new Error(rotateData.detail || "Rotate failed");
-          showMessage("Premises QR rotated. Reprint the code at this site.", "ok");
+          showPunchNote("Premises QR rotated. Reprint the code at this site.", "ok");
           await loadSiteClockQr(siteId);
         } catch (error) {
-          showMessage(error.message || "Could not rotate QR.");
+          showPunchNote(error.message || "Could not rotate QR.", "error");
         }
       });
     } catch (error) {
@@ -747,16 +804,16 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showMessage(data.detail || "Could not save site.");
+        showPunchNote(data.detail || "Could not save site.", "error");
         return;
       }
-      showMessage("Site updated.", "ok");
+      showPunchNote("Site updated.", "ok");
       await loadSites();
       selectedSiteId = siteId;
       renderSiteDetail(sites.find((s) => s.id === siteId));
       updatePunchStats();
     } catch (error) {
-      showMessage(error.message || "Could not save site.");
+      showPunchNote(error.message || "Could not save site.", "error");
     }
   }
 
@@ -830,7 +887,7 @@
         const site = sites.find((item) => item.id === Number(btn.dataset.siteQrDownload));
         if (!site) return;
         void downloadSiteClockQr(site.id, site.name).catch((error) => {
-          showMessage(error.message || "Could not download QR.");
+          showPunchNote(error.message || "Could not download QR.", "error");
         });
       });
     });
@@ -840,7 +897,7 @@
         const siteId = Number(btn.dataset.siteQrPrint);
         void fetchSiteClockQr(siteId)
           .then((data) => openPunchCardPage("pocket", data))
-          .catch((error) => showMessage(error.message || "Could not load QR."));
+          .catch((error) => showPunchNote(error.message || "Could not load QR.", "error"));
       });
     });
   }
@@ -1075,7 +1132,7 @@
     } catch (error) {
       punches = [];
       if (parseHashBaseSection(window.location.hash) === "time-punch" && activeTab === "log") {
-        showMessage(error.message || "Could not load punch log.");
+        showPunchNote(error.message || "Could not load punch log.", "error");
       }
     }
     renderPunchesTable();
@@ -1113,15 +1170,14 @@
     const btn = sourceBtn || $("sync-punch-site-btn");
     await loadTenantProfile();
     let address = resolveRegisteredAddress();
-    if (!address) {
-      showMessage(
-        "Add your registered business address in Settings → Business profile first (include a full UK postcode).",
-      );
+    const addressCheck = validateRegisteredAddress(address);
+    if (!addressCheck.ok) {
+      showPunchNote(addressCheck.message, address ? "warn" : "error");
       updateSetupUi();
       return;
     }
     if (btn) btn.disabled = true;
-    showMessage("Syncing from registered business address…");
+    showPunchNote("Syncing from registered business address…");
     try {
       address = await ensureRegisteredAddressSaved(address);
       const res = await apiFetch("/admin/time-punch/sites/sync-from-address", {
@@ -1130,19 +1186,20 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showMessage(parseApiDetail(data, "Sync failed."));
+        showPunchNote(parseApiDetail(data, "Sync failed."), "error");
         updateSetupUi();
         return;
       }
       localStorage.setItem("punch-last-sync-at", new Date().toISOString());
-      showMessage(`Synced primary site: ${data.name}. QR codes are ready below.`, "ok");
+      showPunchNote(`Synced primary site: ${data.name}. QR codes are ready below.`, "ok");
       selectedSiteId = data.id;
       await Promise.all([loadSites(), loadTodayPunches(), loadWeekPunches()]);
       updatePunchStats();
-      scrollToQrGallery();
+      window.setTimeout(scrollToQrGallery, 450);
     } catch (error) {
-      showMessage(error.message || "Sync failed.");
+      showPunchNote(error.message || "Sync failed.", "error");
     } finally {
+      if (btn) btn.disabled = false;
       updateSetupUi();
     }
   }
@@ -1163,10 +1220,10 @@
     const activeSites = (sites || []).filter((site) => site.is_active);
     if (!activeSites.length) {
       posterWindow?.close();
-      showMessage("Sync from address or add a site manually first — then print the QR poster.");
+      showPunchNote("Sync from address or add a site manually first — then print the QR poster.", "warn");
       return;
     }
-    showMessage("Preparing A4 poster…");
+    showPunchNote("Preparing A4 poster…");
     try {
       const qrItems = await Promise.all(
         activeSites.map(async (site) => {
@@ -1195,10 +1252,10 @@
       } else {
         window.open(posterUrl, "_blank", "noopener");
       }
-      showMessage("Poster opened in a new tab — click Print poster.", "ok");
+      showPunchNote("Poster opened in a new tab — click Print poster.", "ok");
     } catch (error) {
       posterWindow?.close();
-      showMessage(error.message || "Could not prepare poster.");
+      showPunchNote(error.message || "Could not prepare poster.", "error");
     }
   }
 
@@ -1289,10 +1346,10 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Approve failed");
-      showMessage(status === "approved" ? "Timesheet approved." : "Timesheet rejected.", "ok");
+      showPunchNote(status === "approved" ? "Timesheet approved." : "Timesheet rejected.", "ok");
       await loadTimesheet();
     } catch (error) {
-      showMessage(error.message || "Could not update approval.");
+      showPunchNote(error.message || "Could not update approval.", "error");
     }
   }
 
@@ -1304,10 +1361,10 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Bulk approve failed");
-      showMessage(`${data.updated} timesheet${data.updated === 1 ? "" : "s"} marked ${status}.`, "ok");
+      showPunchNote(`${data.updated} timesheet${data.updated === 1 ? "" : "s"} marked ${status}.`, "ok");
       await loadTimesheet();
     } catch (error) {
-      showMessage(error.message || "Could not approve all.");
+      showPunchNote(error.message || "Could not approve all.", "error");
     }
   }
 
@@ -1318,7 +1375,12 @@
       radius_meters: resolveRadius(form),
       permitted_roles: resolvePermittedRoles(form),
     };
-    showMessage("Adding punch site…");
+    const addressCheck = validateRegisteredAddress(payload.address);
+    if (!addressCheck.ok) {
+      showPunchNote(addressCheck.message, "warn");
+      return;
+    }
+    showPunchNote("Adding punch site…");
     try {
       const res = await apiFetch("/admin/time-punch/sites", {
         method: "POST",
@@ -1327,18 +1389,18 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showMessage(data.detail || "Could not add site.");
+        showPunchNote(data.detail || "Could not add site.", "error");
         return;
       }
       form.reset();
       $("punch-manual-form").hidden = true;
-      showMessage(`Added punch site: ${data.name}`, "ok");
+      showPunchNote(`Added punch site: ${data.name}`, "ok");
       selectedSiteId = data.id;
       await loadSites();
       renderSiteDetail(data);
       updatePunchStats();
     } catch (error) {
-      showMessage(error.message || "Could not add site.");
+      showPunchNote(error.message || "Could not add site.", "error");
     }
   }
 
@@ -1352,7 +1414,7 @@
     if (form.punched_at.value) {
       payload.punched_at = new Date(form.punched_at.value).toISOString();
     }
-    showMessage("Recording admin punch…");
+    showPunchNote("Recording admin punch…");
     try {
       const res = await apiFetch("/admin/time-punch/punches/admin", {
         method: "POST",
@@ -1361,11 +1423,11 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showMessage(data.detail || "Could not record punch.");
+        showPunchNote(data.detail || "Could not record punch.", "error");
         return;
       }
       form.admin_note.value = "";
-      showMessage(
+      showPunchNote(
         `Recorded ${data.punch_type === "in" ? "clock in" : "clock out"} for ${data.employee_name}`,
         "ok"
       );
@@ -1373,7 +1435,7 @@
       if (selectedSiteId) renderSiteDetail(sites.find((s) => s.id === selectedSiteId));
       updatePunchStats();
     } catch (error) {
-      showMessage(error.message || "Could not record punch.");
+      showPunchNote(error.message || "Could not record punch.", "error");
     }
   }
 
@@ -1388,12 +1450,12 @@
         `/admin/time-punch/hours-report.pdf?${params.toString()}`,
         `working-hours-${resolved.date_from}-to-${resolved.date_to}.pdf`,
       );
-      showMessage(
+      showPunchNote(
         `Hours PDF downloaded for ${resolved.date_from} to ${resolved.date_to}. Send this to your accountant.`,
         "ok",
       );
     } catch (error) {
-      showMessage(error.message || "Hours PDF export failed.");
+      showPunchNote(error.message || "Hours PDF export failed.", "error");
     }
   }
 
@@ -1409,7 +1471,7 @@
       date_to: period.date_to,
     };
     await loadPunches();
-    showMessage(`Showing punch log for ${period.date_from} to ${period.date_to}.`, "ok");
+    showPunchNote(`Showing punch log for ${period.date_from} to ${period.date_to}.`, "ok");
   }
 
   async function exportLastMonthHoursPdf() {
@@ -1434,16 +1496,16 @@
         `/admin/time-punch/punches/export.csv${qs ? `?${qs}` : ""}`,
         `time-punches-${new Date().toISOString().slice(0, 10)}.csv`
       );
-      showMessage("Punch export downloaded.", "ok");
+      showPunchNote("Punch export downloaded.", "ok");
     } catch (error) {
-      showMessage(error.message || "Export failed.");
+      showPunchNote(error.message || "Export failed.", "error");
     }
   }
 
   function openPosterWindow() {
     const posterWindow = window.open("about:blank", "_blank", "noopener");
     if (!posterWindow) {
-      showMessage("Allow pop-ups to print the QR poster.");
+      showPunchNote("Allow pop-ups to print the QR poster.", "warn");
       return null;
     }
     void openAllSitesPoster(posterWindow);
@@ -1551,7 +1613,7 @@
   async function initSection() {
     bindEvents();
     resetPunchFilters();
-    showMessage("");
+    showPunchNote("");
     try {
       if (window.Admin?.loadTenantFeatures) {
         await window.Admin.loadTenantFeatures();
@@ -1590,7 +1652,12 @@
     mergeTenantProfile(event.detail);
     updateSetupUi();
     if (parseHashBaseSection(window.location.hash) === "time-punch") {
-      void initSection();
+      void loadTenantProfile().then(() => {
+        updateSetupUi();
+        if (!sites.length && hasBusinessAddress()) {
+          void maybeAutoSyncPrimarySite();
+        }
+      });
       return;
     }
     void loadTenantProfile().then(updateSetupUi);

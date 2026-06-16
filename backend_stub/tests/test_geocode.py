@@ -10,13 +10,31 @@ import pytest
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from modules.time_punch.geocode import extract_uk_postcode, geocode_address
+from modules.time_punch.geocode import extract_uk_postcode, geocode_address, validate_geocode_address
 
 
 def test_extract_uk_postcode() -> None:
     assert extract_uk_postcode("1 Spinningfields, Manchester M3 3AP") == "M3 3AP"
     assert extract_uk_postcode("London SW1A 1AA") == "SW1A 1AA"
     assert extract_uk_postcode("No postcode here") is None
+
+
+def test_validate_geocode_address() -> None:
+    ok, err = validate_geocode_address("M3 3AP")
+    assert ok is False
+    assert err
+
+    ok, err = validate_geocode_address("1 Spinningfields, Manchester M3 3AP")
+    assert ok is True
+    assert err is None
+
+    ok, err = validate_geocode_address("156 Front Street, Arnold, Nottingham, NG5 7EG")
+    assert ok is True
+    assert err is None
+
+    ok, err = validate_geocode_address("No postcode street, Nottingham")
+    assert ok is False
+    assert "postcode" in (err or "").lower()
 
 
 @pytest.mark.skipif(True, reason="Requires network access to postcodes.io")

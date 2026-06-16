@@ -195,6 +195,12 @@ def update_tenant_profile(
     if "registered_address" in allowed:
         trimmed = str(allowed["registered_address"] or "").strip()
         allowed["registered_address"] = trimmed or None
+        if allowed["registered_address"]:
+            from modules.time_punch.geocode import validate_geocode_address
+
+            valid, validation_error = validate_geocode_address(allowed["registered_address"])
+            if not valid:
+                raise ValueError(validation_error or "Invalid registered address")
     if not allowed:
         return get_tenant_profile(tenant_id=tenant_id, conn=conn)
 

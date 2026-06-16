@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from modules.time_punch.geocode import geocode_address
+from modules.time_punch.geocode import geocode_address, validate_geocode_address
 
 UK_TZ = ZoneInfo("Europe/London")
 
@@ -418,6 +418,9 @@ def sync_primary_site_from_tenant_address(
             "missing_address",
             "Set your registered business address in Settings → Business profile, then sync again.",
         )
+    valid, validation_error = validate_geocode_address(address)
+    if not valid:
+        raise PunchSyncError("invalid_address", validation_error or "Invalid business address.")
     coords = geocode_address(address)
     if not coords:
         raise PunchSyncError(
@@ -451,6 +454,9 @@ def create_punch_site(
     clean_address = address.strip()
     if not clean_name or not clean_address:
         raise ValueError("Name and address are required")
+    valid, validation_error = validate_geocode_address(clean_address)
+    if not valid:
+        raise ValueError(validation_error or "Invalid address")
     coords = geocode_address(clean_address)
     if not coords:
         raise LookupError("Could not geocode address — check the address or try a fuller postcode")

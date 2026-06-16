@@ -372,6 +372,10 @@
       mountEditForm(mountHost, FORM_SCHEMAS.tenantProfile, {
         values,
         onSubmit: async (payload) => {
+          if (payload.registered_address) {
+            const check = window.Admin?.validateBusinessAddress?.(payload.registered_address);
+            if (check && !check.ok) throw new Error(check.message);
+          }
           const res = await apiFetch("/admin/tenant-profile", {
             method: "PATCH",
             body: JSON.stringify(payload),

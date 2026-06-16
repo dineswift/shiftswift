@@ -9343,12 +9343,58 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .punch-admin-message {
-  margin: 0;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+}
+
+.punch-admin-message--info {
+  border: 1px solid var(--card-border);
+  background: var(--surface-muted, #f6f7f8);
+  color: var(--ink-600);
 }
 
 .punch-admin-message--ok {
   color: var(--green-800);
   font-weight: 600;
+}
+
+.punch-toast {
+  position: sticky;
+  top: 8px;
+  z-index: 6;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.84rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.punch-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.punch-toast--ok {
+  border: 1px solid #9fe1cb;
+  background: #edf9f3;
+  color: var(--green-900);
+}
+
+.punch-toast--warn {
+  border: 1px solid #f0d59a;
+  background: #fff8e8;
+  color: #7a4b00;
+}
+
+.punch-toast--error {
+  border: 1px solid #efb8b8;
+  background: #fff1f1;
+  color: #8b1e1e;
 }
 
 .punch-view-tabs {

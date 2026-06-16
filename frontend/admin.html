@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v66" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v67" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1649,7 +1649,8 @@
             </div>
           </div>
 
-          <p id="punch-admin-message" class="muted punch-admin-message" aria-live="polite" hidden></p>
+          <div id="punch-toast" class="punch-toast" hidden role="status" aria-live="polite"></div>
+          <p id="punch-admin-message" class="muted punch-admin-message punch-admin-message--info" aria-live="polite" hidden></p>
 
           <div class="hr-stats-grid punch-stats-grid" aria-label="Time punch summary">
             <div class="hr-stat-card">
@@ -1703,7 +1704,7 @@
                   <h4 class="hr-section-title">Add site manually</h4>
                   <form id="punch-manual-form-el" class="punch-inline-form">
                     <label class="edit-field"><span class="edit-label">Site name</span><input type="text" name="name" required placeholder="e.g. Main office" /></label>
-                    <label class="edit-field" data-span="2"><span class="edit-label">Address</span><textarea name="address" rows="2" required placeholder="Full address including postcode"></textarea></label>
+                    <label class="edit-field" data-span="2"><span class="edit-label">Address</span><textarea name="address" rows="2" required placeholder="Full street address including UK postcode, e.g. 1 Spinningfields, Manchester M3 3AP"></textarea></label>
                     <label class="edit-field"><span class="edit-label">Geofence radius</span>
                       <select name="radius_preset" id="punch-radius-preset">
                         <option value="50">50m</option>
@@ -2512,9 +2513,9 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=10"></script>
     <script src="./admin-compliance-mobile.js?v=2"></script>
-    <script src="./admin-shared.js?v=admin-v21"></script>
+    <script src="./admin-shared.js?v=admin-v22"></script>
     <script src="./admin-workspace.js?v=admin-v19"></script>
-    <script src="./admin-settings.js?v=16"></script>
+    <script src="./admin-settings.js?v=17"></script>
     <script src="./admin-documents.js?v=6"></script>
     <script src="./admin-employees.js?v=21"></script>
     <script src="./admin-recruitment.js?v=6"></script>
@@ -2527,7 +2528,7 @@
     <script src="./admin-disciplinary.js?v=1"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
-    <script src="./admin-time-punch.js?v=19"></script>
+    <script src="./admin-time-punch.js?v=20"></script>
     <script src="./admin-rota.js?v=20"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>

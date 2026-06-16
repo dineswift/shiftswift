@@ -141,6 +141,33 @@ window.Admin = (() => {
     else localStorage.removeItem(key);
   }
 
+  const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
+  const MIN_BUSINESS_ADDRESS_LEN = 10;
+  const BUSINESS_ADDRESS_EXAMPLE = "1 Spinningfields, Manchester M3 3AP";
+
+  function validateBusinessAddress(address) {
+    const trimmed = String(address || "").trim();
+    if (!trimmed) {
+      return {
+        ok: false,
+        message: "Add your registered business address in Settings → Business profile first.",
+      };
+    }
+    if (trimmed.length < MIN_BUSINESS_ADDRESS_LEN) {
+      return {
+        ok: false,
+        message: "Enter the full street address including town or city — not just a postcode.",
+      };
+    }
+    if (!UK_POSTCODE_RE.test(trimmed)) {
+      return {
+        ok: false,
+        message: `Include a valid UK postcode (e.g. ${BUSINESS_ADDRESS_EXAMPLE}).`,
+      };
+    }
+    return { ok: true, message: "" };
+  }
+
   function getCachedTenantRegisteredAddress() {
     const fromProfile = String(tenantProfileSnapshot?.registered_address || "").trim();
     if (fromProfile) return fromProfile;
@@ -646,7 +673,13 @@ window.Admin = (() => {
             { name: "trading_name", label: "Trading name", type: "text" },
             { name: "company_number", label: "Company number", type: "text" },
             { name: "vat_number", label: "VAT number", type: "text" },
-            { name: "registered_address", label: "Registered address", type: "textarea", span: 2 },
+            {
+              name: "registered_address",
+              label: "Registered address",
+              type: "textarea",
+              span: 2,
+              placeholder: "Full street address including UK postcode, e.g. 1 Spinningfields, Manchester M3 3AP",
+            },
           ],
         },
         {
@@ -873,6 +906,8 @@ window.Admin = (() => {
     prefetchTenantProfile,
     rememberTenantRegisteredAddress,
     getCachedTenantRegisteredAddress,
+    validateBusinessAddress,
+    BUSINESS_ADDRESS_EXAMPLE,
     get tenantProfileSnapshot() {
       return tenantProfileSnapshot;
     },
