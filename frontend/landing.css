@@ -226,6 +226,7 @@ a { color: inherit; text-decoration: none; }
   z-index: 1;
   --page-gutter: 24px;
   --page-max: 1320px;
+  --content-inset-x: max(var(--page-gutter), calc((100vw - var(--page-max)) / 2 + var(--page-gutter)));
   max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--page-gutter);
@@ -626,13 +627,12 @@ body.is-loading .page {
 }
 
 .hero-band {
-  --hero-inline: clamp(20px, 4vw, 56px);
   width: 100vw;
   max-width: 100vw;
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
   margin-bottom: 8px;
-  padding: 28px var(--hero-inline) 44px;
+  padding: 28px var(--content-inset-x) 44px;
   background-color: #0f2e22;
   background-image:
     radial-gradient(ellipse 80% 60% at 100% 0%, rgba(29, 158, 117, 0.14) 0%, transparent 55%),
@@ -2012,7 +2012,6 @@ body.is-loading .page {
   }
 
   .hero-band {
-    --hero-inline: 20px;
     padding-top: 24px;
     padding-bottom: 32px;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
