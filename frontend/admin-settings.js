@@ -354,7 +354,14 @@
           const now = new Date().toISOString();
           localStorage.setItem(SAVED_AT_KEY, now);
           updateLastSavedLabel(now);
-          showSettingsToast("Business details saved ✓");
+          const sync = data.punch_site_sync;
+          let toast = "Business details saved ✓";
+          if (sync?.ok) {
+            toast = `${toast} Punch site synced: ${sync.site_name}.`;
+          } else if (sync?.message) {
+            toast = `${toast} Punch site sync failed: ${sync.message}`;
+          }
+          showSettingsToast(toast);
           cacheRegisteredAddress(data.registered_address);
           window.dispatchEvent(new CustomEvent("admin:tenant-profile-saved", { detail: data }));
         },

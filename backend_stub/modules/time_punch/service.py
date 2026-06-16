@@ -376,28 +376,56 @@ def upsert_primary_punch_site(
     return _site_row(row)
 
 
-def sync_primary_site_from_tenant_address(*, tenant_id: int, conn: Any) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT name, trading_name, registered_address FROM tenants WHERE id = %s",
-            (tenant_id,),
-        )
-        row = cur.fetchone()
-    address = str(row[2]).strip() if row and row[2] else ""
+def sync_primary_site_from_tenant_address(
+    *,
+    tenant_id: int,
+    conn: Any,
+    address_override: str | None = None,
+    persist_address: bool = False,
+) -> dict[str, Any]:
+    address = str(address_override or "").strip()
+    name = "Primary site"
+    if not address:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT name, trading_name, registered_address FROM tenants WHERE id = %s",
+                (tenant_id,),
+            )
+            row = cur.fetchone()
+        if not row:
+            raise PunchSyncError("missing_address", "Business not found.")
+        address = str(row[2] or "").strip()
+        name = (row[1] or row[0] or name) if row else name
+    else:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT name, trading_name FROM tenants WHERE id = %s",
+                (tenant_id,),
+            )
+            row = cur.fetchone()
+        if row:
+            name = row[1] or row[0] or name
+        if persist_address:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE tenants SET registered_address = %s WHERE id = %s",
+                    (address, tenant_id),
+                )
+            conn.commit()
+
     if not address:
         raise PunchSyncError(
             "missing_address",
             "Set your registered business address in Settings → Business profile, then sync again.",
         )
-    name = (row[1] or row[0] or "Primary site") if row else "Primary site"
     coords = geocode_address(address)
     if not coords:
         raise PunchSyncError(
             "geocode_failed",
-            "Could not locate that address on the map. Include a full UK postcode (e.g. M3 3AP) in Settings → Business profile.",
+            "Could not locate that address on the map. Include a full UK postcode (e.g. NG5 7EG) in Settings → Business profile.",
         )
     lat, lng = coords
-    return upsert_primary_punch_site(
+    site = upsert_primary_punch_site(
         tenant_id=tenant_id,
         name=f"{name} — main",
         address=address,
@@ -405,6 +433,8 @@ def sync_primary_site_from_tenant_address(*, tenant_id: int, conn: Any) -> dict[
         longitude=lng,
         conn=conn,
     )
+    ensure_site_clock_token(tenant_id=tenant_id, site_id=site["id"], conn=conn)
+    return site
 
 
 def create_punch_site(

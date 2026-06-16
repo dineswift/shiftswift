@@ -71,10 +71,12 @@ def geocode_address(address: str) -> tuple[float, float] | None:
     query = (address or "").strip()
     if len(query) < 5:
         return None
+    postcode = extract_uk_postcode(query)
+    if postcode:
+        coords = _geocode_uk_postcode(postcode)
+        if coords:
+            return coords
     coords = _geocode_nominatim(query)
     if coords:
         return coords
-    postcode = extract_uk_postcode(query)
-    if postcode:
-        return _geocode_uk_postcode(postcode)
     return None

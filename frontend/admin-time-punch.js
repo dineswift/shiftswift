@@ -144,6 +144,10 @@
   }
 
   function hasBusinessAddress() {
+    return Boolean(resolveRegisteredAddress());
+  }
+
+  function resolveRegisteredAddress() {
     const candidates = [
       tenantProfile?.registered_address,
       window.Admin?.tenantProfileSnapshot?.registered_address,
@@ -151,7 +155,26 @@
       primarySite()?.address,
       registeredAddressFromDom(),
     ];
-    return candidates.some((value) => Boolean(String(value || "").trim()));
+    for (const value of candidates) {
+      const trimmed = String(value || "").trim();
+      if (trimmed) return trimmed;
+    }
+    return "";
+  }
+
+  async function ensureRegisteredAddressSaved(address) {
+    const trimmed = String(address || "").trim();
+    if (!trimmed) return "";
+    const current = String(tenantProfile?.registered_address || "").trim();
+    if (current === trimmed) return trimmed;
+    const res = await apiFetch("/admin/tenant-profile", {
+      method: "PATCH",
+      body: JSON.stringify({ registered_address: trimmed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(parseApiDetail(data, "Could not save business address."));
+    mergeTenantProfile(data);
+    return trimmed;
   }
 
   function primarySite() {
@@ -943,7 +966,8 @@
   async function syncFromAddress(sourceBtn) {
     const btn = sourceBtn || $("sync-punch-site-btn");
     await loadTenantProfile();
-    if (!hasBusinessAddress()) {
+    let address = resolveRegisteredAddress();
+    if (!address) {
       showMessage(
         "Add your registered business address in Settings → Business profile first (include a full UK postcode).",
       );
@@ -953,7 +977,11 @@
     if (btn) btn.disabled = true;
     showMessage("Syncing from registered business address…");
     try {
-      const res = await apiFetch("/admin/time-punch/sites/sync-from-address", { method: "POST" });
+      address = await ensureRegisteredAddressSaved(address);
+      const res = await apiFetch("/admin/time-punch/sites/sync-from-address", {
+        method: "POST",
+        body: JSON.stringify({ registered_address: address }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         showMessage(parseApiDetail(data, "Sync failed."));

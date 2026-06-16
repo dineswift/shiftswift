@@ -67,6 +67,10 @@ class PunchSiteCreate(BaseModel):
     permitted_roles: str = Field(default="all", max_length=200)
 
 
+class SyncFromAddressRequest(BaseModel):
+    registered_address: str | None = Field(default=None, max_length=500)
+
+
 class AdminPunchRequest(BaseModel):
     employee_id: int
     punch_site_id: int
@@ -288,16 +292,29 @@ def list_sites(
 def sync_site_from_address(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    payload: SyncFromAddressRequest | None = None,
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    body = payload or SyncFromAddressRequest()
+    address_override = (body.registered_address or "").strip() or None
     conn = get_connection()
     try:
         try:
-            site = punch_service.sync_primary_site_from_tenant_address(tenant_id=tenant_id, conn=conn)
+            site = punch_service.sync_primary_site_from_tenant_address(
+                tenant_id=tenant_id,
+                conn=conn,
+                address_override=address_override,
+                persist_address=bool(address_override),
+            )
         except punch_service.PunchSyncError as exc:
             raise HTTPException(
                 status_code=400,
                 detail={"message": str(exc), "code": exc.code},
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={"message": f"Could not sync punch site: {exc}", "code": "sync_error"},
             ) from exc
     finally:
         conn.close()

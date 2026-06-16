@@ -26,3 +26,23 @@ def test_geocode_address_accepts_uk_postcode_only() -> None:
     lat, lng = coords
     assert 53.0 < lat < 54.0
     assert -3.0 < lng < -2.0
+
+
+def test_geocode_address_prefers_postcode_before_nominatim(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_postcode(postcode: str):
+        calls.append(f"postcode:{postcode}")
+        return 53.005292, -1.126752
+
+    def fake_nominatim(query: str):
+        calls.append(f"nominatim:{query}")
+        return None
+
+    monkeypatch.setattr("modules.time_punch.geocode._geocode_uk_postcode", fake_postcode)
+    monkeypatch.setattr("modules.time_punch.geocode._geocode_nominatim", fake_nominatim)
+
+    coords = geocode_address("156 Front street, Arnold, Nottingham, NG5 7EG")
+    assert coords == (53.005292, -1.126752)
+    assert calls[0].startswith("postcode:")
+    assert all(not call.startswith("nominatim:") for call in calls)

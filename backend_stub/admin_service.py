@@ -192,6 +192,9 @@ def update_tenant_profile(
     conn: Any,
 ) -> dict[str, Any]:
     allowed = {k: v for k, v in updates.items() if k in TENANT_PROFILE_FIELDS}
+    if "registered_address" in allowed:
+        trimmed = str(allowed["registered_address"] or "").strip()
+        allowed["registered_address"] = trimmed or None
     if not allowed:
         return get_tenant_profile(tenant_id=tenant_id, conn=conn)
 
@@ -248,17 +251,25 @@ def update_tenant_profile(
         cur.execute(f"UPDATE tenants SET {sets} WHERE id = %s", values)
         conn.commit()
 
+    punch_site_sync: dict[str, Any] | None = None
     if allowed.get("registered_address"):
         try:
             from modules.time_punch.service import PunchSyncError, sync_primary_site_from_tenant_address
 
-            sync_primary_site_from_tenant_address(tenant_id=tenant_id, conn=conn)
-        except PunchSyncError:
-            pass
-        except Exception:
-            pass
+            site = sync_primary_site_from_tenant_address(tenant_id=tenant_id, conn=conn)
+            punch_site_sync = {
+                "ok": True,
+                "site_id": site["id"],
+                "site_name": site["name"],
+            }
+        except PunchSyncError as exc:
+            punch_site_sync = {"ok": False, "code": exc.code, "message": str(exc)}
+        except Exception as exc:
+            punch_site_sync = {"ok": False, "code": "sync_error", "message": str(exc)}
 
     profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    if punch_site_sync is not None:
+        profile["punch_site_sync"] = punch_site_sync
 
     log_employee_data_event(
         tenant_id=tenant_id,
