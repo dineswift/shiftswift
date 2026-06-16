@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import Response
@@ -17,6 +16,7 @@ from deps import client_ip, get_employee_user, get_hr_user, require_tenant_subsc
 from modules.time_punch import service as punch_service
 from modules.time_punch import kiosk as kiosk_service
 from modules.time_punch import timesheet as timesheet_service
+from modules.time_punch.qr import punch_qr_data_uri, punch_qr_png_bytes
 
 PunchAction = Literal["in", "out", "break_start", "break_end"]
 
@@ -364,6 +364,20 @@ def patch_site(
         conn.close()
 
 
+def _clock_qr_payload(*, site_id: int, site_name: str, clock_token: str) -> dict[str, object]:
+    clock_url = punch_service.site_clock_url(clock_token=clock_token)
+    qr_data_uri = punch_qr_data_uri(clock_url, box_size=10, border=2)
+    return {
+        "site_id": site_id,
+        "site_name": site_name,
+        "clock_token": clock_token,
+        "clock_url": clock_url,
+        "kiosk_url": punch_service.site_kiosk_url(clock_token=clock_token),
+        "qr_image_data_uri": qr_data_uri,
+        "qr_image_url": qr_data_uri,
+    }
+
+
 @admin_router.get("/sites/{site_id}/clock-qr")
 def site_clock_qr(
     site_id: int,
@@ -388,15 +402,40 @@ def site_clock_qr(
         if not row:
             raise HTTPException(status_code=404, detail="Punch site not found")
         site = punch_service._site_row(row)
+        return _clock_qr_payload(site_id=site_id, site_name=site["name"], clock_token=token)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.get("/sites/{site_id}/clock-qr.png")
+def site_clock_qr_png(
+    site_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        token = punch_service.ensure_site_clock_token(tenant_id=tenant_id, site_id=site_id, conn=conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT name FROM punch_sites WHERE id = %s AND tenant_id = %s",
+                (site_id, tenant_id),
+            )
+            row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Punch site not found")
         clock_url = punch_service.site_clock_url(clock_token=token)
-        return {
-            "site_id": site_id,
-            "site_name": site["name"],
-            "clock_token": token,
-            "clock_url": clock_url,
-            "kiosk_url": punch_service.site_kiosk_url(clock_token=token),
-            "qr_image_url": f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={quote(clock_url, safe='')}",
-        }
+        png = punch_qr_png_bytes(clock_url, box_size=10, border=2)
+        safe_name = str(row[0] or "work-site").replace('"', "").replace("/", "-")
+        filename = f"premises-clock-qr-{safe_name}.png"
+        return Response(
+            content=png,
+            media_type="image/png",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
@@ -413,14 +452,15 @@ def rotate_site_clock_token(
     conn = get_connection()
     try:
         token = punch_service.rotate_site_clock_token(tenant_id=tenant_id, site_id=site_id, conn=conn)
-        clock_url = punch_service.site_clock_url(clock_token=token)
-        return {
-            "site_id": site_id,
-            "clock_token": token,
-            "clock_url": clock_url,
-            "kiosk_url": punch_service.site_kiosk_url(clock_token=token),
-            "qr_image_url": f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={quote(clock_url, safe='')}",
-        }
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT name FROM punch_sites WHERE id = %s AND tenant_id = %s",
+                (site_id, tenant_id),
+            )
+            row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Punch site not found")
+        return _clock_qr_payload(site_id=site_id, site_name=str(row[0]), clock_token=token)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:

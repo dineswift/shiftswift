@@ -182,10 +182,11 @@
         const printBtn = document.getElementById("poster-print-btn");
         const raw = sessionStorage.getItem("punchPosterPayload");
 
-        function qrUrl(clockUrl) {
+        function qrUrl(site) {
+          if (site.qr_image_data_uri) return site.qr_image_data_uri;
           return (
             "https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=" +
-            encodeURIComponent(clockUrl)
+            encodeURIComponent(site.clock_url || "")
           );
         }
 
@@ -225,7 +226,7 @@
         const tiles = sites
           .map(
             (site) => `<article class="poster-tile">
-              <img src="${qrUrl(site.clock_url)}" alt="QR for ${escapeHtml(site.site_name)}" />
+              <img src="${qrUrl(site)}" alt="QR for ${escapeHtml(site.site_name)}" />
               <div>
                 <h2>${escapeHtml(site.site_name)}</h2>
                 <p>Scan this QR at <strong>${escapeHtml(site.site_name)}</strong>, then clock in or out in the Time Clock app.</p>

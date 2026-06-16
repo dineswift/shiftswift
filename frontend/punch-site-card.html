@@ -380,9 +380,30 @@
 
     <script>
       (function () {
+        function qrSrc(url, embedded) {
+          if (embedded) return embedded;
+          if (!url) return "";
+          return (
+            "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=" +
+            encodeURIComponent(url)
+          );
+        }
+
+        function readCardPayload() {
+          const raw = sessionStorage.getItem("punchCardPayload");
+          if (!raw) return null;
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return null;
+          }
+        }
+
+        const stored = readCardPayload();
         const params = new URLSearchParams(window.location.search);
-        const clockUrl = params.get("url") || "";
-        const siteName = params.get("site") || "Work site";
+        const clockUrl = stored?.clock_url || params.get("url") || "";
+        const siteName = stored?.site_name || params.get("site") || "Work site";
+        const embeddedQr = stored?.qr_image_data_uri || "";
         const preview = document.getElementById("card-preview");
         const empty = document.getElementById("card-empty");
         const qrImg = document.getElementById("card-qr-image");
@@ -395,13 +416,6 @@
         const pocketBtn = document.getElementById("card-size-pocket");
         const deskBtn = document.getElementById("card-size-desk");
         const tentBtn = document.getElementById("card-size-tent");
-
-        function qrSrc(url) {
-          return (
-            "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=" +
-            encodeURIComponent(url)
-          );
-        }
 
         function setLayout(mode) {
           document.body.classList.remove("layout-pocket", "layout-desk", "layout-tent");
@@ -436,16 +450,18 @@
         preview.hidden = false;
         siteEl.textContent = siteName;
         if (tentSiteEl) tentSiteEl.textContent = siteName;
-        const qr = qrSrc(clockUrl);
+        const qr = qrSrc(clockUrl, embeddedQr);
         qrImg.src = qr;
         qrImg.alt = "Premises clock-in QR for " + siteName;
         if (tentQrImg) {
-          tentQrImg.src = qr.replace("320x320", "480x480");
+          tentQrImg.src = qr;
           tentQrImg.alt = qrImg.alt;
         }
         renderPortalLines("card-portals");
 
-        const initialLayout = params.get("layout") === "tent" ? "tent" : "pocket";
+        const initialLayout =
+          stored?.layout ||
+          (params.get("layout") === "tent" ? "tent" : params.get("layout") === "desk" ? "desk" : "pocket");
         setLayout(initialLayout);
 
         printBtn?.addEventListener("click", () => window.print());
