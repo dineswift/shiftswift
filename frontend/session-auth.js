@@ -61,7 +61,9 @@
     return refreshInFlight;
   }
 
-  function authHeaders({ json = true, tenantId } = {}) {
+  function authHeaders(options = {}) {
+    const resolved = typeof options === "boolean" ? { json: options } : options || {};
+    const { json = true, tenantId } = resolved;
     const token = getToken();
     const headers = {
       Authorization: token ? `Bearer ${token}` : "",

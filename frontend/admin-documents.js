@@ -15,6 +15,41 @@
 
   let employeeLookup = [];
 
+  function parseApiDetail(data, fallback) {
+    if (!data || typeof data !== "object") return fallback;
+    const detail = data.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item.msg || item.message || String(item)).join("; ");
+    }
+    return fallback;
+  }
+
+  async function uploadMultipart(path, formData) {
+    const res = await window.ShiftSwiftSession.fetchWithAuth(
+      path,
+      { method: "POST", body: formData },
+      { apiBase: API_BASE, tenantId: window.Admin.TENANT_ID }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
+    return data;
+  }
+
+  async function refreshDocumentViews(statusEl) {
+    try {
+      await refreshDocuments();
+      await refreshExpiringDocuments();
+    } catch (error) {
+      console.warn("Document list refresh failed:", error);
+      if (statusEl) {
+        statusEl.textContent = "Uploaded, but the list could not refresh. Reload this page to see it.";
+      }
+      window.AdminSettings?.showSettingsToast?.("Document saved — reload if the list looks empty.");
+    }
+  }
+
   function categoryLabel(value) {
     const categories = window.Admin.formOptions?.document_categories || [];
     return categories.find((item) => item.value === value)?.label || value;
@@ -279,8 +314,11 @@
 
   function mountUploadForm() {
     const form = document.getElementById("document-upload-form");
-    if (!form || form.dataset.ready === "true") return;
+    if (!form) return;
     const categories = window.Admin.formOptions?.document_categories || [];
+    if (form.dataset.ready === "true" && categories.length) return;
+    if (form.dataset.ready === "true") form.dataset.ready = "false";
+    if (form.dataset.ready === "true") return;
     const stages = formLifecycleStages();
     const categorySelect = document.getElementById("document-upload-category");
     const stageSelect = document.getElementById("document-upload-stage");
@@ -312,29 +350,35 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const status = form.querySelector("[data-status]");
-      if (status) status.textContent = "Uploading…";
+      const employeeSearch = document.getElementById("document-upload-employee-search");
+      const employeeIdField = document.getElementById("document-upload-employee-id");
+      if (employeeSearch?.value.trim() && !employeeIdField?.value) {
+        if (status) {
+          status.textContent = "Select an employee from the suggestions, or clear the field for tenant-wide.";
+        }
+        return;
+      }
       const fd = new FormData(form);
+      const file = fd.get("file");
+      if (!file || (file instanceof File && !file.size)) {
+        if (status) status.textContent = "Choose a file to upload.";
+        return;
+      }
+      if (status) status.textContent = "Uploading…";
       const visible = form.querySelector("#document-upload-visible")?.checked ?? false;
       fd.set("employee_visible", visible ? "true" : "false");
       if (!fd.get("employee_id")) fd.delete("employee_id");
       try {
-        const res = await fetch(`${API_BASE}/admin/documents/upload`, {
-          method: "POST",
-          headers: authHeaders(false),
-          body: fd,
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Upload failed");
+        await uploadMultipart("/admin/documents/upload", fd);
         form.reset();
         document.getElementById("document-upload-employee-id").value = "";
         document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
         syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
         if (status) status.textContent = "Uploaded.";
         window.AdminSettings?.showSettingsToast?.("Document uploaded ✓");
-        await refreshDocuments();
-        await refreshExpiringDocuments();
+        await refreshDocumentViews(status);
       } catch (error) {
-        if (status) status.textContent = error.message;
+        if (status) status.textContent = error.message || "Upload failed";
       }
     });
     form.dataset.ready = "true";
@@ -428,13 +472,7 @@
       if (!fd.get("employee_id")) fd.delete("employee_id");
       if (categorySelect?.value !== "payslip") fd.delete("pay_period");
       try {
-        const res = await fetch(`${API_BASE}/admin/documents/distribute`, {
-          method: "POST",
-          headers: authHeaders(false),
-          body: fd,
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Distribution failed");
+        const data = await uploadMultipart("/admin/documents/distribute", fd);
         form.reset();
         if (filenameEl) {
           filenameEl.hidden = true;
@@ -451,7 +489,7 @@
           status.textContent = `${data.message || "Distributed."}${emailNote}`;
         }
         window.AdminSettings?.showSettingsToast?.("Document distributed ✓");
-        await refreshExpiringDocuments();
+        await refreshDocumentViews(status);
       } catch (error) {
         if (status) status.textContent = error.message;
       }
@@ -471,7 +509,10 @@
     refreshExpiringDocuments = async () => {
       try {
         const res = await apiFetch("/admin/documents/expiring");
-        if (!res.ok) throw new Error("Load failed");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(parseApiDetail(err, "Could not load expiry overview."));
+        }
         const data = await res.json();
         const summary = data.summary || {};
 
@@ -518,6 +559,10 @@
     const filtersHost = document.getElementById("document-filters");
     if (!tbody && !formHost) return;
 
+    if (window.Admin.loadFormOptions) {
+      await window.Admin.loadFormOptions();
+    }
+
     bindDocumentTabs();
     mountUploadForm();
     mountDistributeForm();
@@ -563,7 +608,10 @@
     refreshDocuments = async () => {
       try {
         const res = await apiFetch(`/admin/documents${buildQuery()}`);
-        if (!res.ok) throw new Error("Load failed");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(parseApiDetail(err, "Could not load documents."));
+        }
         const data = await res.json();
 
         renderTableBody(tbody, {
