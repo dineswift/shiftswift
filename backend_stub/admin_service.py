@@ -193,11 +193,11 @@ def update_tenant_profile(
 ) -> dict[str, Any]:
     allowed = {k: v for k, v in updates.items() if k in TENANT_PROFILE_FIELDS}
     if "registered_address" in allowed:
-        trimmed = str(allowed["registered_address"] or "").strip()
+        from modules.time_punch.geocode import normalize_geocode_address, validate_geocode_address
+
+        trimmed = normalize_geocode_address(str(allowed["registered_address"] or ""))
         allowed["registered_address"] = trimmed or None
         if allowed["registered_address"]:
-            from modules.time_punch.geocode import validate_geocode_address
-
             valid, validation_error = validate_geocode_address(allowed["registered_address"])
             if not valid:
                 raise ValueError(validation_error or "Invalid registered address")

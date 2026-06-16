@@ -10,7 +10,12 @@ import pytest
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from modules.time_punch.geocode import extract_uk_postcode, geocode_address, validate_geocode_address
+from modules.time_punch.geocode import (
+    extract_uk_postcode,
+    geocode_address,
+    normalize_geocode_address,
+    validate_geocode_address,
+)
 
 
 def test_extract_uk_postcode() -> None:
@@ -31,6 +36,19 @@ def test_validate_geocode_address() -> None:
     ok, err = validate_geocode_address("156 Front Street, Arnold, Nottingham, NG5 7EG")
     assert ok is True
     assert err is None
+
+    ok, err = validate_geocode_address("156 Front street, Nottingham, NG5 7EG")
+    assert ok is True
+    assert err is None
+
+    ok, err = validate_geocode_address("156 Front street\nNottingham\nNG5 7EG")
+    assert ok is True
+    assert err is None
+
+    assert (
+        normalize_geocode_address("156 Front street\nNottingham, NG5 7EG")
+        == "156 Front street, Nottingham, NG5 7EG"
+    )
 
     ok, err = validate_geocode_address("No postcode street, Nottingham")
     assert ok is False

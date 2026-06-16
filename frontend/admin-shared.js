@@ -143,10 +143,24 @@ window.Admin = (() => {
 
   const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
   const MIN_BUSINESS_ADDRESS_LEN = 10;
-  const BUSINESS_ADDRESS_EXAMPLE = "1 Spinningfields, Manchester M3 3AP";
+  const BUSINESS_ADDRESS_EXAMPLE = "156 Front street, Nottingham, NG5 7EG";
+
+  function normalizeBusinessAddress(address) {
+    let query = String(address || "").trim();
+    if (!query) return "";
+    query = query
+      .replace(/\u00a0/g, " ")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[\r\n]+/g, ", ")
+      .replace(/\s*,\s*/g, ", ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/(,\s*)+/g, ", ");
+    return query.replace(/^[\s,]+|[\s,]+$/g, "");
+  }
 
   function validateBusinessAddress(address) {
-    const trimmed = String(address || "").trim();
+    const trimmed = normalizeBusinessAddress(address);
     if (!trimmed) {
       return {
         ok: false,
@@ -678,7 +692,7 @@ window.Admin = (() => {
               label: "Registered address",
               type: "textarea",
               span: 2,
-              placeholder: "Full street address including UK postcode, e.g. 1 Spinningfields, Manchester M3 3AP",
+              placeholder: "Full street address including UK postcode, e.g. 156 Front street, Nottingham, NG5 7EG",
             },
           ],
         },
@@ -906,6 +920,7 @@ window.Admin = (() => {
     prefetchTenantProfile,
     rememberTenantRegisteredAddress,
     getCachedTenantRegisteredAddress,
+    normalizeBusinessAddress,
     validateBusinessAddress,
     BUSINESS_ADDRESS_EXAMPLE,
     get tenantProfileSnapshot() {

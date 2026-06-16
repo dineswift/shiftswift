@@ -214,23 +214,35 @@
     return validateRegisteredAddress(address).ok;
   }
 
+  function normalizeRegisteredAddress(address) {
+    return window.Admin?.normalizeBusinessAddress?.(address) || String(address || "").trim();
+  }
+
   function resolveRegisteredAddress() {
+    const normalize = normalizeRegisteredAddress;
     const candidates = [
       tenantProfile?.registered_address,
       window.Admin?.tenantProfileSnapshot?.registered_address,
       window.Admin?.getCachedTenantRegisteredAddress?.(),
-      primarySite()?.address,
       registeredAddressFromDom(),
+      primarySite()?.address,
     ];
+    const seen = new Set();
+    const normalized = [];
     for (const value of candidates) {
-      const trimmed = String(value || "").trim();
-      if (trimmed) return trimmed;
+      const trimmed = normalize(value);
+      if (!trimmed || seen.has(trimmed.toLowerCase())) continue;
+      seen.add(trimmed.toLowerCase());
+      normalized.push(trimmed);
     }
-    return "";
+    for (const addr of normalized) {
+      if (validateRegisteredAddress(addr).ok) return addr;
+    }
+    return normalized[0] || "";
   }
 
   async function ensureRegisteredAddressSaved(address) {
-    const trimmed = String(address || "").trim();
+    const trimmed = normalizeRegisteredAddress(address);
     if (!trimmed) return "";
     const current = String(tenantProfile?.registered_address || "").trim();
     if (current === trimmed) return trimmed;
@@ -398,7 +410,7 @@
     const hasAddress = addressCheck.ok;
     const activeSites = (sites || []).filter((site) => site.is_active);
     const addressExample =
-      window.Admin?.BUSINESS_ADDRESS_EXAMPLE || "1 Spinningfields, Manchester M3 3AP";
+      window.Admin?.BUSINESS_ADDRESS_EXAMPLE || "156 Front street, Nottingham, NG5 7EG";
 
     if (warning) {
       warning.hidden = hasAddress;
@@ -1322,10 +1334,13 @@
   async function syncFromAddress(sourceBtn) {
     const btn = sourceBtn || $("sync-punch-site-btn");
     await loadTenantProfile();
-    let address = resolveRegisteredAddress();
+    let address = normalizeRegisteredAddress(resolveRegisteredAddress());
     const addressCheck = validateRegisteredAddress(address);
     if (!addressCheck.ok) {
-      showPunchNote(addressCheck.message, address ? "warn" : "error");
+      const hint = address
+        ? `${addressCheck.message} Example: ${window.Admin?.BUSINESS_ADDRESS_EXAMPLE || "156 Front street, Nottingham, NG5 7EG"}.`
+        : addressCheck.message;
+      showPunchNote(hint, address ? "warn" : "error");
       updateSetupUi();
       return;
     }

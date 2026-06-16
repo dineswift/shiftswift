@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from modules.time_punch.geocode import geocode_address, validate_geocode_address
+from modules.time_punch.geocode import geocode_address, normalize_geocode_address, validate_geocode_address
 
 UK_TZ = ZoneInfo("Europe/London")
 
@@ -383,7 +383,7 @@ def sync_primary_site_from_tenant_address(
     address_override: str | None = None,
     persist_address: bool = False,
 ) -> dict[str, Any]:
-    address = str(address_override or "").strip()
+    address = normalize_geocode_address(str(address_override or ""))
     name = "Primary site"
     if not address:
         with conn.cursor() as cur:
@@ -394,7 +394,7 @@ def sync_primary_site_from_tenant_address(
             row = cur.fetchone()
         if not row:
             raise PunchSyncError("missing_address", "Business not found.")
-        address = str(row[2] or "").strip()
+        address = normalize_geocode_address(str(row[2] or ""))
         name = (row[1] or row[0] or name) if row else name
     else:
         with conn.cursor() as cur:
@@ -451,7 +451,7 @@ def create_punch_site(
     conn: Any,
 ) -> dict[str, Any]:
     clean_name = name.strip()
-    clean_address = address.strip()
+    clean_address = normalize_geocode_address(address)
     if not clean_name or not clean_address:
         raise ValueError("Name and address are required")
     valid, validation_error = validate_geocode_address(clean_address)

@@ -15,8 +15,27 @@ UK_POSTCODE_RE = re.compile(r"\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b", re.IGNOR
 MIN_GEOCODE_ADDRESS_LEN = 10
 
 
+def normalize_geocode_address(address: str) -> str:
+    """Collapse whitespace/newlines and strip common copy-paste artefacts."""
+    query = (address or "").strip()
+    if not query:
+        return ""
+    query = (
+        query.replace("\u00a0", " ")
+        .replace("\u2019", "'")
+        .replace("\u2018", "'")
+        .replace("\u201c", '"')
+        .replace("\u201d", '"')
+    )
+    query = re.sub(r"[\r\n]+", ", ", query)
+    query = re.sub(r"\s*,\s*", ", ", query)
+    query = re.sub(r"\s{2,}", " ", query)
+    query = re.sub(r"(,\s*)+", ", ", query)
+    return query.strip(" ,")
+
+
 def extract_uk_postcode(address: str) -> str | None:
-    match = UK_POSTCODE_RE.search((address or "").upper())
+    match = UK_POSTCODE_RE.search(normalize_geocode_address(address).upper())
     if not match:
         return None
     return match.group(1).upper()
@@ -24,7 +43,7 @@ def extract_uk_postcode(address: str) -> str | None:
 
 def validate_geocode_address(address: str) -> tuple[bool, str | None]:
     """Return (ok, error_message). Requires a full UK address with a valid postcode."""
-    query = (address or "").strip()
+    query = normalize_geocode_address(address)
     if len(query) < MIN_GEOCODE_ADDRESS_LEN:
         return False, "Enter the full street address including town or city — not just a postcode."
     if not extract_uk_postcode(query):
@@ -79,18 +98,23 @@ def _geocode_uk_postcode(postcode: str) -> tuple[float, float] | None:
 
 
 def geocode_address(address: str) -> tuple[float, float] | None:
-    query = (address or "").strip()
+    query = normalize_geocode_address(address)
     valid, _ = validate_geocode_address(query)
     if not valid:
-        return None
-    if len(query) < 5:
         return None
     postcode = extract_uk_postcode(query)
     if postcode:
         coords = _geocode_uk_postcode(postcode)
         if coords:
             return coords
+        coords = _geocode_nominatim(f"{postcode}, United Kingdom")
+        if coords:
+            return coords
     coords = _geocode_nominatim(query)
     if coords:
         return coords
+    if postcode:
+        coords = _geocode_nominatim(f"{postcode}, Nottinghamshire, United Kingdom")
+        if coords:
+            return coords
     return None

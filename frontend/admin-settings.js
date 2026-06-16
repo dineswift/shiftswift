@@ -389,6 +389,9 @@
         values,
         onSubmit: async (payload) => {
           if (payload.registered_address) {
+            payload.registered_address =
+              window.Admin?.normalizeBusinessAddress?.(payload.registered_address) ||
+              payload.registered_address;
             const check = window.Admin?.validateBusinessAddress?.(payload.registered_address);
             if (check && !check.ok) throw new Error(check.message);
           }
