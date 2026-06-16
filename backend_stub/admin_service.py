@@ -229,32 +229,38 @@ def update_tenant_profile(
         allowed.pop("registered_latitude", None)
         allowed.pop("registered_longitude", None)
 
+    parsed_lat: float | None = None
+    parsed_lng: float | None = None
+    if "registered_latitude" in allowed or "registered_longitude" in allowed:
+        from modules.time_punch.geocode import validate_uk_coords
+
+        lat_raw = allowed.pop("registered_latitude", None)
+        lng_raw = allowed.pop("registered_longitude", None)
+        parsed_lat = _parse_optional_coord(lat_raw, min_v=49.0, max_v=61.5)
+        parsed_lng = _parse_optional_coord(lng_raw, min_v=-9.0, max_v=2.5)
+        if (parsed_lat is None) ^ (parsed_lng is None):
+            raise ValueError("Select your address from the OpenStreetMap search results to pin it on the map.")
+        if parsed_lat is not None and parsed_lng is not None and not validate_uk_coords(parsed_lat, parsed_lng):
+            raise ValueError("Map coordinates are outside the UK.")
+        allowed["registered_latitude"] = parsed_lat
+        allowed["registered_longitude"] = parsed_lng
+    elif "registered_address" in allowed and "registered_latitude" in tenant_cols:
+        allowed["registered_latitude"] = None
+        allowed["registered_longitude"] = None
+
     if "registered_address" in allowed:
         from modules.time_punch.geocode import normalize_geocode_address, validate_geocode_address
 
         trimmed = normalize_geocode_address(str(allowed["registered_address"] or ""))
         allowed["registered_address"] = trimmed or None
         if allowed["registered_address"]:
-            valid, validation_error = validate_geocode_address(allowed["registered_address"])
+            valid, validation_error = validate_geocode_address(
+                allowed["registered_address"],
+                latitude=parsed_lat,
+                longitude=parsed_lng,
+            )
             if not valid:
                 raise ValueError(validation_error or "Invalid registered address")
-
-    if "registered_latitude" in allowed or "registered_longitude" in allowed:
-        from modules.time_punch.geocode import validate_uk_coords
-
-        lat_raw = allowed.pop("registered_latitude", None)
-        lng_raw = allowed.pop("registered_longitude", None)
-        lat = _parse_optional_coord(lat_raw, min_v=49.0, max_v=61.5)
-        lng = _parse_optional_coord(lng_raw, min_v=-9.0, max_v=2.5)
-        if (lat is None) ^ (lng is None):
-            raise ValueError("Select your address from the OpenStreetMap search results to pin it on the map.")
-        if lat is not None and lng is not None and not validate_uk_coords(lat, lng):
-            raise ValueError("Map coordinates are outside the UK.")
-        allowed["registered_latitude"] = lat
-        allowed["registered_longitude"] = lng
-    elif "registered_address" in allowed and "registered_latitude" in tenant_cols:
-        allowed["registered_latitude"] = None
-        allowed["registered_longitude"] = None
 
     if not allowed:
         return get_tenant_profile(tenant_id=tenant_id, conn=conn)

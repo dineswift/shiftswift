@@ -146,7 +146,11 @@
     }
 
     function applySelection(item) {
-      textarea.value = item.address_line || item.display_name || "";
+      let line = item.address_line || item.display_name || "";
+      if (item.postcode && !line.toUpperCase().includes(String(item.postcode).toUpperCase())) {
+        line = `${line}, ${item.postcode}`;
+      }
+      textarea.value = line;
       setCoords(latInput, lngInput, item.latitude, item.longitude);
       hideResults();
       searchInput.value = "";

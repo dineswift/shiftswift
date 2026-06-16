@@ -395,8 +395,6 @@
             payload.registered_address =
               window.Admin?.normalizeBusinessAddress?.(payload.registered_address) ||
               payload.registered_address;
-            const check = window.Admin?.validateBusinessAddress?.(payload.registered_address);
-            if (check && !check.ok) throw new Error(check.message);
           }
           payload.registered_latitude = payload.registered_latitude ? Number(payload.registered_latitude) : null;
           payload.registered_longitude = payload.registered_longitude ? Number(payload.registered_longitude) : null;
@@ -406,7 +404,15 @@
             payload.registered_latitude = initialLatitude;
             payload.registered_longitude = initialLongitude;
           }
-          if (payload.registered_address && addressChanged && !hasCoords) {
+          const effectiveCoords =
+            payload.registered_latitude != null && payload.registered_longitude != null
+              ? { latitude: payload.registered_latitude, longitude: payload.registered_longitude }
+              : null;
+          if (payload.registered_address) {
+            const check = window.Admin?.validateBusinessAddress?.(payload.registered_address, effectiveCoords);
+            if (check && !check.ok) throw new Error(check.message);
+          }
+          if (payload.registered_address && addressChanged && !effectiveCoords) {
             throw new Error("Search OpenStreetMap and pick your premises so Time punch can geofence accurately.");
           }
           const res = await apiFetch("/admin/tenant-profile", {

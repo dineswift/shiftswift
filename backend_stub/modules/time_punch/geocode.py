@@ -46,9 +46,18 @@ def extract_uk_postcode(address: str) -> str | None:
     return match.group(1).upper()
 
 
-def validate_geocode_address(address: str) -> tuple[bool, str | None]:
-    """Return (ok, error_message). Requires a full UK address with a valid postcode."""
+def validate_geocode_address(
+    address: str,
+    *,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> tuple[bool, str | None]:
+    """Return (ok, error_message). Accepts OSM coordinates or a UK postcode in the text."""
     query = normalize_geocode_address(address)
+    if latitude is not None and longitude is not None and validate_uk_coords(latitude, longitude):
+        if len(query) < 3:
+            return False, "Enter the street address for your premises."
+        return True, None
     if len(query) < MIN_GEOCODE_ADDRESS_LEN:
         return False, "Enter the full street address including town or city — not just a postcode."
     if not extract_uk_postcode(query):
@@ -129,13 +138,20 @@ def search_nominatim_addresses(query: str, *, limit: int = 5) -> list[dict[str, 
         line = format_osm_address_line(address, display_name)
         if not line:
             continue
+        postcode = address.get("postcode")
+        if isinstance(postcode, str):
+            postcode = postcode.strip().upper()
+        else:
+            postcode = extract_uk_postcode(display_name) or extract_uk_postcode(line)
+        if postcode and postcode not in line.upper():
+            line = f"{line}, {postcode}"
         items.append(
             {
                 "display_name": display_name or line,
                 "address_line": line,
                 "latitude": lat,
                 "longitude": lng,
-                "postcode": address.get("postcode"),
+                "postcode": postcode,
             }
         )
     return items

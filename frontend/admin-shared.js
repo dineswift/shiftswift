@@ -159,13 +159,19 @@ window.Admin = (() => {
     return query.replace(/^[\s,]+|[\s,]+$/g, "");
   }
 
-  function validateBusinessAddress(address) {
+  function validateBusinessAddress(address, coords = null) {
     const trimmed = normalizeBusinessAddress(address);
+    const latitude = coords?.latitude ?? coords?.lat ?? null;
+    const longitude = coords?.longitude ?? coords?.lng ?? null;
+    const hasCoords = latitude != null && longitude != null;
     if (!trimmed) {
       return {
         ok: false,
         message: "Add your registered business address in Settings → Business profile first.",
       };
+    }
+    if (hasCoords) {
+      return { ok: true, message: "" };
     }
     if (trimmed.length < MIN_BUSINESS_ADDRESS_LEN) {
       return {
@@ -180,6 +186,13 @@ window.Admin = (() => {
       };
     }
     return { ok: true, message: "" };
+  }
+
+  function hasPinnedBusinessCoords(source = null) {
+    const profile = source || tenantProfileSnapshot || {};
+    const lat = profile.registered_latitude;
+    const lng = profile.registered_longitude;
+    return lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
   }
 
   function getCachedTenantRegisteredAddress() {
@@ -922,6 +935,7 @@ window.Admin = (() => {
     getCachedTenantRegisteredAddress,
     normalizeBusinessAddress,
     validateBusinessAddress,
+    hasPinnedBusinessCoords,
     BUSINESS_ADDRESS_EXAMPLE,
     get tenantProfileSnapshot() {
       return tenantProfileSnapshot;

@@ -211,7 +211,37 @@
 
   function hasBusinessAddress() {
     const address = resolveRegisteredAddress();
+    if (!address) return false;
+    if (hasPinnedBusinessCoords()) return true;
     return validateRegisteredAddress(address).ok;
+  }
+
+  function hasPinnedBusinessCoords() {
+    return (
+      window.Admin?.hasPinnedBusinessCoords?.(tenantProfile) ||
+      window.Admin?.hasPinnedBusinessCoords?.(window.Admin?.tenantProfileSnapshot) ||
+      false
+    );
+  }
+
+  function resolveRegisteredCoords() {
+    const sources = [tenantProfile, window.Admin?.tenantProfileSnapshot];
+    for (const source of sources) {
+      const lat = source?.registered_latitude;
+      const lng = source?.registered_longitude;
+      if (lat != null && lng != null) {
+        return { latitude: Number(lat), longitude: Number(lng) };
+      }
+    }
+    return null;
+  }
+
+  function validateRegisteredAddress(address) {
+    return (
+      window.Admin?.validateBusinessAddress?.(address, resolveRegisteredCoords()) || {
+        ok: Boolean(String(address || "").trim()),
+      }
+    );
   }
 
   function normalizeRegisteredAddress(address) {
@@ -238,6 +268,7 @@
     for (const addr of normalized) {
       if (validateRegisteredAddress(addr).ok) return addr;
     }
+    if (hasPinnedBusinessCoords() && normalized.length) return normalized[0];
     return normalized[0] || "";
   }
 
@@ -368,10 +399,6 @@
       inline.hidden = true;
       inline.textContent = "";
     }
-  }
-
-  function validateRegisteredAddress(address) {
-    return window.Admin?.validateBusinessAddress?.(address) || { ok: Boolean(String(address || "").trim()) };
   }
 
   function markPunchDataLoaded() {
@@ -1356,9 +1383,10 @@
     try {
       address = await ensureRegisteredAddressSaved(address);
       const syncBody = { registered_address: address };
-      if (tenantProfile?.registered_latitude != null && tenantProfile?.registered_longitude != null) {
-        syncBody.registered_latitude = tenantProfile.registered_latitude;
-        syncBody.registered_longitude = tenantProfile.registered_longitude;
+      const syncCoords = resolveRegisteredCoords();
+      if (syncCoords) {
+        syncBody.registered_latitude = syncCoords.latitude;
+        syncBody.registered_longitude = syncCoords.longitude;
       }
       const res = await apiFetch("/admin/time-punch/sites/sync-from-address", {
         method: "POST",

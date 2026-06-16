@@ -440,18 +440,11 @@ def sync_primary_site_from_tenant_address(
                         (address, coords_override[0], coords_override[1], tenant_id),
                     )
             else:
-                update_sql = "UPDATE tenants SET registered_address = %s"
-                update_values: list[Any] = [address]
-                if has_coords_cols:
-                    update_sql += ", registered_latitude = %s, registered_longitude = %s"
-                    if coords_override:
-                        update_values.extend([coords_override[0], coords_override[1]])
-                    else:
-                        update_values.extend([None, None])
-                update_sql += " WHERE id = %s"
-                update_values.append(tenant_id)
                 with conn.cursor() as cur:
-                    cur.execute(update_sql, update_values)
+                    cur.execute(
+                        "UPDATE tenants SET registered_address = %s WHERE id = %s",
+                        (address, tenant_id),
+                    )
             conn.commit()
 
     if not address:
@@ -459,13 +452,19 @@ def sync_primary_site_from_tenant_address(
             "missing_address",
             "Set your registered business address in Settings → Business profile, then sync again.",
         )
-    valid, validation_error = validate_geocode_address(address)
+    resolve_lat = coords_override[0] if coords_override else stored_lat
+    resolve_lng = coords_override[1] if coords_override else stored_lng
+    valid, validation_error = validate_geocode_address(
+        address,
+        latitude=resolve_lat,
+        longitude=resolve_lng,
+    )
     if not valid:
         raise PunchSyncError("invalid_address", validation_error or "Invalid business address.")
     coords = resolve_address_coords(
         address,
-        latitude=(coords_override[0] if coords_override else stored_lat),
-        longitude=(coords_override[1] if coords_override else stored_lng),
+        latitude=resolve_lat,
+        longitude=resolve_lng,
     )
     if not coords:
         raise PunchSyncError(

@@ -57,6 +57,10 @@ def test_validate_geocode_address() -> None:
     assert ok is False
     assert "postcode" in (err or "").lower()
 
+    ok, err = validate_geocode_address("Front Street, Arnold", latitude=53.005292, longitude=-1.126752)
+    assert ok is True
+    assert err is None
+
 
 def test_format_osm_address_line() -> None:
     line = format_osm_address_line(
