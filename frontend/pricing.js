@@ -326,7 +326,7 @@
       <article class="pricing-card ${featured ? "is-featured" : ""} ${selected ? "is-selected" : ""} pricing-card--${cardType}"
                data-plan-id="${plan.id}" data-card-type="${cardType}">
         <div class="pricing-card-head">
-          ${featured ? '<span class="pricing-badge">Best for hospitality &amp; sponsors</span>' : ""}
+          ${featured ? '<span class="pricing-badge">Best for sponsors</span>' : ""}
           ${cardType === "payroll" ? '<span class="pricing-badge pricing-badge--payroll">Legacy add-on</span>' : ""}
           <div class="pricing-plan-name">${plan.name}</div>
           <p class="pricing-plan-desc">${plan.description}</p>

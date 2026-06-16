@@ -32,8 +32,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon.png?v=brandkit-v2" />
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v20" />
-    <link rel="stylesheet" href="./pricing.css?v=9" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v21" />
+    <link rel="stylesheet" href="./pricing.css?v=10" />
   </head>
   <body>
     <div id="startup-loader" class="startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
@@ -126,7 +126,8 @@
       </header>
 
       <main>
-        <section class="hero hero--animated">
+        <section class="hero-band">
+          <div class="hero hero--animated">
           <div class="hero-copy">
             <div class="badge badge--pulse hero-in hero-in--1">UK HR &amp; compliance · Time clock · Accountant hours · Home Office exports</div>
             <h1 class="hero-in hero-in--2">One HR hub for <span class="hero-gradient-text">clock-in, compliance</span>, and month-end hours your accountant can use.</h1>
@@ -136,8 +137,8 @@
               email to payroll — without ShiftSwift running pay or HMRC submissions.
             </p>
             <div class="hero-actions hero-in hero-in--4">
-              <a class="btn" href="https://app.shiftswifthr.co.uk/signup.html">Start free 14-day trial — no card required</a>
-              <a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a>
+              <a class="btn btn--verdant" href="https://app.shiftswifthr.co.uk/signup.html">Start free 14-day trial — no card required</a>
+              <a class="btn ghost btn--on-pine" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a>
             </div>
             <ul class="hero-trust hero-in hero-in--5" aria-label="Trust highlights">
               <li>Built for UK GDPR</li>
@@ -149,6 +150,7 @@
             </ul>
           </div>
           <div class="hero-visual hero-visual--pulse hero-in hero-in--6" aria-hidden="true">
+            <div class="hero-visual__frame">
             <div class="hero-preview dashboard-mock--pulse dashboard-mock--float">
               <div class="dashboard-mock__bar">
                 <span class="dashboard-mock__dot"></span>
@@ -160,7 +162,7 @@
                 <div class="hero-preview__stats">
                   <div class="dashboard-stat dashboard-stat--enter" style="--enter-i: 0">
                     <div class="dashboard-stat__label">Active employees</div>
-                    <div class="dashboard-stat__value">18</div>
+                    <div class="dashboard-stat__value dashboard-stat__value--highlight">18</div>
                   </div>
                   <div class="dashboard-stat dashboard-stat--pulse dashboard-stat--enter" style="--enter-i: 1">
                     <div class="dashboard-stat__label">RTW due</div>
@@ -177,6 +179,14 @@
                   <div class="product-mock__row"><span>Passport (A. Patel)</span><span>Expires 14 Aug</span></div>
                   <div class="product-mock__row"><span>BRP (J. Okonkwo)</span><span>Verified</span></div>
                   <div class="product-mock__row product-mock__row--warn"><span>Share code (S. Ahmed)</span><span>Review</span></div>
+                </div>
+
+                <div class="hero-alert hero-alert--day9" aria-hidden="true">
+                  <span class="hero-alert__icon" aria-hidden="true">⚠</span>
+                  <div class="hero-alert__copy">
+                    <strong>Day-9 absence alert — S. Ahmed</strong>
+                    <p>Unreported absence reaches day 9 tomorrow. Report or clear before deadline.</p>
+                  </div>
                 </div>
 
                 <div class="hero-preview__panel product-mock product-mock--lifecycle hero-preview__panel--desktop-only">
@@ -202,6 +212,8 @@
                 </div>
               </div>
             </div>
+            </div>
+          </div>
           </div>
         </section>
 
@@ -246,12 +258,13 @@
           </div>
         </section>
 
-        <section id="document-samples" class="doc-samples section reveal" aria-labelledby="doc-samples-heading">
+        <section id="document-samples" class="doc-samples section section-band section-band--sage reveal" aria-labelledby="doc-samples-heading">
           <h2 id="doc-samples-heading">Your compliance documents, organised</h2>
           <p class="section-lead muted">Sample records stored in ShiftSwift HR: right-to-work evidence, contracts, and inspection-ready audit packs.</p>
           <div class="doc-samples-grid reveal-stagger">
-            <article class="doc-sample">
+            <article class="doc-sample doc-sample--rtw">
               <div class="doc-sample__visual doc-sample__visual--rtw" aria-hidden="true">
+                <span class="doc-sample__clip" aria-hidden="true"></span>
                 <div class="doc-sample__sheet">
                   <div class="doc-sample__sheet-head">
                     <span>Right to Work check</span>
@@ -491,8 +504,8 @@
                 <thead>
                   <tr>
                     <th scope="col">Challenge</th>
-                    <th scope="col">With spreadsheets</th>
-                    <th scope="col">With ShiftSwift HR</th>
+                    <th scope="col" class="compare-table__head compare-table__head--pain">With spreadsheets</th>
+                    <th scope="col" class="compare-table__head compare-table__head--win">With ShiftSwift HR</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -611,7 +624,7 @@
     <script src="./landing-animations.js?v=4"></script>
     <script src="./landing-faq.js?v=3"></script>
     <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./pricing.js?v=10"></script>
+    <script src="./pricing.js?v=11"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         window.ShiftSwiftPricing?.initMarketing("pricing-plans", "pricing-payroll-plans");
