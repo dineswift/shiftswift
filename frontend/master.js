@@ -11,7 +11,11 @@
     excludeTest: false,
     section: "tenants",
     loading: true,
+    tenantModalOpen: false,
+    tenantModalId: null,
   };
+
+  const provisionPlans = [];
 
   const els = {
     metrics: document.getElementById("master-metrics"),
@@ -33,6 +37,8 @@
     includeDeleted: document.getElementById("master-include-deleted"),
     excludeTest: document.getElementById("master-exclude-test"),
     deleteSelectedBtn: document.getElementById("master-delete-selected-btn"),
+    tenantModal: document.getElementById("master-tenant-modal"),
+    tenantModalError: document.getElementById("master-tenant-load-error"),
   };
 
   function apiBase() {
@@ -243,10 +249,59 @@
     return bits.join(" · ");
   }
 
+  function closeTenantModal() {
+    if (!els.tenantModal) return;
+    els.tenantModal.hidden = true;
+    document.body.classList.remove("master-tenant-modal-open");
+    state.tenantModalOpen = false;
+    state.tenantModalId = null;
+    if (els.tenantModalError) els.tenantModalError.hidden = true;
+  }
+
+  async function openTenantModal(id) {
+    if (!id || !els.tenantModal || !window.ShiftSwiftMasterTenantDetail?.render) return;
+    state.tenantModalOpen = true;
+    state.tenantModalId = id;
+    els.tenantModal.hidden = false;
+    document.body.classList.add("master-tenant-modal-open");
+    if (els.tenantModalError) els.tenantModalError.hidden = true;
+
+    const nameEl = document.getElementById("detail-name");
+    const accountHost = document.getElementById("detail-account-sections");
+    if (nameEl) nameEl.textContent = "Loading tenant…";
+    if (accountHost) accountHost.innerHTML = `<p class="muted">Loading tenant #${id}…</p>`;
+
+    try {
+      const data = await apiGet(`/master/tenants/${id}`);
+      const renderCtx = {
+        apiGet,
+        apiPost,
+        apiPut,
+        provisionPlans,
+        onDeleted: async () => {
+          closeTenantModal();
+          clearTenantSelection();
+          await loadTenants();
+        },
+      };
+      renderCtx.refresh = async () => {
+        const fresh = await apiGet(`/master/tenants/${id}`);
+        window.ShiftSwiftMasterTenantDetail.render(fresh.tenant, renderCtx);
+        await loadTenants();
+      };
+      window.ShiftSwiftMasterTenantDetail.render(data.tenant, renderCtx);
+    } catch (error) {
+      if (accountHost) accountHost.innerHTML = "";
+      if (els.tenantModalError) {
+        els.tenantModalError.hidden = false;
+        els.tenantModalError.textContent = error.message || "Could not load tenant.";
+      }
+      if (nameEl) nameEl.textContent = "Tenant unavailable";
+    }
+  }
+
   function openTenantWindow(id) {
-    if (!id) return;
-    const url = `./master-tenant.html?id=${encodeURIComponent(id)}`;
-    window.open(url, `master-tenant-${id}`, "noopener,noreferrer,width=1140,height=920");
+    void openTenantModal(id);
   }
 
   function clearTenantSelection() {
@@ -956,6 +1011,10 @@
   els.sidebarClose?.addEventListener("click", closeSidebar);
   els.overlay?.addEventListener("click", closeSidebar);
 
+  document.querySelectorAll("[data-tenant-modal-close]").forEach((el) => {
+    el.addEventListener("click", closeTenantModal);
+  });
+
   window.addEventListener("message", (event) => {
     if (event.origin !== window.location.origin) return;
     if (event.data?.type === "master-tenant-deleted") {
@@ -965,6 +1024,11 @@
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.tenantModalOpen) {
+      event.preventDefault();
+      closeTenantModal();
+      return;
+    }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       els.search?.focus();
