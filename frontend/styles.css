@@ -2735,6 +2735,10 @@ textarea:focus {
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
   }
+  body.admin-mobile-detail .topbar {
+    margin-bottom: 12px;
+    padding: 12px max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left));
+  }
   body:has(#mobile-tab-bar) .admin-section[hidden] {
     display: none !important;
   }
@@ -9167,6 +9171,30 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 /* ── Time punch admin ── */
+#time-punch.admin-section {
+  gap: 10px;
+}
+
+#time-punch > .section-header {
+  margin-bottom: 0;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+#time-punch > .section-header h2 {
+  margin: 0 0 2px;
+  line-height: 1.15;
+}
+
+#time-punch > .section-header .muted {
+  margin: 0;
+  line-height: 1.4;
+}
+
+#time-punch > .section-header .section-actions {
+  gap: 8px;
+}
+
 .hr-stat-card__icon {
   display: inline-flex;
   color: var(--green-700);
@@ -9183,12 +9211,14 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .punch-data-loaded-at {
-  margin: -4px 0 14px;
-  font-size: 0.875rem;
+  margin: 0;
+  font-size: 0.82rem;
 }
 
 .punch-alert {
-  margin-bottom: 16px;
+  margin: 0;
+  padding: 12px 14px;
+  gap: 8px;
 }
 
 .punch-alert[hidden] {
@@ -9202,7 +9232,7 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .punch-admin-message {
-  margin: 0 0 12px;
+  margin: 0;
 }
 
 .punch-admin-message--ok {
@@ -9213,15 +9243,15 @@ body.rota-week-readonly .rota-builder-hint {
 .punch-view-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 24px;
+  gap: 4px 16px;
   border-bottom: 1px solid var(--card-border);
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .punch-view-tab {
   border: none;
   background: none;
-  padding: 10px 2px;
+  padding: 8px 2px;
   margin-bottom: -1px;
   font: inherit;
   font-size: 0.88rem;
@@ -9242,8 +9272,8 @@ body.rota-week-readonly .rota-builder-hint {
 .punch-action-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .punch-sync-btn {
@@ -9269,7 +9299,7 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .punch-tab-intro {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
 }
 
 .punch-table-head {
@@ -9292,8 +9322,8 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .punch-today-preview {
-  margin-top: 22px;
-  padding-top: 18px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--card-border);
 }
 
@@ -9348,10 +9378,31 @@ body.rota-week-readonly .rota-builder-hint {
 
 .punch-setup-steps {
   text-align: left;
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   padding-left: 18px;
   display: grid;
+  gap: 6px;
+}
+
+#time-punch .punch-stats-grid {
+  margin-bottom: 0;
   gap: 8px;
+  padding: 0;
+}
+
+#time-punch .hr-workspace-layout {
+  gap: 12px;
+  min-height: 0;
+}
+
+#time-punch .punch-table-head {
+  margin-bottom: 10px;
+}
+
+#time-punch .punch-manual-form,
+#time-punch .punch-admin-panel {
+  margin-bottom: 10px;
+  padding: 12px 14px;
 }
 
 .punch-geofence-viz {
