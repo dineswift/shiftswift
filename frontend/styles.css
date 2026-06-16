@@ -9484,6 +9484,111 @@ body.rota-week-readonly .rota-builder-hint {
   border-top: 1px solid var(--card-border);
 }
 
+.punch-day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.punch-day-picker {
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.88rem;
+  background: var(--card);
+}
+
+.punch-day-summary {
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+}
+
+.punch-day-footnote {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+
+.punch-export-dialog {
+  border: none;
+  padding: 0;
+  max-width: min(520px, calc(100vw - 32px));
+  background: transparent;
+}
+
+.punch-export-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.punch-export-dialog__card {
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+.punch-export-dialog__head h3 {
+  margin: 0 0 4px;
+}
+
+.punch-export-dialog__head p {
+  margin: 0 0 14px;
+}
+
+.punch-export-dialog__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.punch-export-dialog__presets .btn.is-active {
+  border-color: var(--green-700);
+  background: #edf9f3;
+  color: var(--green-900);
+}
+
+.punch-export-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border);
+}
+
+.rota-attendance-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+}
+
+.rota-attendance-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rota-attendance-legend__chip {
+  display: inline-block;
+  width: auto;
+  min-width: 3.5rem;
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 0.68rem;
+  pointer-events: none;
+  cursor: default;
+}
+
 .punch-manual-form,
 .punch-admin-panel {
   margin-bottom: 16px;

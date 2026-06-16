@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v68" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v69" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1767,9 +1767,19 @@
 
                 <div class="punch-today-preview">
                   <div class="punch-table-head">
-                    <h4 class="hr-section-title">Recent punches — today</h4>
-                    <button type="button" class="btn ghost punch-table-head__btn" id="punch-preview-export-btn">Export CSV</button>
+                    <div>
+                      <h4 class="hr-section-title">Daily punch history</h4>
+                      <div class="punch-day-nav" aria-label="Choose day">
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-prev" aria-label="Previous day">←</button>
+                        <input type="date" id="punch-day-picker" class="punch-day-picker" aria-label="Punch date" />
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-next" aria-label="Next day">→</button>
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-today">Today</button>
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-refresh" title="Refresh punch list">↻ Refresh</button>
+                      </div>
+                    </div>
+                    <button type="button" class="btn outline punch-table-head__btn" id="punch-preview-export-btn">Export…</button>
                   </div>
+                  <p id="punch-day-summary" class="punch-day-summary muted" aria-live="polite"></p>
                   <div class="hr-table-wrap">
                     <table class="data-table">
                       <thead>
@@ -1781,10 +1791,11 @@
                         </tr>
                       </thead>
                       <tbody id="punch-today-preview-body">
-                        <tr><td colspan="4" class="muted">No punches today.</td></tr>
+                        <tr><td colspan="4" class="muted">Loading punches…</td></tr>
                       </tbody>
                     </table>
                   </div>
+                  <p class="muted punch-tab-intro punch-day-footnote">Times shown in your local timezone. Yellow shifts on the Rota mean a late clock-in; red means no show.</p>
                 </div>
               </div>
 
@@ -1925,6 +1936,36 @@
           </div>
         </section>
 
+        <dialog id="punch-export-dialog" class="punch-export-dialog">
+          <form method="dialog" class="punch-export-dialog__card">
+            <header class="punch-export-dialog__head">
+              <h3>Export punch data</h3>
+              <p class="muted">Choose a date range and format for payroll or your records.</p>
+            </header>
+            <div class="punch-export-dialog__presets" role="group" aria-label="Quick ranges">
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="today">Today</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="week">This week</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="last-month">Last month</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="custom">Custom range</button>
+            </div>
+            <div class="punch-export-dialog__fields edit-form edit-form--cols-2">
+              <label class="edit-field"><span class="edit-label">From</span><input type="date" id="punch-export-from" required /></label>
+              <label class="edit-field"><span class="edit-label">To</span><input type="date" id="punch-export-to" required /></label>
+              <label class="edit-field" data-span="2">
+                <span class="edit-label">Format</span>
+                <select id="punch-export-format">
+                  <option value="csv">Punch log CSV (every clock in/out)</option>
+                  <option value="hours-pdf">Working hours PDF (for accountant)</option>
+                </select>
+              </label>
+            </div>
+            <footer class="punch-export-dialog__foot">
+              <button type="button" class="btn ghost" id="punch-export-cancel">Cancel</button>
+              <button type="submit" class="btn primary" id="punch-export-submit">Download export</button>
+            </footer>
+          </form>
+        </dialog>
+
         <section id="rota" class="admin-section" hidden>
           <header class="section-header rota-builder-header">
             <div>
@@ -2002,6 +2043,11 @@
               <p id="rota-week-summary" class="rota-week-summary"></p>
             </div>
             <p class="rota-builder-hint muted">Drag to move · Alt+drag to copy · Right-click for options · Click empty cell to add</p>
+            <ul class="rota-attendance-legend" aria-label="Shift colour key">
+              <li><span class="rota-shift-block rota-shift-block--kitchen rota-attendance-legend__chip">Shift</span> Scheduled</li>
+              <li><span class="rota-shift-block rota-shift-block--late rota-attendance-legend__chip">Shift</span> Late clock-in</li>
+              <li><span class="rota-shift-block rota-shift-block--no_show rota-attendance-legend__chip">Shift</span> No show</li>
+            </ul>
           </div>
 
           <div class="rota-desktop-row rota-desktop-only">
@@ -2528,7 +2574,7 @@
     <script src="./admin-disciplinary.js?v=1"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
-    <script src="./admin-time-punch.js?v=21"></script>
+    <script src="./admin-time-punch.js?v=22"></script>
     <script src="./admin-rota.js?v=20"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>

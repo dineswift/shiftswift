@@ -24,6 +24,72 @@
   let filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
   let bound = false;
   let punchDataLoadedAt = null;
+  let punchHistoryDate = todayIso();
+  let punchRefreshTimer = null;
+  let exportPreset = "week";
+
+  function formatDayLabel(iso) {
+    if (!iso) return "";
+    if (iso === todayIso()) return "Today";
+    try {
+      return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return iso;
+    }
+  }
+
+  function shiftIsoDate(iso, days) {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() + days);
+    return toLocalIsoDate(d);
+  }
+
+  function syncPunchHistoryControls() {
+    const picker = $("punch-day-picker");
+    if (picker && picker.value !== punchHistoryDate) picker.value = punchHistoryDate;
+    const todayBtn = $("punch-day-today");
+    if (todayBtn) todayBtn.hidden = punchHistoryDate === todayIso();
+  }
+
+  function updateDailyPunchSummary() {
+    const el = $("punch-day-summary");
+    if (!el) return;
+    const count = todayPunches.length;
+    const label = formatDayLabel(punchHistoryDate);
+    el.textContent =
+      count === 0
+        ? `No punches recorded · ${label}`
+        : `${count} punch${count === 1 ? "" : "es"} · ${label}`;
+  }
+
+  function stopPunchAutoRefresh() {
+    if (punchRefreshTimer) {
+      window.clearInterval(punchRefreshTimer);
+      punchRefreshTimer = null;
+    }
+  }
+
+  function startPunchAutoRefresh() {
+    stopPunchAutoRefresh();
+    punchRefreshTimer = window.setInterval(() => {
+      if (parseHashBaseSection(window.location.hash) !== "time-punch") return;
+      void refreshPunchFeed({ quiet: true });
+    }, 45000);
+  }
+
+  async function refreshPunchFeed({ quiet = false } = {}) {
+    await Promise.all([
+      loadDailyPunches(punchHistoryDate, { quiet }),
+      punchHistoryDate === todayIso() ? loadWeekPunches() : Promise.resolve(),
+    ]);
+    if (punchHistoryDate === todayIso()) updatePunchStats();
+    if (!quiet) showPunchNote("Punch list refreshed.", "ok");
+  }
 
   function mergeTenantProfile(data) {
     if (!data || typeof data !== "object") return;
@@ -435,7 +501,7 @@
       panel.hidden = panel.dataset.punchPanel !== tab;
     });
     if (tab === "sites") {
-      void Promise.all([loadSites(), loadTodayPunches()]).then(updatePunchStats);
+      void Promise.all([loadSites(), loadDailyPunches(punchHistoryDate, { quiet: true })]).then(updatePunchStats);
     }
     if (tab === "log") void loadPunches();
     if (tab === "summary") void loadWeekPunches().then(renderActivityChart);
@@ -562,7 +628,8 @@
   async function fetchSiteClockQr(siteId) {
     const res = await apiFetch(`/admin/time-punch/sites/${siteId}/clock-qr`);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "Could not load QR");
+    if (!res.ok) throw new Error(parseApiDetail(data, "Could not load QR"));
+    if (!qrImageSrc(data)) throw new Error("QR image was empty — try syncing the site again.");
     return data;
   }
 
@@ -661,12 +728,28 @@
     grid.innerHTML = `<p class="muted">Generating QR codes…</p>`;
 
     try {
-      const items = await Promise.all(
+      const results = await Promise.allSettled(
         activeSites.map(async (site) => {
           const data = await fetchSiteClockQr(site.id);
           return { site, data };
         }),
       );
+      const items = results
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value);
+      const failures = results.filter((result) => result.status === "rejected");
+
+      if (!items.length) {
+        const message =
+          failures[0]?.reason?.message || "Could not generate QR codes. Try syncing your punch site again.";
+        grid.innerHTML = `<p class="muted">${escapeHtml(message)}</p>`;
+        showPunchNote(message, "error");
+        return;
+      }
+
+      if (failures.length) {
+        showPunchNote(`${failures.length} site QR code(s) could not be loaded. Others are shown below.`, "warn");
+      }
 
       grid.innerHTML = items
         .map(({ site, data }) => {
@@ -938,21 +1021,51 @@
   function renderTodayPreview() {
     const tbody = $("punch-today-preview-body");
     if (!tbody) return;
+    updateDailyPunchSummary();
+    syncPunchHistoryControls();
     if (!todayPunches.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="muted">No punches today.</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">No punches on ${escapeHtml(formatDayLabel(punchHistoryDate).toLowerCase())}.</td></tr>`;
       return;
     }
     tbody.innerHTML = todayPunches
-      .slice(0, 8)
+      .slice(0, 30)
       .map(
         (row) => `<tr>
-          <td>${escapeHtml(formatTimeShort(row.punched_at))}</td>
+          <td>${escapeHtml(formatWhen(row.punched_at))}</td>
           <td>${escapeHtml(row.employee_name)}</td>
           <td>${renderTypeBadge(row.punch_type)}</td>
           <td>${renderLocationCell(row)}</td>
         </tr>`
       )
       .join("");
+  }
+
+  async function loadDailyPunches(dateIso = punchHistoryDate, { quiet = false } = {}) {
+    const iso = dateIso || todayIso();
+    punchHistoryDate = iso;
+    syncPunchHistoryControls();
+    try {
+      const res = await apiFetch(`/admin/time-punch/punches?limit=200&date_from=${iso}&date_to=${iso}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not load punches for this day."));
+      todayPunches = data.items || [];
+      markPunchDataLoaded();
+    } catch (error) {
+      todayPunches = [];
+      if (!quiet) showPunchNote(error.message || "Could not load daily punches.", "error");
+    }
+    renderTodayPreview();
+    if (iso === todayIso()) {
+      const lastToday = todayPunches[0];
+      $("punch-stat-today").textContent = String(todayPunches.length);
+      $("punch-stat-today-sub").textContent = lastToday
+        ? `Last punch ${formatTimeShort(lastToday.punched_at)}`
+        : "No punches yet";
+    }
+  }
+
+  async function loadTodayPunches() {
+    return loadDailyPunches(todayIso(), { quiet: true });
   }
 
   function scrollToTodayPreview() {
@@ -1155,7 +1268,19 @@
     }
     renderSitesTable();
     refreshFilterSelects();
-    if (sites.length && !selectedSiteId) {
+    if (sites.length && selectedSiteId) {
+      const site = sites.find((s) => s.id === selectedSiteId);
+      if (site) {
+        renderSiteDetail(site);
+        renderSitesTable();
+      } else {
+        selectedSiteId = primarySite()?.id || sites[0]?.id || null;
+        if (selectedSiteId) {
+          renderSiteDetail(sites.find((s) => s.id === selectedSiteId));
+          renderSitesTable();
+        }
+      }
+    } else if (sites.length && !selectedSiteId) {
       selectedSiteId = primarySite()?.id || sites[0].id;
       renderSiteDetail(sites.find((s) => s.id === selectedSiteId));
       renderSitesTable();
@@ -1178,20 +1303,6 @@
       }
     }
     renderPunchesTable();
-  }
-
-  async function loadTodayPunches() {
-    const iso = todayIso();
-    try {
-      const res = await apiFetch(`/admin/time-punch/punches?limit=100&date_from=${iso}&date_to=${iso}`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(parseApiDetail(data, "Could not load today's punches."));
-      todayPunches = data.items || [];
-      markPunchDataLoaded();
-    } catch {
-      todayPunches = [];
-    }
-    renderTodayPreview();
   }
 
   async function loadWeekPunches() {
@@ -1235,7 +1346,9 @@
       localStorage.setItem("punch-last-sync-at", new Date().toISOString());
       showPunchNote(`Synced primary site: ${data.name}. QR codes are ready below.`, "ok");
       selectedSiteId = data.id;
-      await Promise.all([loadSites(), loadTodayPunches(), loadWeekPunches()]);
+      await Promise.all([loadSites(), loadDailyPunches(todayIso(), { quiet: true }), loadWeekPunches()]);
+      const syncedSite = sites.find((site) => site.id === data.id) || data;
+      renderSiteDetail(syncedSite);
       updatePunchStats();
       window.setTimeout(scrollToQrGallery, 450);
     } catch (error) {
@@ -1520,28 +1633,92 @@
     await exportHoursPdf(previousCalendarMonthRange());
   }
 
-  async function exportPunchesCsv(useTodayOnly) {
+  function exportRangeForPreset(preset) {
+    if (preset === "today") {
+      const iso = todayIso();
+      return { date_from: iso, date_to: iso };
+    }
+    if (preset === "week") {
+      return { date_from: mondayIso(), date_to: todayIso() };
+    }
+    if (preset === "last-month") {
+      return previousCalendarMonthRange();
+    }
+    const fromEl = $("punch-export-from");
+    const toEl = $("punch-export-to");
+    return {
+      date_from: fromEl?.value || firstOfMonthIso(),
+      date_to: toEl?.value || todayIso(),
+    };
+  }
+
+  function highlightExportPreset(preset) {
+    exportPreset = preset;
+    document.querySelectorAll("[data-punch-export-preset]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.punchExportPreset === preset);
+    });
+  }
+
+  function fillExportDialogFields(preset = exportPreset) {
+    const range = exportRangeForPreset(preset === "custom" ? "custom" : preset);
+    const fromEl = $("punch-export-from");
+    const toEl = $("punch-export-to");
+    if (fromEl) fromEl.value = range.date_from;
+    if (toEl) toEl.value = range.date_to;
+    highlightExportPreset(preset);
+  }
+
+  function openExportDialog(defaultPreset = "week") {
+    const dialog = $("punch-export-dialog");
+    if (!dialog) {
+      void exportPunchesCsv(false);
+      return;
+    }
+    fillExportDialogFields(defaultPreset);
+    if (typeof dialog.showModal === "function") dialog.showModal();
+  }
+
+  async function submitExportDialog(event) {
+    event?.preventDefault();
+    const format = $("punch-export-format")?.value || "csv";
+    const range = exportRangeForPreset(exportPreset === "custom" ? "custom" : exportPreset);
+    if (!range.date_from || !range.date_to) {
+      showPunchNote("Choose a from and to date for the export.", "warn");
+      return;
+    }
+    if (range.date_from > range.date_to) {
+      showPunchNote("From date must be on or before to date.", "warn");
+      return;
+    }
+    $("punch-export-dialog")?.close();
+    if (format === "hours-pdf") {
+      await exportHoursPdf(range);
+      return;
+    }
     try {
-      const params = new URLSearchParams();
-      if (useTodayOnly) {
-        params.set("date_from", todayIso());
-        params.set("date_to", todayIso());
-      } else {
-        if (filters.date_from) params.set("date_from", filters.date_from);
-        if (filters.date_to) params.set("date_to", filters.date_to);
-        if (filters.employee_id) params.set("employee_id", filters.employee_id);
-        if (filters.site_id) params.set("site_id", filters.site_id);
-        if (filters.punch_type) params.set("punch_type", filters.punch_type);
-      }
-      const qs = params.toString();
+      const params = new URLSearchParams({
+        date_from: range.date_from,
+        date_to: range.date_to,
+      });
+      if (filters.employee_id) params.set("employee_id", filters.employee_id);
+      if (filters.site_id) params.set("site_id", filters.site_id);
+      if (filters.punch_type) params.set("punch_type", filters.punch_type);
       await downloadAuthenticated(
-        `/admin/time-punch/punches/export.csv${qs ? `?${qs}` : ""}`,
-        `time-punches-${new Date().toISOString().slice(0, 10)}.csv`
+        `/admin/time-punch/punches/export.csv?${params.toString()}`,
+        `time-punches-${range.date_from}-to-${range.date_to}.csv`,
       );
-      showPunchNote("Punch export downloaded.", "ok");
+      showPunchNote(`Punch CSV downloaded (${range.date_from} to ${range.date_to}).`, "ok");
     } catch (error) {
       showPunchNote(error.message || "Export failed.", "error");
     }
+  }
+
+  async function exportPunchesCsv(useTodayOnly) {
+    if (useTodayOnly) {
+      openExportDialog("today");
+      return;
+    }
+    openExportDialog(filters.date_from && filters.date_to ? "custom" : "week");
   }
 
   function openPosterWindow() {
@@ -1589,9 +1766,13 @@
       tab.addEventListener("click", () => setActiveTab(tab.dataset.punchTab));
     });
 
-    $("punch-header-export-btn")?.addEventListener("click", () => exportPunchesCsv(false));
-    $("punch-export-hours-pdf-btn")?.addEventListener("click", () => exportHoursPdf());
-    $("punch-export-last-month-pdf-btn")?.addEventListener("click", () => exportLastMonthHoursPdf());
+    $("punch-header-export-btn")?.addEventListener("click", () => openExportDialog("week"));
+    $("punch-export-hours-pdf-btn")?.addEventListener("click", () => openExportDialog("last-month"));
+    $("punch-export-last-month-pdf-btn")?.addEventListener("click", () => {
+      openExportDialog("last-month");
+      const formatEl = $("punch-export-format");
+      if (formatEl) formatEl.value = "hours-pdf";
+    });
     $("punch-header-admin-btn")?.addEventListener("click", () => {
       setActiveTab("log");
       $("punch-admin-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1659,8 +1840,50 @@
       await loadPunches();
     });
 
-    $("punch-export-csv-btn")?.addEventListener("click", () => exportPunchesCsv(false));
-    $("punch-preview-export-btn")?.addEventListener("click", () => exportPunchesCsv(true));
+    $("punch-export-csv-btn")?.addEventListener("click", () => openExportDialog("week"));
+    $("punch-preview-export-btn")?.addEventListener("click", () => {
+      if (punchHistoryDate === todayIso()) {
+        openExportDialog("today");
+        return;
+      }
+      openExportDialog("custom");
+      const fromEl = $("punch-export-from");
+      const toEl = $("punch-export-to");
+      if (fromEl) fromEl.value = punchHistoryDate;
+      if (toEl) toEl.value = punchHistoryDate;
+      highlightExportPreset("custom");
+    });
+    $("punch-day-prev")?.addEventListener("click", () => {
+      void loadDailyPunches(shiftIsoDate(punchHistoryDate, -1));
+    });
+    $("punch-day-next")?.addEventListener("click", () => {
+      void loadDailyPunches(shiftIsoDate(punchHistoryDate, 1));
+    });
+    $("punch-day-today")?.addEventListener("click", () => {
+      void loadDailyPunches(todayIso());
+    });
+    $("punch-day-picker")?.addEventListener("change", (event) => {
+      const value = event.target.value;
+      if (value) void loadDailyPunches(value);
+    });
+    $("punch-day-refresh")?.addEventListener("click", () => {
+      void refreshPunchFeed();
+    });
+
+    document.querySelectorAll("[data-punch-export-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = btn.dataset.punchExportPreset || "week";
+        fillExportDialogFields(preset);
+      });
+    });
+    $("punch-export-cancel")?.addEventListener("click", () => $("punch-export-dialog")?.close());
+    $("punch-export-dialog")?.addEventListener("close", () => {
+      const formatEl = $("punch-export-format");
+      if (formatEl) formatEl.value = "csv";
+    });
+    $("punch-export-dialog")?.querySelector("form")?.addEventListener("submit", (event) => {
+      void submitExportDialog(event);
+    });
     $("punch-accountant-save-btn")?.addEventListener("click", () => saveAccountantSettings());
     $("punch-accountant-send-btn")?.addEventListener("click", () => sendAccountantReportNow());
   }
@@ -1673,7 +1896,10 @@
   async function initSection() {
     bindEvents();
     resetPunchFilters();
+    punchHistoryDate = todayIso();
+    syncPunchHistoryControls();
     showPunchNote("");
+    startPunchAutoRefresh();
     try {
       if (window.Admin?.loadTenantFeatures) {
         await window.Admin.loadTenantFeatures();
@@ -1705,7 +1931,11 @@
   }
 
   window.addEventListener("admin:section", (event) => {
-    if (event.detail?.section === "time-punch") void initSection();
+    if (event.detail?.section === "time-punch") {
+      void initSection();
+      return;
+    }
+    stopPunchAutoRefresh();
   });
 
   window.addEventListener("admin:tenant-profile-saved", (event) => {
