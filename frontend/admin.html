@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v72" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v73" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -124,7 +124,7 @@
           </a>
 
           <p class="nav-section-label">Admin</p>
-          <a class="nav-link" href="#settings/business" data-section="settings">
+          <a class="nav-link" href="#settings" data-section="settings">
             <span class="nav-link__icon" data-nav-icon="settings" aria-hidden="true"></span>
             <span class="nav-link__label">Settings</span>
           </a>
@@ -192,7 +192,7 @@
               </summary>
               <div class="topbar-user-menu__panel">
                 <p class="topbar-user-menu__label muted" id="topbar-user-label">Admin account</p>
-                <a class="topbar-user-menu__link" href="#settings/business">Settings</a>
+                <a class="topbar-user-menu__link" href="#settings">Settings</a>
                 <a class="topbar-user-menu__link topbar-user-menu__link--signout" href="./business-login.html" data-sign-out>Sign out</a>
               </div>
             </details>
@@ -205,10 +205,7 @@
           <h2 class="mobile-panel-title">More</h2>
           <nav class="mobile-more-menu" aria-label="More options">
             <p class="mobile-more-group">Workspace</p>
-            <a class="mobile-more-link" href="#settings/business">Settings</a>
-            <a class="mobile-more-link" href="#settings/billing">Billing &amp; plan</a>
-            <a class="mobile-more-link" href="#settings/documents">Documents</a>
-            <a class="mobile-more-link" href="#settings/notifications">Notifications</a>
+            <a class="mobile-more-link" href="#settings">Settings</a>
             <p class="mobile-more-group">People</p>
             <a class="mobile-more-link" href="#employees">Employees</a>
             <a class="mobile-more-link" href="#recruitment">Recruitment</a>
@@ -1645,7 +1642,7 @@
             </div>
             <p class="alert-copy">Set a registered business address before syncing your first punch site. Include the full street address and UK postcode (e.g. 156 Front street, Nottingham, NG5 7EG).</p>
             <div class="punch-alert-actions">
-              <a href="#settings" class="btn outline">Set business address in Settings →</a>
+              <a href="#settings/business" class="btn outline">Set business address in Settings →</a>
             </div>
           </div>
 
@@ -2251,51 +2248,13 @@
             </div>
           </header>
 
-          <div class="settings-workspace">
-            <nav class="settings-nav" aria-label="Settings sections">
-              <button type="button" class="settings-nav__item settings-nav__item--active" data-settings-nav="business" aria-current="page">
-                <span class="settings-nav__icon" data-settings-icon="building" aria-hidden="true"></span>
-                Business info
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="documents">
-                <span class="settings-nav__icon" data-settings-icon="folder" aria-hidden="true"></span>
-                Document store
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="billing">
-                <span class="settings-nav__icon" data-settings-icon="card" aria-hidden="true"></span>
-                Billing &amp; plan
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="notifications">
-                <span class="settings-nav__icon" data-settings-icon="bell" aria-hidden="true"></span>
-                Notifications
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="rota">
-                <span class="settings-nav__icon" data-settings-icon="calendar" aria-hidden="true"></span>
-                Rota scheduling
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="users">
-                <span class="settings-nav__icon" data-settings-icon="users" aria-hidden="true"></span>
-                Users &amp; access
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="security">
-                <span class="settings-nav__icon" data-settings-icon="lock" aria-hidden="true"></span>
-                Security
-              </button>
-              <hr class="settings-nav__divider" />
-              <button type="button" class="settings-nav__item" data-settings-nav="addons">
-                <span class="settings-nav__icon" data-settings-icon="sparkles" aria-hidden="true"></span>
-                <span class="settings-nav__label-wrap">
-                  <span class="settings-nav__label">Add-ons &amp; integrations</span>
-                  <span class="settings-nav__sublabel">Multi-site · API access</span>
-                </span>
-              </button>
-            </nav>
-
+          <div class="settings-workspace settings-workspace--hub">
             <div class="settings-main">
               <div class="settings-topbar">
+                <button type="button" class="btn ghost settings-back-btn" id="settings-back-btn" hidden aria-label="Back to settings menu">← Settings</button>
                 <div class="settings-topbar__copy">
-                  <h3 id="settings-panel-title">Business information</h3>
-                  <p class="muted" id="settings-panel-subtitle">Your organisation's legal details, signatory, and contact information.</p>
+                  <h3 id="settings-panel-title">Settings</h3>
+                  <p class="muted" id="settings-panel-subtitle">Choose a section to manage.</p>
                 </div>
                 <div class="settings-plan-badge">
                   <span id="settings-plan-label">Loading plan…</span>
@@ -2305,7 +2264,9 @@
 
               <div id="settings-toast" class="settings-toast" hidden role="status"></div>
 
-              <article class="card settings-panel hr-workspace" data-settings-panel="business">
+              <nav id="settings-hub" class="settings-hub" aria-label="Settings sections"></nav>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="business" hidden>
                 <div class="hr-workspace-body">
                   <div id="tenant-profile-form"></div>
                 </div>
@@ -2535,10 +2496,10 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=10"></script>
     <script src="./admin-compliance-mobile.js?v=2"></script>
-    <script src="./admin-shared.js?v=admin-v26"></script>
+    <script src="./admin-shared.js?v=admin-v27"></script>
     <script src="./admin-workspace.js?v=admin-v19"></script>
     <script src="./admin-address-picker.js?v=3"></script>
-    <script src="./admin-settings.js?v=21"></script>
+    <script src="./admin-settings.js?v=22"></script>
     <script src="./admin-documents.js?v=6"></script>
     <script src="./admin-employees.js?v=21"></script>
     <script src="./admin-recruitment.js?v=6"></script>

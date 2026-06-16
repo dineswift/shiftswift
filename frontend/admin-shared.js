@@ -683,10 +683,6 @@ window.Admin = (() => {
     function routeFromHash() {
       const { path } = parseHashPath(window.location.hash);
       const sectionId = resolveSectionFromHash(window.location.hash);
-      if (sectionId === "settings" && path === "settings") {
-        window.location.hash = "settings/business";
-        return;
-      }
       const exists = sections.some((s) => s.id === sectionId);
       const targetSection = exists ? sectionId : "overview";
       const isDeepLink = path.includes("/");
@@ -715,7 +711,7 @@ window.Admin = (() => {
       link.addEventListener("click", (event) => {
         event.preventDefault();
         const target = link.dataset.section;
-        window.location.hash = target === "settings" ? "settings/business" : target;
+        window.location.hash = target;
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }

@@ -3,6 +3,16 @@
   const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS } = window.Admin;
 
   const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "addons"];
+  const PANEL_ICONS = {
+    business: "building",
+    documents: "folder",
+    billing: "card",
+    notifications: "bell",
+    rota: "calendar",
+    users: "users",
+    security: "lock",
+    addons: "sparkles",
+  };
   const ADDON_TOGGLES = [
     {
       id: "multi-site",
@@ -71,10 +81,12 @@
   let settingsNavBound = false;
 
   function settingsPanelId() {
-    const { path } = parseHashPath(window.location.hash || "#settings/business");
-    const part = path.split("/")[1];
+    const { path } = parseHashPath(window.location.hash || "#settings");
+    const segments = path.split("/").filter(Boolean);
+    if (segments.length <= 1) return null;
+    const part = segments[1];
     if (part === "multisite" || part === "api") return "addons";
-    return PANELS.includes(part) ? part : "business";
+    return PANELS.includes(part) ? part : null;
   }
 
   function showSettingsToast(message) {
@@ -118,55 +130,36 @@
     return window.matchMedia("(max-width: 980px)").matches;
   }
 
-  function mountSettingsAccordion() {
-    if (!isMobileSettingsLayout()) return;
+  function mountSettingsHub() {
+    const hub = document.getElementById("settings-hub");
+    if (!hub || hub.dataset.ready === "1") return;
 
-    const workspace = document.querySelector(".settings-workspace");
-    const nav = document.querySelector(".settings-nav");
-    const main = document.querySelector(".settings-main");
-    if (!workspace || !nav || !main || workspace.dataset.accordionReady === "1") return;
+    hub.innerHTML = PANELS.map((panelId) => {
+      const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
+      const icon = PANEL_ICONS[panelId] || "settings";
+      const meta =
+        panelId === "addons"
+          ? '<span class="settings-hub-card__meta muted">Multi-site · API access</span>'
+          : "";
+      return `<button type="button" class="settings-hub-card" data-settings-hub="${panelId}">
+        <span class="settings-hub-card__icon" data-settings-icon="${icon}" aria-hidden="true"></span>
+        <span class="settings-hub-card__body">
+          <strong class="settings-hub-card__title">${escapeHtml(copy.title)}</strong>
+          <span class="settings-hub-card__sub muted">${escapeHtml(copy.subtitle)}</span>
+          ${meta}
+        </span>
+        <span class="settings-hub-card__chevron" aria-hidden="true">›</span>
+      </button>`;
+    }).join("");
 
-    const accordion = document.createElement("div");
-    accordion.className = "settings-accordion";
-    accordion.id = "settings-accordion";
-
-    [...nav.querySelectorAll("[data-settings-nav]")].forEach((btn) => {
-      const panelId = btn.dataset.settingsNav;
-      const panel = main.querySelector(`[data-settings-panel="${panelId}"]`);
-      if (!panel) return;
-
-      if (panelId === "addons") {
-        const divider = document.createElement("hr");
-        divider.className = "settings-nav__divider settings-accordion-divider";
-        accordion.appendChild(divider);
-      }
-
-      const item = document.createElement("section");
-      item.className = "settings-accordion-item";
-      item.dataset.settingsSection = panelId;
-
-      const chevron = document.createElement("span");
-      chevron.className = "settings-accordion-chevron";
-      chevron.setAttribute("aria-hidden", "true");
-      btn.appendChild(chevron);
-
-      const body = document.createElement("div");
-      body.className = "settings-accordion-body";
-      body.hidden = true;
-
-      btn.remove();
-      panel.remove();
-      panel.hidden = false;
-
-      item.appendChild(btn);
-      body.appendChild(panel);
-      item.appendChild(body);
-      accordion.appendChild(item);
+    hub.querySelectorAll("[data-settings-hub]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        window.location.hash = `settings/${btn.dataset.settingsHub}`;
+      });
     });
 
-    nav.remove();
-    main.appendChild(accordion);
-    workspace.dataset.accordionReady = "1";
+    hub.dataset.ready = "1";
+    bindSettingsNavIcons();
   }
 
   function loadPanelContent(panelId) {
@@ -197,98 +190,41 @@
     }
   }
 
-  function activateSettingsPanel(panelId, options = {}) {
-    const { collapse = false } = options;
-    const mobile = isMobileSettingsLayout();
+  function activateSettingsPanel(panelId) {
+    const workspace = document.querySelector(".settings-workspace");
+    const hub = document.getElementById("settings-hub");
+    const backBtn = document.getElementById("settings-back-btn");
+    const titleEl = document.getElementById("settings-panel-title");
+    const subtitleEl = document.getElementById("settings-panel-subtitle");
+    const isHub = !panelId;
 
-    if (mobile) {
-      const items = document.querySelectorAll(".settings-accordion-item");
-      const targetItem = panelId
-        ? document.querySelector(`.settings-accordion-item[data-settings-section="${panelId}"]`)
-        : null;
+    workspace?.classList.toggle("settings-workspace--hub", isHub);
+    workspace?.classList.toggle("settings-workspace--detail", !isHub);
+    if (hub) hub.hidden = !isHub;
+    if (backBtn) backBtn.hidden = isHub;
 
-      items.forEach((item) => {
-        item.classList.remove("is-open");
-        const btn = item.querySelector(".settings-nav__item");
-        const body = item.querySelector(".settings-accordion-body");
-        if (btn) {
-          btn.classList.remove("settings-nav__item--active");
-          btn.removeAttribute("aria-current");
-          btn.setAttribute("aria-expanded", "false");
-        }
-        if (body) body.hidden = true;
-      });
+    document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+      panel.hidden = isHub || panel.dataset.settingsPanel !== panelId;
+    });
 
-      if (collapse || !panelId) {
-        const titleEl = document.getElementById("settings-panel-title");
-        const subtitleEl = document.getElementById("settings-panel-subtitle");
-        if (titleEl) titleEl.textContent = "Settings";
-        if (subtitleEl) subtitleEl.textContent = "Choose a section below.";
-        return;
-      }
-
-      if (targetItem) {
-        targetItem.classList.add("is-open");
-        const btn = targetItem.querySelector(".settings-nav__item");
-        const body = targetItem.querySelector(".settings-accordion-body");
-        if (btn) {
-          btn.classList.add("settings-nav__item--active");
-          btn.setAttribute("aria-current", "page");
-          btn.setAttribute("aria-expanded", "true");
-        }
-        if (body) body.hidden = false;
-      }
-    } else {
-      document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
-        panel.hidden = collapse || !panelId || panel.dataset.settingsPanel !== panelId;
-      });
-      document.querySelectorAll(".settings-nav [data-settings-nav]").forEach((btn) => {
-        const active = !collapse && panelId && btn.dataset.settingsNav === panelId;
-        btn.classList.toggle("settings-nav__item--active", Boolean(active));
-        if (active) btn.setAttribute("aria-current", "page");
-        else btn.removeAttribute("aria-current");
-      });
-
-      if (collapse || !panelId) {
-        const titleEl = document.getElementById("settings-panel-title");
-        const subtitleEl = document.getElementById("settings-panel-subtitle");
-        if (titleEl) titleEl.textContent = "Settings";
-        if (subtitleEl) subtitleEl.textContent = "Choose a section below.";
-        return;
-      }
+    if (isHub) {
+      if (titleEl) titleEl.textContent = "Settings";
+      if (subtitleEl) subtitleEl.textContent = "Choose a section to manage.";
+      window.MobileShell?.resetPortalScroll?.();
+      return;
     }
 
     const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
-    const titleEl = document.getElementById("settings-panel-title");
-    const subtitleEl = document.getElementById("settings-panel-subtitle");
     if (titleEl) titleEl.textContent = copy.title;
     if (subtitleEl) subtitleEl.textContent = copy.subtitle;
     loadPanelContent(panelId);
-
-    if (mobile && panelId) {
-      const targetItem = document.querySelector(`.settings-accordion-item[data-settings-section="${panelId}"]`);
-      if (targetItem) {
-        requestAnimationFrame(() => {
-          targetItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        });
-      }
-    }
   }
 
   function bindSettingsNav() {
     if (settingsNavBound) return;
     settingsNavBound = true;
-    document.querySelectorAll("[data-settings-nav]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const panel = btn.dataset.settingsNav;
-        const isActive = btn.classList.contains("settings-nav__item--active");
-        if (isMobileSettingsLayout() && isActive) {
-          activateSettingsPanel(null, { collapse: true });
-          return;
-        }
-        window.location.hash = `settings/${panel}`;
-        activateSettingsPanel(panel);
-      });
+    document.getElementById("settings-back-btn")?.addEventListener("click", () => {
+      window.location.hash = "settings";
     });
     window.addEventListener("hashchange", () => {
       if (parseHashPath(window.location.hash).baseSection === "settings") {
@@ -1229,6 +1165,7 @@
   }
 
   async function initSettingsSection() {
+    mountSettingsHub();
     bindSettingsNavIcons();
     bindSettingsNav();
     bindUpgradeActions();
@@ -1241,20 +1178,9 @@
     applyGatedPanels();
     await loadPlanBadge();
     activateSettingsPanel(settingsPanelId());
-    await loadBusinessPanel();
-    await loadBillingPanel();
-    loadNotificationsPanel();
-    loadRotaPanel();
-    loadUsersPanel();
-    loadSecurityPanel();
-    void loadAddonsPanel();
-    if (window.AdminDocuments?.loadSettingsDocuments) {
-      await window.AdminDocuments.loadSettingsDocuments();
-    }
   }
 
   function bootstrapSettingsSection() {
-    mountSettingsAccordion();
     if (sectionReady) {
       activateSettingsPanel(settingsPanelId());
       return;
