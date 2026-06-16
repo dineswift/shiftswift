@@ -349,10 +349,21 @@
     ["sync-punch-site-btn", "punch-setup-sync-btn"].forEach((id) => {
       const btn = $(id);
       if (!btn) return;
-      btn.disabled = !hasAddress;
+      btn.disabled = false;
       btn.title = hasAddress
         ? "Create or refresh your primary punch site from the registered business address"
-        : "Add your registered business address in Settings → Business profile first";
+        : "Add your registered business address in Settings → Business profile first (full UK postcode required)";
+    });
+
+    ["punch-setup-poster-btn", "punch-setup-view-qr-btn"].forEach((id) => {
+      const btn = $(id);
+      if (!btn) return;
+      btn.disabled = false;
+      btn.title = activeSites.length
+        ? id === "punch-setup-poster-btn"
+          ? "Print an A4 poster with QR codes for all active sites"
+          : "Jump to the premises QR gallery"
+        : "Sync from address first to create your punch site and QR codes";
     });
 
     if (setupGuide && selectHint) {
@@ -369,7 +380,7 @@
     }
 
     if (setupQrActions) {
-      setupQrActions.hidden = !activeSites.length;
+      setupQrActions.hidden = setupGuide ? setupGuide.hidden : !activeSites.length;
     }
 
     const posterBtn = $("punch-print-all-poster-btn");
@@ -577,12 +588,34 @@
     return win;
   }
 
-  function scrollToQrGallery() {
+  function scrollToQrGallery(options = {}) {
+    const { quiet = false } = options;
     const target = $("punch-qr-gallery");
-    if (!target) return;
+    if (!target || target.hidden) {
+      if (!quiet) {
+        showPunchNote("Sync from address first to generate premises QR codes.", "warn");
+      }
+      return false;
+    }
     window.requestAnimationFrame(() => {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+    return true;
+  }
+
+  async function viewQrCodesFromSetup() {
+    const activeSites = (sites || []).filter((site) => site.is_active);
+    if (!activeSites.length) {
+      showPunchNote("Sync from address first to create your punch site and QR codes.", "warn");
+      return;
+    }
+    setActiveTab("sites");
+    await renderQrGallery();
+    if (scrollToQrGallery({ quiet: true })) {
+      showPunchNote("Premises QR codes are ready below.", "ok");
+      return;
+    }
+    showPunchNote("Could not load QR codes yet. Try again in a moment.", "warn");
   }
 
   function bindQrGalleryTile(siteId, data) {
@@ -1111,6 +1144,15 @@
     } catch {
       sites = [];
     }
+    if (!sites.length) {
+      selectedSiteId = null;
+      $("punch-detail-empty")?.removeAttribute("hidden");
+      const detailContent = $("punch-detail-content");
+      if (detailContent) {
+        detailContent.hidden = true;
+        detailContent.textContent = "";
+      }
+    }
     renderSitesTable();
     refreshFilterSelects();
     if (sites.length && !selectedSiteId) {
@@ -1512,12 +1554,36 @@
     return posterWindow;
   }
 
+  function bindSetupGuideActions() {
+    const guide = $("punch-setup-guide");
+    if (!guide || guide.dataset.actionsBound === "1") return;
+    guide.dataset.actionsBound = "1";
+    guide.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || !guide.contains(button)) return;
+      if (button.id === "punch-setup-sync-btn") {
+        event.preventDefault();
+        void syncFromAddress(button);
+        return;
+      }
+      if (button.id === "punch-setup-poster-btn") {
+        event.preventDefault();
+        openPosterWindow();
+        return;
+      }
+      if (button.id === "punch-setup-view-qr-btn") {
+        event.preventDefault();
+        void viewQrCodesFromSetup();
+      }
+    });
+  }
+
   function bindEvents() {
     if (bound) return;
     bound = true;
 
+    bindSetupGuideActions();
     $("sync-punch-site-btn")?.addEventListener("click", (e) => syncFromAddress(e.currentTarget));
-    $("punch-setup-sync-btn")?.addEventListener("click", (e) => syncFromAddress(e.currentTarget));
 
     document.querySelectorAll(".punch-view-tab").forEach((tab) => {
       tab.addEventListener("click", () => setActiveTab(tab.dataset.punchTab));
@@ -1541,12 +1607,6 @@
     });
     $("punch-gallery-poster-btn")?.addEventListener("click", () => {
       openPosterWindow();
-    });
-    $("punch-setup-poster-btn")?.addEventListener("click", () => {
-      openPosterWindow();
-    });
-    $("punch-setup-view-qr-btn")?.addEventListener("click", () => {
-      scrollToQrGallery();
     });
     $("punch-timesheet-prev")?.addEventListener("click", () => shiftTimesheetWeek(-1));
     $("punch-timesheet-next")?.addEventListener("click", () => shiftTimesheetWeek(1));

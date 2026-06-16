@@ -9756,6 +9756,10 @@ body.rota-week-readonly .rota-builder-hint {
   margin-top: 0.75rem;
 }
 
+.punch-setup-qr-actions[hidden] {
+  display: none !important;
+}
+
 .punch-type-badge {
   display: inline-block;
   padding: 2px 8px;
