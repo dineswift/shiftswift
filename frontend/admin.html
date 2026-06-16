@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v69" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v70" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2281,13 +2281,12 @@
                 Security
               </button>
               <hr class="settings-nav__divider" />
-              <button type="button" class="settings-nav__item" data-settings-nav="multisite">
-                <span class="settings-nav__icon" data-settings-icon="map-pin" aria-hidden="true"></span>
-                Multi-site
-              </button>
-              <button type="button" class="settings-nav__item" data-settings-nav="api">
-                <span class="settings-nav__icon" data-settings-icon="plug" aria-hidden="true"></span>
-                API access
+              <button type="button" class="settings-nav__item" data-settings-nav="addons">
+                <span class="settings-nav__icon" data-settings-icon="sparkles" aria-hidden="true"></span>
+                <span class="settings-nav__label-wrap">
+                  <span class="settings-nav__label">Add-ons &amp; integrations</span>
+                  <span class="settings-nav__sublabel">Multi-site · API access</span>
+                </span>
               </button>
             </nav>
 
@@ -2487,33 +2486,9 @@
                 </div>
               </article>
 
-              <article class="card settings-panel hr-workspace settings-gated-card" data-settings-panel="multisite" data-feature="multi-site" hidden>
-                <div class="settings-gated-card__locked">
-                  <span class="settings-lock-badge">Scale plan</span>
-                  <h3>Multi-site dashboard</h3>
-                  <p class="muted">Manage staff records and compliance across multiple sites from one workspace.</p>
-                  <button type="button" class="btn" data-settings-upgrade>Upgrade to Scale</button>
-                  <p class="muted">Contact <a href="#" data-brand-support-mailto="Multi-site upgrade">support</a> after upgrading to add sites.</p>
-                </div>
-                <div class="settings-gated-card__unlocked" hidden>
-                  <h3>Multi-site dashboard</h3>
-                  <p class="muted">Manage staff records and compliance across multiple sites from one workspace.</p>
-                  <p class="muted">Contact <a href="#" data-brand-support-mailto="Additional sites">support</a> to add additional sites.</p>
-                </div>
-              </article>
-
-              <article class="card settings-panel hr-workspace settings-gated-card" data-settings-panel="api" data-feature="api-access" hidden>
-                <div class="settings-gated-card__locked">
-                  <span class="settings-lock-badge">Scale plan</span>
-                  <h3>API access</h3>
-                  <p class="muted">Integrate ShiftSwift HR with your accountant, BI tools, or internal systems.</p>
-                  <button type="button" class="btn" data-settings-upgrade>Upgrade to Scale</button>
-                  <p class="muted">API keys and documentation are issued after Scale activation.</p>
-                </div>
-                <div class="settings-gated-card__unlocked" hidden>
-                  <h3>API access</h3>
-                  <p class="muted">Integrate ShiftSwift HR with your accountant, BI tools, or internal systems.</p>
-                  <p class="muted">Email <a href="#" data-brand-support-mailto="API keys and documentation">support</a> for API keys and documentation.</p>
+              <article class="card settings-panel hr-workspace" data-settings-panel="addons" hidden>
+                <div class="hr-workspace-body" id="settings-addons-content">
+                  <p class="muted">Loading add-ons…</p>
                 </div>
               </article>
             </div>
@@ -2561,7 +2536,7 @@
     <script src="./admin-compliance-mobile.js?v=2"></script>
     <script src="./admin-shared.js?v=admin-v22"></script>
     <script src="./admin-workspace.js?v=admin-v19"></script>
-    <script src="./admin-settings.js?v=17"></script>
+    <script src="./admin-settings.js?v=18"></script>
     <script src="./admin-documents.js?v=6"></script>
     <script src="./admin-employees.js?v=21"></script>
     <script src="./admin-recruitment.js?v=6"></script>

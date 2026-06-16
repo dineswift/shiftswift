@@ -2,7 +2,23 @@
 (function initAdminSettings() {
   const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS } = window.Admin;
 
-  const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "multisite", "api"];
+  const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "addons"];
+  const ADDON_TOGGLES = [
+    {
+      id: "multi-site",
+      title: "Multi-site dashboard",
+      description: "Manage staff records and compliance across multiple locations from one workspace.",
+      supportSubject: "Multi-site upgrade",
+      helpEnabled: "Contact support to add additional sites to your account.",
+    },
+    {
+      id: "api-access",
+      title: "API access",
+      description: "Integrate ShiftSwift HR with your accountant, BI tools, or internal systems.",
+      supportSubject: "API keys and documentation",
+      helpEnabled: "Email support for API keys and documentation.",
+    },
+  ];
   const PANEL_COPY = {
     business: {
       title: "Business information",
@@ -32,13 +48,9 @@
       title: "Security",
       subtitle: "Two-factor authentication for your HR admin sign-in.",
     },
-    multisite: {
-      title: "Multi-site",
-      subtitle: "Manage staff and compliance across multiple locations.",
-    },
-    api: {
-      title: "API access",
-      subtitle: "Integrate ShiftSwift HR with external tools and systems.",
+    addons: {
+      title: "Add-ons & integrations",
+      subtitle: "Turn Scale plan features on or off for your workspace.",
     },
   };
   const SAVED_AT_KEY = `settings_business_saved_${window.Admin?.TENANT_ID ?? "default"}`;
@@ -53,6 +65,7 @@
   function settingsPanelId() {
     const { path } = parseHashPath(window.location.hash || "#settings/business");
     const part = path.split("/")[1];
+    if (part === "multisite" || part === "api") return "addons";
     return PANELS.includes(part) ? part : "business";
   }
 
@@ -114,7 +127,7 @@
       const panel = main.querySelector(`[data-settings-panel="${panelId}"]`);
       if (!panel) return;
 
-      if (panelId === "multisite") {
+      if (panelId === "addons") {
         const divider = document.createElement("hr");
         divider.className = "settings-nav__divider settings-accordion-divider";
         accordion.appendChild(divider);
@@ -170,6 +183,9 @@
     }
     if (panelId === "users") {
       loadUsersPanel();
+    }
+    if (panelId === "addons") {
+      void loadAddonsPanel(true);
     }
   }
 
@@ -399,6 +415,78 @@
       });
     } catch (error) {
       host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load business form.")}</p>`;
+    }
+  }
+
+  function renderAddonToggleRow(addon, enabled, planName) {
+    const locked = !enabled;
+    return `<article class="settings-feature-toggle${locked ? " settings-feature-toggle--locked" : ""}">
+      <div class="settings-feature-toggle__copy">
+        <h4 class="settings-feature-toggle__title">${escapeHtml(addon.title)}</h4>
+        <p class="muted">${escapeHtml(addon.description)}</p>
+        ${
+          enabled
+            ? `<p class="muted settings-feature-toggle__help"><a href="#" data-brand-support-mailto="${escapeHtml(addon.supportSubject)}">Contact support</a> — ${escapeHtml(addon.helpEnabled)}</p>`
+            : `<p class="muted settings-feature-toggle__help">Included on <strong>Scale</strong> plans. You are on <strong>${escapeHtml(planName)}</strong>.</p>`
+        }
+      </div>
+      <label class="settings-toggle" title="${enabled ? "Enabled on your account" : "Upgrade to Scale to enable"}">
+        <input type="checkbox" data-addon-toggle="${escapeHtml(addon.id)}" ${enabled ? "checked" : ""} ${enabled ? "disabled" : ""} />
+        <span class="settings-toggle__track" aria-hidden="true"></span>
+        <span class="visually-hidden">${enabled ? "Enabled" : "Disabled"}</span>
+      </label>
+    </article>`;
+  }
+
+  function bindAddonToggles(host) {
+    host.querySelectorAll("[data-addon-toggle]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const feature = input.dataset.addonToggle;
+        if (isFeatureEnabled(feature)) {
+          input.checked = true;
+          showSettingsToast("Contact support if you need to disable this add-on.");
+          return;
+        }
+        input.checked = false;
+        showSettingsToast("Upgrade to Scale to enable this add-on.");
+        void startUpgrade();
+      });
+    });
+  }
+
+  async function loadAddonsPanel(force = false) {
+    const host = document.getElementById("settings-addons-content");
+    if (!host || (host.dataset.ready === "true" && !force)) return;
+
+    host.innerHTML = `<p class="muted">Loading add-ons…</p>`;
+    try {
+      await window.Admin.loadTenantFeatures();
+      const overviewRes = await apiFetch("/admin/overview");
+      const overview = overviewRes.ok ? await overviewRes.json() : {};
+      const planName = overview.plan_display_name || "Starter";
+      const scaleLocked = !isFeatureEnabled("multi-site") && !isFeatureEnabled("api-access");
+
+      host.innerHTML = `
+        <p class="muted">Use toggles to see which Scale features are active on your account. Self-service enablement is coming soon — contact support or upgrade your plan today.</p>
+        ${
+          scaleLocked
+            ? `<div class="alert-card alert-card-warning settings-addons-upgrade">
+                <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade to unlock both, or email support if you are already on Scale.</p>
+                <button type="button" class="btn outline" data-settings-upgrade>Upgrade to Scale</button>
+              </div>`
+            : ""
+        }
+        <div class="settings-feature-toggles">
+          ${ADDON_TOGGLES.map((addon) => renderAddonToggleRow(addon, isFeatureEnabled(addon.id), planName)).join("")}
+        </div>
+        <p class="muted settings-addons-foot">Rota add-ons (Advanced scheduling, Multi-site rota) are managed under <a href="#settings/rota">Rota scheduling</a> and <a href="#settings/billing">Billing &amp; plan</a>.</p>`;
+
+      host.querySelector("[data-settings-upgrade]")?.addEventListener("click", startUpgrade);
+      bindAddonToggles(host);
+      window.ShiftSwiftBrand?.applyBrandDom?.(host);
+      host.dataset.ready = "true";
+    } catch {
+      host.innerHTML = `<p class="muted">Could not load add-ons.</p>`;
     }
   }
 
@@ -1123,6 +1211,7 @@
     loadRotaPanel();
     loadUsersPanel();
     loadSecurityPanel();
+    void loadAddonsPanel();
     if (window.AdminDocuments?.loadSettingsDocuments) {
       await window.AdminDocuments.loadSettingsDocuments();
     }
@@ -1153,6 +1242,11 @@
 
   window.addEventListener("admin:features", () => {
     applyGatedPanels();
+    const addonsHost = document.getElementById("settings-addons-content");
+    if (addonsHost) {
+      addonsHost.dataset.ready = "false";
+      void loadAddonsPanel(true);
+    }
   });
 
   if (parseHashPath(window.location.hash).baseSection === "settings") {
