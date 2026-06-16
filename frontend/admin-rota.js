@@ -3,6 +3,7 @@
   const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill } = window.Admin;
 
   let sectionReady = false;
+  let rotaDataLoadPromise = null;
   let rotaWeekStartDay = 0;
   let currentWeekStart = rotaWeekStartIso(new Date());
   let weekMeta = null;
@@ -39,6 +40,7 @@
   let rotaInsights = null;
   let selectedTemplateId = null;
   let advancedUiBound = false;
+  let featuresListenerBound = false;
   let mobileSelectedDay = null;
 
   function shouldUseMobileRotaBuilder() {
@@ -51,7 +53,7 @@
 
   function ensureMobileSelectedDay() {
     const days = weekDayIsos();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayIsoLocal();
     if (mobileSelectedDay && days.includes(mobileSelectedDay)) return mobileSelectedDay;
     mobileSelectedDay = days.includes(today) ? today : days[0];
     return mobileSelectedDay;
@@ -62,7 +64,7 @@
     const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
     const dayNum = date.getDate();
     const hasShifts = shiftsOnDate(iso) > 0;
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayIsoLocal();
     const classes = [
       "rota-mobile-day-pill",
       selected ? "is-selected" : "",
@@ -249,13 +251,37 @@
     return pyDay === 6 ? 0 : pyDay + 1;
   }
 
+  function toLocalIsoDate(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function todayIsoLocal() {
+    return toLocalIsoDate(new Date());
+  }
+
   function rotaWeekStartIso(date = new Date(), weekStartDay) {
     const startDay = weekStartDay != null ? weekStartDay : rotaWeekStartDay;
     const d = new Date(date);
     const jsStart = jsDayFromPythonWeekday(startDay);
     const diff = (d.getDay() - jsStart + 7) % 7;
     d.setDate(d.getDate() - diff);
-    return d.toISOString().slice(0, 10);
+    return toLocalIsoDate(d);
+  }
+
+  async function ensureWeekStartAligned() {
+    if (window.Admin?.loadTenantFeatures) {
+      await window.Admin.loadTenantFeatures();
+    }
+    syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
+    currentWeekStart = rotaWeekStartIso(new Date());
+  }
+
+  function parseRotaApiDetail(data, fallback) {
+    if (!data || typeof data !== "object") return fallback;
+    const detail = data.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
   }
 
   function weekRangeShortLabel() {
@@ -268,7 +294,7 @@
   function addDays(isoDate, days) {
     const d = new Date(`${isoDate}T12:00:00`);
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return toLocalIsoDate(d);
   }
 
   function weekEndIso(weekStart) {
@@ -276,8 +302,7 @@
   }
 
   function isWeekFullyPast(weekStart = currentWeekStart) {
-    const today = new Date().toISOString().slice(0, 10);
-    return weekEndIso(weekStart) < today;
+    return weekEndIso(weekStart) < todayIsoLocal();
   }
 
   function isWeekReadOnly() {
@@ -1057,11 +1082,12 @@
       el.textContent = "";
       return;
     }
+    const weekLabel = formatWeekLabel(currentWeekStart);
     if (!shiftCount) {
-      el.textContent = `0 shifts · ${staff.length} staff · ${weekRangeShortLabel()}`;
+      el.textContent = `0 shifts · ${staff.length} staff · ${weekLabel}`;
       return;
     }
-    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff · ${weekRangeShortLabel()}`;
+    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff · ${weekLabel}`;
   }
 
   function syncPanelVisibility() {
@@ -1355,7 +1381,7 @@
     grid.classList.toggle("rota-grid--readonly", readonly);
 
     const days = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = todayIsoLocal();
     const staff = activeEmployees();
 
     let html = '<div class="rota-grid-header"><div class="rota-gh-cell">Staff</div>';
@@ -1719,18 +1745,57 @@
     }).join("");
   }
 
-  async function loadWeek() {
+  async function reloadRotaData() {
+    if (rotaDataLoadPromise) return rotaDataLoadPromise;
+    rotaDataLoadPromise = (async () => {
+      try {
+        await ensureWeekStartAligned();
+        await loadEmployeesList();
+        await loadWeek();
+      } finally {
+        rotaDataLoadPromise = null;
+      }
+    })();
+    return rotaDataLoadPromise;
+  }
+
+  function onRotaFeaturesChanged() {
+    const prevDay = rotaWeekStartDay;
+    syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
+    applyRotaModeUi();
+    if (!sectionReady) return;
+    const realigned = rotaWeekStartIso(new Date());
+    if (realigned !== currentWeekStart || prevDay !== rotaWeekStartDay) {
+      currentWeekStart = realigned;
+      void reloadRotaData();
+    }
+  }
+  async function loadWeek({ retryAfterAlign = true } = {}) {
     setMessage("Loading rota…");
     try {
       const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}?include_attendance=true${templateQuerySuffix()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage(data.detail?.message || data.detail || "Could not load rota.", "error");
+        const message = parseRotaApiDetail(data, "Could not load rota.");
+        if (
+          retryAfterAlign &&
+          typeof message === "string" &&
+          message.includes("week_start must be a")
+        ) {
+          await ensureWeekStartAligned();
+          return loadWeek({ retryAfterAlign: false });
+        }
+        shifts = [];
+        renderAll();
+        setMessage(message, "error");
         return;
       }
       weekMeta = data.week || { status: "draft", version: 1 };
       rotaPolicy = data.policy || null;
       if (data.week_start_day != null) syncRotaWeekStartDay(data.week_start_day);
+      if (data.week_start && data.week_start !== currentWeekStart) {
+        currentWeekStart = data.week_start;
+      }
       shifts = (data.shifts || []).map((s) => ({ ...s }));
       attendanceByShiftId = new Map();
       (data.attendance?.items || []).forEach((item) => {
@@ -1755,13 +1820,15 @@
       } else if (!shifts.length) {
         setMessage(
           shouldUseMobileRotaBuilder()
-            ? "Tap a staff member to add your first shift, then Save draft."
-            : "Click a cell to add your first shift, then Save draft."
+            ? "No shifts this week — tap a staff member to add one, or use ← to check earlier weeks."
+            : "No shifts this week — click a cell to add one, or use ← to check earlier weeks."
         );
       } else {
         setMessage("Unsaved changes? Save draft, then publish when ready.");
       }
     } catch (error) {
+      shifts = [];
+      renderAll();
       setMessage(error.message || "Could not load rota.", "error");
     }
   }
@@ -2169,32 +2236,24 @@
     document.getElementById("rota-add-notes")?.addEventListener("input", updateOverlapStatus);
     initPanelDrag();
 
-    if (window.Admin?.loadTenantFeatures) {
-      await window.Admin.loadTenantFeatures();
-    }
-    syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
-    currentWeekStart = rotaWeekStartIso(new Date());
     applyRotaModeUi();
-    window.addEventListener("admin:features", () => {
-      syncRotaWeekStartDay(window.Admin?.tenantFeatures?.rota_week_start_day);
-      applyRotaModeUi();
-    });
+    if (!featuresListenerBound) {
+      featuresListenerBound = true;
+      window.addEventListener("admin:features", onRotaFeaturesChanged);
+    }
     bindAdvancedUiOnce();
 
     syncViewForViewport();
     window.addEventListener("resize", syncViewForViewport);
-    await loadEmployeesList();
-    await loadWeek();
+    await reloadRotaData();
     syncMobileNotifyChip();
     await loadShiftRequests();
   }
 
   async function refreshRotaSection() {
     syncViewForViewport();
-    await loadEmployeesList();
-    if (sectionReady) {
-      renderAll();
-    }
+    if (!sectionReady) return;
+    await reloadRotaData();
   }
 
   window.addEventListener("admin:rota-mobile-open", () => {
@@ -2212,7 +2271,9 @@
   });
 
   if (parseHashBaseSection(window.location.hash) === "rota") {
-    sectionReady = true;
-    initSection();
+    if (!sectionReady) {
+      sectionReady = true;
+      initSection();
+    }
   }
 })();
