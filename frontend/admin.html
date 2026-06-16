@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v65" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v66" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1742,13 +1742,27 @@
                         <th>Radius</th>
                         <th>Permitted roles</th>
                         <th>Status</th>
+                        <th>QR &amp; print</th>
                       </tr>
                     </thead>
                     <tbody id="punch-sites-body">
-                      <tr><td colspan="5" class="muted">Open this section to load sites…</td></tr>
+                      <tr><td colspan="6" class="muted">Open this section to load sites…</td></tr>
                     </tbody>
                   </table>
                 </div>
+
+                <section id="punch-qr-gallery" class="punch-qr-gallery" hidden aria-label="Premises QR codes">
+                  <div class="punch-table-head">
+                    <div>
+                      <h4 class="hr-section-title">Premises QR codes</h4>
+                      <p class="muted punch-tab-intro">Download or print QR codes for staff to scan indoors in the Time Clock app.</p>
+                    </div>
+                    <button type="button" class="btn outline punch-table-head__btn" id="punch-gallery-poster-btn">
+                      <span aria-hidden="true">🖨</span> Print A4 poster (all sites)
+                    </button>
+                  </div>
+                  <div id="punch-qr-gallery-grid" class="punch-qr-gallery-grid muted">Sync a punch site to generate QR codes.</div>
+                </section>
 
                 <div class="punch-today-preview">
                   <div class="punch-table-head">
@@ -1894,10 +1908,14 @@
                   <h3>Get started</h3>
                   <ol class="punch-setup-steps">
                     <li><strong>Step 1</strong> — Sync your business address to create your first punch site.</li>
-                    <li><strong>Step 2</strong> — Print the premises QR indoors; staff use GPS outdoors or scan the QR in the Time Clock app.</li>
+                    <li><strong>Step 2</strong> — Download or print the premises QR below; staff scan it in the Time Clock app indoors.</li>
                     <li><strong>Step 3</strong> — Review punch activity and export hours PDF or CSV for payroll.</li>
                   </ol>
                   <button type="button" class="btn primary" id="punch-setup-sync-btn">Sync from address</button>
+                  <div id="punch-setup-qr-actions" class="punch-setup-qr-actions" hidden>
+                    <button type="button" class="btn outline" id="punch-setup-poster-btn">Print A4 poster</button>
+                    <button type="button" class="btn outline" id="punch-setup-view-qr-btn">View QR codes</button>
+                  </div>
                 </div>
                 <p id="punch-detail-select-hint" hidden>Select a punch site to view geofence details.</p>
               </div>
@@ -2509,7 +2527,7 @@
     <script src="./admin-disciplinary.js?v=1"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
-    <script src="./admin-time-punch.js?v=18"></script>
+    <script src="./admin-time-punch.js?v=19"></script>
     <script src="./admin-rota.js?v=20"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>

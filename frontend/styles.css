@@ -9644,6 +9644,72 @@ body.rota-week-readonly .rota-builder-hint {
   gap: 0.5rem;
 }
 
+.punch-qr-gallery {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--card-border);
+}
+
+.punch-qr-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.punch-qr-tile {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+.punch-qr-tile__image {
+  flex-shrink: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.punch-qr-tile__body {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.punch-qr-tile__title {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--green-900);
+}
+
+.punch-qr-tile__hint {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.punch-qr-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.punch-site-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.punch-setup-qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
 .punch-type-badge {
   display: inline-block;
   padding: 2px 8px;

@@ -279,9 +279,11 @@
   function updateSetupUi() {
     const warning = $("punch-address-warning");
     const setupGuide = $("punch-setup-guide");
+    const setupQrActions = $("punch-setup-qr-actions");
     const selectHint = $("punch-detail-select-hint");
     const noSites = !sites.length;
     const hasAddress = hasBusinessAddress();
+    const activeSites = (sites || []).filter((site) => site.is_active);
 
     if (warning) warning.hidden = hasAddress;
     const syncMeta = $("punch-sync-meta");
@@ -309,12 +311,21 @@
       }
     }
 
+    if (setupQrActions) {
+      setupQrActions.hidden = !activeSites.length;
+    }
+
     const posterBtn = $("punch-print-all-poster-btn");
     if (posterBtn) {
-      posterBtn.disabled = noSites;
-      posterBtn.title = noSites
+      posterBtn.disabled = !activeSites.length;
+      posterBtn.title = !activeSites.length
         ? "Sync or add a punch site first — then print the premises QR poster."
         : "Print an A4 poster with QR codes for all active sites";
+    }
+
+    const galleryPosterBtn = $("punch-gallery-poster-btn");
+    if (galleryPosterBtn) {
+      galleryPosterBtn.disabled = !activeSites.length;
     }
   }
 
@@ -480,11 +491,26 @@
     return data.qr_image_data_uri || data.qr_image_url || "";
   }
 
+  async function fetchSiteClockQr(siteId) {
+    const res = await apiFetch(`/admin/time-punch/sites/${siteId}/clock-qr`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Could not load QR");
+    return data;
+  }
+
   function storePunchCardPayload(payload) {
     sessionStorage.setItem("punchCardPayload", JSON.stringify(payload));
   }
 
-  function openPunchCardPage(layout = "pocket") {
+  function openPunchCardPage(layout = "pocket", qrData) {
+    if (qrData) {
+      storePunchCardPayload({
+        clock_url: qrData.clock_url,
+        site_name: qrData.site_name || "Work site",
+        qr_image_data_uri: qrImageSrc(qrData),
+        layout,
+      });
+    }
     const cardUrl = new URL("./punch-site-card.html", window.location.href);
     cardUrl.searchParams.set("layout", layout);
     const win = window.open(cardUrl.toString(), "_blank", "noopener");
@@ -492,6 +518,90 @@
       showMessage("Allow pop-ups to open the QR print page.");
     }
     return win;
+  }
+
+  function scrollToQrGallery() {
+    const target = $("punch-qr-gallery");
+    if (!target) return;
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function bindQrGalleryTile(siteId, data) {
+    document.querySelector(`[data-gallery-download="${siteId}"]`)?.addEventListener("click", () => {
+      void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
+        showMessage(error.message || "Could not download QR.");
+      });
+    });
+    document.querySelector(`[data-gallery-print-card="${siteId}"]`)?.addEventListener("click", () => {
+      openPunchCardPage("pocket", data);
+    });
+    document.querySelector(`[data-gallery-print-tent="${siteId}"]`)?.addEventListener("click", () => {
+      openPunchCardPage("tent", data);
+    });
+    document.querySelector(`[data-gallery-copy-url="${siteId}"]`)?.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(data.clock_url);
+        showMessage("Premises clock link copied.", "ok");
+      } catch {
+        showMessage("Could not copy link.");
+      }
+    });
+    document.querySelector(`[data-gallery-select="${siteId}"]`)?.addEventListener("click", () => {
+      selectedSiteId = siteId;
+      renderSitesTable();
+      renderSiteDetail(sites.find((site) => site.id === siteId));
+    });
+  }
+
+  async function renderQrGallery() {
+    const section = $("punch-qr-gallery");
+    const grid = $("punch-qr-gallery-grid");
+    if (!section || !grid) return;
+
+    const activeSites = (sites || []).filter((site) => site.is_active);
+    if (!activeSites.length) {
+      section.hidden = true;
+      grid.textContent = "Sync a punch site to generate QR codes.";
+      return;
+    }
+
+    section.hidden = false;
+    grid.innerHTML = `<p class="muted">Generating QR codes…</p>`;
+
+    try {
+      const items = await Promise.all(
+        activeSites.map(async (site) => {
+          const data = await fetchSiteClockQr(site.id);
+          return { site, data };
+        }),
+      );
+
+      grid.innerHTML = items
+        .map(({ site, data }) => {
+          const qrSrc = qrImageSrc(data);
+          return `<article class="punch-qr-tile">
+            <img src="${escapeHtml(qrSrc)}" width="160" height="160" alt="Premises QR for ${escapeHtml(data.site_name || site.name)}" class="punch-qr-tile__image" />
+            <div class="punch-qr-tile__body">
+              <h5 class="punch-qr-tile__title">${escapeHtml(data.site_name || site.name)}</h5>
+              <p class="muted punch-qr-tile__hint">Scan in Time Clock → Clock in/out indoors</p>
+              <div class="punch-qr-tile__actions">
+                <button type="button" class="btn outline btn-sm" data-gallery-download="${site.id}">Download PNG</button>
+                <button type="button" class="btn outline btn-sm" data-gallery-print-card="${site.id}">Print card</button>
+                <button type="button" class="btn ghost btn-sm" data-gallery-print-tent="${site.id}">Tent card</button>
+                <button type="button" class="btn ghost btn-sm" data-gallery-copy-url="${site.id}">Copy link</button>
+                <button type="button" class="btn ghost btn-sm" data-gallery-select="${site.id}">Site details</button>
+              </div>
+            </div>
+          </article>`;
+        })
+        .join("");
+
+      items.forEach(({ site, data }) => bindQrGalleryTile(site.id, data));
+    } catch (error) {
+      grid.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not generate QR codes.")}</p>`;
+    }
   }
 
   async function downloadSiteClockQr(siteId, siteName) {
@@ -527,9 +637,7 @@
     if (!host) return;
     host.textContent = "Loading QR…";
     try {
-      const res = await apiFetch(`/admin/time-punch/sites/${siteId}/clock-qr`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Could not load QR");
+      const data = await fetchSiteClockQr(siteId);
       const qrSrc = qrImageSrc(data);
       host.innerHTML = `
         <div class="punch-clock-qr-layout">
@@ -562,22 +670,10 @@
         });
       });
       host.querySelector("#punch-print-clock-card")?.addEventListener("click", () => {
-        storePunchCardPayload({
-          clock_url: data.clock_url,
-          site_name: data.site_name || "Work site",
-          qr_image_data_uri: qrSrc,
-          layout: "pocket",
-        });
-        openPunchCardPage("pocket");
+        openPunchCardPage("pocket", data);
       });
       host.querySelector("#punch-print-tent-card")?.addEventListener("click", () => {
-        storePunchCardPayload({
-          clock_url: data.clock_url,
-          site_name: data.site_name || "Work site",
-          qr_image_data_uri: qrSrc,
-          layout: "tent",
-        });
-        openPunchCardPage("tent");
+        openPunchCardPage("tent", data);
       });
       host.querySelector("#punch-open-kiosk-btn")?.addEventListener("click", () => {
         const url =
@@ -701,7 +797,7 @@
     if (!tbody) return;
     if (!sites.length) {
       tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No punch sites yet. Sync from address or add one manually.</td></tr>';
+        '<tr><td colspan="6" class="muted">No punch sites yet. Sync from address or add one manually.</td></tr>';
       return;
     }
     tbody.innerHTML = sites
@@ -713,14 +809,38 @@
           <td>${row.radius_meters}m</td>
           <td>${escapeHtml(roleLabel(row.permitted_roles))}</td>
           <td>${row.is_active ? "Active" : "Inactive"}</td>
+          <td class="punch-site-actions">
+            <button type="button" class="btn ghost btn-sm" data-site-qr-download="${row.id}">Download QR</button>
+            <button type="button" class="btn ghost btn-sm" data-site-qr-print="${row.id}">Print card</button>
+          </td>
         </tr>`;
       })
       .join("");
     tbody.querySelectorAll("[data-site-id]").forEach((row) => {
-      row.addEventListener("click", () => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest(".punch-site-actions")) return;
         selectedSiteId = Number(row.dataset.siteId);
         renderSitesTable();
         renderSiteDetail(sites.find((s) => s.id === selectedSiteId));
+      });
+    });
+    tbody.querySelectorAll("[data-site-qr-download]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const site = sites.find((item) => item.id === Number(btn.dataset.siteQrDownload));
+        if (!site) return;
+        void downloadSiteClockQr(site.id, site.name).catch((error) => {
+          showMessage(error.message || "Could not download QR.");
+        });
+      });
+    });
+    tbody.querySelectorAll("[data-site-qr-print]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const siteId = Number(btn.dataset.siteQrPrint);
+        void fetchSiteClockQr(siteId)
+          .then((data) => openPunchCardPage("pocket", data))
+          .catch((error) => showMessage(error.message || "Could not load QR."));
       });
     });
   }
@@ -941,6 +1061,8 @@
       renderSiteDetail(sites.find((s) => s.id === selectedSiteId));
       renderSitesTable();
     }
+    await renderQrGallery();
+    updateSetupUi();
   }
 
   async function loadPunches() {
@@ -1013,10 +1135,11 @@
         return;
       }
       localStorage.setItem("punch-last-sync-at", new Date().toISOString());
-      showMessage(`Synced primary site: ${data.name}`, "ok");
+      showMessage(`Synced primary site: ${data.name}. QR codes are ready below.`, "ok");
       selectedSiteId = data.id;
       await Promise.all([loadSites(), loadTodayPunches(), loadWeekPunches()]);
       updatePunchStats();
+      scrollToQrGallery();
     } catch (error) {
       showMessage(error.message || "Sync failed.");
     } finally {
@@ -1317,6 +1440,16 @@
     }
   }
 
+  function openPosterWindow() {
+    const posterWindow = window.open("about:blank", "_blank", "noopener");
+    if (!posterWindow) {
+      showMessage("Allow pop-ups to print the QR poster.");
+      return null;
+    }
+    void openAllSitesPoster(posterWindow);
+    return posterWindow;
+  }
+
   function bindEvents() {
     if (bound) return;
     bound = true;
@@ -1342,12 +1475,16 @@
       setActiveTab("sites");
     });
     $("punch-print-all-poster-btn")?.addEventListener("click", () => {
-      const posterWindow = window.open("about:blank", "_blank", "noopener");
-      if (!posterWindow) {
-        showMessage("Allow pop-ups to print the QR poster.");
-        return;
-      }
-      void openAllSitesPoster(posterWindow);
+      openPosterWindow();
+    });
+    $("punch-gallery-poster-btn")?.addEventListener("click", () => {
+      openPosterWindow();
+    });
+    $("punch-setup-poster-btn")?.addEventListener("click", () => {
+      openPosterWindow();
+    });
+    $("punch-setup-view-qr-btn")?.addEventListener("click", () => {
+      scrollToQrGallery();
     });
     $("punch-timesheet-prev")?.addEventListener("click", () => shiftTimesheetWeek(-1));
     $("punch-timesheet-next")?.addEventListener("click", () => shiftTimesheetWeek(1));
