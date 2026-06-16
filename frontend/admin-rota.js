@@ -442,13 +442,32 @@
     const candidate = getFormShiftCandidate();
     if (!candidate) return null;
     if (candidate.start_time === candidate.end_time) return "Start and end time cannot be the same";
+    const empName = employeeName(candidate.employee_id);
     for (let i = 0; i < shifts.length; i += 1) {
       if (i === editingShiftIndex) continue;
-      if (shiftsTimeOverlap(candidate, shifts[i])) {
-        return `Overlaps with ${employeeName(shifts[i].employee_id)} ${shifts[i].start_time}–${shifts[i].end_time}`;
-      }
+      if (Number(shifts[i].employee_id) !== Number(candidate.employee_id)) continue;
+      if (!shiftsTimeOverlap(candidate, shifts[i])) continue;
+      const dayLabel = new Date(`${shifts[i].shift_date}T12:00:00`).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+      return `${empName} already has a shift on ${dayLabel}, ${shifts[i].start_time}–${shifts[i].end_time}. Change the time or pick another employee.`;
     }
     return null;
+  }
+
+  function setOverlapStatus(el, type, message) {
+    if (!message) {
+      el.textContent = "";
+      el.className = "rota-overlap-status";
+      return;
+    }
+    const icon = type === "error" ? "⚠" : "✓";
+    el.className = `rota-overlap-status rota-overlap-status--${type}`;
+    el.innerHTML = `<span class="rota-overlap-status__icon${
+      type === "ok" ? " rota-overlap-status__icon--ok" : ""
+    }" aria-hidden="true">${icon}</span><span class="rota-overlap-status__text">${escapeHtml(message)}</span>`;
   }
 
   function updateOverlapStatus() {
@@ -458,20 +477,17 @@
     if (!el) return;
     const overlap = findFormOverlap();
     if (!getFormShiftCandidate()) {
-      el.textContent = "";
-      el.className = "rota-overlap-status";
+      setOverlapStatus(el, "", "");
       if (addBtn) addBtn.disabled = false;
       if (headSave) headSave.disabled = false;
       return;
     }
     if (overlap) {
-      el.textContent = overlap;
-      el.className = "rota-overlap-status rota-overlap-status--error";
+      setOverlapStatus(el, "error", overlap);
       if (addBtn) addBtn.disabled = true;
       if (headSave) headSave.disabled = true;
     } else {
-      el.textContent = "No overlap detected for this slot";
-      el.className = "rota-overlap-status rota-overlap-status--ok";
+      setOverlapStatus(el, "ok", "No double-booking for this employee — others can work the same hours");
       if (addBtn) addBtn.disabled = false;
       if (headSave) headSave.disabled = false;
     }
@@ -604,7 +620,7 @@
     assignShiftEmployee(next, employeeId);
     const clash = shiftWouldOverlap(next, index);
     if (clash) {
-      setMessage(`Cannot move — overlaps ${employeeName(clash.employee_id)} ${clash.start_time}–${clash.end_time}`, "error");
+      setMessage(`Cannot move — ${employeeName(next.employee_id)} already has a shift ${clash.start_time}–${clash.end_time} that day`, "error");
       return false;
     }
     shifts[index] = next;
@@ -623,7 +639,7 @@
     assignShiftEmployee(copy, employeeId);
     const clash = shiftWouldOverlap(copy);
     if (clash) {
-      setMessage(`Cannot copy — overlaps ${employeeName(clash.employee_id)} ${clash.start_time}–${clash.end_time}`, "error");
+      setMessage(`Cannot copy — ${employeeName(copy.employee_id)} already has a shift ${clash.start_time}–${clash.end_time} that day`, "error");
       return false;
     }
     shifts.push(copy);
@@ -689,7 +705,7 @@
     };
     const clash = shiftWouldOverlap(candidate);
     if (clash) {
-      setMessage(`Cannot add — overlaps ${clash.start_time}–${clash.end_time}`, "error");
+      setMessage(`Cannot add — ${employeeName(candidate.employee_id)} already has a shift ${clash.start_time}–${clash.end_time} that day`, "error");
       openShiftPanel({ employeeId, shiftDate });
       return;
     }
@@ -780,7 +796,7 @@
           month: "short",
         });
         const checked = iso === shift.shift_date ? " checked" : "";
-        return `<label class="rota-copy-day"><input type="checkbox" value="${iso}"${checked} /> ${escapeHtml(label)}</label>`;
+        return `<label class="rota-copy-day"><input type="checkbox" value="${iso}"${checked} /><span class="rota-copy-day__text">${escapeHtml(label)}</span></label>`;
       })
       .join("");
     modal.hidden = false;

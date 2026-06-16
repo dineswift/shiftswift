@@ -58,9 +58,38 @@
     counterObserver.observe(counter);
   }
 
+  function initHeroParallax() {
+    if (reduced) return;
+    const visual = document.querySelector(".hero-visual");
+    if (!visual) return;
+
+    let ticking = false;
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          visual.style.transform = `translateY(${window.scrollY * 0.06}px)`;
+          ticking = false;
+        });
+      },
+      { passive: true }
+    );
+  }
+
+  function initCtaShine() {
+    if (reduced) return;
+    document.querySelectorAll(".hero-actions .btn:not(.ghost)").forEach((btn) => {
+      btn.classList.add("btn--shine");
+    });
+  }
+
   function boot() {
     initReveal();
     initCounters();
+    initHeroParallax();
+    initCtaShine();
   }
 
   if (document.body.classList.contains("is-loading")) {
