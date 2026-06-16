@@ -384,6 +384,9 @@
       const mountHost = document.getElementById("tenant-profile-form-mount");
       const savedAt = localStorage.getItem(SAVED_AT_KEY);
       updateLastSavedLabel(savedAt);
+      const initialAddress = window.Admin?.normalizeBusinessAddress?.(values.registered_address) || "";
+      const initialLatitude = values.registered_latitude ?? null;
+      const initialLongitude = values.registered_longitude ?? null;
 
       mountEditForm(mountHost, FORM_SCHEMAS.tenantProfile, {
         values,
@@ -394,6 +397,17 @@
               payload.registered_address;
             const check = window.Admin?.validateBusinessAddress?.(payload.registered_address);
             if (check && !check.ok) throw new Error(check.message);
+          }
+          payload.registered_latitude = payload.registered_latitude ? Number(payload.registered_latitude) : null;
+          payload.registered_longitude = payload.registered_longitude ? Number(payload.registered_longitude) : null;
+          const addressChanged = payload.registered_address !== initialAddress;
+          const hasCoords = payload.registered_latitude != null && payload.registered_longitude != null;
+          if (!hasCoords && initialLatitude != null && initialLongitude != null && !addressChanged) {
+            payload.registered_latitude = initialLatitude;
+            payload.registered_longitude = initialLongitude;
+          }
+          if (payload.registered_address && addressChanged && !hasCoords) {
+            throw new Error("Search OpenStreetMap and pick your premises so Time punch can geofence accurately.");
           }
           const res = await apiFetch("/admin/tenant-profile", {
             method: "PATCH",
@@ -415,6 +429,11 @@
           cacheRegisteredAddress(data.registered_address);
           window.dispatchEvent(new CustomEvent("admin:tenant-profile-saved", { detail: data }));
         },
+      });
+      const profileForm = mountHost.querySelector('[data-form-id="tenant-profile"]');
+      window.AdminAddressPicker?.enhanceForm?.(profileForm, {
+        latitude: values.registered_latitude,
+        longitude: values.registered_longitude,
       });
     } catch (error) {
       host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load business form.")}</p>`;

@@ -33,6 +33,8 @@ TENANT_PROFILE_FIELDS = (
     "trading_name",
     "company_number",
     "registered_address",
+    "registered_latitude",
+    "registered_longitude",
     "phone",
     "billing_email",
     "vat_number",
@@ -73,6 +75,18 @@ from modules.employees.repository import (
     list_employee_summaries,
 )
 from modules.employees.workspace import list_completion_summary
+
+
+def _parse_optional_coord(value: Any, *, min_v: float, max_v: float) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid map coordinates.") from exc
+    if not min_v <= number <= max_v:
+        raise ValueError("Map coordinates are out of range.")
+    return number
 
 
 def attach_rota_mode_fields(profile: dict[str, Any], *, tenant_id: int, conn: Any) -> dict[str, Any]:
@@ -129,6 +143,20 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         alias=None,
         null_sql="FALSE AS crm_addon",
     )
+    registered_lat_col = column_expr(
+        conn,
+        table="tenants",
+        column="registered_latitude",
+        alias=None,
+        null_sql="NULL AS registered_latitude",
+    )
+    registered_lng_col = column_expr(
+        conn,
+        table="tenants",
+        column="registered_longitude",
+        alias=None,
+        null_sql="NULL AS registered_longitude",
+    )
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -140,7 +168,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    sponsor_licence_acknowledged_by, sponsor_licence_ack_version,
                    payroll_accountant_email, payroll_hours_report_enabled,
                    {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col},
-                   {crm_addon_col}
+                   {crm_addon_col}, {registered_lat_col}, {registered_lng_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -177,6 +205,8 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "rota_multi_site_addon": bool(row[24]),
             "rota_week_start_day": int(row[25] or 0),
             "crm_addon": bool(row[26]),
+            "registered_latitude": float(row[27]) if row[27] is not None else None,
+            "registered_longitude": float(row[28]) if row[28] is not None else None,
         }
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
@@ -191,7 +221,14 @@ def update_tenant_profile(
     user_agent: str | None,
     conn: Any,
 ) -> dict[str, Any]:
+    from core.schema import table_columns
+
     allowed = {k: v for k, v in updates.items() if k in TENANT_PROFILE_FIELDS}
+    tenant_cols = table_columns(conn, "tenants")
+    if "registered_latitude" not in tenant_cols:
+        allowed.pop("registered_latitude", None)
+        allowed.pop("registered_longitude", None)
+
     if "registered_address" in allowed:
         from modules.time_punch.geocode import normalize_geocode_address, validate_geocode_address
 
@@ -201,6 +238,24 @@ def update_tenant_profile(
             valid, validation_error = validate_geocode_address(allowed["registered_address"])
             if not valid:
                 raise ValueError(validation_error or "Invalid registered address")
+
+    if "registered_latitude" in allowed or "registered_longitude" in allowed:
+        from modules.time_punch.geocode import validate_uk_coords
+
+        lat_raw = allowed.pop("registered_latitude", None)
+        lng_raw = allowed.pop("registered_longitude", None)
+        lat = _parse_optional_coord(lat_raw, min_v=49.0, max_v=61.5)
+        lng = _parse_optional_coord(lng_raw, min_v=-9.0, max_v=2.5)
+        if (lat is None) ^ (lng is None):
+            raise ValueError("Select your address from the OpenStreetMap search results to pin it on the map.")
+        if lat is not None and lng is not None and not validate_uk_coords(lat, lng):
+            raise ValueError("Map coordinates are outside the UK.")
+        allowed["registered_latitude"] = lat
+        allowed["registered_longitude"] = lng
+    elif "registered_address" in allowed and "registered_latitude" in tenant_cols:
+        allowed["registered_latitude"] = None
+        allowed["registered_longitude"] = None
+
     if not allowed:
         return get_tenant_profile(tenant_id=tenant_id, conn=conn)
 

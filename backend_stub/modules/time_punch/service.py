@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from modules.time_punch.geocode import geocode_address, normalize_geocode_address, validate_geocode_address
+from modules.time_punch.geocode import geocode_address, normalize_geocode_address, resolve_address_coords, validate_geocode_address
 
 UK_TZ = ZoneInfo("Europe/London")
 
@@ -381,14 +381,32 @@ def sync_primary_site_from_tenant_address(
     tenant_id: int,
     conn: Any,
     address_override: str | None = None,
+    coords_override: tuple[float, float] | None = None,
     persist_address: bool = False,
 ) -> dict[str, Any]:
+    from core.schema import table_columns
+
     address = normalize_geocode_address(str(address_override or ""))
+    stored_lat: float | None = None
+    stored_lng: float | None = None
     name = "Primary site"
+    tenant_cols = table_columns(conn, "tenants")
+    has_coords_cols = "registered_latitude" in tenant_cols and "registered_longitude" in tenant_cols
+    if coords_override:
+        stored_lat, stored_lng = coords_override
+
     if not address:
+        coord_select = (
+            ", registered_latitude, registered_longitude"
+            if has_coords_cols
+            else ", NULL AS registered_latitude, NULL AS registered_longitude"
+        )
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT name, trading_name, registered_address FROM tenants WHERE id = %s",
+                f"""
+                SELECT name, trading_name, registered_address{coord_select}
+                FROM tenants WHERE id = %s
+                """,
                 (tenant_id,),
             )
             row = cur.fetchone()
@@ -396,6 +414,9 @@ def sync_primary_site_from_tenant_address(
             raise PunchSyncError("missing_address", "Business not found.")
         address = normalize_geocode_address(str(row[2] or ""))
         name = (row[1] or row[0] or name) if row else name
+        if has_coords_cols and stored_lat is None and row[3] is not None and row[4] is not None:
+            stored_lat = float(row[3])
+            stored_lng = float(row[4])
     else:
         with conn.cursor() as cur:
             cur.execute(
@@ -406,11 +427,31 @@ def sync_primary_site_from_tenant_address(
         if row:
             name = row[1] or row[0] or name
         if persist_address:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE tenants SET registered_address = %s WHERE id = %s",
-                    (address, tenant_id),
-                )
+            if has_coords_cols and coords_override:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        UPDATE tenants
+                        SET registered_address = %s,
+                            registered_latitude = %s,
+                            registered_longitude = %s
+                        WHERE id = %s
+                        """,
+                        (address, coords_override[0], coords_override[1], tenant_id),
+                    )
+            else:
+                update_sql = "UPDATE tenants SET registered_address = %s"
+                update_values: list[Any] = [address]
+                if has_coords_cols:
+                    update_sql += ", registered_latitude = %s, registered_longitude = %s"
+                    if coords_override:
+                        update_values.extend([coords_override[0], coords_override[1]])
+                    else:
+                        update_values.extend([None, None])
+                update_sql += " WHERE id = %s"
+                update_values.append(tenant_id)
+                with conn.cursor() as cur:
+                    cur.execute(update_sql, update_values)
             conn.commit()
 
     if not address:
@@ -421,11 +462,15 @@ def sync_primary_site_from_tenant_address(
     valid, validation_error = validate_geocode_address(address)
     if not valid:
         raise PunchSyncError("invalid_address", validation_error or "Invalid business address.")
-    coords = geocode_address(address)
+    coords = resolve_address_coords(
+        address,
+        latitude=(coords_override[0] if coords_override else stored_lat),
+        longitude=(coords_override[1] if coords_override else stored_lng),
+    )
     if not coords:
         raise PunchSyncError(
             "geocode_failed",
-            "Could not locate that address on the map. Include a full UK postcode (e.g. NG5 7EG) in Settings → Business profile.",
+            "Could not locate that address on the map. Search and select your address in Settings → Business info.",
         )
     lat, lng = coords
     site = upsert_primary_punch_site(

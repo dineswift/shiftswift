@@ -692,7 +692,7 @@ window.Admin = (() => {
               label: "Registered address",
               type: "textarea",
               span: 2,
-              placeholder: "Full street address including UK postcode, e.g. 156 Front street, Nottingham, NG5 7EG",
+              placeholder: "Search below for your premises on OpenStreetMap",
             },
           ],
         },

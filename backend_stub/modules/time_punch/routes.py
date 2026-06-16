@@ -69,6 +69,8 @@ class PunchSiteCreate(BaseModel):
 
 class SyncFromAddressRequest(BaseModel):
     registered_address: str | None = Field(default=None, max_length=500)
+    registered_latitude: float | None = None
+    registered_longitude: float | None = None
 
 
 class AdminPunchRequest(BaseModel):
@@ -297,6 +299,9 @@ def sync_site_from_address(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     body = payload or SyncFromAddressRequest()
     address_override = (body.registered_address or "").strip() or None
+    coords_override = None
+    if body.registered_latitude is not None and body.registered_longitude is not None:
+        coords_override = (body.registered_latitude, body.registered_longitude)
     conn = get_connection()
     try:
         try:
@@ -304,6 +309,7 @@ def sync_site_from_address(
                 tenant_id=tenant_id,
                 conn=conn,
                 address_override=address_override,
+                coords_override=coords_override,
                 persist_address=bool(address_override),
             )
         except punch_service.PunchSyncError as exc:

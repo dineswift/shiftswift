@@ -6,7 +6,7 @@ import os
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 
 from modules.documents.constants import (
@@ -99,6 +99,8 @@ class TenantProfileUpdate(BaseModel):
     trading_name: str | None = Field(default=None, max_length=200)
     company_number: str | None = Field(default=None, max_length=32)
     registered_address: str | None = Field(default=None, max_length=500)
+    registered_latitude: float | None = Field(default=None, ge=49.0, le=61.5)
+    registered_longitude: float | None = Field(default=None, ge=-9.0, le=2.5)
     phone: str | None = Field(default=None, max_length=32)
     billing_email: str | None = Field(default=None, max_length=254)
     vat_number: str | None = Field(default=None, max_length=32)
@@ -292,6 +294,20 @@ def read_tenant_profile(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
         conn.close()
+
+
+@router.get("/address-search")
+def search_business_addresses(
+    q: Annotated[str, Query(min_length=3, max_length=200)],
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    limit: Annotated[int, Query(ge=1, le=8)] = 5,
+) -> dict[str, object]:
+    _ = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    from modules.time_punch.geocode import search_nominatim_addresses
+
+    items = search_nominatim_addresses(q, limit=limit)
+    return {"items": items, "count": len(items)}
 
 
 @router.patch("/tenant-profile")

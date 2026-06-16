@@ -12,9 +12,12 @@ sys.path.insert(0, str(BACKEND))
 
 from modules.time_punch.geocode import (
     extract_uk_postcode,
+    format_osm_address_line,
     geocode_address,
     normalize_geocode_address,
+    resolve_address_coords,
     validate_geocode_address,
+    validate_uk_coords,
 )
 
 
@@ -53,6 +56,33 @@ def test_validate_geocode_address() -> None:
     ok, err = validate_geocode_address("No postcode street, Nottingham")
     assert ok is False
     assert "postcode" in (err or "").lower()
+
+
+def test_format_osm_address_line() -> None:
+    line = format_osm_address_line(
+        {
+            "house_number": "156",
+            "road": "Front Street",
+            "town": "Arnold",
+            "postcode": "NG5 7EG",
+        },
+        "fallback",
+    )
+    assert line == "156, Front Street, Arnold, NG5 7EG"
+
+
+def test_validate_uk_coords() -> None:
+    assert validate_uk_coords(53.005292, -1.126752) is True
+    assert validate_uk_coords(40.0, -1.0) is False
+
+
+def test_resolve_address_coords_prefers_stored() -> None:
+    coords = resolve_address_coords(
+        "156 Front street, Nottingham, NG5 7EG",
+        latitude=53.005292,
+        longitude=-1.126752,
+    )
+    assert coords == (53.005292, -1.126752)
 
 
 @pytest.mark.skipif(True, reason="Requires network access to postcodes.io")

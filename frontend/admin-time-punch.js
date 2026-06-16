@@ -245,10 +245,17 @@
     const trimmed = normalizeRegisteredAddress(address);
     if (!trimmed) return "";
     const current = String(tenantProfile?.registered_address || "").trim();
+    const lat = tenantProfile?.registered_latitude;
+    const lng = tenantProfile?.registered_longitude;
+    const body = { registered_address: trimmed };
+    if (lat != null && lng != null) {
+      body.registered_latitude = lat;
+      body.registered_longitude = lng;
+    }
     if (current === trimmed) return trimmed;
     const res = await apiFetch("/admin/tenant-profile", {
       method: "PATCH",
-      body: JSON.stringify({ registered_address: trimmed }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(parseApiDetail(data, "Could not save business address."));
@@ -1348,9 +1355,14 @@
     showPunchNote("Syncing from registered business address…");
     try {
       address = await ensureRegisteredAddressSaved(address);
+      const syncBody = { registered_address: address };
+      if (tenantProfile?.registered_latitude != null && tenantProfile?.registered_longitude != null) {
+        syncBody.registered_latitude = tenantProfile.registered_latitude;
+        syncBody.registered_longitude = tenantProfile.registered_longitude;
+      }
       const res = await apiFetch("/admin/time-punch/sites/sync-from-address", {
         method: "POST",
-        body: JSON.stringify({ registered_address: address }),
+        body: JSON.stringify(syncBody),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
