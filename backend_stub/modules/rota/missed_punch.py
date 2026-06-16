@@ -98,7 +98,11 @@ def evaluate_missed_punch_alerts(
     if not shifts:
         return []
 
-    from admin_service import get_notification_preferences, get_tenant_profile
+    from admin_service import get_notification_preferences
+    from modules.employees.notification_branding import (
+        employee_notification_from_name,
+        employer_legal_name,
+    )
 
     prefs = get_notification_preferences(tenant_id=tenant_id, conn=conn)["preferences"]
     hr_delivery = prefs.get("missed_punch_hr", "email")
@@ -106,8 +110,8 @@ def evaluate_missed_punch_alerts(
     if hr_delivery == "off" and employee_delivery == "off":
         return []
 
-    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
-    tenant_name = profile.get("trading_name") or profile.get("name") or "Your organisation"
+    hr_tenant_name = employer_legal_name(tenant_id=tenant_id, conn=conn)
+    employee_from_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
 
     employee_ids = sorted({int(s["employee_id"]) for s in shifts})
     punches_by_employee = load_punches_for_employees(
@@ -169,7 +173,7 @@ def evaluate_missed_punch_alerts(
             from core.notifications import queue_notification
 
             content = missed_punch_hr_email(
-                tenant_name=tenant_name,
+                tenant_name=hr_tenant_name,
                 employee_name=shift["employee_name"],
                 shift_label=shift_label,
                 role_label=shift.get("role_label") or "",
@@ -199,7 +203,7 @@ def evaluate_missed_punch_alerts(
 
             content = missed_punch_employee_email(
                 employee_name=shift["employee_name"],
-                tenant_name=tenant_name,
+                tenant_name=employee_from_name,
                 shift_label=shift_label,
                 grace_minutes=MISSED_PUNCH_ALERT_MINUTES,
             )

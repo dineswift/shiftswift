@@ -429,11 +429,14 @@ def invite_employee_to_portal(
         conn=conn,
     )
 
-    from admin_service import get_tenant_profile
     from core.email_templates import employee_portal_invite_email
+    from modules.employees.notification_branding import (
+        employee_notification_from_name,
+        employer_legal_name,
+    )
 
-    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
-    tenant_name = profile.get("trading_name") or profile.get("name") or "Your employer"
+    notification_from_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
+    legal_name = employer_legal_name(tenant_id=tenant_id, conn=conn)
     employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip() or "there"
 
     import os
@@ -445,7 +448,8 @@ def invite_employee_to_portal(
         user=user,
         content_factory=lambda reset_url: employee_portal_invite_email(
             employee_name=employee_name,
-            tenant_name=tenant_name,
+            notification_from_name=notification_from_name,
+            employer_legal_name=legal_name,
             setup_url=reset_url,
             login_url=f"{app_url}/business-login.html",
             reset_hours=RESET_HOURS,

@@ -46,6 +46,7 @@ def notify_rota_published(
     """Email and push each scheduled employee about their published shifts."""
     from admin_service import get_tenant_profile, tenant_notification_delivery_enabled
     from core.email_templates import rota_published_email
+    from modules.employees.notification_branding import employee_notification_from_name
 
     employee_ids_in_rota = {int(s["employee_id"]) for s in shifts}
     if not employee_ids_in_rota:
@@ -64,7 +65,7 @@ def notify_rota_published(
             "pushes_sent": 0,
         }
 
-    tenant_name = profile.get("trading_name") or profile.get("name") or "Your employer"
+    tenant_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
     week_label = _week_label(week_start)
     rota_url = app_url_path("employee.html#my-shifts")
 

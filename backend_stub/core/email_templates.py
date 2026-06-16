@@ -421,16 +421,17 @@ def payroll_hours_report_email(
 def employee_portal_invite_email(
     *,
     employee_name: str,
-    tenant_name: str,
+    notification_from_name: str,
+    employer_legal_name: str,
     setup_url: str,
     login_url: str,
     reset_hours: int,
 ) -> EmailContent:
     subject = f"{APP_NAME} — Set up your employee portal"
-    intro = f"{tenant_name} has invited you to ShiftSwift HR's employee portal."
+    intro = f"{notification_from_name} has invited you to ShiftSwift HR's employee portal."
     privacy_url = f"{APP_URL}/privacy-policy.html"
     gdpr_note = (
-        f"{tenant_name} is your employer and is responsible for managing your personal data, "
+        f"{employer_legal_name} is your employer and is responsible for managing your personal data, "
         f"workplace privacy notices, and UK GDPR obligations for your employment records. "
         f"ShiftSwift HR provides the software platform only. When you choose your password, "
         f"you will be asked to confirm you understand this and agree to the privacy notice."
@@ -449,7 +450,7 @@ def employee_portal_invite_email(
         f"— {APP_NAME}\n"
     )
     html = render_email(
-        preheader=f"Set up your {tenant_name} employee portal access.",
+        preheader="Set up your employee portal access.",
         title="Welcome to your employee portal",
         intro=f"Hello {employee_name}, {intro}",
         paragraphs=[

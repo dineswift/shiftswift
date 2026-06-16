@@ -299,8 +299,12 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
     if not notify_on_rota_publish:
         preferences["rota_published"] = "off"
 
+    from modules.employees.notification_branding import parse_employee_display_name_from_stored
+
     return {
         "preferences": preferences,
+        "employee_display_name": parse_employee_display_name_from_stored(stored),
+        "employee_display_name_default": "Your employer",
         "notify_on_rota_publish": notify_on_rota_publish,
         "events": list(NOTIFICATION_PREF_EVENTS),
     }
@@ -309,22 +313,36 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
 def update_notification_preferences(
     *,
     tenant_id: int,
-    preferences: dict[str, str],
+    preferences: dict[str, str] | None = None,
+    employee_display_name: str | None = None,
     actor_username: str,
     actor_role: str,
     ip_address: str | None,
     user_agent: str | None,
     conn: Any,
 ) -> dict[str, Any]:
-    merged = dict(NOTIFICATION_PREF_DEFAULTS)
-    for key, value in preferences.items():
-        if key not in NOTIFICATION_PREF_DEFAULTS:
-            continue
-        if value not in VALID_NOTIFICATION_DELIVERY:
-            raise ValueError(f"Invalid delivery mode for {key}")
-        merged[key] = value
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT notification_preferences
+            FROM tenants
+            WHERE id = %s
+            """,
+            (tenant_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise LookupError("tenant not found")
+        stored = row[0]
 
-    notify_on_rota_publish = merged.get("rota_published", "email") != "off"
+    from modules.employees.notification_branding import merge_notification_preferences_json
+
+    merged_json = merge_notification_preferences_json(
+        stored=stored,
+        preferences=preferences,
+        employee_display_name=employee_display_name,
+    )
+    notify_on_rota_publish = merged_json.get("rota_published", "email") != "off"
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -333,9 +351,15 @@ def update_notification_preferences(
                 notify_on_rota_publish = %s
             WHERE id = %s
             """,
-            (json.dumps(merged), notify_on_rota_publish, tenant_id),
+            (json.dumps(merged_json), notify_on_rota_publish, tenant_id),
         )
         conn.commit()
+
+    field_names = []
+    if preferences:
+        field_names.extend(sorted(preferences.keys()))
+    if employee_display_name is not None:
+        field_names.append("employee_display_name")
 
     log_employee_data_event(
         tenant_id=tenant_id,
@@ -344,7 +368,7 @@ def update_notification_preferences(
         action="update",
         entity_type="notification_preferences",
         entity_id=tenant_id,
-        field_name=",".join(sorted(preferences.keys())),
+        field_name=",".join(field_names) or "updated",
         new_value="updated",
         ip_address=ip_address,
         user_agent=user_agent,
@@ -389,16 +413,44 @@ def create_employee(
     user_agent: str | None,
     conn: Any,
 ) -> dict[str, Any]:
-    with conn.cursor() as cur:
-        insert_sql, insert_values = build_employee_insert(
-            tenant_id=tenant_id,
-            data=data,
-            conn=conn,
-        )
-        cur.execute(insert_sql, insert_values)
-        row = cur.fetchone()
-        conn.commit()
-        emp = _row_to_employee(row)
+    from modules.employees.duplicates import DuplicateEmployeeError, assert_no_duplicate_employee
+
+    assert_no_duplicate_employee(
+        tenant_id=tenant_id,
+        conn=conn,
+        first_name=str(data["first_name"]),
+        last_name=str(data["last_name"]),
+        email=data.get("email"),
+    )
+
+    try:
+        with conn.cursor() as cur:
+            insert_sql, insert_values = build_employee_insert(
+                tenant_id=tenant_id,
+                data=data,
+                conn=conn,
+            )
+            cur.execute(insert_sql, insert_values)
+            row = cur.fetchone()
+            conn.commit()
+            emp = _row_to_employee(row)
+    except Exception as exc:
+        from modules.employees.duplicates import find_employee_email_conflict
+
+        if getattr(exc, "pgcode", None) == "23505":
+            conflict = find_employee_email_conflict(
+                tenant_id=tenant_id,
+                email=data.get("email"),
+                conn=conn,
+            )
+            if conflict:
+                raise DuplicateEmployeeError(
+                    "An employee with this work email already exists. "
+                    "Open their existing record instead of creating a duplicate.",
+                    conflict="email",
+                    existing_employee_id=conflict["id"],
+                ) from exc
+        raise
     from modules.employees.service import after_employee_created
 
     after_employee_created(
@@ -474,9 +526,17 @@ def update_employee(
     if not old_row:
         raise LookupError("employee not found")
 
-    allowed = {k: v for k, v in updates.items() if k in allowed_keys}
-    if not allowed:
-        return get_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if any(key in allowed for key in ("first_name", "last_name", "email")):
+        from modules.employees.duplicates import assert_no_duplicate_employee
+
+        assert_no_duplicate_employee(
+            tenant_id=tenant_id,
+            conn=conn,
+            first_name=str(allowed.get("first_name", old_row["first_name"])),
+            last_name=str(allowed.get("last_name", old_row["last_name"])),
+            email=allowed.get("email", old_row.get("email")),
+            exclude_employee_id=employee_id,
+        )
 
     emp = update_employee_fields(
         tenant_id=tenant_id,

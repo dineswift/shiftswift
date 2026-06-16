@@ -248,6 +248,17 @@ def patch_section(
         if not filtered:
             raise ValueError("no fields to update")
         filtered = validate_information_fields(section, filtered)
+        if section == "recruitment" and any(key in filtered for key in ("first_name", "last_name", "email")):
+            from modules.employees.duplicates import assert_no_duplicate_employee
+
+            assert_no_duplicate_employee(
+                tenant_id=tenant_id,
+                conn=conn,
+                first_name=str(filtered.get("first_name", old_row["first_name"])),
+                last_name=str(filtered.get("last_name", old_row["last_name"])),
+                email=filtered.get("email", old_row.get("email")),
+                exclude_employee_id=employee_id,
+            )
         update_employee_fields(
             tenant_id=tenant_id,
             employee_id=employee_id,

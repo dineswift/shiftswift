@@ -117,7 +117,8 @@ class PayrollHoursEmailRequest(BaseModel):
 
 
 class NotificationPreferencesUpdate(BaseModel):
-    preferences: dict[str, str] = Field(default_factory=dict)
+    preferences: dict[str, str] | None = None
+    employee_display_name: str | None = Field(default=None, max_length=120)
 
 
 class EmployeeCreate(BaseModel):
@@ -357,6 +358,12 @@ def add_employee(
             user_agent=request.headers.get("User-Agent"),
             conn=conn,
         )
+    except ValueError as exc:
+        from modules.employees.duplicates import DuplicateEmployeeError
+
+        if isinstance(exc, DuplicateEmployeeError):
+            raise HTTPException(status_code=409, detail=exc.as_detail()) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
 
@@ -387,6 +394,12 @@ def patch_employee(
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        from modules.employees.duplicates import DuplicateEmployeeError
+
+        if isinstance(exc, DuplicateEmployeeError):
+            raise HTTPException(status_code=409, detail=exc.as_detail()) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
 
@@ -700,13 +713,14 @@ def patch_notification_preferences(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    if not payload.preferences:
+    if payload.preferences is None and payload.employee_display_name is None:
         raise HTTPException(status_code=400, detail="No preferences to update")
     conn = _db_conn()
     try:
         return update_notification_preferences(
             tenant_id=tenant_id,
             preferences=payload.preferences,
+            employee_display_name=payload.employee_display_name,
             actor_username=current_user.username,
             actor_role=current_user.role,
             ip_address=client_ip(request),

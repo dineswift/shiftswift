@@ -434,6 +434,34 @@
     return document.getElementById(id);
   }
 
+  function employeeApiError(res, data, fallback = "Request failed") {
+    const detail = data?.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
+  }
+
+  function duplicateEmployeeId(res, data) {
+    if (res.status !== 409) return null;
+    const detail = data?.detail;
+    if (detail && typeof detail === "object" && detail.existing_employee_id) {
+      return Number(detail.existing_employee_id);
+    }
+    return null;
+  }
+
+  async function focusExistingEmployee(employeeId) {
+    if (!employeeId) return;
+    selectedEmployeeId = employeeId;
+    sidePanelExpandedSection = null;
+    await refreshEmployeesTable();
+    if (!isMobileEmployeesHub()) {
+      document.getElementById("employees-side-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else {
+      await openEmployee(employeeId);
+    }
+  }
+
   function showListView() {
     $("employees-list-view")?.removeAttribute("hidden");
     $("employees-detail-view")?.setAttribute("hidden", "");
@@ -804,7 +832,13 @@
       body: JSON.stringify(normalizePayload(sectionKey, updates)),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Save failed");
+    if (!res.ok) {
+      const existingId = duplicateEmployeeId(res, data);
+      if (existingId) {
+        await focusExistingEmployee(existingId);
+      }
+      throw new Error(employeeApiError(res, data, "Save failed"));
+    }
     sidePanelWorkspace = data;
     const idx = employeesCache.findIndex((item) => item.id === employeeId);
     if (idx >= 0) {
@@ -1751,7 +1785,13 @@
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Create failed");
+        if (!res.ok) {
+          const existingId = duplicateEmployeeId(res, data);
+          if (existingId) {
+            await focusExistingEmployee(existingId);
+          }
+          throw new Error(employeeApiError(res, data, "Create failed"));
+        }
         selectedEmployeeId = data.id;
         sidePanelExpandedSection = null;
         await refreshEmployeesTable();

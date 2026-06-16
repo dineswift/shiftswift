@@ -1,0 +1,73 @@
+"""Employee-facing notification copy — custom alias or generic fallback."""
+
+from __future__ import annotations
+
+from typing import Any
+
+EMPLOYEE_NOTIFICATION_DEFAULT = "Your employer"
+_EMPLOYEE_DISPLAY_NAME_KEY = "employee_display_name"
+
+
+def _stored_notification_json(raw: Any) -> dict[str, Any]:
+    return dict(raw) if isinstance(raw, dict) else {}
+
+
+def employee_notification_from_name(*, tenant_id: int, conn: Any) -> str:
+    """Name shown to employees in emails/push copy (Settings → Notifications)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT notification_preferences
+            FROM tenants
+            WHERE id = %s
+            """,
+            (tenant_id,),
+        )
+        row = cur.fetchone()
+    stored = _stored_notification_json(row[0] if row else None)
+    custom = str(stored.get(_EMPLOYEE_DISPLAY_NAME_KEY) or "").strip()
+    return custom or EMPLOYEE_NOTIFICATION_DEFAULT
+
+
+def employer_legal_name(*, tenant_id: int, conn: Any) -> str:
+    """Legal employer name for GDPR / data-controller disclosures."""
+    from admin_service import get_tenant_profile
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    return str(profile.get("trading_name") or profile.get("name") or EMPLOYEE_NOTIFICATION_DEFAULT)
+
+
+def parse_employee_display_name_from_stored(stored: Any) -> str:
+    return str(_stored_notification_json(stored).get(_EMPLOYEE_DISPLAY_NAME_KEY) or "").strip()
+
+
+def merge_notification_preferences_json(
+    *,
+    stored: Any,
+    preferences: dict[str, str] | None = None,
+    employee_display_name: str | None = None,
+) -> dict[str, Any]:
+    """Build JSONB payload for tenants.notification_preferences."""
+    from admin_service import NOTIFICATION_PREF_DEFAULTS, VALID_NOTIFICATION_DELIVERY
+
+    raw = _stored_notification_json(stored)
+    merged = dict(NOTIFICATION_PREF_DEFAULTS)
+    for key, value in raw.items():
+        if key in NOTIFICATION_PREF_DEFAULTS and value in VALID_NOTIFICATION_DELIVERY:
+            merged[key] = value
+    if preferences:
+        for key, value in preferences.items():
+            if key not in NOTIFICATION_PREF_DEFAULTS:
+                continue
+            if value not in VALID_NOTIFICATION_DELIVERY:
+                raise ValueError(f"Invalid delivery mode for {key}")
+            merged[key] = value
+
+    display_name = parse_employee_display_name_from_stored(raw)
+    if employee_display_name is not None:
+        display_name = employee_display_name.strip()[:120]
+
+    out: dict[str, Any] = dict(merged)
+    if display_name:
+        out[_EMPLOYEE_DISPLAY_NAME_KEY] = display_name
+    return out

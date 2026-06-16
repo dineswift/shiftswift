@@ -5657,6 +5657,21 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin-top: 12px;
 }
 
+.settings-notify-branding {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+
+.settings-notify-branding__field {
+  margin-top: 10px;
+  max-width: 420px;
+}
+
+.settings-notify-branding__hint {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+}
+
 .settings-notify-select {
   min-width: 160px;
   padding: 6px 10px;

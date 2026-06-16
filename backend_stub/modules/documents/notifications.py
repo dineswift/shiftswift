@@ -29,11 +29,10 @@ def notify_employee_document_shared(
     send_email: bool = True,
 ) -> bool:
     """Notify the employee when HR shares a document. Returns True if email sent."""
-    from admin_service import get_tenant_profile
     from core.email_templates import employee_document_shared_email
+    from modules.employees.notification_branding import employee_notification_from_name
 
-    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
-    tenant_name = profile.get("trading_name") or profile.get("name") or "Your employer"
+    tenant_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
     employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip() or "there"
     employee_id = int(employee["id"])
 

@@ -421,6 +421,29 @@
     { id: "missed_punch_employee", label: "Missed clock-in (employee reminder)", default: "email" },
   ];
 
+  async function saveNotificationPreferences(host) {
+    const preferences = {};
+    host.querySelectorAll(".settings-notify-select").forEach((el) => {
+      preferences[el.dataset.notifyId] = el.value;
+    });
+    const displayInput = host.querySelector("#settings-employee-display-name");
+    const payload = {
+      preferences,
+      employee_display_name: displayInput ? displayInput.value.trim() : "",
+    };
+    try {
+      const saveRes = await apiFetch("/admin/notification-preferences", {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) throw new Error(saveData.detail || "Save failed");
+      showSettingsToast("Notification preferences saved ✓");
+    } catch (error) {
+      showSettingsToast(error.message || "Could not save preferences");
+    }
+  }
+
   function loadNotificationsPanel() {
     const host = document.getElementById("settings-notifications-content");
     if (!host || host.dataset.ready === "true") return;
@@ -434,6 +457,15 @@
         const prefs = data?.preferences || {};
 
         host.innerHTML = `
+      <article class="card settings-notify-branding">
+        <h4 class="hr-section-title">Employee notification name</h4>
+        <p class="muted">This is the name staff see in rota, document, and reminder emails. Leave blank to use “Your employer”. Your legal business name is still shown where required for GDPR (portal invite).</p>
+        <label class="edit-field settings-notify-branding__field">
+          <span class="edit-label">Name shown to employees</span>
+          <input type="text" id="settings-employee-display-name" maxlength="120" placeholder="Your employer" value="${escapeHtml(data?.employee_display_name || "")}" />
+        </label>
+        <p class="muted settings-notify-branding__hint" id="settings-employee-display-preview"></p>
+      </article>
       <p class="muted">Choose how your organisation receives alerts. Employee emails respect each person's notification setting.</p>
       <div class="settings-notify-table-wrap">
         <table class="data-table settings-notify-table">
@@ -460,23 +492,24 @@
       <p class="muted settings-notify-foot">Rota publish emails also require the “Notify staff by email” checkbox when publishing.</p>`;
 
         host.querySelectorAll(".settings-notify-select").forEach((select) => {
-          select.addEventListener("change", async () => {
-            const preferences = {};
-            host.querySelectorAll(".settings-notify-select").forEach((el) => {
-              preferences[el.dataset.notifyId] = el.value;
-            });
-            try {
-              const saveRes = await apiFetch("/admin/notification-preferences", {
-                method: "PATCH",
-                body: JSON.stringify({ preferences }),
-              });
-              const saveData = await saveRes.json();
-              if (!saveRes.ok) throw new Error(saveData.detail || "Save failed");
-              showSettingsToast("Notification preferences saved ✓");
-            } catch (error) {
-              showSettingsToast(error.message || "Could not save preferences");
-            }
+          select.addEventListener("change", () => {
+            void saveNotificationPreferences(host);
           });
+        });
+
+        const displayInput = host.querySelector("#settings-employee-display-name");
+        const preview = host.querySelector("#settings-employee-display-preview");
+        const updatePreview = () => {
+          const value = displayInput?.value.trim();
+          const shown = value || data?.employee_display_name_default || "Your employer";
+          if (preview) {
+            preview.textContent = `Preview: “${shown} has published your shifts for Mon 10 – Sun 16 Jun 2026.”`;
+          }
+        };
+        updatePreview();
+        displayInput?.addEventListener("input", updatePreview);
+        displayInput?.addEventListener("change", () => {
+          void saveNotificationPreferences(host);
         });
 
         host.dataset.ready = "true";
