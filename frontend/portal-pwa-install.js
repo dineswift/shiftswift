@@ -103,6 +103,10 @@
 
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
+    if (portal === "employee" && window.ShiftSwiftEmployeePwa?.registerEmployeeSw) {
+      window.ShiftSwiftEmployeePwa.registerEmployeeSw();
+      return;
+    }
     navigator.serviceWorker.register(swHref, { scope: "./" }).catch(() => null);
   }
 

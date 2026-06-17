@@ -1,9 +1,9 @@
 {
-  "id": "/employee.html",
-  "name": "ShiftSwift Employee Portal",
+  "id": "/employee-login.html",
+  "name": "ShiftSwift Employee",
   "short_name": "Employee",
-  "description": "View payslips, documents, shifts, and clock in from your phone.",
-  "start_url": "./employee.html?source=pwa#time-clock",
+  "description": "Clock in, view payslips, documents, and your shift schedule.",
+  "start_url": "./employee-login.html?source=pwa",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -34,9 +34,9 @@
   ],
   "shortcuts": [
     {
-      "name": "My payslips",
-      "short_name": "Payslips",
-      "url": "./employee.html?source=shortcut#payslips",
+      "name": "Clock in",
+      "short_name": "Clock",
+      "url": "./employee.html?source=shortcut#time-clock",
       "icons": [
         {
           "src": "./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6",
@@ -46,9 +46,9 @@
       ]
     },
     {
-      "name": "Time clock",
-      "short_name": "Clock",
-      "url": "./employee.html?source=shortcut#time-clock",
+      "name": "My payslips",
+      "short_name": "Payslips",
+      "url": "./employee.html?source=shortcut#payslips",
       "icons": [
         {
           "src": "./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6",

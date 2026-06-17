@@ -357,7 +357,23 @@ function initBusinessLoginTabs() {
   bindMfaEnrollmentSubmit();
 }
 
+function redirectIfEmployeeSession() {
+  if (document.body.dataset.loginPage !== "employee") return;
+  const role = localStorage.getItem("userRole");
+  if (window.ShiftSwiftSession?.hasSession?.() && role === "employee") {
+    window.location.replace("./employee.html#time-clock");
+    return true;
+  }
+  if (role && role !== "employee") {
+    window.location.replace("./business-login.html");
+    return true;
+  }
+  return false;
+}
+
 function initLoginPage() {
+  if (redirectIfEmployeeSession()) return;
+
   const portalHint = new URLSearchParams(window.location.search).get("portal");
   if (portalHint === "employee") {
     window.location.replace("./employee-login.html");

@@ -1,12 +1,15 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v1";
+const CACHE_NAME = "shiftswift-employee-v2";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
+  "./employee-manifest.webmanifest",
   "./styles.css",
   "./theme.css",
   "./brand-config.js",
   "./session-auth.js",
+  "./employee-pwa.js",
+  "./login.js",
   "./portal-pwa-install.js",
   "./push-notifications.js",
   "./mobile-shell.js",
@@ -14,13 +17,12 @@ const SHELL = [
   "./employee.js",
   "./employee-time-punch.js",
   "./employee-rota.js",
-  "./employee-manifest.webmanifest",
-  "./assets/shiftswift-hr-app-icon-192.png",
-  "./assets/shiftswift-hr-app-icon.png",
+  "./assets/shiftswift-employee-app-icon-192.png",
+  "./assets/shiftswift-employee-app-icon.png",
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
-const HR_ONLY_PATHS = /\/(business-login|login|admin|signup|ops-9x7k2|master)\.html$/i;
+const HR_ONLY_PATHS = /\/(business-login|login|admin|signup|signup-success|ops-9x7k2|master|master-tenant|tenant-login|master-login)\.html$/i;
 
 function isSameOrigin(request) {
   try {
@@ -74,6 +76,11 @@ self.addEventListener("fetch", (event) => {
   if (isNavigation(event.request)) {
     const path = new URL(event.request.url).pathname;
     if (HR_ONLY_PATHS.test(path)) {
+      event.respondWith(Response.redirect(employeeLoginUrl(event.request.url), 302));
+      return;
+    }
+
+    if (path.endsWith("/") || path.endsWith("/index.html")) {
       event.respondWith(Response.redirect(employeeLoginUrl(event.request.url), 302));
       return;
     }
@@ -146,8 +153,8 @@ self.addEventListener("push", (event) => {
       const data = parsePushPayload(event);
       await self.registration.showNotification(data.title, {
         body: data.body,
-        icon: "./assets/shiftswift-hr-app-icon-192.png",
-        badge: "./assets/shiftswift-hr-app-icon-192.png",
+        icon: "./assets/shiftswift-employee-app-icon-192.png",
+        badge: "./assets/shiftswift-employee-app-icon-192.png",
         tag: data.tag || "shiftswift-employee",
         renotify: true,
         data: { url: data.url || "./employee.html#time-clock" },
