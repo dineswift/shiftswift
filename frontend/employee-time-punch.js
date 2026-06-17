@@ -39,7 +39,11 @@
   }
 
   async function apiFetch(path, options = {}) {
-    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
+    return session.fetchWithAuth(path, options, {
+      apiBase: API_BASE,
+      tenantId,
+      loginUrl: session.EMPLOYEE_LOGIN_URL,
+    });
   }
 
   function parseApiError(data, fallback) {

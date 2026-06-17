@@ -1,6 +1,7 @@
 (function () {
   const session = window.ShiftSwiftSession;
   const API_BASE = session.getApiBase();
+  const loginUrl = session.EMPLOYEE_LOGIN_URL;
 
   if (!session.hasSession()) {
     window.location.replace("./employee-login.html");
@@ -53,7 +54,7 @@
           method: "POST",
           body: JSON.stringify({ accept_employee_gdpr: true }),
         },
-        { apiBase: API_BASE },
+        { apiBase: API_BASE, loginUrl },
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -72,9 +73,12 @@
     const employerHeader = document.getElementById("topbar-employer-name");
     const employerSubtitle = document.getElementById("mobile-employer-subtitle");
     try {
-      const response = await session.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE });
+      const response = await session.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE, loginUrl });
       if (!response.ok) return;
       const user = await response.json();
+      if (user.tenant_id != null) {
+        localStorage.setItem("tenantId", String(user.tenant_id));
+      }
       if (user.role !== "employee") {
         window.location.replace("./admin.html");
         return;
@@ -97,6 +101,7 @@
       if (user.gdpr_consent_required) {
         showGdprModal(user.employer_name);
       }
+      window.dispatchEvent(new CustomEvent("employee:profile-loaded", { detail: { user } }));
     } catch {
       if (welcome) welcome.textContent = "Could not load your account.";
     }

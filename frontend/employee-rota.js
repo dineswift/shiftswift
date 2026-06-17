@@ -1,15 +1,16 @@
 (function () {
   const session = window.ShiftSwiftSession;
   const API_BASE = session.getApiBase();
-  const tenantId = localStorage.getItem("tenantId");
+  const loginUrl = session.EMPLOYEE_LOGIN_URL;
 
-  if (!session.hasSession() || !tenantId) return;
+  if (!session.hasSession()) return;
 
   const listEl = document.getElementById("employee-week-shifts");
   const messageEl = document.getElementById("employee-shift-message");
 
   async function apiFetch(path, options = {}) {
-    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
+    const tenantId = localStorage.getItem("tenantId");
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId, loginUrl });
   }
 
   function setMessage(text) {
@@ -43,8 +44,9 @@
 
   async function loadShifts() {
     if (!listEl) return;
+    if (!localStorage.getItem("tenantId")) return;
     try {
-      const res = await apiFetch("/rota/my-shifts", { method: "GET", headers: authHeaders(false) });
+      const res = await apiFetch("/rota/my-shifts", { method: "GET" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         listEl.innerHTML = "<li class=\"muted\">Could not load shifts.</li>";
@@ -74,4 +76,5 @@
   }
 
   loadShifts();
+  window.addEventListener("employee:profile-loaded", loadShifts);
 })();

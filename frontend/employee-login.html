@@ -13,7 +13,7 @@
   <body class="portal-login-page" data-login-page="employee">
     <div class="portal-login-shell">
       <header class="portal-login-brand">
-        <a href="./index.html">
+        <a href="./employee-login.html" aria-label="Employee sign in">
           <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" />
         </a>
         <p class="portal-login-brand-copy">Employee portal &amp; time clock</p>
@@ -69,10 +69,6 @@
             </p>
           </form>
 
-          <p class="portal-login-alt-note">
-            HR admin or business owner?
-            <a class="portal-login-inline-link" href="./business-login.html">Business sign in</a>
-          </p>
         </div>
 
         <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
@@ -118,7 +114,13 @@
         <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>.
       </p>
     </div>
+    <script src="./session-auth.js?v=2"></script>
     <script src="./login.js?v=brandkit-v11"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./employee-sw.js?v=1", { scope: "./" }).catch(function () {});
+      }
+    </script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

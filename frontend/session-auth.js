@@ -1,6 +1,20 @@
 /** Shared JWT session helpers — silent refresh without repeating MFA. */
 (function () {
+  const EMPLOYEE_LOGIN_URL = "./employee-login.html";
+  const BUSINESS_LOGIN_URL = "./business-login.html";
+
   let refreshInFlight = null;
+
+  function resolveLoginUrl(explicit) {
+    if (explicit) return explicit;
+    const role = localStorage.getItem("userRole");
+    if (role === "employee") return EMPLOYEE_LOGIN_URL;
+    if (document.body?.classList?.contains("employee-portal")) return EMPLOYEE_LOGIN_URL;
+    if (document.body?.dataset?.loginPage === "employee") return EMPLOYEE_LOGIN_URL;
+    const path = window.location.pathname || "";
+    if (/employee(-login)?\.html$/i.test(path)) return EMPLOYEE_LOGIN_URL;
+    return BUSINESS_LOGIN_URL;
+  }
 
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
@@ -77,7 +91,7 @@
   async function fetchWithAuth(path, options = {}, config = {}) {
     const {
       apiBase = getApiBase(),
-      loginUrl = "./business-login.html",
+      loginUrl = resolveLoginUrl(config.loginUrl),
       tenantId,
       forceLogoutOn401 = true,
     } = config;
@@ -117,6 +131,9 @@
   }
 
   window.ShiftSwiftSession = {
+    EMPLOYEE_LOGIN_URL,
+    BUSINESS_LOGIN_URL,
+    resolveLoginUrl,
     getApiBase,
     getToken,
     getRefreshToken,
