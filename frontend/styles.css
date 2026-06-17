@@ -1519,9 +1519,9 @@ textarea:focus {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-height: 46px;
-  padding: 3px 2px;
+  gap: 3px;
+  min-height: 52px;
+  padding: 4px 2px;
   border: none;
   background: transparent;
   color: var(--ink-500);
@@ -1537,12 +1537,12 @@ textarea:focus {
 }
 
 .mobile-tab__icon.admin-icon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .mobile-tab__label {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -2781,7 +2781,7 @@ textarea:focus {
   .metric-grid,
   .detail-grid { grid-template-columns: 1fr; }
   .content {
-    padding: 10px max(12px, env(safe-area-inset-right)) calc(72px + env(safe-area-inset-bottom))
+    padding: 10px max(12px, env(safe-area-inset-right)) calc(84px + env(safe-area-inset-bottom))
       max(12px, env(safe-area-inset-left));
     min-width: 0;
   }
@@ -2836,6 +2836,43 @@ textarea:focus {
     width: 32px;
     height: 32px;
   }
+
+  body.admin-portal .topbar-brand__logo,
+  body.admin-portal .topbar-brand__logo.app-mark,
+  body.admin-portal .topbar-brand__logo.app-mark--chrome,
+  body.admin-portal .topbar-brand .app-mark,
+  body.employee-portal .topbar-brand__logo,
+  body.employee-portal .topbar-brand__logo.app-mark,
+  body.employee-portal .topbar-brand__logo.app-mark--chrome,
+  body.employee-portal .topbar-brand .app-mark {
+    width: 48px;
+    height: 48px;
+    max-width: 48px;
+    min-width: 48px;
+    border-radius: 11px;
+  }
+
+  body.admin-portal .sidebar-head .brand-logo--compact,
+  body.admin-portal .sidebar-head .brand .app-mark,
+  body.employee-portal .sidebar-head .brand-logo--compact,
+  body.employee-portal .sidebar-head .brand .app-mark {
+    width: 52px;
+    height: 52px;
+    max-width: 52px;
+  }
+
+  body.admin-portal .nav-link__icon,
+  body.employee-portal .nav-link__icon {
+    width: 1.375rem;
+  }
+
+  body.admin-portal .nav-link__icon .admin-icon,
+  body.admin-portal .nav-link__icon svg,
+  body.employee-portal .nav-link__icon .admin-icon,
+  body.employee-portal .nav-link__icon svg {
+    width: 1.375rem;
+    height: 1.375rem;
+  }
   .topbar h1 {
     font-size: 1.05rem;
     line-height: 1.2;
@@ -2874,8 +2911,8 @@ textarea:focus {
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid .hr-stat-card__icon .admin-icon {
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid .hr-stat-card__label {
@@ -2965,8 +3002,8 @@ textarea:focus {
   }
 
   body:has(#mobile-tab-bar) .overview-module-card__icon .admin-icon {
-    width: 15px;
-    height: 15px;
+    width: 20px;
+    height: 20px;
   }
 
   body:has(#mobile-tab-bar) #overview-trial-note {
@@ -11753,6 +11790,43 @@ body.rota-week-readonly .rota-builder-hint {
 @media (max-width: 768px) {
   .crm-pipeline-board {
     grid-auto-columns: minmax(180px, 78vw);
+  }
+}
+
+/* Installed PWA — extra legibility for app mark & bottom tabs */
+@media (display-mode: standalone) and (max-width: 860px) {
+  body.admin-portal .topbar-brand__logo,
+  body.admin-portal .topbar-brand__logo.app-mark,
+  body.admin-portal .topbar-brand .app-mark,
+  body.employee-portal .topbar-brand__logo,
+  body.employee-portal .topbar-brand__logo.app-mark,
+  body.employee-portal .topbar-brand .app-mark {
+    width: 52px;
+    height: 52px;
+    max-width: 52px;
+    min-width: 52px;
+  }
+
+  body.admin-portal .sidebar-head .brand-logo--compact,
+  body.admin-portal .sidebar-head .brand .app-mark,
+  body.employee-portal .sidebar-head .brand-logo--compact,
+  body.employee-portal .sidebar-head .brand .app-mark {
+    width: 56px;
+    height: 56px;
+    max-width: 56px;
+  }
+
+  .mobile-tab__icon.admin-icon {
+    width: 26px;
+    height: 26px;
+  }
+
+  .mobile-tab {
+    min-height: 56px;
+  }
+
+  .mobile-tab__label {
+    font-size: 0.72rem;
   }
 }
 
