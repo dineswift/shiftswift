@@ -77,10 +77,16 @@ def document_service_error_message(exc: Exception) -> str:
             "Run database migrations and try again."
         )
     if isinstance(exc, (OSError, PermissionError)):
-        return (
+        hint = _sanitize_error_hint(str(exc))
+        base = (
             "Document storage is not writable on the server. "
             "Check DOCUMENTS_STORAGE_DIR permissions and try again."
         )
+        if hint and "documents_storage_dir" in hint.lower():
+            return f"{base} ({hint})"
+        if hint:
+            return f"{base} Path: {hint.split(':', 1)[-1].strip()}." if ":" in hint else f"{base} ({hint})"
+        return base
 
     for candidate in (exc, getattr(exc, "__cause__", None), getattr(exc, "__context__", None)):
         if isinstance(candidate, Exception):

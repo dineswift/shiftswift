@@ -50,9 +50,10 @@ LOGIN_RATE_WINDOW_SECONDS=900
 MAX_UPLOAD_BYTES=10485760
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 RTW_STORAGE_DIR=${ROOT_DIR}/uploads/rtw_immutable
+DOCUMENTS_STORAGE_DIR=uploads/documents
 AI_ENABLED=0
 EOF
-  mkdir -p uploads/rtw_immutable
+  mkdir -p uploads/rtw_immutable backend_stub/uploads/documents
   echo "Created backend_stub/.env — edit DATABASE_URL before migrations."
 else
   echo "backend_stub/.env already exists — skipped."

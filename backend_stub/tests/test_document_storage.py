@@ -14,6 +14,7 @@ from modules.documents.export import build_documents_csv
 from modules.documents.storage import (
     _safe_slug,
     delete_stored_file,
+    resolve_documents_storage_dir,
     resolve_stored_file,
     write_document_file,
 )
@@ -21,6 +22,13 @@ from modules.documents.storage import (
 
 def test_safe_slug_strips_unsafe_characters() -> None:
     assert _safe_slug("Contract / v1 (final).pdf") == "Contract-v1-final-.pdf"
+
+
+def test_resolve_documents_storage_dir_relative_to_backend_stub(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("DOCUMENTS_STORAGE_DIR", raising=False)
+    backend_stub = BACKEND
+    expected = (backend_stub / "uploads" / "documents").resolve()
+    assert resolve_documents_storage_dir() == expected
 
 
 def test_write_and_resolve_tenant_document_file(tmp_path, monkeypatch) -> None:

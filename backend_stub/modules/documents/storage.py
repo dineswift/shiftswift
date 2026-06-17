@@ -10,7 +10,22 @@ from typing import Any
 
 from fastapi import HTTPException, UploadFile
 
-DOCUMENTS_STORAGE_DIR = Path(os.getenv("DOCUMENTS_STORAGE_DIR", "uploads/documents"))
+
+def _backend_stub_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def resolve_documents_storage_dir() -> Path:
+    """Resolve document storage path relative to backend_stub (API WorkingDirectory)."""
+    backend_stub = _backend_stub_root()
+    raw = (os.getenv("DOCUMENTS_STORAGE_DIR") or "uploads/documents").strip()
+    path = Path(raw)
+    if not path.is_absolute():
+        path = backend_stub / path
+    return path.resolve()
+
+
+DOCUMENTS_STORAGE_DIR = resolve_documents_storage_dir()
 
 DOCUMENT_ALLOWED_UPLOAD_TYPES: dict[str, str] = {
     "application/pdf": ".pdf",
@@ -106,14 +121,26 @@ async def read_validated_upload(upload: UploadFile, *, max_bytes: int) -> tuple[
     return data, content_type, ext
 
 
+def ensure_documents_storage_root() -> Path:
+    """Create the document storage root if missing; raise PermissionError when not writable."""
+    root = resolve_documents_storage_dir()
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise PermissionError(f"Cannot create DOCUMENTS_STORAGE_DIR at {root}: {exc}") from exc
+    if not os.access(root, os.W_OK):
+        raise PermissionError(f"DOCUMENTS_STORAGE_DIR is not writable: {root}")
+    return root
+
+
 def tenant_document_dir(*, tenant_id: int) -> Path:
-    path = DOCUMENTS_STORAGE_DIR / str(tenant_id) / "tenant"
+    path = ensure_documents_storage_root() / str(tenant_id) / "tenant"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def employee_document_dir(*, tenant_id: int, employee_id: int) -> Path:
-    path = DOCUMENTS_STORAGE_DIR / str(tenant_id) / "employees" / str(employee_id)
+    path = ensure_documents_storage_root() / str(tenant_id) / "employees" / str(employee_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -140,12 +167,15 @@ def write_document_file(
     else:
         target = tenant_document_dir(tenant_id=tenant_id) / filename
     if not target.exists():
-        target.write_bytes(data)
+        try:
+            target.write_bytes(data)
+        except OSError as exc:
+            raise PermissionError(f"Cannot write document file to {target}: {exc}") from exc
     return str(target.resolve()), digest, len(data)
 
 
 def _tenant_root(tenant_id: int) -> Path:
-    return (DOCUMENTS_STORAGE_DIR / str(tenant_id)).resolve()
+    return (resolve_documents_storage_dir() / str(tenant_id)).resolve()
 
 
 def resolve_stored_file(*, tenant_id: int, storage_path: str | None) -> Path:
