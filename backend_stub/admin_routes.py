@@ -608,8 +608,13 @@ async def upload_tenant_document(
         notify_document_recipients,
         parse_employee_id_list,
     )
+    import logging
+
+    from modules.documents.errors import _rollback_quietly, document_service_error_message
     from modules.documents.service import create_tenant_document, update_tenant_document
     from modules.documents.storage import read_validated_upload, write_document_file
+
+    logger = logging.getLogger(__name__)
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
@@ -656,17 +661,21 @@ async def upload_tenant_document(
             },
             conn=conn,
         )
-        log_employee_data_event(
-            tenant_id=tenant_id,
-            actor_username=current_user.username,
-            actor_role=current_user.role,
-            action="upload",
-            entity_type="tenant_document",
-            entity_id=doc["id"],
-            ip_address=client_ip(request),
-            user_agent=request.headers.get("User-Agent"),
-            conn=conn,
-        )
+        try:
+            log_employee_data_event(
+                tenant_id=tenant_id,
+                actor_username=current_user.username,
+                actor_role=current_user.role,
+                action="upload",
+                entity_type="tenant_document",
+                entity_id=doc["id"],
+                ip_address=client_ip(request),
+                user_agent=request.headers.get("User-Agent"),
+                conn=conn,
+            )
+        except Exception:
+            logger.warning("Document upload audit log failed for tenant %s", tenant_id, exc_info=True)
+            _rollback_quietly(conn)
         if employee_visible and notify_employees:
             selected_ids = parse_employee_id_list(notify_employee_ids)
             targets = load_document_notification_targets(
@@ -677,24 +686,32 @@ async def upload_tenant_document(
             )
             if not targets:
                 raise ValueError("No employees selected to notify")
-            notifications = notify_document_recipients(
-                tenant_id=tenant_id,
-                employees=targets,
-                document_id=int(doc["id"]),
-                document_scope="tenant",
-                document_title=title.strip(),
-                category=category,
-                pay_period=(pay_period or "").strip() or None,
-                send_email=send_email,
-                conn=conn,
-                commit=False,
-            )
-        conn.commit()
+            try:
+                notifications = notify_document_recipients(
+                    tenant_id=tenant_id,
+                    employees=targets,
+                    document_id=int(doc["id"]),
+                    document_scope="tenant",
+                    document_title=title.strip(),
+                    category=category,
+                    pay_period=(pay_period or "").strip() or None,
+                    send_email=send_email,
+                    conn=conn,
+                    commit=False,
+                )
+            except Exception:
+                logger.exception("Document upload notifications failed for tenant %s", tenant_id)
+                _rollback_quietly(conn)
+        try:
+            conn.commit()
+        except Exception:
+            _rollback_quietly(conn)
+            raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
-        from modules.documents.errors import document_service_error_message
-
         raise HTTPException(
             status_code=503,
             detail=document_service_error_message(exc),
@@ -761,6 +778,8 @@ async def distribute_document_route(
             logger.warning("Document distribute audit log failed for tenant %s", tenant_id, exc_info=True)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         from modules.documents.errors import document_service_error_message
 

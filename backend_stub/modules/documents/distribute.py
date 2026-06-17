@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
+from modules.documents.errors import _rollback_quietly
 from modules.documents.service import (
     _table_columns,
     create_employee_document,
@@ -166,8 +167,15 @@ def distribute_document(
                 employee["id"],
                 doc["id"],
             )
+            from modules.documents.errors import _rollback_quietly
 
-    conn.commit()
+            _rollback_quietly(conn)
+
+    try:
+        conn.commit()
+    except Exception:
+        _rollback_quietly(conn)
+        raise
     return {
         "distributed_count": len(created),
         "emails_sent": emails_sent,

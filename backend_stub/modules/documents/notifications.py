@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from core.notifications import send_email_content
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
+from modules.documents.errors import _rollback_quietly
 from modules.documents.service import _table_columns
 from modules.push.service import app_url_path, send_employee_push
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 ACTIVE_EMPLOYEE_STATUSES = frozenset({"active", "onboarding"})
+logger = logging.getLogger(__name__)
 
 
 def _looks_like_email(value: str | None) -> bool:
@@ -117,32 +120,41 @@ def notify_employee_document_shared(
     if send_email and employee.get("email_notifications_enabled", True):
         email = employee.get("email")
         if _looks_like_email(email):
-            content = employee_document_shared_email(
-                employee_name=employee_name,
-                document_title=document_title,
-                category_label=category_label,
-                pay_period=pay_period if category == "payslip" else None,
-                tenant_name=tenant_name,
-            )
-            send_email_content(
-                conn=conn,
-                tenant_id=tenant_id,
-                content=content,
-                purpose="employee",
-                to=str(email),
-                audience="employee",
-                payload={
-                    "type": "employee_document_shared",
-                    "employee_id": employee_id,
-                    "document_id": document_id,
-                    "document_scope": document_scope,
-                    "document_title": document_title,
-                    "category": category,
-                },
-                deliver_now=True,
-                commit=False,
-            )
-            email_sent = True
+            try:
+                content = employee_document_shared_email(
+                    employee_name=employee_name,
+                    document_title=document_title,
+                    category_label=category_label,
+                    pay_period=pay_period if category == "payslip" else None,
+                    tenant_name=tenant_name,
+                )
+                send_email_content(
+                    conn=conn,
+                    tenant_id=tenant_id,
+                    content=content,
+                    purpose="employee",
+                    to=str(email),
+                    audience="employee",
+                    payload={
+                        "type": "employee_document_shared",
+                        "employee_id": employee_id,
+                        "document_id": document_id,
+                        "document_scope": document_scope,
+                        "document_title": document_title,
+                        "category": category,
+                    },
+                    deliver_now=True,
+                    commit=False,
+                )
+                email_sent = True
+            except Exception:
+                logger.exception(
+                    "Document share email failed for tenant %s employee %s document %s",
+                    tenant_id,
+                    employee_id,
+                    document_id,
+                )
+                _rollback_quietly(conn)
 
     if category == "payslip":
         portal_path = "employee.html#payslips"
@@ -157,19 +169,32 @@ def notify_employee_document_shared(
         push_title = "New document available — ShiftSwift HR"
         push_body = f"{document_title} is ready — tap to view in your portal."
 
-    send_employee_push(
-        tenant_id=tenant_id,
-        employee_id=employee_id,
-        notification_key=f"document_shared:{document_scope}:{document_id}",
-        title=push_title,
-        body=push_body,
-        url=app_url_path(portal_path),
-        tag=f"document-{document_scope}-{document_id}",
-        conn=conn,
-    )
+    try:
+        send_employee_push(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            notification_key=f"document_shared:{document_scope}:{document_id}",
+            title=push_title,
+            body=push_body,
+            url=app_url_path(portal_path),
+            tag=f"document-{document_scope}-{document_id}",
+            conn=conn,
+        )
+    except Exception:
+        logger.exception(
+            "Document share push failed for tenant %s employee %s document %s",
+            tenant_id,
+            employee_id,
+            document_id,
+        )
+        _rollback_quietly(conn)
 
     if commit:
-        conn.commit()
+        try:
+            conn.commit()
+        except Exception:
+            _rollback_quietly(conn)
+            raise
     return email_sent
 
 

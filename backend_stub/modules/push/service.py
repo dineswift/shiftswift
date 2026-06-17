@@ -212,15 +212,30 @@ def send_employee_push(
     if not push_configured():
         return {"sent": 0, "skipped": "not_configured"}
 
-    if not record_push_sent(
-        tenant_id=tenant_id,
-        employee_id=employee_id,
-        notification_key=notification_key,
-        conn=conn,
-    ):
-        return {"sent": 0, "skipped": "duplicate"}
+    try:
+        if not record_push_sent(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            notification_key=notification_key,
+            conn=conn,
+        ):
+            return {"sent": 0, "skipped": "duplicate"}
 
-    subscriptions = list_subscriptions(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        subscriptions = list_subscriptions(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    except Exception as exc:
+        logger.warning(
+            "Push skipped for tenant %s employee %s (%s): %s",
+            tenant_id,
+            employee_id,
+            notification_key,
+            exc,
+        )
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return {"sent": 0, "skipped": "error"}
+
     if not subscriptions:
         return {"sent": 0, "skipped": "no_subscription"}
 
