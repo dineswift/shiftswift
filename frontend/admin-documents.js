@@ -371,19 +371,16 @@
   }
 
   function mountNotifyEmployeeSelect() {
-    const host = document.getElementById("document-upload-notify-employees");
-    if (!host || host.dataset.ready === "true") return;
+    const select = document.getElementById("document-upload-notify-employees");
+    if (!select || select.dataset.ready === "true") return;
     const employees = activeEmployeeSelectOptions();
-    host.innerHTML = employees
+    select.innerHTML = employees
       .map(
-        (item) => `
-        <label class="settings-doc-notify-employee">
-          <input type="checkbox" value="${escapeHtml(String(item.id))}" />
-          <span>${escapeHtml(formatEmployeeNotifyLabel(item.label))}</span>
-        </label>`
+        (item) =>
+          `<option value="${escapeHtml(String(item.id))}">${escapeHtml(formatEmployeeNotifyLabel(item.label))}</option>`
       )
       .join("");
-    host.dataset.ready = "true";
+    select.dataset.ready = "true";
   }
 
   function syncUploadNotify(form) {
@@ -802,9 +799,9 @@
         if (audience === "company") {
           const notifyScope = form.querySelector('input[name="notify_scope"]:checked')?.value || "all";
           if (notifyScope === "selected") {
-            const selectedIds = [
-              ...form.querySelectorAll("#document-upload-notify-employees input[type='checkbox']:checked"),
-            ].map((input) => input.value);
+            const selectedIds = [...document.querySelectorAll("#document-upload-notify-employees option:checked")].map(
+              (option) => option.value
+            );
             if (!selectedIds.length) {
               if (status) setFormStatus(status, "Select at least one employee to notify.", "error");
               return;

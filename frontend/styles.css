@@ -6399,8 +6399,18 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .settings-doc-notify-select {
-  display: grid;
-  gap: 6px;
+  width: 100%;
+  min-height: 9rem;
+  padding: 8px 10px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  font: inherit;
+  color: var(--ink-900);
+  background: var(--white);
+}
+
+.settings-doc-notify-select option {
+  padding: 4px 2px;
 }
 
 .settings-doc-notify-employee-list {
