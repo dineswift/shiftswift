@@ -1,16 +1,21 @@
 /** Standard PWA / favicon links — Hastings-style app icons (brandkit-v5). */
 (function () {
-  const VERSION = "brandkit-v5";
+  const VERSION = "brandkit-v6";
   const ICONS = {
     hr: {
       favicon32: `./assets/shiftswift-hr-app-icon-192.png?v=${VERSION}`,
-      faviconSvg: `./assets/shiftswift-hr-icon.svg?v=${VERSION}`,
+      faviconSvg: `./assets/app-icon-hr.svg?v=${VERSION}`,
       apple: `./assets/shiftswift-hr-app-icon-180.png?v=${VERSION}`,
     },
     clock: {
       favicon32: `./assets/shiftswift-clock-app-icon-192.png?v=${VERSION}`,
-      faviconSvg: `./assets/shiftswift-hr-icon.svg?v=${VERSION}`,
+      faviconSvg: `./assets/app-icon-clock.svg?v=${VERSION}`,
       apple: `./assets/shiftswift-clock-app-icon-180.png?v=${VERSION}`,
+    },
+    employee: {
+      favicon32: `./assets/shiftswift-employee-app-icon-192.png?v=${VERSION}`,
+      faviconSvg: `./assets/app-icon-clock.svg?v=${VERSION}`,
+      apple: `./assets/shiftswift-employee-app-icon-180.png?v=${VERSION}`,
     },
   };
 

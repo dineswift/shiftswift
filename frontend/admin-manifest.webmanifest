@@ -8,25 +8,25 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#ffffff",
+  "background_color": "#0f6e56",
   "theme_color": "#0f6e56",
   "categories": ["business", "productivity"],
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5",
+      "src": "./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/shiftswift-hr-app-icon.png?v=brandkit-v5",
+      "src": "./assets/shiftswift-hr-app-icon.png?v=brandkit-v6",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./assets/shiftswift-hr-app-icon-maskable.png?v=brandkit-v5",
+      "src": "./assets/shiftswift-hr-app-icon-maskable.png?v=brandkit-v6",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -39,7 +39,7 @@
       "url": "./admin.html?source=shortcut",
       "icons": [
         {
-          "src": "./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5",
+          "src": "./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6",
           "sizes": "192x192",
           "type": "image/png"
         }

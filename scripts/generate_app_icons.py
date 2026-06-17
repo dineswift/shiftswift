@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Hastings-style ShiftSwift PWA app icons (Pillow only)."""
+"""Generate ShiftSwift PWA app icons — large centred mark, readable on home screens."""
 
 from __future__ import annotations
 
@@ -68,23 +68,44 @@ def _text_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont)
     return box[2] - box[0]
 
 
-def render_icon(*, bottom_label: str, maskable: bool, size: int) -> Image.Image:
+def render_mark_only(*, maskable: bool, size: int) -> Image.Image:
+    """Home-screen icon: green tile with a large centred mark (no tiny wordmark)."""
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    pad = int(size * 0.08) if maskable else 0
+    inner = size - 2 * pad
+    radius = max(8, int(inner * 0.22))
+
+    draw.rounded_rectangle((pad, pad, size - pad, size - pad), radius=radius, fill=GREEN)
+
+    mark_target = inner * (0.76 if maskable else 0.88)
+    mark_scale = mark_target / 96.0
+    mark_height = int(96 * mark_scale)
+    cx = size // 2
+    mark_top = pad + (inner - mark_height) // 2
+    _draw_mark(draw, cx, mark_top, scale=mark_scale)
+    return img
+
+
+def render_wordmark_icon(*, bottom_label: str, maskable: bool, size: int) -> Image.Image:
+    """Marketing / store listing icon with ShiftSwift wordmark (not used for PWA home screen)."""
     img = Image.new("RGBA", (size, size), WHITE)
     draw = ImageDraw.Draw(img)
 
-    pad = int(size * (0.14 if maskable else 0.06))
-    draw.rounded_rectangle((pad, pad, size - pad, size - pad), radius=int(size * 0.21), fill=WHITE)
+    pad = int(size * (0.10 if maskable else 0.04))
+    draw.rounded_rectangle((pad, pad, size - pad, size - pad), radius=int(size * 0.18), fill=WHITE)
 
     inner_top = pad
     inner_bottom = size - pad
     inner_height = inner_bottom - inner_top
     cx = size // 2
 
-    mark_scale = (0.98 if maskable else 1.08) * (size / 512)
+    mark_scale = (0.92 if maskable else 1.35) * (size / 512)
     mark_height = int(96 * mark_scale)
 
-    word_size = int(size * 0.098)
-    label_size = int(size * (0.052 if bottom_label == "HR" else 0.044))
+    word_size = int(size * 0.09)
+    label_size = int(size * (0.05 if bottom_label == "HR" else 0.042))
     word_font = _font(word_size)
     label_font = _font(label_size)
 
@@ -93,8 +114,8 @@ def render_icon(*, bottom_label: str, maskable: bool, size: int) -> Image.Image:
     label_box = draw.textbbox((0, 0), bottom_label, font=label_font)
     label_h = label_box[3] - label_box[1]
 
-    gap_after_mark = int(size * 0.028)
-    gap_after_word = int(size * 0.045)
+    gap_after_mark = int(size * 0.022)
+    gap_after_word = int(size * 0.035)
     content_height = mark_height + gap_after_mark + word_h + gap_after_word + label_h
     block_top = inner_top + max(0, (inner_height - content_height) // 2)
 
@@ -122,25 +143,29 @@ def render_icon(*, bottom_label: str, maskable: bool, size: int) -> Image.Image:
 
 def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
-    variants = [
-        ("app-icon-hr", "HR", False),
-        ("app-icon-hr-maskable", "HR", True),
-        ("app-icon-clock", "CLOCK", False),
+    mark_variants = [
+        ("app-icon-hr", False),
+        ("app-icon-hr-maskable", True),
+        ("app-icon-clock", False),
+        ("app-icon-employee", False),
     ]
-    for base, label, maskable in variants:
+    for base, maskable in mark_variants:
         for size in (180, 192, 512):
             out = ASSETS / f"{base}-{size}.png"
-            render_icon(bottom_label=label, maskable=maskable, size=size).save(out, "PNG")
+            render_mark_only(maskable=maskable, size=size).save(out, "PNG")
             print(f"wrote {out.relative_to(ROOT)}")
 
     aliases = {
         "app-icon-hr-512.png": "shiftswift-hr-app-icon.png",
         "app-icon-hr-maskable-512.png": "shiftswift-hr-app-icon-maskable.png",
         "app-icon-hr-192.png": "shiftswift-hr-app-icon-192.png",
+        "app-icon-hr-180.png": "shiftswift-hr-app-icon-180.png",
         "app-icon-clock-512.png": "shiftswift-clock-app-icon.png",
         "app-icon-clock-192.png": "shiftswift-clock-app-icon-192.png",
-        "app-icon-hr-180.png": "shiftswift-hr-app-icon-180.png",
         "app-icon-clock-180.png": "shiftswift-clock-app-icon-180.png",
+        "app-icon-employee-512.png": "shiftswift-employee-app-icon.png",
+        "app-icon-employee-192.png": "shiftswift-employee-app-icon-192.png",
+        "app-icon-employee-180.png": "shiftswift-employee-app-icon-180.png",
     }
     for src, dest in aliases.items():
         target = ASSETS / dest
