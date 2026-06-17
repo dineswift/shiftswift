@@ -7,8 +7,18 @@ ALTER TABLE employee_documents
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 ALTER TABLE employee_documents DROP CONSTRAINT IF EXISTS employee_documents_lifecycle_stage_check;
+
+UPDATE employee_documents
+SET lifecycle_stage = 'document_store'
+WHERE lifecycle_stage IS NULL
+   OR btrim(lifecycle_stage) = ''
+   OR lifecycle_stage NOT IN (
+     'recruitment', 'onboarding', 'induction', 'document_store', 'compliance',
+     'offboarding', 'general', 'active'
+   );
+
 ALTER TABLE employee_documents ADD CONSTRAINT employee_documents_lifecycle_stage_check
-  CHECK (lifecycle_stage IN ('recruitment', 'onboarding', 'induction', 'document_store', 'compliance', 'offboarding', 'general'));
+  CHECK (lifecycle_stage IN ('recruitment', 'onboarding', 'induction', 'document_store', 'compliance', 'offboarding', 'general', 'active'));
 
 ALTER TABLE employee_documents DROP CONSTRAINT IF EXISTS employee_documents_category_check;
 ALTER TABLE employee_documents ADD CONSTRAINT employee_documents_category_check
@@ -28,8 +38,18 @@ ALTER TABLE tenant_documents
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 ALTER TABLE tenant_documents DROP CONSTRAINT IF EXISTS tenant_documents_lifecycle_stage_check;
+
+UPDATE tenant_documents
+SET lifecycle_stage = 'general'
+WHERE lifecycle_stage IS NULL
+   OR btrim(lifecycle_stage) = ''
+   OR lifecycle_stage NOT IN (
+     'recruitment', 'onboarding', 'induction', 'document_store', 'compliance',
+     'offboarding', 'general', 'policy', 'active'
+   );
+
 ALTER TABLE tenant_documents ADD CONSTRAINT tenant_documents_lifecycle_stage_check
-  CHECK (lifecycle_stage IN ('recruitment', 'onboarding', 'induction', 'document_store', 'compliance', 'offboarding', 'general', 'policy'));
+  CHECK (lifecycle_stage IN ('recruitment', 'onboarding', 'induction', 'document_store', 'compliance', 'offboarding', 'general', 'policy', 'active'));
 
 CREATE INDEX IF NOT EXISTS idx_tenant_documents_category
   ON tenant_documents (tenant_id, category, created_at DESC);
