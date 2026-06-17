@@ -124,6 +124,9 @@
 
   function finishStartup(enabled) {
     syncClockAvailability(enabled);
+    if (window.location.hash.replace("#", "").split("/")[0] === "time-clock" && !clockEnabled) {
+      window.location.hash = "overview";
+    }
     if (startupResolved) return;
     const tab = resolveStartupTab();
     startupResolved = true;

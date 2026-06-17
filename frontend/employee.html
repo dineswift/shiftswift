@@ -28,7 +28,7 @@
         </div>
         <nav class="nav">
           <a class="nav-link active" href="#overview" data-section="overview">Overview</a>
-          <a class="nav-link" href="#time-clock" data-section="time-clock">Time clock</a>
+          <a class="nav-link" href="#time-clock" data-section="time-clock" data-requires-clock>Time clock</a>
           <a class="nav-link" href="#my-shifts" data-section="my-shifts">My shifts</a>
           <a class="nav-link" href="#leave" data-section="leave">Leave</a>
           <a class="nav-link" href="#documents" data-section="documents">My documents</a>
@@ -185,7 +185,7 @@
               <p class="muted" id="employee-notes-summary">Loading…</p>
               <a class="btn ghost" href="#notes">View notes</a>
             </article>
-            <article class="card">
+            <article class="card" data-requires-clock>
               <h3>Time clock</h3>
               <p class="muted" id="employee-punch-summary">Loading…</p>
               <a class="btn ghost" href="#time-clock">Clock in or out</a>
@@ -451,7 +451,7 @@
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=2"></script>
-    <script src="./employee-mobile.js?v=3"></script>
+    <script src="./employee-mobile.js?v=4"></script>
     <script src="./employee.js?v=9"></script>
     <script src="./employee-time-punch.js?v=6"></script>
     <script src="./employee-rota.js?v=5"></script>
