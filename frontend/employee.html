@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=4" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v33" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v75" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -323,11 +323,20 @@
           <header class="section-header">
             <div>
               <h2>My documents</h2>
-              <p class="muted">Files HR has shared with you — including signed employment contracts. Right-to-work and ID copies are kept by HR only.</p>
+              <p class="muted">Company handbooks and policies, plus files HR has shared with you personally. Sensitive HR records (RTW copies, etc.) stay on the HR side only.</p>
             </div>
           </header>
           <article class="card">
-            <div id="employee-documents-cards" class="employee-doc-cards"></div>
+            <div id="employee-company-docs" class="employee-doc-section" hidden>
+              <h3 class="employee-doc-section__title">Company documents</h3>
+              <p class="muted employee-doc-section__lead">Handbooks, policies, and notices shared with all staff.</p>
+              <div id="employee-company-docs-cards" class="employee-doc-cards"></div>
+            </div>
+            <div id="employee-personal-docs" class="employee-doc-section" hidden>
+              <h3 class="employee-doc-section__title">Your documents</h3>
+              <p class="muted employee-doc-section__lead">Files shared with you personally — contracts, training, and general HR documents.</p>
+              <div id="employee-documents-cards" class="employee-doc-cards"></div>
+            </div>
             <div class="hr-table-wrap employee-desktop-table-wrap">
               <table class="data-table">
                 <thead>
@@ -476,7 +485,7 @@
     <script src="./employee.js?v=6"></script>
     <script src="./employee-time-punch.js?v=6"></script>
     <script src="./employee-rota.js?v=2"></script>
-    <script src="./employee-documents.js?v=4"></script>
+    <script src="./employee-documents.js?v=5"></script>
     <script src="./employee-notes.js?v=2"></script>
     <script src="./employee-security.js?v=2"></script>
     <script src="./employee-leave.js?v=2"></script>

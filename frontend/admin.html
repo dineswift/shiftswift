@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=4" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v73" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v76" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2274,6 +2274,7 @@
 
               <article class="card settings-panel hr-workspace" data-settings-panel="documents" hidden>
                 <div class="hr-workspace-body">
+                  <div id="documents-panel-alert" class="settings-doc-alert" hidden role="alert" aria-live="assertive"></div>
                   <p class="muted">Upload HR files to secure tenant storage, or register external links. Export a CSV manifest or ZIP archive for audits and offboarding.</p>
                   <div class="settings-doc-export link-row" id="document-export-actions">
                     <button type="button" class="btn outline settings-export-btn" id="documents-export-csv">
@@ -2296,45 +2297,68 @@
                   <p class="settings-doc-tab-desc muted" id="document-tab-desc">Store a file in secure tenant storage and tag it by employee, category, and expiry.</p>
 
                   <div id="document-upload-panel" class="settings-doc-tab-panel" data-doc-panel="upload">
-                    <form id="document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data">
+                    <form id="document-upload-form" class="edit-form edit-form--cols-2 settings-doc-form" enctype="multipart/form-data">
                       <label class="edit-field" data-span="2">
                         <span class="edit-label">File</span>
-                        <div class="doc-upload-dropzone" id="document-upload-dropzone">
+                        <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="document-upload-dropzone">
                           <input name="file" type="file" id="document-upload-file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,application/pdf,image/*" required hidden />
-                          <p class="doc-upload-dropzone__lead">Drag &amp; drop a file here, or <button type="button" class="doc-upload-browse">browse</button></p>
-                          <p class="doc-upload-dropzone__hint muted">PDF, Word, or image · max upload size applies</p>
+                          <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button></p>
+                          <p class="doc-upload-dropzone__hint muted">PDF, Word, or image</p>
                           <p class="doc-upload-filename" id="document-upload-filename" hidden></p>
                         </div>
                       </label>
-                      <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
-                      <label class="edit-field">
+                      <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Employee handbook 2026" /></label>
+                      <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-upload-category"></select></label>
+                      <fieldset class="edit-field settings-doc-audience-field" data-span="2">
+                        <legend class="edit-label">Audience</legend>
+                        <div class="settings-doc-audience settings-doc-audience--compact" role="radiogroup" aria-label="Document audience">
+                          <label class="settings-doc-audience-option">
+                            <input type="radio" name="doc_audience" value="company" checked />
+                            <span class="settings-doc-audience-option__label">All employees</span>
+                          </label>
+                          <label class="settings-doc-audience-option">
+                            <input type="radio" name="doc_audience" value="employee" />
+                            <span class="settings-doc-audience-option__label">One employee</span>
+                          </label>
+                          <label class="settings-doc-audience-option">
+                            <input type="radio" name="doc_audience" value="hr" />
+                            <span class="settings-doc-audience-option__label">HR only</span>
+                          </label>
+                        </div>
+                        <p class="settings-doc-audience-caption muted" id="document-upload-audience-caption">Company handbooks and policies for every staff member.</p>
+                      </fieldset>
+                      <label class="edit-field" id="document-upload-employee-field" hidden>
                         <span class="edit-label">Employee</span>
                         <input type="text" id="document-upload-employee-search" placeholder="Search by name…" list="document-upload-employees" autocomplete="off" />
                         <datalist id="document-upload-employees"></datalist>
                         <input type="hidden" name="employee_id" id="document-upload-employee-id" value="" />
-                        <span class="muted edit-hint">Leave blank for tenant-wide documents.</span>
                       </label>
-                      <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-upload-category"></select></label>
                       <label class="edit-field"><span class="edit-label">Lifecycle stage</span><select name="lifecycle_stage" id="document-upload-stage"></select></label>
-                      <label class="edit-field">
-                        <span class="edit-label">Expiry date</span>
-                        <input name="expires_at" id="document-upload-expires-at" type="date" />
-                        <span class="muted edit-hint" id="document-upload-expiry-hint">ShiftSwift will alert HR 30 days before this document expires.</span>
+                      <div class="settings-doc-form-row edit-field" data-span="2">
+                        <label class="settings-doc-form-row__item">
+                          <span class="edit-label">Expiry date</span>
+                          <input name="expires_at" id="document-upload-expires-at" type="date" />
+                        </label>
+                        <label class="settings-doc-form-row__item">
+                          <span class="edit-label">HR alert window</span>
+                          <select name="expiry_alert_days" id="document-upload-alert-days">
+                            <option value="30">30 days before</option>
+                            <option value="60">60 days before</option>
+                            <option value="90">90 days before</option>
+                          </select>
+                        </label>
+                      </div>
+                      <p class="settings-doc-inline-hint muted" data-span="2" id="document-upload-expiry-hint">ShiftSwift will alert HR 30 days before this document expires.</p>
+                      <label class="ss-check-row" data-span="2" id="document-upload-visible-field">
+                        <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="document-upload-visible" value="true" checked />
+                        <span class="ss-check-row__box" aria-hidden="true"></span>
+                        <span class="ss-check-row__content">
+                          <span class="ss-check-row__title">Show in employee portal</span>
+                          <span class="ss-check-row__hint muted" id="document-upload-visible-hint">All staff will see this under Company documents.</span>
+                        </span>
                       </label>
-                      <label class="edit-field">
-                        <span class="edit-label">HR alert window</span>
-                        <select name="expiry_alert_days" id="document-upload-alert-days">
-                          <option value="30">30 days before expiry</option>
-                          <option value="60">60 days before expiry</option>
-                          <option value="90">90 days before expiry</option>
-                        </select>
-                      </label>
-                      <label class="signup-check" data-span="2">
-                        <input type="checkbox" name="employee_visible" id="document-upload-visible" value="true" />
-                        <span>Visible to employee in their portal</span>
-                      </label>
-                      <label class="edit-field" data-span="2"><span class="edit-label">Notes</span><textarea name="notes" rows="2"></textarea></label>
-                      <div class="edit-form-actions" data-span="2">
+                      <label class="edit-field" data-span="2"><span class="edit-label">Notes <span class="muted">(optional)</span></span><textarea name="notes" rows="2" placeholder="Internal note for HR…"></textarea></label>
+                      <div class="edit-form-actions settings-doc-form-actions" data-span="2">
                         <button class="btn" type="submit">Upload document</button>
                         <p class="edit-form-status muted" data-status></p>
                       </div>
@@ -2342,7 +2366,7 @@
                   </div>
 
                   <div id="document-distribute-panel" class="settings-doc-tab-panel" data-doc-panel="distribute" hidden>
-                    <form id="document-distribute-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data">
+                    <form id="document-distribute-form" class="edit-form edit-form--cols-2 settings-doc-form" enctype="multipart/form-data">
                       <label class="edit-field" data-span="2">
                         <span class="edit-label">File</span>
                         <div class="doc-upload-dropzone" id="document-distribute-dropzone">
@@ -2357,11 +2381,15 @@
                       <label class="edit-field"><span class="edit-label">Pay period</span><input name="pay_period" id="document-distribute-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
                       <label class="edit-field"><span class="edit-label">Send to</span><select name="employee_id" id="document-distribute-employee"><option value="">All active employees</option></select></label>
                       <label class="edit-field" data-span="2"><span class="edit-label">Notes (optional)</span><textarea name="notes" rows="2"></textarea></label>
-                      <label class="signup-check" data-span="2">
-                        <input type="checkbox" name="send_email" value="true" checked />
-                        <span>Email employees when a document is shared</span>
+                      <label class="ss-check-row" data-span="2">
+                        <input class="ss-check-row__input" type="checkbox" name="send_email" value="true" checked />
+                        <span class="ss-check-row__box" aria-hidden="true"></span>
+                        <span class="ss-check-row__content">
+                          <span class="ss-check-row__title">Email employees when shared</span>
+                          <span class="ss-check-row__hint muted">Sends a notification with a link to the employee portal.</span>
+                        </span>
                       </label>
-                      <div class="edit-form-actions" data-span="2">
+                      <div class="edit-form-actions settings-doc-form-actions" data-span="2">
                         <button class="btn" type="submit">Upload &amp; distribute</button>
                         <p class="edit-form-status muted" data-status></p>
                       </div>
@@ -2374,8 +2402,11 @@
 
                   <section class="settings-doc-expiring" id="documents-expiring-section" aria-labelledby="documents-expiring-title">
                     <div class="settings-doc-expiring-head">
-                      <h4 class="hr-section-title" id="documents-expiring-title">Expiring documents</h4>
-                      <div class="settings-doc-expiring-stats" id="documents-expiring-stats"></div>
+                      <div class="settings-doc-section-label">
+                        <span class="settings-doc-section-icon" aria-hidden="true">⏰</span>
+                        <h4 class="hr-section-title" id="documents-expiring-title">Expiring documents</h4>
+                      </div>
+                      <div class="settings-doc-expiring-stats" id="documents-expiring-stats" aria-label="Expiry summary"></div>
                     </div>
                     <div class="hr-table-wrap">
                       <table class="data-table">
@@ -2395,32 +2426,37 @@
                     </div>
                   </section>
 
-                  <div class="settings-doc-list-head">
-                    <h4 class="hr-section-title">Stored documents</h4>
-                    <div id="document-filters" class="settings-doc-filters"></div>
-                  </div>
-                  <div id="document-edit-panel" class="edit-panel" hidden></div>
-                  <div class="hr-table-wrap">
-                    <table class="data-table">
-                      <thead>
-                        <tr>
+                  <section class="settings-doc-stored" id="documents-stored-section">
+                    <div class="settings-doc-list-head">
+                      <div class="settings-doc-section-label">
+                        <span class="settings-doc-section-icon" aria-hidden="true">📁</span>
+                        <h4 class="hr-section-title">Stored documents</h4>
+                      </div>
+                      <div id="document-filters" class="settings-doc-filters"></div>
+                    </div>
+                    <div id="document-edit-panel" class="edit-panel" hidden></div>
+                    <div class="hr-table-wrap settings-doc-table-wrap">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
                           <th>Title</th>
-                          <th>Employee</th>
+                          <th>Audience</th>
                           <th>Category</th>
                           <th>Stage</th>
-                          <th>Visible</th>
-                          <th>File</th>
-                          <th>Link</th>
-                          <th>Expires</th>
-                          <th>Added</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody id="documents-table-body">
-                        <tr><td colspan="10" class="muted">Loading documents…</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
+                          <th>Portal</th>
+                            <th>File</th>
+                            <th>Link</th>
+                            <th>Expires</th>
+                            <th>Added</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="documents-table-body">
+                          <tr><td colspan="10" class="muted">Loading documents…</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
                 </div>
               </article>
 
@@ -2499,8 +2535,8 @@
     <script src="./admin-shared.js?v=admin-v27"></script>
     <script src="./admin-workspace.js?v=admin-v19"></script>
     <script src="./admin-address-picker.js?v=3"></script>
-    <script src="./admin-settings.js?v=22"></script>
-    <script src="./admin-documents.js?v=7"></script>
+    <script src="./admin-settings.js?v=23"></script>
+    <script src="./admin-documents.js?v=10"></script>
     <script src="./admin-employees.js?v=21"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>

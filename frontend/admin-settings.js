@@ -89,11 +89,15 @@
     return PANELS.includes(part) ? part : null;
   }
 
-  function showSettingsToast(message) {
+  function showSettingsToast(message, options = {}) {
     const toast = document.getElementById("settings-toast");
     if (!toast) return;
+    const variant = options.variant || "success";
     toast.textContent = message;
     toast.hidden = false;
+    toast.classList.remove("settings-toast--error", "settings-toast--warn");
+    if (variant === "error") toast.classList.add("settings-toast--error");
+    if (variant === "warn") toast.classList.add("settings-toast--warn");
     toast.classList.add("settings-toast--visible");
     window.clearTimeout(showSettingsToast._timer);
     showSettingsToast._timer = window.setTimeout(() => {
@@ -101,7 +105,7 @@
       window.setTimeout(() => {
         toast.hidden = true;
       }, 300);
-    }, 3200);
+    }, options.duration ?? 3200);
   }
 
   function formatSavedAt(iso) {

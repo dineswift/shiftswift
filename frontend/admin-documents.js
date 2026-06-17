@@ -8,12 +8,94 @@
   };
 
   const TAB_DESCRIPTIONS = {
-    upload: "Store a file in secure tenant storage and tag it by employee, category, and expiry.",
+    upload: "Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.",
     distribute: "Push a file to one or all employees — it appears in their portal and can trigger an email notification.",
     link: "Register an external URL (SharePoint, Google Drive, etc.) without uploading the file to ShiftSwift.",
   };
 
   let employeeLookup = [];
+
+  function friendlyError(error, fallback) {
+    const message = error?.message || "";
+    if (message === "Load failed" || message === "Failed to fetch") {
+      return "Could not reach the server. Check your connection and try again.";
+    }
+    return message || fallback;
+  }
+
+  function setFormStatus(el, message, tone = "neutral") {
+    if (!el) return;
+    el.textContent = message || "";
+    el.classList.remove("edit-form-status--error", "edit-form-status--success", "edit-form-status--warn");
+    if (tone === "error") el.classList.add("edit-form-status--error");
+    if (tone === "success") el.classList.add("edit-form-status--success");
+    if (tone === "warn") el.classList.add("edit-form-status--warn");
+  }
+
+  function clearDocumentFormStatuses() {
+    document.querySelectorAll("#document-upload-form [data-status], #document-distribute-form [data-status]").forEach((el) => {
+      setFormStatus(el, "");
+    });
+  }
+
+  function setDocumentsPanelAlert(options) {
+    const host = document.getElementById("documents-panel-alert");
+    if (!host) return;
+    if (!options?.message) {
+      host.hidden = true;
+      host.innerHTML = "";
+      host.classList.remove("settings-doc-alert--warn");
+      return;
+    }
+    const { title, message, tone = "error", retryLabel, onRetry } = options;
+    host.hidden = false;
+    host.classList.toggle("settings-doc-alert--warn", tone === "warn");
+    const retryHtml =
+      retryLabel && typeof onRetry === "function"
+        ? `<div class="settings-doc-alert__actions"><button type="button" class="btn outline" data-doc-alert-retry>${escapeHtml(retryLabel)}</button></div>`
+        : "";
+    host.innerHTML = `
+      <span class="settings-doc-alert__icon" aria-hidden="true">${tone === "warn" ? "⚠️" : "⛔"}</span>
+      <div class="settings-doc-alert__body">
+        ${title ? `<strong>${escapeHtml(title)}</strong>` : ""}
+        <p>${escapeHtml(message)}</p>
+      </div>
+      ${retryHtml}`;
+    host.querySelector("[data-doc-alert-retry]")?.addEventListener("click", onRetry);
+  }
+
+  function renderExpiryStats(summary = {}) {
+    const statsHost = document.getElementById("documents-expiring-stats");
+    const section = document.getElementById("documents-expiring-section");
+    const expired = Number(summary.expired) || 0;
+    const expiringSoon = Number(summary.expiring_soon) || 0;
+    const valid = Number(summary.valid) || 0;
+
+    if (statsHost) {
+      statsHost.innerHTML = `
+        <span class="doc-expiry-stat doc-expiry-stat--danger">${expired} expired</span>
+        <span class="doc-expiry-stat doc-expiry-stat--warn">${expiringSoon} expiring soon</span>
+        <span class="doc-expiry-stat doc-expiry-stat--ok">${valid} valid</span>`;
+    }
+
+    if (section) {
+      section.classList.toggle("settings-doc-expiring--urgent", expired > 0);
+      section.classList.toggle("settings-doc-expiring--warn", expired === 0 && expiringSoon > 0);
+    }
+  }
+
+  function renderDocumentsTableState(tbody, colSpan, { variant = "empty", title, message, actionHtml = "" }) {
+    if (!tbody) return;
+    const icon = variant === "error" ? "⚠️" : variant === "ok" ? "✓" : "📄";
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" class="settings-doc-table-empty">
+      <div class="settings-doc-empty settings-doc-empty--${variant}">
+        <span class="settings-doc-empty__icon" aria-hidden="true">${icon}</span>
+        <h5>${escapeHtml(title)}</h5>
+        <p>${escapeHtml(message)}</p>
+        ${actionHtml}
+      </div>
+    </td></tr>`;
+  }
 
   function parseApiDetail(data, fallback) {
     if (!data || typeof data !== "object") return fallback;
@@ -38,15 +120,22 @@
   }
 
   async function refreshDocumentViews(statusEl) {
-    try {
-      await refreshDocuments();
-      await refreshExpiringDocuments();
-    } catch (error) {
-      console.warn("Document list refresh failed:", error);
+    await refreshDocuments().catch(() => {});
+    await refreshExpiringDocuments().catch(() => {});
+
+    const alertVisible = document.getElementById("documents-panel-alert") && !document.getElementById("documents-panel-alert").hidden;
+    if (alertVisible) {
+      console.warn("Document list refresh failed");
       if (statusEl) {
-        statusEl.textContent = "Uploaded, but the list could not refresh. Reload this page to see it.";
+        setFormStatus(statusEl, "Uploaded — refresh the lists below if needed.", "warn");
       }
-      window.AdminSettings?.showSettingsToast?.("Document saved — reload if the list looks empty.");
+      window.AdminSettings?.showSettingsToast?.("Document saved — tap Try again if lists look empty.", { variant: "warn" });
+      return;
+    }
+
+    setDocumentsPanelAlert({});
+    if (statusEl) {
+      setFormStatus(statusEl, "Uploaded ✓", "success");
     }
   }
 
@@ -61,13 +150,81 @@
   }
 
   function employeeLabel(employeeId) {
-    if (!employeeId) return "Tenant-wide";
+    if (!employeeId) return "All employees";
     const match = employeeLookup.find((item) => String(item.id) === String(employeeId));
     if (match?.label) return match.label;
     const option = (window.Admin.formOptions?.employees || []).find(
       (item) => String(item.value || item.id) === String(employeeId)
     );
     return option?.label || `Employee #${employeeId}`;
+  }
+
+  function audienceLabel(row) {
+    if (!row.employee_id) return "All employees";
+    return employeeLabel(row.employee_id);
+  }
+
+  function portalVisibilityMarkup(row) {
+    if (!row.employee_visible) {
+      return `<span class="doc-portal-visibility doc-portal-visibility--hidden">HR only</span>`;
+    }
+    if (!row.employee_id) {
+      return `<span class="doc-portal-visibility doc-portal-visibility--company">All staff</span>`;
+    }
+    return `<span class="doc-portal-visibility doc-portal-visibility--personal">Employee portal</span>`;
+  }
+
+  function syncUploadAudience(form) {
+    const audience = form?.querySelector('input[name="doc_audience"]:checked')?.value || "company";
+    const employeeField = document.getElementById("document-upload-employee-field");
+    const visibleField = document.getElementById("document-upload-visible-field");
+    const visibleCheck = document.getElementById("document-upload-visible");
+    const visibleHint = document.getElementById("document-upload-visible-hint");
+    const audienceCaption = document.getElementById("document-upload-audience-caption");
+    const categorySelect = document.getElementById("document-upload-category");
+    const employeeSearch = document.getElementById("document-upload-employee-search");
+    const employeeIdField = document.getElementById("document-upload-employee-id");
+
+    if (employeeField) employeeField.hidden = audience !== "employee";
+    if (visibleField) visibleField.hidden = audience === "hr";
+
+    if (audience !== "employee") {
+      if (employeeSearch) employeeSearch.value = "";
+      if (employeeIdField) employeeIdField.value = "";
+    }
+
+    if (visibleCheck) {
+      if (audience === "hr") {
+        visibleCheck.checked = false;
+      } else if (audience === "company") {
+        visibleCheck.checked = true;
+        if (categorySelect && !categorySelect.dataset.userPicked && categorySelect.value === "general") {
+          categorySelect.value = "policy";
+        }
+      } else if (audience === "employee") {
+        visibleCheck.checked = true;
+      }
+    }
+
+    if (audienceCaption) {
+      if (audience === "company") {
+        audienceCaption.textContent = "Company handbooks and policies for every staff member.";
+      } else if (audience === "employee") {
+        audienceCaption.textContent = "Personal file on one employee profile only.";
+      } else {
+        audienceCaption.textContent = "Stored for HR audits — never shown in the employee portal.";
+      }
+    }
+
+    if (visibleHint) {
+      if (audience === "company") {
+        visibleHint.textContent = "All staff will see this under Company documents.";
+      } else if (audience === "employee") {
+        visibleHint.textContent = "Only the selected employee sees this in their portal.";
+      } else {
+        visibleHint.textContent = "";
+      }
+    }
   }
 
   function formLifecycleStages() {
@@ -247,6 +404,7 @@
       panel.hidden = panel.dataset.docPanel !== target;
     });
     updateTabDescription(target);
+    clearDocumentFormStatuses();
     if (target === "link") {
       mountLinkForm();
     }
@@ -340,6 +498,15 @@
       hiddenId: "document-upload-employee-id",
     });
 
+    document.getElementById("document-upload-category")?.addEventListener("change", (event) => {
+      event.target.dataset.userPicked = "true";
+    });
+
+    form.querySelectorAll('input[name="doc_audience"]').forEach((input) => {
+      input.addEventListener("change", () => syncUploadAudience(form));
+    });
+    syncUploadAudience(form);
+
     document.getElementById("document-upload-alert-days")?.addEventListener("change", () => {
       syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
     });
@@ -350,35 +517,36 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const status = form.querySelector("[data-status]");
+      const audience = form.querySelector('input[name="doc_audience"]:checked')?.value || "company";
       const employeeSearch = document.getElementById("document-upload-employee-search");
       const employeeIdField = document.getElementById("document-upload-employee-id");
-      if (employeeSearch?.value.trim() && !employeeIdField?.value) {
+      if (audience === "employee" && employeeSearch?.value.trim() && !employeeIdField?.value) {
         if (status) {
-          status.textContent = "Select an employee from the suggestions, or clear the field for tenant-wide.";
+          setFormStatus(status, "Select an employee from the suggestions.", "error");
         }
         return;
       }
       const fd = new FormData(form);
       const file = fd.get("file");
       if (!file || (file instanceof File && !file.size)) {
-        if (status) status.textContent = "Choose a file to upload.";
+        if (status) setFormStatus(status, "Choose a file to upload.", "error");
         return;
       }
-      if (status) status.textContent = "Uploading…";
-      const visible = form.querySelector("#document-upload-visible")?.checked ?? false;
+      if (status) setFormStatus(status, "Uploading…");
+      const visible = audience === "hr" ? false : form.querySelector("#document-upload-visible")?.checked ?? false;
       fd.set("employee_visible", visible ? "true" : "false");
-      if (!fd.get("employee_id")) fd.delete("employee_id");
+      if (audience !== "employee" || !fd.get("employee_id")) fd.delete("employee_id");
       try {
         await uploadMultipart("/admin/documents/upload", fd);
         form.reset();
         document.getElementById("document-upload-employee-id").value = "";
         document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
         syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
-        if (status) status.textContent = "Uploaded.";
+        if (status) setFormStatus(status, "Uploaded ✓", "success");
         window.AdminSettings?.showSettingsToast?.("Document uploaded ✓");
         await refreshDocumentViews(status);
       } catch (error) {
-        if (status) status.textContent = error.message || "Upload failed";
+        if (status) setFormStatus(status, friendlyError(error, "Upload failed"), "error");
       }
     });
     form.dataset.ready = "true";
@@ -465,7 +633,7 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const status = form.querySelector("[data-status]");
-      if (status) status.textContent = "Uploading…";
+      if (status) setFormStatus(status, "Uploading…");
       const fd = new FormData(form);
       const sendEmail = form.querySelector('[name="send_email"]')?.checked ?? false;
       fd.set("send_email", sendEmail ? "true" : "false");
@@ -486,12 +654,12 @@
               : data.emails_skipped > 0
                 ? ` · ${data.emails_skipped} without email`
                 : "";
-          status.textContent = `${data.message || "Distributed."}${emailNote}`;
+          setFormStatus(status, `${data.message || "Distributed."}${emailNote}`, "success");
         }
         window.AdminSettings?.showSettingsToast?.("Document distributed ✓");
         await refreshDocumentViews(status);
       } catch (error) {
-        if (status) status.textContent = error.message;
+        if (status) setFormStatus(status, friendlyError(error, "Distribution failed"), "error");
       }
     });
 
@@ -503,7 +671,6 @@
 
   async function loadExpiringDocuments() {
     const tbody = document.getElementById("documents-expiring-body");
-    const statsHost = document.getElementById("documents-expiring-stats");
     if (!tbody) return;
 
     refreshExpiringDocuments = async () => {
@@ -515,12 +682,16 @@
         }
         const data = await res.json();
         const summary = data.summary || {};
+        renderExpiryStats(summary);
 
-        if (statsHost) {
-          statsHost.innerHTML = `
-            <span class="doc-expiry-stat doc-expiry-stat--danger">${summary.expired || 0} expired</span>
-            <span class="doc-expiry-stat doc-expiry-stat--warn">${summary.expiring_soon || 0} expiring soon</span>
-            <span class="doc-expiry-stat doc-expiry-stat--ok">${summary.valid || 0} valid</span>`;
+        const rows = data.items || [];
+        if (!rows.length) {
+          renderDocumentsTableState(tbody, 5, {
+            variant: "ok",
+            title: "No expiry dates to track yet",
+            message: "Add an expiry date when you upload or link a document — HR alerts appear here automatically.",
+          });
+          return;
         }
 
         renderTableBody(tbody, {
@@ -538,15 +709,19 @@
             },
             { key: "expiry_status", render: (row) => expiryStatusMarkup(row.expiry_status) },
           ],
-          rows: data.items || [],
+          rows,
         });
-      } catch {
-        renderTableBody(tbody, {
-          columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],
-          rows: [],
-          emptyMessage: "Could not load expiry overview.",
+      } catch (error) {
+        renderExpiryStats({});
+        renderDocumentsTableState(tbody, 5, {
+          variant: "error",
+          title: "Could not load expiry overview",
+          message: friendlyError(error, "The expiry list is unavailable right now."),
+          actionHtml: `<button type="button" class="btn outline" data-doc-retry-expiring>Try again</button>`,
         });
-        if (statsHost) statsHost.innerHTML = "";
+        tbody.querySelector("[data-doc-retry-expiring]")?.addEventListener("click", () => {
+          void refreshExpiringDocuments();
+        });
       }
     };
 
@@ -558,6 +733,9 @@
     const formHost = document.getElementById("document-form");
     const filtersHost = document.getElementById("document-filters");
     if (!tbody && !formHost) return;
+
+    clearDocumentFormStatuses();
+    setDocumentsPanelAlert({});
 
     if (window.Admin.loadFormOptions) {
       await window.Admin.loadFormOptions();
@@ -606,6 +784,7 @@
     }
 
     refreshDocuments = async () => {
+      let loadError = null;
       try {
         const res = await apiFetch(`/admin/documents${buildQuery()}`);
         if (!res.ok) {
@@ -613,17 +792,47 @@
           throw new Error(parseApiDetail(err, "Could not load documents."));
         }
         const data = await res.json();
+        const rows = data.items || [];
+
+        if (!rows.length) {
+          const hasFilters = Boolean(
+            document.getElementById(FILTER_IDS.category)?.value || document.getElementById(FILTER_IDS.stage)?.value
+          );
+          renderDocumentsTableState(tbody, 10, {
+            variant: hasFilters ? "empty" : "ok",
+            title: hasFilters ? "No documents match these filters" : "No documents stored yet",
+            message: hasFilters
+              ? "Try a different category or lifecycle stage, or clear the filters."
+              : "Use Upload file above to store PDFs and images, or Link external document for SharePoint and Drive URLs.",
+            actionHtml: hasFilters
+              ? `<button type="button" class="btn outline" data-doc-clear-filters>Clear filters</button>`
+              : `<button type="button" class="btn outline" data-doc-focus-upload>Upload a document</button>`,
+          });
+          tbody.querySelector("[data-doc-clear-filters]")?.addEventListener("click", () => {
+            const categoryEl = document.getElementById(FILTER_IDS.category);
+            const stageEl = document.getElementById(FILTER_IDS.stage);
+            if (categoryEl) categoryEl.value = "";
+            if (stageEl) stageEl.value = "";
+            void refreshDocuments();
+          });
+          tbody.querySelector("[data-doc-focus-upload]")?.addEventListener("click", () => {
+            activateDocumentTab("upload");
+            document.getElementById("document-upload-dropzone")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          });
+          setDocumentsPanelAlert({});
+          return;
+        }
 
         renderTableBody(tbody, {
           emptyMessage: "No documents stored yet.",
           columns: [
             { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
-            { key: "employee_id", render: (row) => escapeHtml(employeeLabel(row.employee_id)) },
+            { key: "audience", render: (row) => escapeHtml(audienceLabel(row)) },
             { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
             { key: "lifecycle_stage", render: (row) => escapeHtml(stageLabel(row.lifecycle_stage || "general")) },
             {
               key: "employee_visible",
-              render: (row) => (row.employee_visible ? "Yes" : "No"),
+              render: (row) => portalVisibilityMarkup(row),
             },
             {
               key: "has_file",
@@ -653,7 +862,7 @@
                 </div>`,
             },
           ],
-          rows: data.items || [],
+          rows,
         });
 
         tbody.querySelectorAll("[data-download-doc]").forEach((btn) => {
@@ -721,28 +930,39 @@
             });
           });
         });
-      } catch {
-        renderTableBody(tbody, {
-          columns: [
-            { key: "a" },
-            { key: "b" },
-            { key: "c" },
-            { key: "d" },
-            { key: "e" },
-            { key: "f" },
-            { key: "g" },
-            { key: "h" },
-            { key: "i" },
-            { key: "j" },
-          ],
-          rows: [],
-          emptyMessage: "Could not load documents.",
+        setDocumentsPanelAlert({});
+      } catch (error) {
+        loadError = error;
+        renderDocumentsTableState(tbody, 10, {
+          variant: "error",
+          title: "Could not load documents",
+          message: friendlyError(error, "The document list is unavailable right now."),
+          actionHtml: `<button type="button" class="btn outline" data-doc-retry-list>Try again</button>`,
+        });
+        tbody.querySelector("[data-doc-retry-list]")?.addEventListener("click", () => {
+          void refreshDocuments();
+        });
+      }
+
+      if (loadError) {
+        setDocumentsPanelAlert({
+          title: "Document lists unavailable",
+          message: friendlyError(loadError, "Could not load stored documents."),
+          retryLabel: "Reload lists",
+          onRetry: () => {
+            void refreshDocuments();
+            void refreshExpiringDocuments();
+          },
         });
       }
     };
 
     mountLinkForm();
-    await refreshDocuments();
+    try {
+      await refreshDocuments();
+    } catch {
+      /* banner + table empty state already shown */
+    }
   }
 
   function mountLinkForm() {

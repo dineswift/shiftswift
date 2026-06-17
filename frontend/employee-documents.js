@@ -7,6 +7,9 @@
   if (!session.hasSession() || !tenantId) return;
 
   const tbody = document.getElementById("employee-documents-body");
+  const companySection = document.getElementById("employee-company-docs");
+  const companyCardsHost = document.getElementById("employee-company-docs-cards");
+  const personalSection = document.getElementById("employee-personal-docs");
   const cardsHost = document.getElementById("employee-documents-cards");
   const messageEl = document.getElementById("employee-documents-message");
   const summaryEl = document.getElementById("employee-docs-summary");
@@ -21,7 +24,6 @@
       el.textContent = text;
     });
   }
-
 
   async function apiFetch(path, options = {}) {
     return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
@@ -72,7 +74,9 @@
         if (messageEl) messageEl.textContent = "Downloading…";
         try {
           const row = items.find(
-            (item) => String(item.id) === btn.dataset.downloadDoc && (item.scope || "employee") === (btn.dataset.downloadScope || "employee")
+            (item) =>
+              String(item.id) === btn.dataset.downloadDoc &&
+              (item.scope || "employee") === (btn.dataset.downloadScope || "employee")
           );
           await downloadDocument(Number(btn.dataset.downloadDoc), row?.original_filename, row?.scope || btn.dataset.downloadScope);
           if (messageEl) messageEl.textContent = "";
@@ -98,48 +102,63 @@
     return actions.join(" ");
   }
 
-  function renderDocumentCards(items) {
-    if (!cardsHost) return;
+  function renderDocumentCards(container, items, emptyMessage) {
+    if (!container) return;
     const generalDocs = items.filter((row) => row.category !== "payslip");
     if (!generalDocs.length) {
-      cardsHost.innerHTML =
-        '<p class="muted">No general documents shared yet. Signed employment contracts appear here after you sign, or when HR uploads a file to your profile.</p>';
+      container.innerHTML = `<p class="muted">${escapeHtml(emptyMessage)}</p>`;
       return;
     }
-    cardsHost.innerHTML = generalDocs
+    container.innerHTML = generalDocs
       .map(
-        (row) => `<article class="employee-doc-card">
+        (row) => `<article class="employee-doc-card${row.audience === "company" ? " employee-doc-card--company" : ""}">
           <div class="employee-doc-card__main">
             <strong class="employee-doc-card__title">${escapeHtml(row.title)}</strong>
-            <p class="muted employee-doc-card__meta">${escapeHtml(row.category_label || row.category)} · ${escapeHtml(formatDate(row.created_at))}</p>
+            <p class="muted employee-doc-card__meta">${escapeHtml(row.category_label || row.category)} · ${escapeHtml(formatDate(row.created_at))}${row.audience_label ? ` · ${escapeHtml(row.audience_label)}` : ""}</p>
           </div>
           <div class="employee-doc-card__actions table-actions">${documentActions(row)}</div>
-        </article>`,
+        </article>`
       )
       .join("");
-    bindDownloadButtons(cardsHost, generalDocs);
+    bindDownloadButtons(container, generalDocs);
   }
 
   function renderDocuments(items) {
-    const generalDocs = items.filter((row) => row.category !== "payslip");
-    renderDocumentCards(items);
+    const companyDocs = items.filter((row) => row.audience === "company" && row.category !== "payslip");
+    const personalDocs = items.filter((row) => row.audience !== "company" && row.category !== "payslip");
+
+    if (companySection) companySection.hidden = companyDocs.length === 0;
+    if (personalSection) personalSection.hidden = personalDocs.length === 0;
+
+    renderDocumentCards(
+      companyCardsHost,
+      companyDocs,
+      "No company handbooks or policies shared yet."
+    );
+    renderDocumentCards(
+      cardsHost,
+      personalDocs,
+      "No personal documents shared yet. Signed employment contracts appear here after you sign, or when HR uploads a file to your profile."
+    );
+
+    const tableDocs = [...companyDocs, ...personalDocs];
     if (!tbody) return;
-    if (!generalDocs.length) {
+    if (!tableDocs.length) {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="muted">No general documents shared yet. Signed employment contracts appear here after you sign, or when HR uploads a file to your profile.</td></tr>';
+        '<tr><td colspan="4" class="muted">No documents shared yet. Company handbooks and personal files from HR will appear here.</td></tr>';
       return;
     }
-    tbody.innerHTML = generalDocs
+    tbody.innerHTML = tableDocs
       .map(
         (row) => `<tr>
-          <td><strong>${escapeHtml(row.title)}</strong></td>
+          <td><strong>${escapeHtml(row.title)}</strong>${row.audience === "company" ? ' <span class="employee-doc-badge">All staff</span>' : ""}</td>
           <td>${escapeHtml(row.category_label || row.category)}</td>
           <td>${escapeHtml(formatDate(row.created_at))}</td>
           <td><div class="table-actions">${documentActions(row)}</div></td>
         </tr>`
       )
       .join("");
-    bindDownloadButtons(tbody, generalDocs);
+    bindDownloadButtons(tbody, tableDocs);
   }
 
   function renderPayslips(items) {
@@ -201,28 +220,37 @@
       renderDocuments(allItems);
       renderPayslips(allItems);
       const payslipCount = allItems.filter((row) => row.category === "payslip").length;
-      const otherCount = allItems.length - payslipCount;
+      const companyCount = allItems.filter((row) => row.audience === "company" && row.category !== "payslip").length;
+      const personalCount = allItems.filter((row) => row.audience !== "company" && row.category !== "payslip").length;
+      const otherCount = companyCount + personalCount;
       if (allItems.length === 0) {
         setSummaryText("employee-docs-summary", "Nothing shared yet.");
         setSummaryText("employee-payslips-summary", "None shared yet.");
       } else {
+        const parts = [];
+        if (companyCount) parts.push(`${companyCount} company`);
+        if (personalCount) parts.push(`${personalCount} personal`);
         setSummaryText(
           "employee-docs-summary",
           otherCount
-            ? `${otherCount} document${otherCount === 1 ? "" : "s"} available.`
-            : "No general documents yet.",
+            ? `${parts.join(" · ")} document${otherCount === 1 ? "" : "s"} available.`
+            : "No general documents yet."
         );
         setSummaryText(
           "employee-payslips-summary",
           payslipCount
             ? `${payslipCount} payslip${payslipCount === 1 ? "" : "s"} available.`
-            : "No payslips shared yet.",
+            : "No payslips shared yet."
         );
       }
     } catch (error) {
       if (tbody) {
         tbody.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(error.message || "Could not load documents.")}</td></tr>`;
       }
+      if (companyCardsHost) companyCardsHost.innerHTML = "";
+      if (cardsHost) cardsHost.innerHTML = "";
+      if (companySection) companySection.hidden = true;
+      if (personalSection) personalSection.hidden = true;
       if (payslipsHost) {
         payslipsHost.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load payslips.")}</p>`;
       }

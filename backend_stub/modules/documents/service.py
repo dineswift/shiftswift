@@ -555,6 +555,35 @@ def list_tenant_documents(
         return [_row_to_tenant_document(row) for row in cur.fetchall()]
 
 
+def tenant_document_accessible_to_employee(doc: dict[str, Any], employee_id: int) -> bool:
+    """True when a tenant document is company-wide or assigned to this employee."""
+    assigned = doc.get("employee_id")
+    return assigned is None or int(assigned) == int(employee_id)
+
+
+def list_portal_tenant_documents(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    conn: Any,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Tenant documents for the employee portal — company-wide plus any assigned to them."""
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT {TENANT_DOCUMENT_SELECT}
+            FROM tenant_documents
+            WHERE tenant_id = %s
+              AND (employee_id IS NULL OR employee_id = %s)
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (tenant_id, employee_id, limit),
+        )
+        return [_row_to_tenant_document(row) for row in cur.fetchall()]
+
+
 def get_tenant_document(*, tenant_id: int, document_id: int, conn: Any) -> dict[str, Any] | None:
     with conn.cursor() as cur:
         cur.execute(

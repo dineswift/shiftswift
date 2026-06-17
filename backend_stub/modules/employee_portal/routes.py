@@ -16,8 +16,9 @@ from modules.documents.service import (
     get_employee_document,
     get_tenant_document,
     list_employee_documents,
-    list_tenant_documents,
+    list_portal_tenant_documents,
     portal_document_visible,
+    tenant_document_accessible_to_employee,
 )
 from modules.documents.storage import download_filename, resolve_stored_file
 from modules.time_punch.service import resolve_employee
@@ -37,9 +38,12 @@ def _employee_for_user(*, tenant_id: int, user: AuthUser, conn: Any) -> dict[str
 
 
 def _portal_document_row(doc: dict[str, Any], *, scope: str) -> dict[str, Any]:
+    company_wide = scope == "tenant" and doc.get("employee_id") is None
     return {
         "id": doc["id"],
         "scope": scope,
+        "audience": "company" if company_wide else "personal",
+        "audience_label": "All staff" if company_wide else "Personal",
         "title": doc["title"],
         "category": doc["category"],
         "category_label": EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(doc["category"], doc["category"]),
@@ -79,10 +83,10 @@ def list_my_documents(
     try:
         employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
         employee_docs = list_employee_documents(tenant_id=tenant_id, employee_id=employee["id"], conn=conn)
-        tenant_docs = list_tenant_documents(
+        tenant_docs = list_portal_tenant_documents(
             tenant_id=tenant_id,
+            employee_id=int(employee["id"]),
             conn=conn,
-            employee_id=employee["id"],
         )
         items = _visible_portal_documents(employee_docs, tenant_docs)
     finally:
@@ -107,7 +111,7 @@ def download_my_document(
         employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
         if scope == "tenant":
             doc = get_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
-            if not doc or doc.get("employee_id") != employee["id"]:
+            if not doc or not tenant_document_accessible_to_employee(doc, int(employee["id"])):
                 doc = None
         else:
             doc = get_employee_document(
