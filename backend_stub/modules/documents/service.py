@@ -170,9 +170,32 @@ def document_expiry_status(
     return "valid"
 
 
+def _non_empty_text(value: Any) -> bool:
+    if value is None:
+        return False
+    return bool(str(value).strip())
+
+
+def _stored_content_sql_clause(conn: Any, table: str) -> str | None:
+    columns = _table_columns(conn, table)
+    parts: list[str] = []
+    if "storage_path" in columns:
+        parts.append("NULLIF(TRIM(storage_path), '') IS NOT NULL")
+    if "document_url" in columns:
+        parts.append("NULLIF(TRIM(document_url), '') IS NOT NULL")
+    if not parts:
+        return None
+    return f"({' OR '.join(parts)})"
+
+
+def document_has_stored_content(doc: dict[str, Any]) -> bool:
+    """True when a document row has an uploaded file or external link."""
+    return _non_empty_text(doc.get("document_url")) or _non_empty_text(doc.get("storage_path"))
+
+
 def portal_document_visible(doc: dict[str, Any]) -> bool:
     """Whether a document should appear in the employee self-service portal."""
-    if not doc.get("has_file") and not doc.get("document_url"):
+    if not document_has_stored_content(doc):
         return False
     visible = doc.get("employee_visible")
     if visible is False:
@@ -289,7 +312,7 @@ def _minimal_employee_document(
         "pay_period": payload.get("pay_period"),
         "expiry_alert_days": payload.get("expiry_alert_days", 30),
         "employee_visible": payload.get("employee_visible", True),
-        "has_file": bool(storage_path),
+        "has_file": _non_empty_text(storage_path),
     }
 
 
@@ -314,7 +337,7 @@ def _minimal_tenant_document(*, document_id: int, payload: dict[str, Any]) -> di
         "file_size_bytes": payload.get("file_size_bytes"),
         "expiry_alert_days": payload.get("expiry_alert_days", 30),
         "employee_visible": payload.get("employee_visible", False),
-        "has_file": bool(storage_path),
+        "has_file": _non_empty_text(storage_path),
     }
 
 
@@ -385,7 +408,7 @@ def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None
             "pay_period": data.get("pay_period"),
             "expiry_alert_days": data.get("expiry_alert_days", 30),
             "employee_visible": data.get("employee_visible", True),
-            "has_file": bool(data.get("storage_path")),
+            "has_file": _non_empty_text(data.get("storage_path")),
         }
     return {
         "id": row[0],
@@ -407,7 +430,7 @@ def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None
         "pay_period": row[16],
         "expiry_alert_days": row[17],
         "employee_visible": row[18],
-        "has_file": bool(row[12]),
+        "has_file": _non_empty_text(row[12]),
     }
 
 
@@ -689,7 +712,7 @@ def _row_to_tenant_document(row: tuple[Any, ...], *, columns: list[str] | None =
             "file_size_bytes": data.get("file_size_bytes"),
             "expiry_alert_days": data.get("expiry_alert_days", 30),
             "employee_visible": data.get("employee_visible", False),
-            "has_file": bool(data.get("storage_path")),
+            "has_file": _non_empty_text(data.get("storage_path")),
         }
     return {
         "id": row[0],
@@ -710,7 +733,7 @@ def _row_to_tenant_document(row: tuple[Any, ...], *, columns: list[str] | None =
         "file_size_bytes": row[15],
         "expiry_alert_days": row[16],
         "employee_visible": row[17],
-        "has_file": bool(row[12]),
+        "has_file": _non_empty_text(row[12]),
     }
 
 
@@ -761,6 +784,7 @@ def list_tenant_documents(
     lifecycle_stage: str | None = None,
     employee_id: int | None = None,
     limit: int = 200,
+    stored_only: bool = False,
 ) -> list[dict[str, Any]]:
     clauses = ["tenant_id = %s"]
     params: list[Any] = [tenant_id]
@@ -773,6 +797,10 @@ def list_tenant_documents(
     if employee_id is not None:
         clauses.append("employee_id = %s")
         params.append(employee_id)
+    if stored_only:
+        stored_clause = _stored_content_sql_clause(conn, "tenant_documents")
+        if stored_clause:
+            clauses.append(stored_clause)
     where = " AND ".join(clauses)
     select_cols = _tenant_document_select_columns(conn)
     if not select_cols:
@@ -989,6 +1017,7 @@ def list_all_employee_documents(
     category: str | None = None,
     lifecycle_stage: str | None = None,
     limit: int = 500,
+    stored_only: bool = False,
 ) -> list[dict[str, Any]]:
     clauses = ["tenant_id = %s"]
     params: list[Any] = [tenant_id]
@@ -1001,6 +1030,10 @@ def list_all_employee_documents(
     if lifecycle_stage:
         clauses.append("lifecycle_stage = %s")
         params.append(lifecycle_stage)
+    if stored_only:
+        stored_clause = _stored_content_sql_clause(conn, "employee_documents")
+        if stored_clause:
+            clauses.append(stored_clause)
     where = " AND ".join(clauses)
     select_cols = _employee_document_select_columns(conn)
     if not select_cols:
@@ -1045,6 +1078,7 @@ def list_workspace_documents(
         category=category,
         lifecycle_stage=lifecycle_stage,
         limit=limit,
+        stored_only=True,
     )
     employee_docs = list_all_employee_documents(
         tenant_id=tenant_id,
@@ -1052,9 +1086,14 @@ def list_workspace_documents(
         category=category,
         lifecycle_stage=lifecycle_stage,
         limit=limit,
+        stored_only=True,
     )
-    items: list[dict[str, Any]] = [{**doc, "scope": "tenant"} for doc in tenant_docs]
-    items.extend({**doc, "scope": "employee"} for doc in employee_docs)
+    items: list[dict[str, Any]] = [
+        {**doc, "scope": "tenant"} for doc in tenant_docs if document_has_stored_content(doc)
+    ]
+    items.extend(
+        {**doc, "scope": "employee"} for doc in employee_docs if document_has_stored_content(doc)
+    )
     items.sort(key=lambda doc: (str(doc.get("created_at") or ""), int(doc.get("id") or 0)), reverse=True)
     return items[:limit]
 

@@ -87,6 +87,24 @@
     });
   }
 
+  function documentStripMarkup(row) {
+    const metaParts = [formatDate(row.created_at)];
+    if (row.category_label || row.category) {
+      metaParts.unshift(row.category_label || row.category);
+    }
+    return `<div class="employee-doc-strip">
+      <div class="employee-doc-strip__main">
+        <strong class="employee-doc-strip__title">${escapeHtml(row.title || "Document")}</strong>
+        <span class="employee-doc-strip__meta">${escapeHtml(metaParts.join(" · "))}</span>
+      </div>
+      <div class="employee-doc-strip__actions table-actions">${documentActions(row)}</div>
+    </div>`;
+  }
+
+  function documentHasAttachment(row) {
+    return Boolean(row?.has_file) || Boolean(String(row?.document_url || "").trim());
+  }
+
   function documentActions(row) {
     const actions = [];
     if (row.has_file) {
@@ -104,28 +122,19 @@
 
   function renderDocumentCards(container, items, emptyMessage) {
     if (!container) return;
-    const generalDocs = items.filter((row) => row.category !== "payslip");
+    const generalDocs = items.filter((row) => row.category !== "payslip" && documentHasAttachment(row));
     if (!generalDocs.length) {
       container.innerHTML = `<p class="muted">${escapeHtml(emptyMessage)}</p>`;
       return;
     }
-    container.innerHTML = generalDocs
-      .map(
-        (row) => `<article class="employee-doc-card${row.audience === "company" ? " employee-doc-card--company" : ""}">
-          <div class="employee-doc-card__main">
-            <strong class="employee-doc-card__title">${escapeHtml(row.title)}</strong>
-            <p class="muted employee-doc-card__meta">${escapeHtml(row.category_label || row.category)} · ${escapeHtml(formatDate(row.created_at))}${row.audience_label ? ` · ${escapeHtml(row.audience_label)}` : ""}</p>
-          </div>
-          <div class="employee-doc-card__actions table-actions">${documentActions(row)}</div>
-        </article>`
-      )
-      .join("");
+    container.innerHTML = `<div class="employee-doc-strip-list">${generalDocs.map(documentStripMarkup).join("")}</div>`;
     bindDownloadButtons(container, generalDocs);
   }
 
   function renderDocuments(items) {
-    const companyDocs = items.filter((row) => row.audience === "company" && row.category !== "payslip");
-    const personalDocs = items.filter((row) => row.audience !== "company" && row.category !== "payslip");
+    const generalDocs = items.filter((row) => row.category !== "payslip" && documentHasAttachment(row));
+    const companyDocs = generalDocs.filter((row) => row.audience === "company");
+    const personalDocs = generalDocs.filter((row) => row.audience !== "company");
 
     if (companySection) companySection.hidden = companyDocs.length === 0;
     if (personalSection) personalSection.hidden = personalDocs.length === 0;
@@ -163,7 +172,7 @@
 
   function renderPayslips(items) {
     if (!payslipsHost) return;
-    const payslips = items.filter((row) => row.category === "payslip");
+    const payslips = items.filter((row) => row.category === "payslip" && documentHasAttachment(row));
     if (!payslips.length) {
       payslipsHost.innerHTML =
         '<p class="muted">No payslips shared yet. When HR uploads your payslip, it will appear here grouped by pay period.</p>';
@@ -188,21 +197,8 @@
         const rows = grouped.get(period) || [];
         return `<section class="employee-payslip-group">
           <h3 class="employee-payslip-group__title">${escapeHtml(period)}</h3>
-          <div class="hr-table-wrap">
-            <table class="data-table">
-              <thead><tr><th>Title</th><th>Added</th><th></th></tr></thead>
-              <tbody>
-                ${rows
-                  .map(
-                    (row) => `<tr>
-                      <td><strong>${escapeHtml(row.title)}</strong></td>
-                      <td>${escapeHtml(formatDate(row.created_at))}</td>
-                      <td><div class="table-actions">${documentActions(row)}</div></td>
-                    </tr>`
-                  )
-                  .join("")}
-              </tbody>
-            </table>
+          <div class="employee-doc-strip-list">
+            ${rows.map(documentStripMarkup).join("")}
           </div>
         </section>`;
       })
@@ -219,9 +215,9 @@
       allItems = data.items || [];
       renderDocuments(allItems);
       renderPayslips(allItems);
-      const payslipCount = allItems.filter((row) => row.category === "payslip").length;
-      const companyCount = allItems.filter((row) => row.audience === "company" && row.category !== "payslip").length;
-      const personalCount = allItems.filter((row) => row.audience !== "company" && row.category !== "payslip").length;
+      const payslipCount = allItems.filter((row) => row.category === "payslip" && documentHasAttachment(row)).length;
+      const companyCount = allItems.filter((row) => row.audience === "company" && row.category !== "payslip" && documentHasAttachment(row)).length;
+      const personalCount = allItems.filter((row) => row.audience !== "company" && row.category !== "payslip" && documentHasAttachment(row)).length;
       const otherCount = companyCount + personalCount;
       if (allItems.length === 0) {
         setSummaryText("employee-docs-summary", "Nothing shared yet.");

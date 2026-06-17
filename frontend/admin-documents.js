@@ -165,15 +165,194 @@
 
   function renderDocumentsTableState(tbody, colSpan, { variant = "empty", title, message, actionHtml = "" }) {
     if (!tbody) return;
-    const icon = variant === "error" ? "⚠️" : variant === "ok" ? "✓" : "📄";
     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="settings-doc-table-empty">
-      <div class="settings-doc-empty settings-doc-empty--${variant}">
+      ${documentsEmptyStateHtml({ variant, title, message, actionHtml })}
+    </td></tr>`;
+    if (isMobileView()) {
+      renderDocumentsMobileList(null, { variant, title, message, actionHtml });
+    } else {
+      clearDocumentsMobileList();
+    }
+  }
+
+  let lastDocumentRows = null;
+
+  function isMobileView() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function documentsEmptyStateHtml({ variant = "empty", title, message, actionHtml = "" }) {
+    const icon = variant === "error" ? "⚠️" : variant === "ok" ? "✓" : "📄";
+    return `<div class="settings-doc-empty settings-doc-empty--${variant}">
         <span class="settings-doc-empty__icon" aria-hidden="true">${icon}</span>
         <h5>${escapeHtml(title)}</h5>
         <p>${escapeHtml(message)}</p>
         ${actionHtml}
-      </div>
-    </td></tr>`;
+      </div>`;
+  }
+
+  function clearDocumentsMobileList() {
+    const host = document.getElementById("documents-mobile-list");
+    if (!host) return;
+    host.hidden = true;
+    host.innerHTML = "";
+  }
+
+  function renderDocumentsMobileList(rows, emptyState) {
+    const host = document.getElementById("documents-mobile-list");
+    if (!host) return;
+    if (!isMobileView()) {
+      clearDocumentsMobileList();
+      return;
+    }
+    if (emptyState) {
+      host.hidden = false;
+      host.innerHTML = documentsEmptyStateHtml(emptyState);
+      return;
+    }
+    if (!rows?.length) {
+      clearDocumentsMobileList();
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = rows
+      .map((row) => {
+        const fileAction = row.has_file
+          ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
+          : row.document_url
+            ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
+            : "";
+        const manageActions = documentActionsMarkup(row);
+        return `<article class="settings-doc-strip">
+          <div class="settings-doc-strip__head">
+            <h5 class="settings-doc-strip__title">${escapeHtml(row.title)}</h5>
+            <span class="settings-doc-strip__date">${escapeHtml((row.created_at || "").slice(0, 10))}</span>
+          </div>
+          <p class="settings-doc-strip__meta">${escapeHtml(audienceLabel(row))} · ${escapeHtml(categoryLabel(row.category))} · ${escapeHtml(stageLabel(row.lifecycle_stage || "general"))}</p>
+          <div class="settings-doc-strip__footer">
+            <div class="settings-doc-strip__badges">${portalVisibilityMarkup(row)}</div>
+            <div class="settings-doc-strip__actions">${fileAction}${manageActions}</div>
+          </div>
+        </article>`;
+      })
+      .join("");
+    bindDocumentRowActions(host, rows);
+  }
+
+  function openDocumentEditPanel(row) {
+    const host = document.getElementById("document-edit-panel");
+    if (!host || !row) return;
+    const isEmployeeCopy = row.scope === "employee";
+    window.Admin?.preserveScroll?.(() => {
+      host.hidden = false;
+      host.innerHTML = `<h4>Edit document</h4>
+        <p class="muted settings-doc-edit-caption">${escapeHtml(audienceLabel(row))}${isEmployeeCopy ? " · Employee copy" : ""}</p>
+        <div id="document-edit-form"></div>`;
+    });
+    mountEditForm(host.querySelector("#document-edit-form"), editFormSchema(row), {
+      values: {
+        title: row.title,
+        employee_id: row.employee_id || "",
+        category: row.category,
+        lifecycle_stage: row.lifecycle_stage || "active",
+        document_url: row.document_url || "",
+        expires_at: (row.expires_at || "").slice(0, 10),
+        expiry_alert_days: row.expiry_alert_days || 30,
+        employee_visible: row.employee_visible,
+        original_filename: row.original_filename || "",
+        pay_period: row.pay_period || "",
+        notes: row.notes || "",
+      },
+      onSubmit: async (payload) => {
+        const bodyPayload = {
+          ...payload,
+          document_url: payload.document_url || null,
+          notes: payload.notes || null,
+          expires_at: payload.expires_at || null,
+          original_filename: payload.original_filename || null,
+          pay_period: payload.pay_period || null,
+          employee_visible: Boolean(payload.employee_visible),
+        };
+        if (!isEmployeeCopy) {
+          bodyPayload.employee_id = payload.employee_id || null;
+        }
+        const res = await apiFetch(`/admin/documents/${row.id}?${documentApiQuery(row)}`, {
+          method: "PATCH",
+          body: JSON.stringify(bodyPayload),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.detail || "Update failed");
+        host.hidden = true;
+        window.AdminSettings?.showSettingsToast?.("Document updated ✓");
+        await refreshDocuments();
+        await refreshExpiringDocuments();
+      },
+    });
+  }
+
+  function bindDocumentRowActions(container, rows) {
+    if (!container) return;
+    container.querySelectorAll("[data-download-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.downloadDoc,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        if (!row) return;
+        const name = row.original_filename || `${row.title || "document"}.bin`;
+        await downloadAuthenticated(documentDownloadPath(row), name);
+      });
+    });
+
+    container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.deleteDoc,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        if (!row) return;
+        if (!window.confirm("Remove this document record?")) return;
+        const res = await apiFetch(`/admin/documents/${row.id}?${documentApiQuery(row)}`, { method: "DELETE" });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || "Delete failed");
+          return;
+        }
+        await refreshDocuments();
+        await refreshExpiringDocuments();
+      });
+    });
+
+    container.querySelectorAll("[data-edit-doc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.editDoc,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        openDocumentEditPanel(row);
+      });
+    });
+  }
+
+  function bindDocumentsEmptyActions(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    scope.querySelector("[data-doc-clear-filters]")?.addEventListener("click", () => {
+      const categoryEl = document.getElementById(FILTER_IDS.category);
+      const stageEl = document.getElementById(FILTER_IDS.stage);
+      if (categoryEl) categoryEl.value = "";
+      if (stageEl) stageEl.value = "";
+      void refreshDocuments();
+    });
+    scope.querySelector("[data-doc-focus-upload]")?.addEventListener("click", () => {
+      activateDocumentTab("upload");
+      document.getElementById("document-upload-dropzone")?.scrollIntoView({ behavior: "auto", block: "nearest" });
+    });
+    scope.querySelector("[data-doc-retry-list]")?.addEventListener("click", () => {
+      void refreshDocuments();
+    });
   }
 
   function parseApiDetail(data, fallback) {
@@ -296,6 +475,44 @@
       params.set("employee_id", String(row.employee_id));
     }
     return `/admin/documents/${row.id}/file?${params.toString()}`;
+  }
+
+  function documentApiQuery(row) {
+    const params = new URLSearchParams({ scope: row.scope || "tenant" });
+    if (row.scope === "employee" && row.employee_id) {
+      params.set("employee_id", String(row.employee_id));
+    }
+    return params.toString();
+  }
+
+  function findDocumentRow(rows, { id, scope, employeeId }) {
+    return rows.find((item) => {
+      if (String(item.id) !== String(id)) return false;
+      const itemScope = item.scope || "tenant";
+      const wantedScope = scope || "tenant";
+      if (itemScope !== wantedScope) return false;
+      if (wantedScope === "employee") {
+        return String(item.employee_id || "") === String(employeeId || "");
+      }
+      return true;
+    });
+  }
+
+  function documentActionAttrs(row) {
+    const scope = escapeHtml(row.scope || "tenant");
+    const employeeId = escapeHtml(row.employee_id ? String(row.employee_id) : "");
+    return `data-doc-scope="${scope}" data-doc-employee-id="${employeeId}"`;
+  }
+
+  function documentActionsMarkup(row) {
+    return `<div class="table-actions">
+      <button type="button" class="btn ghost" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
+      <button type="button" class="btn ghost" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
+    </div>`;
+  }
+
+  function documentHasAttachment(row) {
+    return Boolean(row?.has_file) || Boolean(String(row?.document_url || "").trim());
   }
 
   function portalVisibilityMarkup(row) {
@@ -623,14 +840,71 @@
   }
 
   function editFormSchema(row) {
+    const isEmployeeCopy = row.scope === "employee";
+    const fields = [
+      { name: "title", label: "Title", type: "text", required: true },
+    ];
+    if (!isEmployeeCopy) {
+      fields.push({
+        name: "employee_id",
+        label: "Employee",
+        type: "select",
+        optionsKey: "employees",
+        placeholderOption: "Tenant-wide",
+      });
+    }
+    fields.push(
+      {
+        name: "category",
+        label: "Category",
+        type: "select",
+        optionsKey: "document_categories",
+        defaultValue: "general",
+      },
+      {
+        name: "lifecycle_stage",
+        label: "Lifecycle stage",
+        type: "select",
+        optionsKey: "document_form_lifecycle_stages",
+        defaultValue: "active",
+      },
+      {
+        name: "document_url",
+        label: "Document URL",
+        type: "url",
+        placeholder: row.has_file ? "Optional external link" : "https://...",
+      },
+      { name: "expires_at", label: "Expiry date", type: "date" },
+      {
+        name: "expiry_alert_days",
+        label: "HR alert window",
+        type: "select",
+        optionsKey: "document_expiry_alert_days",
+        defaultValue: 30,
+      },
+      {
+        name: "employee_visible",
+        label: "Visible to employee in their portal",
+        type: "checkbox",
+        span: 2,
+      },
+      { name: "notes", label: "Notes", type: "textarea", span: 2, rows: 2 },
+      { name: "original_filename", label: "Original filename", type: "text", placeholder: "contract.pdf" }
+    );
+    if (isEmployeeCopy || row.category === "payslip") {
+      fields.splice(4, 0, {
+        name: "pay_period",
+        label: "Pay period",
+        type: "text",
+        placeholder: "2026-04 or April 2026",
+      });
+    }
     return {
-      id: `document-edit-${row.id}`,
+      id: `document-edit-${row.scope || "tenant"}-${row.id}`,
       columns: 2,
-      submitLabel: "Update document",
+      submitLabel: "Save changes",
       successMessage: "Document updated.",
-      fields: documentLinkFormSchema().fields.concat([
-        { name: "original_filename", label: "Original filename", type: "text", placeholder: "contract.pdf" },
-      ]),
+      fields,
     };
   }
 
@@ -1106,7 +1380,7 @@
           throw new Error(parseApiDetail(err, "Could not load documents."));
         }
         const data = await res.json();
-        const rows = data.items || [];
+        const rows = (data.items || []).filter(documentHasAttachment);
 
         if (!rows.length) {
           const hasFilters = Boolean(
@@ -1122,17 +1396,9 @@
               ? `<button type="button" class="btn outline" data-doc-clear-filters>Clear filters</button>`
               : `<button type="button" class="btn outline" data-doc-focus-upload>Upload a document</button>`,
           });
-          tbody.querySelector("[data-doc-clear-filters]")?.addEventListener("click", () => {
-            const categoryEl = document.getElementById(FILTER_IDS.category);
-            const stageEl = document.getElementById(FILTER_IDS.stage);
-            if (categoryEl) categoryEl.value = "";
-            if (stageEl) stageEl.value = "";
-            void refreshDocuments();
-          });
-          tbody.querySelector("[data-doc-focus-upload]")?.addEventListener("click", () => {
-            activateDocumentTab("upload");
-            document.getElementById("document-upload-dropzone")?.scrollIntoView({ behavior: "auto", block: "nearest" });
-          });
+          bindDocumentsEmptyActions(tbody);
+          bindDocumentsEmptyActions(document.getElementById("documents-mobile-list"));
+          lastDocumentRows = null;
           setDocumentsPanelAlert({});
           return;
         }
@@ -1169,99 +1435,15 @@
             { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10)) },
             {
               key: "actions",
-              render: (row) =>
-                row.scope === "employee"
-                  ? `<span class="muted">Employee copy</span>`
-                  : `<div class="table-actions">
-                  <button type="button" class="btn ghost" data-edit-doc="${row.id}">Edit</button>
-                  <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
-                </div>`,
+              render: (row) => documentActionsMarkup(row),
             },
           ],
           rows,
         });
 
-        tbody.querySelectorAll("[data-download-doc]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            const row = {
-              id: btn.dataset.downloadDoc,
-              scope: btn.dataset.docScope || "tenant",
-              employee_id: btn.dataset.docEmployeeId ? Number(btn.dataset.docEmployeeId) : null,
-              original_filename: (data.items || []).find(
-                (item) =>
-                  String(item.id) === btn.dataset.downloadDoc &&
-                  (item.scope || "tenant") === (btn.dataset.docScope || "tenant")
-              )?.original_filename,
-              title: (data.items || []).find(
-                (item) =>
-                  String(item.id) === btn.dataset.downloadDoc &&
-                  (item.scope || "tenant") === (btn.dataset.docScope || "tenant")
-              )?.title,
-            };
-            const name = row.original_filename || `${row.title || "document"}.bin`;
-            await downloadAuthenticated(documentDownloadPath(row), name);
-          });
-        });
-
-        tbody.querySelectorAll("[data-delete-doc]").forEach((btn) => {
-          btn.addEventListener("click", async () => {
-            if (!window.confirm("Remove this document record?")) return;
-            const res = await apiFetch(`/admin/documents/${btn.dataset.deleteDoc}`, { method: "DELETE" });
-            if (!res.ok) {
-              const err = await res.json();
-              alert(err.detail || "Delete failed");
-              return;
-            }
-            await refreshDocuments();
-            await refreshExpiringDocuments();
-          });
-        });
-
-        tbody.querySelectorAll("[data-edit-doc]").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const row = (data.items || []).find((item) => String(item.id) === btn.dataset.editDoc);
-            if (!row) return;
-            const host = document.getElementById("document-edit-panel");
-            if (!host) return;
-            window.Admin?.preserveScroll?.(() => {
-              host.hidden = false;
-              host.innerHTML = `<h4>Edit document</h4><div id="document-edit-form"></div>`;
-            });
-            mountEditForm(host.querySelector("#document-edit-form"), editFormSchema(row), {
-              values: {
-                title: row.title,
-                employee_id: row.employee_id || "",
-                category: row.category,
-                lifecycle_stage: row.lifecycle_stage || "active",
-                document_url: row.document_url || "",
-                expires_at: (row.expires_at || "").slice(0, 10),
-                expiry_alert_days: row.expiry_alert_days || 30,
-                employee_visible: row.employee_visible,
-                original_filename: row.original_filename || "",
-                notes: row.notes || "",
-              },
-              onSubmit: async (payload) => {
-                const res = await apiFetch(`/admin/documents/${row.id}`, {
-                  method: "PATCH",
-                  body: JSON.stringify({
-                    ...payload,
-                    document_url: payload.document_url || null,
-                    notes: payload.notes || null,
-                    expires_at: payload.expires_at || null,
-                    original_filename: payload.original_filename || null,
-                    employee_id: payload.employee_id || null,
-                    employee_visible: Boolean(payload.employee_visible),
-                  }),
-                });
-                const body = await res.json();
-                if (!res.ok) throw new Error(body.detail || "Update failed");
-                host.hidden = true;
-                await refreshDocuments();
-                await refreshExpiringDocuments();
-              },
-            });
-          });
-        });
+        lastDocumentRows = rows;
+        bindDocumentRowActions(tbody, rows);
+        renderDocumentsMobileList(rows);
         setDocumentsPanelAlert({});
       } catch (error) {
         loadError = error;
@@ -1271,9 +1453,9 @@
           message: friendlyError(error, "The document list is unavailable right now."),
           actionHtml: `<button type="button" class="btn outline" data-doc-retry-list>Try again</button>`,
         });
-        tbody.querySelector("[data-doc-retry-list]")?.addEventListener("click", () => {
-          void refreshDocuments();
-        });
+        bindDocumentsEmptyActions(tbody);
+        bindDocumentsEmptyActions(document.getElementById("documents-mobile-list"));
+        lastDocumentRows = null;
       }
 
       if (loadError) {
@@ -1290,6 +1472,13 @@
     };
 
     mountLinkForm();
+    window.matchMedia("(max-width: 860px)").addEventListener("change", () => {
+      if (lastDocumentRows) {
+        renderDocumentsMobileList(lastDocumentRows);
+      } else {
+        clearDocumentsMobileList();
+      }
+    });
     try {
       await refreshDocuments();
     } catch {

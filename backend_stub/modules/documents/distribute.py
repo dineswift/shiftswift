@@ -10,6 +10,7 @@ from modules.documents.errors import _rollback_quietly
 from modules.documents.service import (
     _table_columns,
     create_employee_document,
+    delete_employee_document,
     update_employee_document,
 )
 from modules.documents.storage import write_document_file
@@ -109,17 +110,34 @@ def distribute_document(
             uploaded_by=uploaded_by,
             conn=conn,
         )
-        storage_path, content_sha256, file_size = write_document_file(
-            tenant_id=tenant_id,
-            document_id=int(doc["id"]),
-            title=title.strip(),
-            original_filename=original_filename,
-            data=file_bytes,
-            content_type=content_type,
-            ext=ext,
-            scope="employee",
-            employee_id=int(employee["id"]),
-        )
+        try:
+            storage_path, content_sha256, file_size = write_document_file(
+                tenant_id=tenant_id,
+                document_id=int(doc["id"]),
+                title=title.strip(),
+                original_filename=original_filename,
+                data=file_bytes,
+                content_type=content_type,
+                ext=ext,
+                scope="employee",
+                employee_id=int(employee["id"]),
+            )
+        except Exception:
+            try:
+                delete_employee_document(
+                    tenant_id=tenant_id,
+                    employee_id=int(employee["id"]),
+                    document_id=int(doc["id"]),
+                    conn=conn,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to remove orphan employee document %s for tenant %s",
+                    doc["id"],
+                    tenant_id,
+                )
+                _rollback_quietly(conn)
+            raise
         doc = update_employee_document(
             tenant_id=tenant_id,
             employee_id=int(employee["id"]),

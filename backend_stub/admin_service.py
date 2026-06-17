@@ -757,23 +757,43 @@ def update_document(
     ip_address: str | None,
     user_agent: str | None,
     conn: Any,
+    scope: str = "tenant",
+    employee_id: int | None = None,
 ) -> dict[str, Any]:
-    from modules.documents.service import update_tenant_document
+    if scope == "employee":
+        if employee_id is None:
+            raise ValueError("employee_id is required for employee documents")
+        from modules.documents.service import update_employee_document
 
-    doc = update_tenant_document(
-        tenant_id=tenant_id,
-        document_id=document_id,
-        updates=updates,
-        conn=conn,
-    )
+        employee_updates = {key: value for key, value in updates.items() if key != "employee_id"}
+        doc = update_employee_document(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            document_id=document_id,
+            updates=employee_updates,
+            conn=conn,
+        )
+        entity_type = "employee_document"
+        audit_fields = f"employee_id={employee_id},{','.join(employee_updates.keys())}"
+    else:
+        from modules.documents.service import update_tenant_document
+
+        doc = update_tenant_document(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            updates=updates,
+            conn=conn,
+        )
+        entity_type = "tenant_document"
+        audit_fields = ",".join(updates.keys())
     log_employee_data_event(
         tenant_id=tenant_id,
         actor_username=actor_username,
         actor_role=actor_role,
         action="update",
-        entity_type="tenant_document",
+        entity_type=entity_type,
         entity_id=document_id,
-        field_name=",".join(updates.keys()),
+        field_name=audit_fields,
         ip_address=ip_address,
         user_agent=user_agent,
         conn=conn,
@@ -790,17 +810,36 @@ def delete_document(
     ip_address: str | None,
     user_agent: str | None,
     conn: Any,
+    scope: str = "tenant",
+    employee_id: int | None = None,
 ) -> None:
-    from modules.documents.service import delete_tenant_document
+    if scope == "employee":
+        if employee_id is None:
+            raise ValueError("employee_id is required for employee documents")
+        from modules.documents.service import delete_employee_document
 
-    delete_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+        delete_employee_document(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            document_id=document_id,
+            conn=conn,
+        )
+        entity_type = "employee_document"
+        audit_fields = f"employee_id={employee_id}"
+    else:
+        from modules.documents.service import delete_tenant_document
+
+        delete_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+        entity_type = "tenant_document"
+        audit_fields = None
     log_employee_data_event(
         tenant_id=tenant_id,
         actor_username=actor_username,
         actor_role=actor_role,
         action="delete",
-        entity_type="tenant_document",
+        entity_type=entity_type,
         entity_id=document_id,
+        field_name=audit_fields,
         ip_address=ip_address,
         user_agent=user_agent,
         conn=conn,

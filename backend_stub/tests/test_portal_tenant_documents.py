@@ -34,3 +34,12 @@ def test_portal_document_visible_respects_employee_visible_flag() -> None:
 def test_portal_document_visible_hr_only_company_doc_hidden_by_default() -> None:
     doc = {"has_file": True, "employee_visible": False, "category": "disciplinary"}
     assert portal_document_visible(doc) is False
+
+
+def test_document_has_stored_content() -> None:
+    from modules.documents.service import document_has_stored_content
+
+    assert document_has_stored_content({"storage_path": "/tmp/x.pdf"}) is True
+    assert document_has_stored_content({"document_url": "https://example.com/doc"}) is True
+    assert document_has_stored_content({"has_file": True}) is False
+    assert document_has_stored_content({"notes": "placeholder only"}) is False

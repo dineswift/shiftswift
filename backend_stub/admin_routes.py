@@ -181,6 +181,7 @@ class DocumentUpdate(BaseModel):
     original_filename: str | None = Field(default=None, max_length=255)
     employee_id: int | None = None
     employee_visible: bool | None = None
+    pay_period: str | None = Field(default=None, max_length=64)
 
 
 @router.get("/metadata")
@@ -611,7 +612,11 @@ async def upload_tenant_document(
     import logging
 
     from modules.documents.errors import _rollback_quietly, document_service_error_message
-    from modules.documents.service import create_tenant_document, update_tenant_document
+    from modules.documents.service import (
+        create_tenant_document,
+        delete_tenant_document,
+        update_tenant_document,
+    )
     from modules.documents.storage import read_validated_upload, write_document_file
 
     logger = logging.getLogger(__name__)
@@ -637,29 +642,48 @@ async def upload_tenant_document(
             uploaded_by=current_user.username,
             conn=conn,
         )
-        storage_path, content_sha256, file_size = write_document_file(
-            tenant_id=tenant_id,
-            document_id=int(doc["id"]),
-            title=title.strip(),
-            original_filename=file.filename,
-            data=file_bytes,
-            content_type=content_type,
-            ext=ext,
-            scope="tenant",
-        )
-        doc = update_tenant_document(
-            tenant_id=tenant_id,
-            document_id=int(doc["id"]),
-            updates={
-                "storage_path": storage_path,
-                "content_sha256": content_sha256,
-                "content_type": content_type,
-                "file_size_bytes": file_size,
-                "original_filename": file.filename,
-                "employee_id": employee_id,
-            },
-            conn=conn,
-        )
+        file_saved = False
+        try:
+            storage_path, content_sha256, file_size = write_document_file(
+                tenant_id=tenant_id,
+                document_id=int(doc["id"]),
+                title=title.strip(),
+                original_filename=file.filename,
+                data=file_bytes,
+                content_type=content_type,
+                ext=ext,
+                scope="tenant",
+            )
+            doc = update_tenant_document(
+                tenant_id=tenant_id,
+                document_id=int(doc["id"]),
+                updates={
+                    "storage_path": storage_path,
+                    "content_sha256": content_sha256,
+                    "content_type": content_type,
+                    "file_size_bytes": file_size,
+                    "original_filename": file.filename,
+                    "employee_id": employee_id,
+                },
+                conn=conn,
+            )
+            file_saved = True
+        except Exception:
+            if not file_saved and doc.get("id") is not None:
+                try:
+                    delete_tenant_document(
+                        tenant_id=tenant_id,
+                        document_id=int(doc["id"]),
+                        conn=conn,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to remove orphan tenant document %s for tenant %s",
+                        doc["id"],
+                        tenant_id,
+                        exc_info=True,
+                    )
+            raise
         try:
             log_employee_data_event(
                 tenant_id=tenant_id,
@@ -916,6 +940,8 @@ def patch_document(
     request: Request,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    scope: str = "tenant",
+    employee_id: int | None = None,
 ) -> dict[str, object]:
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
@@ -933,6 +959,8 @@ def patch_document(
             ip_address=client_ip(request),
             user_agent=request.headers.get("User-Agent"),
             conn=conn,
+            scope=scope,
+            employee_id=employee_id,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -948,6 +976,8 @@ def remove_document(
     request: Request,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    scope: str = "tenant",
+    employee_id: int | None = None,
 ) -> dict[str, str]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
@@ -960,6 +990,8 @@ def remove_document(
             ip_address=client_ip(request),
             user_agent=request.headers.get("User-Agent"),
             conn=conn,
+            scope=scope,
+            employee_id=employee_id,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

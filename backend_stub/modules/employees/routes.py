@@ -297,6 +297,11 @@ async def upload_employee_document(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     from modules.documents.notifications import load_document_notification_targets, notify_document_recipients
+    from modules.documents.service import (
+        create_employee_document,
+        delete_employee_document,
+        update_employee_document,
+    )
     from modules.documents.storage import read_validated_upload, write_document_file
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
@@ -325,30 +330,45 @@ async def upload_employee_document(
             uploaded_by=current_user.username,
             conn=conn,
         )
-        storage_path, content_sha256, file_size = write_document_file(
-            tenant_id=tenant_id,
-            document_id=int(doc["id"]),
-            title=title.strip(),
-            original_filename=file.filename,
-            data=file_bytes,
-            content_type=content_type,
-            ext=ext,
-            scope="employee",
-            employee_id=employee_id,
-        )
-        doc = update_employee_document(
-            tenant_id=tenant_id,
-            employee_id=employee_id,
-            document_id=int(doc["id"]),
-            updates={
-                "storage_path": storage_path,
-                "content_sha256": content_sha256,
-                "content_type": content_type,
-                "file_size_bytes": file_size,
-                "original_filename": file.filename,
-            },
-            conn=conn,
-        )
+        file_saved = False
+        try:
+            storage_path, content_sha256, file_size = write_document_file(
+                tenant_id=tenant_id,
+                document_id=int(doc["id"]),
+                title=title.strip(),
+                original_filename=file.filename,
+                data=file_bytes,
+                content_type=content_type,
+                ext=ext,
+                scope="employee",
+                employee_id=employee_id,
+            )
+            doc = update_employee_document(
+                tenant_id=tenant_id,
+                employee_id=employee_id,
+                document_id=int(doc["id"]),
+                updates={
+                    "storage_path": storage_path,
+                    "content_sha256": content_sha256,
+                    "content_type": content_type,
+                    "file_size_bytes": file_size,
+                    "original_filename": file.filename,
+                },
+                conn=conn,
+            )
+            file_saved = True
+        except Exception:
+            if not file_saved and doc.get("id") is not None:
+                try:
+                    delete_employee_document(
+                        tenant_id=tenant_id,
+                        employee_id=employee_id,
+                        document_id=int(doc["id"]),
+                        conn=conn,
+                    )
+                except Exception:
+                    pass
+            raise
         log_employee_data_event(
             tenant_id=tenant_id,
             actor_username=current_user.username,
