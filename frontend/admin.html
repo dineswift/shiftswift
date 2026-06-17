@@ -2418,7 +2418,7 @@
                       <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
                       <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-distribute-category"></select></label>
                       <label class="edit-field"><span class="edit-label">Pay period</span><input name="pay_period" id="document-distribute-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-                      <label class="edit-field"><span class="edit-label">Send to</span><select name="employee_id" id="document-distribute-employee"><option value="">All active employees</option></select></label>
+                      <label class="edit-field"><span class="edit-label">Send to</span><select name="employee_id" id="document-distribute-employee"><option value="">All active employees</option></select><span class="muted edit-hint">Choose one employee for an individual payslip — do not use &ldquo;All active employees&rdquo; unless the same file applies to everyone.</span></label>
                       <label class="edit-field" data-span="2"><span class="edit-label">Notes (optional)</span><textarea name="notes" rows="2"></textarea></label>
                       <label class="ss-check-row" data-span="2">
                         <input class="ss-check-row__input" type="checkbox" name="send_email" value="true" checked />
@@ -2579,7 +2579,7 @@
     <script src="./admin-workspace.js?v=admin-v20"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-settings.js?v=24"></script>
-    <script src="./admin-documents.js?v=12"></script>
+    <script src="./admin-documents.js?v=13"></script>
     <script src="./admin-employees.js?v=21"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>

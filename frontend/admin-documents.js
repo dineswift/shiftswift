@@ -278,13 +278,11 @@
   function mountNotifyEmployeeSelect() {
     const select = document.getElementById("document-upload-notify-employees");
     if (!select || select.dataset.ready === "true") return;
-    const employees = (window.Admin.formOptions?.employees || []).filter(
-      (item) => item.status === "active" || item.status === "onboarding"
-    );
+    const employees = activeEmployeeSelectOptions();
     select.innerHTML = employees
       .map(
         (item) =>
-          `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label || `${item.first_name} ${item.last_name}`)}</option>`
+          `<option value="${escapeHtml(String(item.id))}">${escapeHtml(item.label)}</option>`
       )
       .join("");
     select.dataset.ready = "true";
@@ -331,6 +329,34 @@
     const hintEl = document.getElementById(hintId);
     if (!hintEl) return;
     hintEl.textContent = expiryHintText(daysEl?.value || 30);
+  }
+
+  function activeEmployeeSelectOptions() {
+    return (window.Admin.formOptions?.employees || [])
+      .map((item) => ({
+        id: item.id ?? item.value,
+        label: item.label || `${item.first_name || ""} ${item.last_name || ""}`.trim(),
+        status: item.status,
+      }))
+      .filter((item) => !item.status || item.status === "active" || item.status === "onboarding");
+  }
+
+  function populateDistributeEmployeeSelect() {
+    const employeeSelect = document.getElementById("document-distribute-employee");
+    if (!employeeSelect) return;
+    const employees = activeEmployeeSelectOptions();
+    const previous = employeeSelect.value;
+    employeeSelect.innerHTML =
+      `<option value="">All active employees</option>` +
+      employees
+        .map(
+          (item) =>
+            `<option value="${escapeHtml(String(item.id))}">${escapeHtml(item.label)}</option>`
+        )
+        .join("");
+    if (previous && [...employeeSelect.options].some((opt) => opt.value === previous)) {
+      employeeSelect.value = previous;
+    }
   }
 
   function mountEmployeeSearch({ searchId, datalistId, hiddenId }) {
@@ -493,6 +519,9 @@
     clearDocumentFormStatuses();
     if (target === "link") {
       mountLinkForm();
+    }
+    if (target === "distribute") {
+      populateDistributeEmployeeSelect();
     }
   }
 
@@ -697,17 +726,7 @@
     }
 
     if (employeeSelect) {
-      const employees = (window.Admin.formOptions?.employees || []).filter(
-        (item) => item.status === "active" || item.status === "onboarding"
-      );
-      employeeSelect.innerHTML =
-        `<option value="">All active employees</option>` +
-        employees
-          .map(
-            (item) =>
-              `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label || `${item.first_name} ${item.last_name}`)}</option>`
-          )
-          .join("");
+      populateDistributeEmployeeSelect();
     }
 
     const syncPayPeriodRequired = () => {
@@ -774,6 +793,16 @@
       fd.set("send_email", sendEmail ? "true" : "false");
       if (!fd.get("employee_id")) fd.delete("employee_id");
       if (categorySelect?.value !== "payslip") fd.delete("pay_period");
+      const targetEmployeeId = fd.get("employee_id");
+      if (categorySelect?.value === "payslip" && !targetEmployeeId) {
+        const ok = window.confirm(
+          "Send this payslip to all active employees? Choose one employee in Send to for an individual payslip."
+        );
+        if (!ok) {
+          if (status) setFormStatus(status, "Choose one employee in Send to, or confirm send to all.", "warn");
+          return;
+        }
+      }
       try {
         const data = await uploadMultipart("/admin/documents/distribute", fd);
         form.reset();

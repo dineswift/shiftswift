@@ -478,8 +478,14 @@ window.Admin = (() => {
     if (!res.ok) throw new Error("Could not load employees");
     const data = await res.json();
     const options = (data.items || []).map((emp) => ({
+      id: emp.id,
       value: String(emp.id),
       label: `${emp.first_name} ${emp.last_name}${emp.job_title ? `, ${emp.job_title}` : ""}`,
+      first_name: emp.first_name,
+      last_name: emp.last_name,
+      status: emp.status,
+      job_title: emp.job_title,
+      email: emp.email,
     }));
     if (!formOptions) formOptions = {};
     formOptions.employees = options;
