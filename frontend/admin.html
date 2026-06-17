@@ -34,10 +34,10 @@
         }
       })();
     </script>
-    <link rel="manifest" href="./admin-manifest.webmanifest?v=6" />
+    <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v77" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v80" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -104,7 +104,7 @@
           </a>
 
           <p class="nav-section-label">Operations</p>
-          <a class="nav-link" href="#time-punch" data-section="time-punch">
+          <a class="nav-link" href="#time-punch" data-section="time-punch" data-requires-clock>
             <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
             <span class="nav-link__label">Time punch</span>
           </a>
@@ -218,7 +218,7 @@
             <a class="mobile-more-link" href="#disciplinary" data-feature="disciplinary">Disciplinary</a>
             <a class="mobile-more-link" href="#contracts">Service agreements</a>
             <p class="mobile-more-group">Operations</p>
-            <a class="mobile-more-link" href="#time-punch">Time punch</a>
+            <a class="mobile-more-link" href="#time-punch" data-requires-clock>Time punch</a>
             <a class="mobile-more-link" href="#leave">Leave</a>
             <a class="mobile-more-link" href="#templates">HR Templates &amp; AI</a>
             <p class="mobile-more-group">Support</p>
@@ -367,7 +367,7 @@
                 <p class="link-row" id="employee-advanced-link-row">
                   <a href="#grievance" class="btn ghost">Grievance cases</a>
                   <a href="#offboarding" class="btn ghost">Offboarding</a>
-                  <a href="#time-punch" class="btn ghost">Time punch</a>
+                  <a href="#time-punch" class="btn ghost" data-requires-clock>Time punch</a>
                   <a href="#rota" class="btn ghost">Rota</a>
                 </p>
               </article>
@@ -2522,20 +2522,24 @@
 
     <script src="./session-auth.js?v=2"></script>
     <script src="./auth-guard.js?v=security-v2"></script>
+    <script src="./admin-pwa.js?v=1"></script>
+    <script>
+      window.ShiftSwiftAdminPwa?.registerAdminSw?.();
+    </script>
     <script
       src="./portal-pwa-install.js?v=2"
       data-portal="admin"
       data-app-name="ShiftSwift HR Admin"
-      data-manifest="./admin-manifest.webmanifest?v=6"
-      data-sw="./app-sw.js?v=11"
+      data-manifest="./admin-manifest.webmanifest?v=7"
+      data-sw="./admin-sw.js?v=1"
     ></script>
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
-    <script src="./admin-mobile.js?v=10"></script>
+    <script src="./admin-mobile.js?v=11"></script>
     <script src="./admin-compliance-mobile.js?v=2"></script>
-    <script src="./admin-shared.js?v=admin-v27"></script>
-    <script src="./admin-workspace.js?v=admin-v19"></script>
+    <script src="./admin-shared.js?v=admin-v28"></script>
+    <script src="./admin-workspace.js?v=admin-v20"></script>
     <script src="./admin-address-picker.js?v=3"></script>
     <script src="./admin-settings.js?v=23"></script>
     <script src="./admin-documents.js?v=10"></script>

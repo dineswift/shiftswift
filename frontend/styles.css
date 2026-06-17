@@ -12083,6 +12083,10 @@ body.employee-portal.employee-clock-disabled .employee-home-quick {
   grid-template-columns: 1fr;
 }
 
+body.admin-portal.admin-clock-disabled [data-requires-clock] {
+  display: none !important;
+}
+
 @media (min-width: 861px) {
   .employee-home {
     display: none !important;

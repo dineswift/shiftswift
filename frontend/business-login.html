@@ -2,11 +2,17 @@
 <html lang="en" data-app-icon="hr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="canonical" href="https://app.shiftswifthr.co.uk/business-login.html" />
+    <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
+    <meta name="theme-color" content="#0f6e56" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HR Admin" />
     <script src="./brand-config.js?v=brand-v7"></script>
     <script src="./app-host-guard.js?v=2"></script>
-    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <script src="./app-icons.js?v=brandkit-v6"></script>
     <title>ShiftSwift HR | Business sign in</title>
     <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
   </head>
@@ -122,7 +128,12 @@
         <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>.
       </p>
     </div>
-    <script src="./login.js?v=brandkit-v11"></script>
+    <script src="./session-auth.js?v=2"></script>
+    <script src="./admin-pwa.js?v=1"></script>
+    <script src="./login.js?v=brandkit-v14"></script>
+    <script>
+      window.ShiftSwiftAdminPwa?.registerAdminSw?.();
+    </script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

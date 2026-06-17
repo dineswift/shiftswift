@@ -130,11 +130,12 @@
     }
   }
 
-  function moduleCard({ icon, title, value, sub, href, tone }) {
+  function moduleCard({ icon, title, value, sub, href, tone, requiresClock }) {
     const toneClass = tone ? ` overview-module-card--${tone}` : "";
     const iconSvg = window.AdminIcons?.svg?.(icon) || "";
+    const clockAttr = requiresClock ? ' data-requires-clock' : "";
     return `
-      <a class="overview-module-card${toneClass}" href="${escapeHtml(href)}">
+      <a class="overview-module-card${toneClass}" href="${escapeHtml(href)}"${clockAttr}>
         <span class="overview-module-card__head">
           <span class="overview-module-card__icon" aria-hidden="true">${iconSvg}</span>
           <span class="overview-module-card__chevron" aria-hidden="true">${window.AdminIcons?.svg?.("chevron") || "›"}</span>
@@ -145,12 +146,13 @@
       </a>`;
   }
 
-  function statCard({ icon, label, value, sub, href, tone, valueText, extraClass }) {
+  function statCard({ icon, label, value, sub, href, tone, valueText, extraClass, requiresClock }) {
     const toneClass = tone ? ` hr-stat-card--${tone}` : "";
     const valueClass = valueText ? " hr-stat-card__value--text" : "";
     const iconSvg = window.AdminIcons?.svg?.(icon) || "";
+    const clockAttr = requiresClock ? ' data-requires-clock' : "";
     return `
-      <a class="hr-stat-card hr-stat-card--link${toneClass}${extraClass ? ` ${extraClass}` : ""}" href="${escapeHtml(href)}">
+      <a class="hr-stat-card hr-stat-card--link${toneClass}${extraClass ? ` ${extraClass}` : ""}" href="${escapeHtml(href)}"${clockAttr}>
         <span class="hr-stat-card__icon" aria-hidden="true">${iconSvg}</span>
         <span class="hr-stat-card__label">${escapeHtml(label)}</span>
         <span class="hr-stat-card__value${valueClass}">${escapeHtml(value)}</span>
@@ -292,6 +294,7 @@
           sub: punch.last_punch_at ? `Last punch ${formatOverviewTime(punch.last_punch_at)}` : "No punches yet",
           href: punch.today_punches ? "#time-punch/today" : "#time-punch",
           tone: "ok",
+          requiresClock: true,
         })}
         ${statCard({
           icon: critical ? "alert" : "check",
@@ -408,6 +411,7 @@
                 : "Set up geofence sites",
             href: punch.today_punches ? "#time-punch/today" : "#time-punch",
             tone: !punch.sites ? "warn" : "",
+            requiresClock: true,
           }),
           moduleCard({
             icon: "calendar",
@@ -505,6 +509,15 @@
       grid.innerHTML = `<p class="muted">${message}</p>`;
       if (modulesHost) modulesHost.innerHTML = `<p class="muted">${message}</p>`;
       if (actionsHost) actionsHost.innerHTML = "";
+      window.dispatchEvent(
+        new CustomEvent("admin:overview-loaded", {
+          detail: {
+            data: {
+              time_clock_enabled: localStorage.getItem("adminTimeClockEnabled") === "true",
+            },
+          },
+        }),
+      );
     }
   }
 

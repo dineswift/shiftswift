@@ -70,6 +70,7 @@ window.Admin = (() => {
     rota_advanced_enabled: false,
     rota_multi_site_enabled: false,
     crm_addon: false,
+    time_clock_enabled: localStorage.getItem("adminTimeClockEnabled") === "true",
     plan_display_name: "Starter",
     plan_tier: "starter",
   };
@@ -286,6 +287,7 @@ window.Admin = (() => {
         rota_advanced_enabled: Boolean(data.rota_advanced_enabled),
         rota_multi_site_enabled: Boolean(data.rota_multi_site_enabled),
         crm_addon: Boolean(data.crm_addon),
+        time_clock_enabled: Boolean(data.time_clock_enabled),
         plan_display_name: data.plan_display_name || "Starter",
         plan_tier: data.plan_tier || "starter",
         sponsored_employees: Number(data.sponsored_employees || 0),
@@ -406,6 +408,7 @@ window.Admin = (() => {
       }
     });
     applyAddonGates();
+    window.AdminMobile?.syncClockAvailability?.(Boolean(tenantFeatures.time_clock_enabled));
     window.dispatchEvent(new CustomEvent("admin:features", { detail: tenantFeatures }));
   }
 
@@ -424,6 +427,7 @@ window.Admin = (() => {
     if (baseSection === "payroll" || baseSection === "export") return "overview";
     if (baseSection === "overview-actions") return "overview";
     if (baseSection.startsWith("compliance")) return "compliance";
+    if (baseSection === "time-punch" && !tenantFeatures.time_clock_enabled) return "overview";
     if (baseSection === "crm" && !isAddonEnabled("crm")) return "overview";
     return baseSection || "overview";
   }

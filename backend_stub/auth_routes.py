@@ -681,6 +681,15 @@ def verify_auth(current_user: Annotated[AuthUser, Depends(get_current_user)]) ->
         result["impersonating"] = True
         result["impersonated_by"] = current_user.impersonated_by
     if current_user.role != "employee" or not settings.use_db or not settings.database_url:
+        if current_user.tenant_id and settings.use_db and settings.database_url:
+            from modules.time_punch.service import tenant_time_clock_enabled
+
+            tenant_id = int(current_user.tenant_id)
+            conn = _db_conn()
+            try:
+                result["time_clock_enabled"] = tenant_time_clock_enabled(tenant_id=tenant_id, conn=conn)
+            finally:
+                conn.close()
         return result
     from employee_portal_consent import has_employee_gdpr_consent, tenant_display_name
     from modules.time_punch.service import employee_time_clock_enabled

@@ -652,6 +652,15 @@ def last_punch(*, tenant_id: int, employee_id: int, conn: Any) -> dict[str, Any]
     }
 
 
+def tenant_time_clock_enabled(*, tenant_id: int, conn: Any) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM punch_sites WHERE tenant_id = %s AND is_active = TRUE",
+            (tenant_id,),
+        )
+        return int(cur.fetchone()[0]) > 0
+
+
 def employee_time_clock_enabled(*, tenant_id: int, username: str, conn: Any) -> bool:
     """True when the employee can use geofenced clock in/out (active punch sites)."""
     employee = resolve_employee(tenant_id=tenant_id, username=username, conn=conn)

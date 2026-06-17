@@ -1206,6 +1206,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         "sponsor_licence_acknowledged": bool(profile.get("sponsor_licence_acknowledged")),
         "open_actions_count": len(open_actions),
         "open_actions": open_actions[:8],
+        "time_clock_enabled": punch_sites > 0,
         "modules": {
             "employees": {
                 "active": active_employees,

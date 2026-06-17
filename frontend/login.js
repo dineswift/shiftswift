@@ -358,7 +358,7 @@ function initBusinessLoginTabs() {
 }
 
 function redirectIfEmployeeSession() {
-  if (document.body.dataset.loginPage !== "employee") return;
+  if (document.body.dataset.loginPage !== "employee") return false;
   const role = localStorage.getItem("userRole");
   if (window.ShiftSwiftSession?.hasSession?.() && role === "employee") {
     window.location.replace("./employee.html");
@@ -371,8 +371,23 @@ function redirectIfEmployeeSession() {
   return false;
 }
 
+function redirectIfBusinessSession() {
+  if (document.body.dataset.loginPage !== "business") return false;
+  const role = localStorage.getItem("userRole");
+  if (window.ShiftSwiftSession?.hasSession?.() && role && role !== "employee") {
+    window.location.replace("./admin.html");
+    return true;
+  }
+  if (role === "employee") {
+    window.location.replace("./employee-login.html");
+    return true;
+  }
+  return false;
+}
+
 function initLoginPage() {
   if (redirectIfEmployeeSession()) return;
+  if (redirectIfBusinessSession()) return;
 
   const portalHint = new URLSearchParams(window.location.search).get("portal");
   if (portalHint === "employee") {

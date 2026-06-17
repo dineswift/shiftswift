@@ -4,8 +4,10 @@
 
   const DETAIL_EXEMPT = new Set(["overview", "rota", "compliance"]);
 
-  let currentTab = localStorage.getItem("adminMobileTab") || "home";
+  let clockEnabled = localStorage.getItem("adminTimeClockEnabled") === "true";
+  let currentTab = "home";
   let previousTab = "home";
+  let startupResolved = false;
 
   function isMobile() {
     return window.matchMedia("(max-width: 860px)").matches;
@@ -29,6 +31,38 @@
     if (!username) return "there";
     const local = username.split("@")[0] || username;
     return local.charAt(0).toUpperCase() + local.slice(1);
+  }
+
+  function syncClockAvailability(enabled) {
+    clockEnabled = Boolean(enabled);
+    localStorage.setItem("adminTimeClockEnabled", clockEnabled ? "true" : "false");
+    document.body.classList.toggle("admin-clock-disabled", !clockEnabled);
+  }
+
+  function finishStartup(enabled) {
+    syncClockAvailability(enabled);
+    const hashSection = window.location.hash.replace("#", "").split("/")[0];
+    if (hashSection === "time-punch" && !clockEnabled) {
+      window.location.hash = "overview";
+    }
+    if (startupResolved) return;
+    startupResolved = true;
+
+    if (!isMobile()) return;
+
+    const saved = localStorage.getItem("adminMobileTab");
+    if (hashSection === "time-punch" && clockEnabled) {
+      setTab(saved || "home", { skipHash: true });
+      return;
+    }
+    if (!saved && clockEnabled && hashSection !== "time-punch") {
+      window.location.hash = "time-punch";
+      setTab("home", { skipHash: true });
+      return;
+    }
+
+    syncTabFromHash();
+    setTab(currentTab || saved || "home", { skipHash: true });
   }
 
   async function refreshGreeting() {
@@ -113,9 +147,11 @@
   }
 
   function setTab(tab, options = {}) {
-    const { skipHash = false } = options;
+    const { skipHash = false, persist = true } = options;
     currentTab = tab;
-    localStorage.setItem("adminMobileTab", tab);
+    if (persist) {
+      localStorage.setItem("adminMobileTab", tab);
+    }
     syncTabUi(tab);
 
     if (skipHash || !isMobile()) return;
@@ -324,6 +360,7 @@
 
     window.addEventListener("admin:overview-loaded", (event) => {
       if (event.detail?.data) renderMobileCompliance(event.detail.data);
+      finishStartup(Boolean(event.detail?.data?.time_clock_enabled));
     });
 
     window.addEventListener("resize", () => {
@@ -340,17 +377,15 @@
     });
 
     refreshGreeting();
+    syncClockAvailability(clockEnabled);
+    if (startupResolved) return;
+
     if (isMobile()) {
-      syncTabFromHash();
-      if (currentTab === "rota" || currentTab === "compliance") {
-        window.location.hash = currentTab;
-      } else if (currentTab === "more") {
-        setTab("more", { skipHash: true });
+      const hashSection = window.location.hash.replace("#", "").split("/")[0];
+      if (hashSection === "time-punch" && clockEnabled) {
+        setTab(localStorage.getItem("adminMobileTab") || "home", { skipHash: true, persist: false });
       } else {
-        if (!window.location.hash || window.location.hash === "#") {
-          window.location.hash = "overview";
-        }
-        setTab(currentTab, { skipHash: true });
+        setTab("home", { skipHash: true, persist: false });
       }
       syncComplianceDrill();
     } else {
@@ -365,5 +400,7 @@
     isMobile,
     refreshGreeting,
     renderMobileCompliance,
+    syncClockAvailability,
+    finishStartup,
   };
 })();
