@@ -7,6 +7,7 @@ from typing import Annotated
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from auth_service import AuthUser
@@ -20,6 +21,7 @@ from modules.rota import readiness as rota_readiness
 from modules.rota import requests as rota_requests
 from modules.rota import service as rota_service
 from modules.rota import templates as rota_templates
+from modules.rota.export_pdf import rota_week_pdf_bytes
 from modules.rota.service import RotaConflictError, RotaValidationError
 from modules.time_punch import service as punch_service
 
@@ -227,6 +229,29 @@ def get_week_rota(
         return payload
     finally:
         conn.close()
+
+
+@admin_router.get("/weeks/{week_start}/export.pdf")
+def export_week_rota_pdf(
+    week_start: str,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+):
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        pdf_bytes = rota_week_pdf_bytes(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    except RotaValidationError as exc:
+        raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+    filename = f"shiftswift-rota-{week_start}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @admin_router.get("/weeks/{week_start}/attendance")

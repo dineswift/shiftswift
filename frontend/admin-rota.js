@@ -1,6 +1,6 @@
 /** Admin — weekly rota: grid, attendance, copy week, shift requests. */
 (async function initAdminRota() {
-  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill } = window.Admin;
+  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated } = window.Admin;
 
   let sectionReady = false;
   let rotaDataLoadPromise = null;
@@ -1985,6 +1985,25 @@
     }
   }
 
+  async function exportRotaPdf() {
+    if (dirty) {
+      const proceed = window.confirm(
+        "You have unsaved changes on screen. The PDF uses the last saved rota in ShiftSwift. Continue?"
+      );
+      if (!proceed) return;
+    }
+    setMessage("Preparing PDF…", "info");
+    try {
+      await downloadAuthenticated(
+        `/admin/rota/weeks/${currentWeekStart}/export.pdf`,
+        `shiftswift-rota-${currentWeekStart}.pdf`
+      );
+      setMessage("Rota PDF downloaded.", "success");
+    } catch (error) {
+      setMessage(error?.message || "Could not export rota PDF.", "error");
+    }
+  }
+
   async function publishRota() {
     if (!guardWeekEditable("publish this rota")) return;
     if (!shifts.length) {
@@ -2182,6 +2201,7 @@
     document.getElementById("rota-add-btn")?.addEventListener("click", addShiftFromForm);
     document.getElementById("rota-shift-head-save")?.addEventListener("click", addShiftFromForm);
     document.getElementById("rota-save-btn")?.addEventListener("click", saveRota);
+    document.getElementById("rota-export-pdf-btn")?.addEventListener("click", exportRotaPdf);
     document.getElementById("rota-copy-prev-btn")?.addEventListener("click", copyPreviousWeek);
     document.getElementById("rota-clear-btn")?.addEventListener("click", clearRota);
     document.getElementById("rota-publish-btn")?.addEventListener("click", publishRota);
@@ -2203,6 +2223,7 @@
       currentWeekStart = rotaWeekStartIso(new Date());
       loadWeek();
     });
+    document.getElementById("rota-mobile-export-pdf")?.addEventListener("click", exportRotaPdf);
     document.getElementById("rota-mobile-copy-prev")?.addEventListener("click", copyPreviousWeek);
     document.getElementById("rota-mobile-reload")?.addEventListener("click", () => {
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
