@@ -35,8 +35,9 @@ def test_evaluate_shift_attendance_late() -> None:
         "end_time": "17:00",
         "employee_name": "Alex",
     }
-    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 8, 9, 20, tzinfo=timezone.utc)}]
-    now = datetime(2026, 6, 8, 10, 0, tzinfo=timezone.utc)
+    # 09:06 UK (BST) = 08:06 UTC — six minutes after 09:00 local start
+    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 8, 8, 6, tzinfo=timezone.utc)}]
+    now = datetime(2026, 6, 8, 9, 0, tzinfo=timezone.utc)
     result = evaluate_shift_attendance(shift=shift, punches=punches, now=now)
     assert result["attendance_status"] == "late"
 
@@ -50,7 +51,25 @@ def test_evaluate_shift_attendance_attended() -> None:
         "end_time": "17:00",
         "employee_name": "Alex",
     }
-    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 8, 8, 55, tzinfo=timezone.utc)}]
-    now = datetime(2026, 6, 8, 12, 0, tzinfo=timezone.utc)
+    # 08:55 UK (BST) = 07:55 UTC — on time for 09:00 local start
+    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 8, 7, 55, tzinfo=timezone.utc)}]
+    now = datetime(2026, 6, 8, 11, 0, tzinfo=timezone.utc)
+    result = evaluate_shift_attendance(shift=shift, punches=punches, now=now)
+    assert result["attendance_status"] == "attended"
+
+
+def test_evaluate_shift_attendance_matches_bst_punch_to_uk_shift() -> None:
+    """Regression: punches stored as UTC must match UK-local rota times (BST)."""
+    shift = {
+        "id": 4,
+        "employee_id": 1,
+        "shift_date": "2026-06-16",
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "employee_name": "Alex",
+    }
+    # Staff clock in at 09:00 UK on 16 Jun 2026 → 08:00 UTC
+    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 16, 8, 0, tzinfo=timezone.utc)}]
+    now = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)
     result = evaluate_shift_attendance(shift=shift, punches=punches, now=now)
     assert result["attendance_status"] == "attended"

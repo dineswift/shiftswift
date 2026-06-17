@@ -4,6 +4,16 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
+
+UK_TZ = ZoneInfo("Europe/London")
+
+
+def uk_date_range_utc(*, date_from: date, date_to: date) -> tuple[datetime, datetime]:
+    """Inclusive UK calendar dates → UTC bounds for querying timestamptz punches."""
+    start = datetime.combine(date_from, time.min, tzinfo=UK_TZ).astimezone(timezone.utc)
+    end = datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UK_TZ).astimezone(timezone.utc)
+    return start, end
 
 MIN_SHIFT_MINUTES = 15
 MAX_SHIFT_HOURS = 16
@@ -138,11 +148,12 @@ def assert_week_publish_allowed(*, week_start: date) -> None:
 
 
 def shift_window(*, shift_date: date, start_time: time, end_time: time) -> tuple[datetime, datetime]:
-    start = datetime.combine(shift_date, start_time, tzinfo=timezone.utc)
+    """Shift times are UK local (Europe/London); returned bounds are UTC for punch comparison."""
+    start = datetime.combine(shift_date, start_time, tzinfo=UK_TZ).astimezone(timezone.utc)
     if end_time <= start_time:
-        end = datetime.combine(shift_date + timedelta(days=1), end_time, tzinfo=timezone.utc)
+        end = datetime.combine(shift_date + timedelta(days=1), end_time, tzinfo=UK_TZ).astimezone(timezone.utc)
     else:
-        end = datetime.combine(shift_date, end_time, tzinfo=timezone.utc)
+        end = datetime.combine(shift_date, end_time, tzinfo=UK_TZ).astimezone(timezone.utc)
     return start, end
 
 

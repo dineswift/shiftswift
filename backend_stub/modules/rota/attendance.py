@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
-from modules.rota.service import shift_window
+from modules.rota.service import shift_window, uk_date_range_utc
+
+UK_TZ = ZoneInfo("Europe/London")
 
 LATE_GRACE_MINUTES = 5
 CLOCK_IN_EARLY_MINUTES = 15
@@ -32,6 +35,7 @@ def load_punches_for_employees(
 ) -> dict[int, list[dict[str, Any]]]:
     if not employee_ids:
         return {}
+    punch_from, punch_until = uk_date_range_utc(date_from=from_date, date_to=to_date)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -46,8 +50,8 @@ def load_punches_for_employees(
             (
                 tenant_id,
                 employee_ids,
-                datetime.combine(from_date, time.min, tzinfo=timezone.utc),
-                datetime.combine(to_date + timedelta(days=1), time.min, tzinfo=timezone.utc),
+                punch_from,
+                punch_until,
             ),
         )
         rows = cur.fetchall()
@@ -100,7 +104,7 @@ def evaluate_shift_attendance(
         detail = "Awaiting clock-in"
     elif clock_in > late_after:
         status = "late"
-        detail = f"Clocked in at {clock_in.strftime('%H:%M')} (late)"
+        detail = f"Clocked in at {clock_in.astimezone(UK_TZ).strftime('%H:%M')} (late)"
     elif clock_out is None and now > window_end:
         status = "missing_clock_out"
         detail = "Clocked in but no clock-out after shift end"
