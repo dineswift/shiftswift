@@ -96,6 +96,10 @@
     if (!data || typeof data !== "object") return;
     tenantProfile = { ...(tenantProfile || {}), ...data };
     window.Admin?.rememberTenantRegisteredAddress?.(tenantProfile.registered_address);
+    window.Admin?.rememberTenantRegisteredCoords?.(
+      tenantProfile.registered_latitude,
+      tenantProfile.registered_longitude,
+    );
   }
 
   function registeredAddressFromDom() {

@@ -153,8 +153,30 @@
       setCoords(item.latitude, item.longitude);
       hideResults();
       if (searchInput) searchInput.value = "";
-      setStatus(onSelect ? onSelect(item, line) : `${selectStatus} Save to apply.`, "ok");
       void showMap(item.latitude, item.longitude);
+      const selection = pendingSelection;
+      void (async () => {
+        try {
+          if (window.Admin?.saveTenantRegisteredAddress && selection) {
+            await window.Admin.saveTenantRegisteredAddress({
+              address: selection.address,
+              latitude: selection.latitude,
+              longitude: selection.longitude,
+            });
+            setStatus(
+              onSelect ? onSelect(item, line) : "Address saved to your business account.",
+              "ok",
+            );
+          } else {
+            setStatus(onSelect ? onSelect(item, line) : `${selectStatus} Save to apply.`, "ok");
+          }
+        } catch (error) {
+          setStatus(
+            error.message || "Could not save to your account — use Save business details.",
+            "warn",
+          );
+        }
+      })();
     }
 
     function renderResults(items) {
@@ -260,7 +282,7 @@
         <input type="search" id="address-picker-search" class="address-picker__search" placeholder="Search street, postcode, or business name…" autocomplete="off" />
         <ul class="address-picker__results" hidden></ul>
         <textarea name="registered_address" rows="3" placeholder="Selected address appears here">${escapeHtml(initialAddress)}</textarea>
-        <p class="address-picker__hint muted">Search OpenStreetMap, pick your premises, then save. This pin powers Time punch geofencing.</p>
+        <p class="address-picker__hint muted">Search OpenStreetMap, pick your premises — it saves to your business account on every device.</p>
         <p class="address-picker__status muted" data-address-picker-status hidden></p>
         <div class="address-picker__map" data-address-picker-map hidden></div>
         <p class="address-picker__attribution muted">© OpenStreetMap contributors</p>

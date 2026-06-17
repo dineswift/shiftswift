@@ -130,6 +130,7 @@ window.Admin = (() => {
   }
 
   let tenantProfileSnapshot = null;
+  let tenantProfileLoaded = false;
 
   function tenantRegisteredAddressCacheKey() {
     return `tenantRegisteredAddress_${localStorage.getItem("tenantId") || TENANT_ID || "default"}`;
@@ -157,7 +158,7 @@ window.Admin = (() => {
     }
   }
 
-  function getCachedTenantRegisteredCoords() {
+  function getCachedTenantRegisteredCoordsFromStorage() {
     try {
       const raw = localStorage.getItem(tenantRegisteredCoordsCacheKey());
       if (!raw) return null;
@@ -231,7 +232,45 @@ window.Admin = (() => {
   function getCachedTenantRegisteredAddress() {
     const fromProfile = String(tenantProfileSnapshot?.registered_address || "").trim();
     if (fromProfile) return fromProfile;
+    if (tenantProfileLoaded) return "";
     return String(localStorage.getItem(tenantRegisteredAddressCacheKey()) || "").trim();
+  }
+
+  function getCachedTenantRegisteredCoords() {
+    const lat = tenantProfileSnapshot?.registered_latitude;
+    const lng = tenantProfileSnapshot?.registered_longitude;
+    if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      return { latitude: Number(lat), longitude: Number(lng) };
+    }
+    if (tenantProfileLoaded) return null;
+    return getCachedTenantRegisteredCoordsFromStorage();
+  }
+
+  async function saveTenantRegisteredAddress({ address, latitude, longitude }) {
+    const trimmed = normalizeBusinessAddress(address);
+    if (!trimmed) return null;
+    const lat = latitude != null ? Number(latitude) : null;
+    const lng = longitude != null ? Number(longitude) : null;
+    const body = {
+      registered_address: trimmed,
+      registered_latitude: Number.isFinite(lat) ? lat : null,
+      registered_longitude: Number.isFinite(lng) ? lng : null,
+    };
+    const res = await apiFetch("/admin/tenant-profile", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = data.detail;
+      throw new Error(typeof detail === "string" ? detail : "Could not save address to your account.");
+    }
+    tenantProfileSnapshot = { ...(tenantProfileSnapshot || {}), ...data };
+    tenantProfileLoaded = true;
+    rememberTenantRegisteredAddress(data.registered_address);
+    rememberTenantRegisteredCoords(data.registered_latitude, data.registered_longitude);
+    window.dispatchEvent(new CustomEvent("admin:tenant-profile-saved", { detail: data }));
+    return data;
   }
 
   async function prefetchTenantProfile() {
@@ -239,10 +278,11 @@ window.Admin = (() => {
       const res = await apiFetch("/admin/tenant-profile");
       if (!res.ok) return tenantProfileSnapshot;
       tenantProfileSnapshot = await res.json();
+      tenantProfileLoaded = true;
       rememberTenantRegisteredAddress(tenantProfileSnapshot?.registered_address);
       rememberTenantRegisteredCoords(
         tenantProfileSnapshot?.registered_latitude,
-        tenantProfileSnapshot?.registered_longitude
+        tenantProfileSnapshot?.registered_longitude,
       );
       return tenantProfileSnapshot;
     } catch {
@@ -255,10 +295,11 @@ window.Admin = (() => {
   window.addEventListener("admin:tenant-profile-saved", (event) => {
     if (!event.detail || typeof event.detail !== "object") return;
     tenantProfileSnapshot = { ...(tenantProfileSnapshot || {}), ...event.detail };
+    tenantProfileLoaded = true;
     rememberTenantRegisteredAddress(tenantProfileSnapshot.registered_address);
     rememberTenantRegisteredCoords(
       tenantProfileSnapshot.registered_latitude,
-      tenantProfileSnapshot.registered_longitude
+      tenantProfileSnapshot.registered_longitude,
     );
   });
 
@@ -971,6 +1012,7 @@ window.Admin = (() => {
     authHeaders,
     apiFetch,
     prefetchTenantProfile,
+    saveTenantRegisteredAddress,
     rememberTenantRegisteredAddress,
     rememberTenantRegisteredCoords,
     getCachedTenantRegisteredAddress,

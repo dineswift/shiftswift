@@ -325,7 +325,7 @@
     } catch {
       /* optional */
     }
-    cacheRegisteredAddress(values.registered_address);
+    cacheRegisteredAddress(values);
 
     try {
       host.innerHTML = '<div id="tenant-profile-form-mount"></div><p id="tenant-profile-last-saved" class="settings-last-saved muted"></p>';
