@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v104" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v105" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2118,8 +2118,14 @@
           </div>
           <article class="card rota-desktop-only" id="rota-list-panel" hidden>
             <div class="rota-list-panel__head">
-              <h3>Shifts this week</h3>
-              <p class="muted rota-list-panel__lead">Scheduled shifts with attendance status — not the raw punch log.</p>
+              <div class="rota-list-panel__head-main">
+                <h3>Shifts this week</h3>
+                <p class="muted rota-list-panel__lead">Scheduled shifts with attendance status — not the raw punch log.</p>
+              </div>
+              <div class="rota-list-panel__exports">
+                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-csv">Export CSV</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-pdf">Export PDF</button>
+              </div>
             </div>
             <div id="rota-shifts-cards" class="rota-shift-cards" hidden aria-label="Shifts this week"></div>
             <div class="table-wrap rota-shifts-table-wrap">
@@ -2142,9 +2148,17 @@
             </div>
           </article>
           <article class="card" id="rota-attendance-panel" hidden>
-            <h3>Shift attendance (rota only)</h3>
-            <p class="muted">Compares published shifts to clock-ins — late and no-show flags. For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
-            <div class="table-wrap">
+            <div class="rota-list-panel__head">
+              <div class="rota-list-panel__head-main">
+                <h3>Shift attendance (rota only)</h3>
+                <p class="muted rota-list-panel__lead">Compares published shifts to clock-ins — late and no-show flags. For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
+              </div>
+              <div class="rota-list-panel__exports">
+                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-csv">Export CSV</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-pdf">Export PDF</button>
+              </div>
+            </div>
+            <div class="table-wrap rota-attendance-table-wrap">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -2675,7 +2689,7 @@
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=32"></script>
-    <script src="./admin-rota.js?v=25"></script>
+    <script src="./admin-rota.js?v=27"></script>
     <script src="./admin-leave.js?v=2"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>

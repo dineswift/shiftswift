@@ -21,6 +21,7 @@ from modules.rota import readiness as rota_readiness
 from modules.rota import requests as rota_requests
 from modules.rota import service as rota_service
 from modules.rota import templates as rota_templates
+from modules.rota.export_attendance import build_week_attendance_csv, rota_week_attendance_pdf_bytes
 from modules.rota.export_pdf import rota_week_pdf_bytes
 from modules.rota.service import RotaConflictError, RotaValidationError
 from modules.time_punch import service as punch_service
@@ -247,6 +248,52 @@ def export_week_rota_pdf(
     finally:
         conn.close()
     filename = f"shiftswift-rota-{week_start}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@admin_router.get("/weeks/{week_start}/attendance/export.csv")
+def export_week_attendance_csv(
+    week_start: str,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        csv_data = build_week_attendance_csv(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    except RotaValidationError as exc:
+        raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+    filename = f"shiftswift-shifts-attendance-{week_start}.csv"
+    return Response(
+        content=csv_data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@admin_router.get("/weeks/{week_start}/attendance/export.pdf")
+def export_week_attendance_pdf(
+    week_start: str,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        pdf_bytes = rota_week_attendance_pdf_bytes(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    except RotaValidationError as exc:
+        raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+    filename = f"shiftswift-shifts-attendance-{week_start}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

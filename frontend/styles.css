@@ -11794,9 +11794,112 @@ body.rota-week-readonly .rota-builder-hint {
   color: var(--muted);
 }
 
+.card.hr-workspace + #rota-list-panel,
+#rota-list-panel + #rota-attendance-panel {
+  margin-top: -4px;
+}
+
+#rota-list-panel,
+#rota-attendance-panel {
+  padding: 12px 16px 14px;
+  border-width: 0.5px;
+  box-shadow: none;
+}
+
+.rota-list-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding-bottom: 7px;
+  border-bottom: 0.5px solid var(--gray-200);
+}
+
+.rota-list-panel__head-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.rota-list-panel__exports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.rota-list-panel__head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
 .rota-list-panel__lead {
-  margin: 4px 0 0;
-  font-size: 0.84rem;
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.rota-shifts-table-wrap,
+.rota-attendance-table-wrap {
+  border: 0.5px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+#rota-list-panel .data-table th,
+#rota-list-panel .data-table td,
+#rota-attendance-panel .data-table th,
+#rota-attendance-panel .data-table td {
+  padding: 6px 10px;
+  border-bottom: 0.5px solid var(--gray-200);
+}
+
+#rota-list-panel .data-table th,
+#rota-attendance-panel .data-table th {
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+#rota-list-panel .data-table tbody tr:last-child td,
+#rota-attendance-panel .data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.status-pill--has-tip {
+  cursor: help;
+  position: relative;
+}
+
+.status-pill--has-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #1e293b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, visibility 0.12s ease;
+}
+
+.status-pill--has-tip:hover::after,
+.status-pill--has-tip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 
 .punch-day-filters {

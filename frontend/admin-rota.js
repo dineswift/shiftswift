@@ -28,6 +28,34 @@
     missing_clock_out: "No clock-out",
   };
 
+  function formatClockInUkTime(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/London",
+    });
+  }
+
+  function attendanceStatusPill(attendance) {
+    if (!attendance) return "—";
+    const status = attendance.attendance_status;
+    const label = ATTENDANCE_LABELS[status] || status;
+    let cls = "status-ok";
+    if (status === "late" || status === "missing_clock_out") cls = "status-warning";
+    if (status === "no_show") cls = "status-critical";
+    const clockIn =
+      (status === "attended" || status === "late") && attendance.clock_in_at
+        ? formatClockInUkTime(attendance.clock_in_at)
+        : "";
+    const tipClass = clockIn ? " status-pill--has-tip" : "";
+    const tipAttr = clockIn ? ` data-tip="Clocked in ${escapeHtml(clockIn)}"` : "";
+    const ariaAttr = clockIn ? ` aria-label="${escapeHtml(label)}. Clocked in ${escapeHtml(clockIn)}"` : "";
+    return `<span class="status-pill ${cls}${tipClass}"${tipAttr}${ariaAttr}${clockIn ? ' tabindex="0"' : ""}>${escapeHtml(label)}</span>`;
+  }
+
   const DEFAULT_ROLE_SUGGESTIONS = ["Floor", "Bar", "Kitchen", "Front of house", "Management", "Day off"];
   const AVATAR_PALETTES = [
     { bg: "#E1F5EE", color: "#0F6E56" },
@@ -1242,7 +1270,7 @@
         },
         {
           key: "attendance_status",
-          render: (r) => statusPill(ATTENDANCE_LABELS[r.attendance_status] || r.attendance_status),
+          render: (r) => attendanceStatusPill(r),
         },
         { key: "attendance_detail", render: (r) => escapeHtml(r.attendance_detail || "") },
       ],
@@ -1343,7 +1371,7 @@
         key: "punch",
         render: (r) => {
           const a = attendanceForShift(r);
-          return a ? statusPill(ATTENDANCE_LABELS[a.attendance_status] || a.attendance_status) : "—";
+          return a ? attendanceStatusPill(a) : "—";
         },
       },
     ];
@@ -2004,6 +2032,26 @@
     }
   }
 
+  async function exportShiftsAttendance(format) {
+    if (dirty) {
+      const proceed = window.confirm(
+        "You have unsaved changes on screen. The export uses the last saved rota in ShiftSwift. Continue?"
+      );
+      if (!proceed) return;
+    }
+    const ext = format === "csv" ? "csv" : "pdf";
+    setMessage(`Preparing ${ext.toUpperCase()}…`, "info");
+    try {
+      await downloadAuthenticated(
+        `/admin/rota/weeks/${currentWeekStart}/attendance/export.${ext}`,
+        `shiftswift-shifts-attendance-${currentWeekStart}.${ext}`
+      );
+      setMessage(`Shifts & attendance ${ext.toUpperCase()} downloaded.`, "success");
+    } catch (error) {
+      setMessage(error?.message || `Could not export ${ext.toUpperCase()}.`, "error");
+    }
+  }
+
   async function publishRota() {
     if (!guardWeekEditable("publish this rota")) return;
     if (!shifts.length) {
@@ -2202,6 +2250,10 @@
     document.getElementById("rota-shift-head-save")?.addEventListener("click", addShiftFromForm);
     document.getElementById("rota-save-btn")?.addEventListener("click", saveRota);
     document.getElementById("rota-export-pdf-btn")?.addEventListener("click", exportRotaPdf);
+    document.getElementById("rota-shifts-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv"));
+    document.getElementById("rota-shifts-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf"));
+    document.getElementById("rota-attendance-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv"));
+    document.getElementById("rota-attendance-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf"));
     document.getElementById("rota-copy-prev-btn")?.addEventListener("click", copyPreviousWeek);
     document.getElementById("rota-clear-btn")?.addEventListener("click", clearRota);
     document.getElementById("rota-publish-btn")?.addEventListener("click", publishRota);
