@@ -574,7 +574,7 @@
       const visibleRows = showAll ? rows : rows.slice(0, LIFECYCLE_HUB_PAGE_SIZE);
       const cards = visibleRows.length
         ? visibleRows.map((row) => renderLifecycleEmployeeCard(row, stage.id)).join("")
-        : `<div class="lifecycle-empty-state"><p class="muted">${escapeHtml(stageEmptyMessage(stage.id))}</p></div>`;
+        : stageEmptyStateHtml(stage.id);
       const viewAll =
         rows.length > LIFECYCLE_HUB_PAGE_SIZE && !showAll
           ? `<button type="button" class="btn ghost lifecycle-view-all-btn" data-lifecycle-view-all="${stage.id}">View all ${rows.length} employees</button>`
@@ -638,15 +638,54 @@
       $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
       $("employee-quick-add-form")?.querySelector("input")?.focus();
     });
+    hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => {
+      $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("employee-quick-add-form")?.querySelector("input")?.focus();
+    });
 
     $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
   }
 
-  function stageEmptyMessage(stageId) {
-    if (stageId === "recruitment") return "No one in recruitment yet — add your first employee below.";
-    if (stageId === "onboarding") return "No employees currently onboarding.";
-    if (stageId === "active") return "No active employees yet.";
-    return "No employees in offboarding.";
+  function stageEmptyStateHtml(stageId) {
+    const { emptyStateHtml } = window.Admin;
+    if (stageId === "recruitment") {
+      return emptyStateHtml({
+        icon: "user-plus",
+        title: "Start your register",
+        message: "Add your first employee — name and email is enough to begin.",
+        actionLabel: "+ Add employee",
+        actionId: "employees-stage-add-btn",
+        compact: true,
+      });
+    }
+    if (stageId === "onboarding") {
+      return emptyStateHtml({
+        icon: "clipboard",
+        title: "No one onboarding",
+        message: "When you hire someone, set their status to Onboarding and complete lifecycle steps here.",
+        actionLabel: "Add employee",
+        actionHref: "#employees",
+        compact: true,
+      });
+    }
+    if (stageId === "active") {
+      return emptyStateHtml({
+        icon: "users",
+        title: "No active employees",
+        message: "Complete onboarding or add staff who are already working.",
+        actionLabel: "Add employee",
+        actionId: "employees-stage-add-btn",
+        compact: true,
+      });
+    }
+    return emptyStateHtml({
+      icon: "user-minus",
+      title: "No leavers in progress",
+      message: "Offboarding workflows appear here when someone is leaving.",
+      actionLabel: "View offboarding",
+      actionHref: "#offboarding",
+      compact: true,
+    });
   }
 
   let activeEmployeeId = null;

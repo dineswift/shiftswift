@@ -683,10 +683,39 @@ window.Admin = (() => {
     return data;
   }
 
-  function renderTableBody(tbody, { columns, rows, emptyMessage = "No records yet." }) {
+  function emptyStateHtml({
+    icon = "folder",
+    title = "",
+    message = "No records yet.",
+    actionLabel = "",
+    actionHref = "",
+    actionId = "",
+    compact = false,
+  } = {}) {
+    const iconSvg = window.AdminIcons?.svg?.(icon) || "";
+    const action =
+      actionLabel && (actionHref || actionId)
+        ? actionHref
+          ? `<a class="btn outline btn-sm admin-empty-state__action" href="${escapeHtml(actionHref)}">${escapeHtml(actionLabel)}</a>`
+          : `<button type="button" class="btn outline btn-sm admin-empty-state__action" id="${escapeHtml(actionId)}">${escapeHtml(actionLabel)}</button>`
+        : "";
+    const titleHtml = title ? `<strong class="admin-empty-state__title">${escapeHtml(title)}</strong>` : "";
+    return `<div class="admin-empty-state${compact ? " admin-empty-state--compact" : ""}">
+      <span class="admin-empty-state__icon" aria-hidden="true">${iconSvg}</span>
+      ${titleHtml}
+      <p class="admin-empty-state__message muted">${message}</p>
+      ${action}
+    </div>`;
+  }
+
+  function renderTableBody(tbody, { columns, rows, emptyMessage = "No records yet.", emptyState = null }) {
     if (!tbody) return;
     if (!rows?.length) {
-      tbody.innerHTML = `<tr><td colspan="${columns.length}" class="muted">${escapeHtml(emptyMessage)}</td></tr>`;
+      if (emptyState) {
+        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="${columns.length}">${emptyStateHtml(emptyState)}</td></tr>`;
+      } else {
+        tbody.innerHTML = `<tr><td colspan="${columns.length}" class="muted">${escapeHtml(emptyMessage)}</td></tr>`;
+      }
       return;
     }
     tbody.innerHTML = rows
@@ -1075,6 +1104,7 @@ window.Admin = (() => {
     mountEditForm,
     readFormPayload,
     renderTableBody,
+    emptyStateHtml,
     initNavigation,
     parseHashPath,
     parseHashBaseSection,

@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v102" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v103" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -104,7 +104,7 @@
           </a>
 
           <p class="nav-section-label">Operations</p>
-          <a class="nav-link" href="#time-punch" data-section="time-punch" data-requires-clock>
+          <a class="nav-link" href="#time-punch" data-section="time-punch">
             <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
             <span class="nav-link__label">Time punch</span>
           </a>
@@ -218,7 +218,7 @@
             <a class="mobile-more-link" href="#disciplinary" data-feature="disciplinary">Disciplinary</a>
             <a class="mobile-more-link" href="#contracts">Service agreements</a>
             <p class="mobile-more-group">Operations</p>
-            <a class="mobile-more-link" href="#time-punch" data-requires-clock>Time punch</a>
+            <a class="mobile-more-link" href="#time-punch">Time punch</a>
             <a class="mobile-more-link" href="#leave">Leave</a>
             <a class="mobile-more-link" href="#templates">HR Templates &amp; AI</a>
             <p class="mobile-more-group">Support</p>
@@ -2313,6 +2313,8 @@
 
               <div id="settings-toast" class="settings-toast" hidden role="status"></div>
 
+              <div id="settings-setup-banner" class="settings-setup-banner" hidden aria-label="Workspace setup progress"></div>
+
               <nav id="settings-hub" class="settings-hub" aria-label="Settings sections"></nav>
 
               <article class="card settings-panel hr-workspace" data-settings-panel="business" hidden>
@@ -2656,25 +2658,25 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=13"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v32"></script>
+    <script src="./admin-shared.js?v=admin-v33"></script>
     <script src="./admin-workspace.js?v=admin-v21"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-settings.js?v=25"></script>
+    <script src="./admin-settings.js?v=26"></script>
     <script src="./admin-documents.js?v=27"></script>
-    <script src="./admin-employees.js?v=22"></script>
+    <script src="./admin-employees.js?v=23"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
     <script src="./admin-crm.js?v=5"></script>
     <script src="./admin-compliance.js?v=admin-v11"></script>
     <script src="./admin-absence.js?v=2"></script>
     <script src="./admin-rtw.js?v=3"></script>
-    <script src="./admin-grievance.js?v=5"></script>
-    <script src="./admin-disciplinary.js?v=1"></script>
+    <script src="./admin-grievance.js?v=6"></script>
+    <script src="./admin-disciplinary.js?v=2"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=32"></script>
     <script src="./admin-rota.js?v=25"></script>
-    <script src="./admin-leave.js?v=1"></script>
+    <script src="./admin-leave.js?v=2"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>
     <script src="./employment-contracts.js?v=2"></script>

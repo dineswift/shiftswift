@@ -1,6 +1,6 @@
 /** Admin — leave and holiday requests. */
 (function initAdminLeave() {
-  const { apiFetch, escapeHtml, parseHashBaseSection } = window.Admin;
+  const { apiFetch, escapeHtml, parseHashBaseSection, emptyStateHtml } = window.Admin;
 
   let sectionReady = false;
   let filterStatus = "pending";
@@ -33,7 +33,18 @@
       const items = data.items || [];
       if (!tbody) return;
       if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="muted">No ${escapeHtml(filterStatus || "")} leave requests.</td></tr>`;
+        const filterLabel = filterStatus === "pending" ? "pending" : filterStatus || "matching";
+        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="7">${emptyStateHtml({
+          icon: "calendar-off",
+          title: filterStatus === "pending" ? "No pending leave requests" : "No leave requests",
+          message:
+            filterStatus === "pending"
+              ? "When staff request holiday or leave in the portal, they appear here for approval."
+              : `No ${filterLabel} leave requests in this view.`,
+          actionLabel: "View employees",
+          actionHref: "#employees",
+          compact: true,
+        })}</td></tr>`;
         return;
       }
       tbody.innerHTML = items
@@ -63,7 +74,17 @@
         btn.addEventListener("click", () => reviewRequest(Number(btn.dataset.id), "rejected"));
       });
     } catch {
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="muted">Could not load leave requests.</td></tr>`;
+      if (tbody) {
+        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="7">${emptyStateHtml({
+          icon: "alert",
+          title: "Could not load leave",
+          message: "Check your connection and try again.",
+          actionLabel: "Retry",
+          actionId: "leave-retry-btn",
+          compact: true,
+        })}</td></tr>`;
+        document.getElementById("leave-retry-btn")?.addEventListener("click", () => loadRequests());
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 /** Settings workspace — left nav, plan badge, business profile, billing, notifications. */
 (function initAdminSettings() {
-  const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS } = window.Admin;
+  const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS, emptyStateHtml } = window.Admin;
 
   const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "addons"];
   const PANEL_ICONS = {
@@ -207,6 +207,7 @@
       workspace?.classList.toggle("settings-workspace--detail", !isHub);
       if (hub) hub.hidden = !isHub;
       if (backBtn) backBtn.hidden = isHub;
+      if (isHub) void renderSettingsSetupBanner();
 
       document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
         panel.hidden = isHub || panel.dataset.settingsPanel !== panelId;
@@ -248,22 +249,67 @@
     const label = document.getElementById("settings-plan-label");
     if (!label) return;
     const businessName = localStorage.getItem("businessName") || "Your business";
+    label.classList.add("settings-plan-label--loading");
+    label.textContent = "Loading plan…";
     try {
       const [overviewRes, billingRes] = await Promise.all([
         apiFetch("/admin/overview"),
         apiFetch("/billing/status"),
       ]);
-      let planName = "Starter";
+      let planName = "Essentials";
       if (overviewRes.ok) {
         const overview = await overviewRes.json();
-        planName = overview.plan_display_name || overview.subscription_plan || "Starter";
+        planName = overview.plan_display_name || overview.subscription_plan || "Essentials";
       } else if (billingRes.ok) {
         const billing = await billingRes.json();
-        planName = (billing.subscription_plan || "starter").replace(/_/g, " ");
+        planName = (billing.subscription_plan || "site_starter_monthly").replace(/_/g, " ");
       }
+      label.classList.remove("settings-plan-label--loading");
       label.textContent = `${planName} plan · ${businessName}`;
     } catch {
-      label.textContent = businessName;
+      label.classList.remove("settings-plan-label--loading");
+      label.innerHTML = `${escapeHtml(businessName)} · <button type="button" class="btn ghost btn-sm" id="settings-plan-retry">Retry</button>`;
+      document.getElementById("settings-plan-retry")?.addEventListener("click", () => loadPlanBadge());
+    }
+  }
+
+  async function renderSettingsSetupBanner() {
+    const host = document.getElementById("settings-setup-banner");
+    if (!host) return;
+    try {
+      const res = await apiFetch("/admin/overview");
+      if (!res.ok) throw new Error("Overview unavailable");
+      const data = await res.json();
+      const checklist = data.setup_checklist;
+      if (!checklist || data.setup_complete) {
+        host.hidden = true;
+        host.innerHTML = "";
+        return;
+      }
+      const steps = [
+        { key: "business_address", label: "Business address", href: "#settings/business" },
+        { key: "first_employee", label: "First employee", href: "#employees" },
+        { key: "rtw_started", label: "Right-to-work check", href: "#compliance-rtw" },
+        { key: "punch_site", label: "Time punch site", href: "#time-punch" },
+        { key: "rota_published", label: "Published rota", href: "#rota" },
+        { key: "accountant_email", label: "Accountant email", href: "#time-punch" },
+      ];
+      const done = steps.filter((step) => checklist[step.key]).length;
+      host.hidden = false;
+      host.innerHTML = `
+        <div class="settings-setup-banner__inner">
+          <div>
+            <strong>Workspace setup · ${done}/${steps.length}</strong>
+            <p class="muted">Finish these steps so clock-in, compliance, and payroll export work smoothly.</p>
+          </div>
+          <div class="settings-setup-banner__actions">
+            <a class="btn outline btn-sm" href="#overview">View checklist</a>
+            <a class="btn ghost btn-sm" href="${escapeHtml(steps.find((s) => !checklist[s.key])?.href || "#settings/business")}">Next step</a>
+          </div>
+        </div>`;
+    } catch {
+      host.hidden = true;
+      host.innerHTML = "";
     }
   }
 

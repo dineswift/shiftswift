@@ -1,6 +1,6 @@
 /** Disciplinary case management — encrypted notes and hearing outcomes. */
 (function () {
-  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection, emptyStateHtml } = window.Admin;
 
   let selectedCaseId = null;
   let sectionReady = false;
@@ -58,7 +58,18 @@
     const tbody = $("disciplinary-cases-body");
     if (!tbody) return;
     if (!cases.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">No open cases. Use the form above to log a disciplinary matter — all records are encrypted.</td></tr>`;
+      tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="5">${emptyStateHtml({
+        icon: "clipboard",
+        title: "No disciplinary cases",
+        message: "Log a matter using the form above — investigation notes are encrypted.",
+        actionLabel: "Open case form",
+        actionId: "disciplinary-scroll-form-btn",
+        compact: true,
+      })}</td></tr>`;
+      document.getElementById("disciplinary-scroll-form-btn")?.addEventListener("click", () => {
+        $("disciplinary-case-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        $("disciplinary-case-form")?.querySelector("input, select, textarea")?.focus();
+      });
       return;
     }
     tbody.innerHTML = cases
@@ -332,10 +343,29 @@
     host.dataset.mounted = "true";
   }
 
+  function renderDetailEmptyState() {
+    const empty = $("disciplinary-case-detail-empty");
+    if (!empty) return;
+    empty.removeAttribute("hidden");
+    empty.innerHTML = emptyStateHtml({
+      icon: "clipboard",
+      title: "No case selected",
+      message: "Select a case from the register to view hearing details and encrypted notes.",
+      actionLabel: "Open case form",
+      actionId: "disciplinary-detail-scroll-form",
+      compact: true,
+    });
+    document.getElementById("disciplinary-detail-scroll-form")?.addEventListener("click", () => {
+      $("disciplinary-case-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("disciplinary-case-form")?.querySelector("input, select, textarea")?.focus();
+    });
+  }
+
   async function initDisciplinarySection() {
     await loadFormOptions();
     await loadEmployees();
     renderStatusWorkflow();
+    renderDetailEmptyState();
     await loadInvestigators();
     mountCaseForm();
     await loadCases();

@@ -1,6 +1,6 @@
 /** Grievance case management — encrypted notes, ACAS deadlines, case workspace. */
 (function () {
-  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection, emptyStateHtml } = window.Admin;
 
   let selectedCaseId = null;
   let sectionReady = false;
@@ -86,7 +86,18 @@
     const tbody = $("grievance-cases-body");
     if (!tbody) return;
     if (!cases.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="muted">No open cases. Use the form above to log a grievance — all records are encrypted and ACAS-deadline tracked.</td></tr>`;
+      tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
+        icon: "scale",
+        title: "No grievance cases",
+        message: "Log a case using the form above — notes are encrypted and ACAS deadlines are tracked automatically.",
+        actionLabel: "Open case form",
+        actionId: "grievance-scroll-form-btn",
+        compact: true,
+      })}</td></tr>`;
+      document.getElementById("grievance-scroll-form-btn")?.addEventListener("click", () => {
+        $("grievance-case-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        $("grievance-case-form")?.querySelector("input, select, textarea")?.focus();
+      });
       return;
     }
     tbody.innerHTML = cases
@@ -392,10 +403,29 @@
     host.dataset.mounted = "true";
   }
 
+  function renderDetailEmptyState() {
+    const empty = $("grievance-case-detail-empty");
+    if (!empty) return;
+    empty.removeAttribute("hidden");
+    empty.innerHTML = emptyStateHtml({
+      icon: "scale",
+      title: "No case selected",
+      message: "Select a case from the register to view ACAS deadlines and encrypted notes.",
+      actionLabel: "Open case form",
+      actionId: "grievance-detail-scroll-form",
+      compact: true,
+    });
+    document.getElementById("grievance-detail-scroll-form")?.addEventListener("click", () => {
+      $("grievance-case-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("grievance-case-form")?.querySelector("input, select, textarea")?.focus();
+    });
+  }
+
   async function initGrievanceSection() {
     await loadFormOptions();
     await loadEmployees();
     renderStatusWorkflow();
+    renderDetailEmptyState();
     await loadInvestigators();
     mountCaseForm();
     await loadCases();
