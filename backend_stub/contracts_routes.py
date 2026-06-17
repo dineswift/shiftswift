@@ -94,7 +94,7 @@ def get_contracts(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
-        items = list_contracts(conn, tenant_id)
+        items = list_contracts(conn, tenant_id, tenant_portal=True)
     finally:
         conn.close()
     return {"items": items, "count": len(items)}
@@ -121,7 +121,7 @@ def get_contract(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
-        return get_contract_detail(conn, contract_id=contract_id, tenant_id=tenant_id)
+        return get_contract_detail(conn, contract_id=contract_id, tenant_id=tenant_id, tenant_portal=True)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:

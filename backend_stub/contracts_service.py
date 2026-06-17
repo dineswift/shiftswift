@@ -12,6 +12,9 @@ from typing import Any
 TEMPLATES_DIR = Path(__file__).resolve().parent / "contract_templates"
 STORAGE_DIR = Path(os.getenv("CONTRACTS_STORAGE_DIR", Path(__file__).resolve().parent / "storage" / "contracts"))
 
+# Draft/generated packs stay on Master until sent — tenant portal only sees issued agreements.
+TENANT_PORTAL_CONTRACT_STATUSES = frozenset({"sent", "signed", "declined", "expired"})
+
 TEMPLATE_REGISTRY = {
     "msa": {"name": "Master Services Agreement", "file": "msa.html"},
     "dpa": {"name": "Data Processing Addendum", "file": "dpa.html"},
@@ -483,7 +486,13 @@ def list_contract_events(conn: Any, *, contract_id: int, tenant_id: int) -> list
     ]
 
 
-def get_contract_detail(conn: Any, *, contract_id: int, tenant_id: int) -> dict[str, Any]:
+def get_contract_detail(
+    conn: Any,
+    *,
+    contract_id: int,
+    tenant_id: int,
+    tenant_portal: bool = False,
+) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -499,6 +508,8 @@ def get_contract_detail(conn: Any, *, contract_id: int, tenant_id: int) -> dict[
         )
         row = cur.fetchone()
     if not row:
+        raise LookupError("contract not found")
+    if tenant_portal and row[4] not in TENANT_PORTAL_CONTRACT_STATUSES:
         raise LookupError("contract not found")
     events = list_contract_events(conn, contract_id=contract_id, tenant_id=tenant_id)
     return {
@@ -521,15 +532,16 @@ def get_contract_detail(conn: Any, *, contract_id: int, tenant_id: int) -> dict[
     }
 
 
-def list_contracts(conn: Any, tenant_id: int) -> list[dict[str, Any]]:
+def list_contracts(conn: Any, tenant_id: int, *, tenant_portal: bool = False) -> list[dict[str, Any]]:
+    portal_filter = " AND c.status IN ('sent', 'signed', 'declined', 'expired')" if tenant_portal else ""
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT c.id, c.template_id, t.name, c.contract_number, c.status,
                    c.customer_legal_name, c.signatory_email, c.sent_at, c.signed_at, c.created_at
             FROM tenant_contracts c
             JOIN contract_templates t ON t.id = c.template_id
-            WHERE c.tenant_id = %s
+            WHERE c.tenant_id = %s{portal_filter}
             ORDER BY c.created_at DESC
             """,
             (tenant_id,),
