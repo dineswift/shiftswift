@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v109" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v110" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1575,76 +1575,84 @@
             </div>
           </header>
 
-          <div class="contracts-status-workflow" aria-label="Employment contract workflow">
-            <span class="contracts-workflow-step">Choose template</span>
-            <span class="contracts-workflow-arrow" aria-hidden="true">→</span>
-            <span class="contracts-workflow-step">Generate</span>
-            <span class="contracts-workflow-arrow" aria-hidden="true">→</span>
-            <span class="contracts-workflow-step">Employee signs</span>
-            <span class="contracts-workflow-arrow" aria-hidden="true">→</span>
-            <span class="contracts-workflow-step">Stored on file</span>
-          </div>
+          <div class="contracts-status-workflow" id="employment-contracts-status-workflow" aria-label="Employment contract workflow"></div>
 
-          <div id="employment-template-sync-note" class="promo-result promo-result-message" style="margin-bottom:14px;">
+          <div id="employment-template-sync-note" class="promo-result promo-result-message employment-sync-note">
             <p><strong>Platform sync:</strong> Employment templates live in the HR template catalog (category: contracts). When UK law changes, we publish a new platform version — tenants with custom edits see “Update available” in HR Templates.</p>
           </div>
 
-          <div class="contracts-workspace-layout">
+          <div class="employment-contracts-workspace contracts-workspace-layout" id="employment-contracts-workspace">
             <div class="contracts-main-pane">
-              <article class="hr-surface-panel hr-log-panel contracts-generate-panel">
-                <h4 class="hr-section-title">How it works</h4>
-                <ol class="muted" style="margin:0 0 12px 1.25rem;line-height:1.6;">
-                  <li><strong>Customise templates</strong> in HR Templates (Markdown) — or use platform defaults.</li>
-                  <li><strong>Generate</strong> below — merges employee + business details into the contract.</li>
-                  <li><strong>Send for e-signature</strong> — employee receives a link; they sign in the browser (HTML, not PDF).</li>
-                  <li><strong>Signed copy</strong> is saved automatically to the employee document store.</li>
-                </ol>
+              <article class="hr-surface-panel hr-log-panel contracts-generate-panel" id="employment-contracts-generate-panel">
                 <h4 class="hr-section-title">Generate employment contract</h4>
-                <p class="muted">Prefills employee and employer details from the employee profile and business settings. Employee must have an email address before sending for signature.</p>
-                <form id="employment-contract-generate-form" class="edit-form edit-form--cols-2">
-                  <label class="edit-field"><span class="edit-label">Employee</span>
+                <p class="muted employment-generate-hint">Prefills employee and employer details from the profile and business settings. Employee needs an email before sending for signature.</p>
+                <form id="employment-contract-generate-form" class="employment-contract-generate-row">
+                  <label class="edit-field employment-contract-field">
+                    <span class="edit-label">Employee</span>
                     <select name="employee_id" id="employment-contract-employee" required></select>
                   </label>
-                  <label class="edit-field"><span class="edit-label">Template</span>
+                  <label class="edit-field employment-contract-field">
+                    <span class="edit-label">Template</span>
                     <select name="template_id" id="employment-contract-template" required></select>
                   </label>
-                  <div class="edit-form-actions" data-span="2">
+                  <div class="employment-contract-generate-actions">
                     <button type="submit" class="btn">Generate contract</button>
                   </div>
                 </form>
+                <p class="muted" id="employment-contract-email-hint" hidden></p>
                 <p class="muted" id="employment-contract-generate-status"></p>
+                <p class="muted employment-generate-foot">
+                  <a href="#templates">Customise templates</a> ·
+                  <a href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS guidance</a>
+                </p>
               </article>
 
-              <h4 class="hr-section-title">Template library (contracts category)</h4>
-              <div id="employment-template-list" class="hr-template-library">
-                <p class="muted">Open this section to load templates…</p>
-              </div>
+              <article class="hr-surface-panel employment-template-panel">
+                <h4 class="hr-section-title">Template library (contracts)</h4>
+                <p class="muted employment-template-panel-hint">Job offer letters are for candidates — use <a href="#recruitment">Recruitment</a> before employment starts.</p>
+                <div id="employment-template-list" class="hr-template-library">
+                  <p class="muted">Open this section to load templates…</p>
+                </div>
+              </article>
 
-              <h4 class="hr-section-title">Employment contract register</h4>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Employee</th>
-                      <th>Template</th>
-                      <th>Status</th>
-                      <th>Version</th>
-                      <th>Signed</th>
-                    </tr>
-                  </thead>
-                  <tbody id="employment-contracts-body">
-                    <tr><td colspan="6" class="muted">Open this section to load contracts…</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              <article class="hr-surface-panel employment-register-panel">
+                <h4 class="hr-section-title">Employment contract register</h4>
+                <div class="hr-table-wrap employment-contracts-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Employee</th>
+                        <th>Template</th>
+                        <th>Status</th>
+                        <th>Version</th>
+                        <th>Signed</th>
+                      </tr>
+                    </thead>
+                    <tbody id="employment-contracts-body">
+                      <tr><td colspan="6" class="muted">Open this section to load contracts…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel employment-contracts-guide-panel" id="employment-contracts-guide-panel">
+                <h4 class="hr-section-title">How it works</h4>
+                <ul class="employment-contracts-checklist">
+                  <li><strong>Customise</strong> templates in HR Templates — or use platform defaults.</li>
+                  <li><strong>Generate</strong> — merges employee + business details into the contract.</li>
+                  <li><strong>Send for e-signature</strong> — employee signs in the browser.</li>
+                  <li><strong>Signed copy</strong> is saved to the employee document store automatically.</li>
+                </ul>
+              </article>
             </div>
 
-            <aside class="contracts-detail-panel" id="employment-contracts-detail-panel">
-              <div id="employment-contracts-detail-empty" class="contracts-detail-empty muted">
-                <p>Select a contract to preview, send to the employee for signature, or open their document store.</p>
-              </div>
-              <div id="employment-contracts-detail-content" hidden></div>
+            <aside class="contracts-detail-panel employment-contracts-detail-panel" id="employment-contracts-detail-panel" hidden>
+              <header class="hr-detail-panel__head employment-contracts-detail-head">
+                <h4 class="employment-contracts-detail-title">Contract detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="employment-contract-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="employment-contracts-detail-content" class="employment-contracts-detail-body" hidden></div>
             </aside>
           </div>
 
@@ -2699,7 +2707,7 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=13"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v36"></script>
+    <script src="./admin-shared.js?v=admin-v37"></script>
     <script src="./admin-settings.js?v=27"></script>
     <script src="./admin-workspace.js?v=admin-v22"></script>
     <script src="./admin-address-picker.js?v=4"></script>
@@ -2720,7 +2728,7 @@
     <script src="./admin-leave.js?v=2"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>
-    <script src="./employment-contracts.js?v=2"></script>
+    <script src="./employment-contracts.js?v=3"></script>
       <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

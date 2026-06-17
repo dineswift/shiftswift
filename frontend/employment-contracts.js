@@ -1,9 +1,27 @@
 /** Employment contracts — generate from ACAS-aligned templates, send to employees, store signed copies. */
 (function () {
-  const { apiFetch, loadFormOptions, loadEmployees, escapeHtml, parseHashBaseSection } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, escapeHtml, parseHashBaseSection, emptyStateHtml } = window.Admin;
+
+  const WORKFLOW_STEPS = [
+    { id: "choose", label: "Choose template" },
+    { id: "generate", label: "Generate" },
+    { id: "sign", label: "Employee signs" },
+    { id: "stored", label: "Stored on file" },
+  ];
+
+  const TEMPLATE_BY_EMPLOYMENT_TYPE = {
+    full_time: "contract_full_time",
+    part_time: "contract_part_time",
+    zero_hours: "contract_zero_hours",
+    fixed_term: "contract_fixed_term",
+    casual: "contract_zero_hours",
+  };
+
+  const PRE_CONTRACT_TEMPLATE_IDS = new Set(["job_offer_letter_acas"]);
 
   let contracts = [];
   let templates = [];
+  let employeeOptions = [];
   let selectedContractId = null;
   let generateBound = false;
   let sectionBound = false;
@@ -43,11 +61,102 @@
     }
   }
 
+  function daysSince(value) {
+    if (!value) return null;
+    const then = new Date(value);
+    then.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((today - then) / 86400000);
+  }
+
+  function parseStartEmployeeFromHash() {
+    const parts = window.location.hash.replace("#", "").split("/").filter(Boolean);
+    if (parts[0] !== "employment-contracts" || parts[1] !== "start" || !parts[2]) return null;
+    const id = Number(parts[2]);
+    return Number.isFinite(id) ? id : null;
+  }
+
   function sourceBadge(row) {
-    if (row.template_source === "acas") {
+    if (row.template_source === "acas" || row.source === "acas") {
       return `<span class="status-pill status-ok">ACAS-aligned</span>`;
     }
     return `<span class="status-pill">ShiftSwift</span>`;
+  }
+
+  function computeStepStates(row) {
+    if (!row) {
+      return WORKFLOW_STEPS.map((step) => ({ ...step, state: "pending" }));
+    }
+    const status = row.status;
+    if (status === "signed") {
+      return WORKFLOW_STEPS.map((step) => ({ ...step, state: "done" }));
+    }
+    if (status === "declined" || status === "expired") {
+      return WORKFLOW_STEPS.map((step, index) => ({
+        ...step,
+        state: index < 2 ? "done" : "pending",
+      }));
+    }
+    if (status === "sent") {
+      return WORKFLOW_STEPS.map((step) => {
+        if (step.id === "choose" || step.id === "generate") return { ...step, state: "done" };
+        if (step.id === "sign") return { ...step, state: "active" };
+        return { ...step, state: "pending" };
+      });
+    }
+    return WORKFLOW_STEPS.map((step) => {
+      if (step.id === "choose") return { ...step, state: "done" };
+      if (step.id === "generate") return { ...step, state: "active" };
+      return { ...step, state: "pending" };
+    });
+  }
+
+  function renderStatusWorkflow(row) {
+    const host = $("employment-contracts-status-workflow");
+    if (!host) return;
+    const states = computeStepStates(row);
+    host.innerHTML = states
+      .map((step, index) => {
+        const stepClass =
+          step.state === "pending" ? "contracts-workflow-step" : `contracts-workflow-step contracts-workflow-step--${step.state}`;
+        const arrow =
+          index < states.length - 1 ? '<span class="contracts-workflow-arrow" aria-hidden="true">→</span>' : "";
+        return `<span class="${stepClass}">${escapeHtml(step.label)}</span>${arrow}`;
+      })
+      .join("");
+  }
+
+  function syncDetailLayout() {
+    const workspace = $("employment-contracts-workspace");
+    const panel = $("employment-contracts-detail-panel");
+    const guide = $("employment-contracts-guide-panel");
+    const hasSelection = Boolean(selectedContractId);
+    workspace?.classList.toggle("employment-contracts-workspace--detail-open", hasSelection);
+    if (panel) panel.hidden = !hasSelection;
+    if (guide) guide.hidden = hasSelection;
+    const row = contracts.find((c) => c.id === selectedContractId);
+    renderStatusWorkflow(row || null);
+  }
+
+  function clearSelection() {
+    selectedContractId = null;
+    const content = $("employment-contracts-detail-content");
+    if (content) content.hidden = true;
+    renderContractsTable();
+    syncDetailLayout();
+  }
+
+  function signedColumnHtml(row) {
+    if (row.signed_at) return escapeHtml(formatDate(row.signed_at));
+    if (row.sent_at) {
+      const days = daysSince(row.sent_at);
+      const cls =
+        days != null && days > 7 ? "employment-awaiting-pill employment-awaiting-pill--stale" : "employment-awaiting-pill";
+      const label = days != null && days > 0 ? `Awaiting ${days}d` : "Awaiting signature";
+      return `<span class="${cls}">${escapeHtml(label)}</span>`;
+    }
+    return '<span class="muted">Not sent</span>';
   }
 
   async function loadTemplates() {
@@ -68,22 +177,28 @@
     const list = $("employment-template-list");
     if (!list) return;
     if (!templates.length) {
-      list.innerHTML = '<p class="muted">No employment contract templates seeded. Run scripts/seed_hr_templates.py after migration 048.</p>';
+      list.innerHTML =
+        '<p class="muted">No employment contract templates seeded. Run <code>python scripts/seed_hr_templates.py</code> after deploy.</p>';
       return;
     }
     list.innerHTML = templates
-      .map(
-        (tpl) => `<div class="hr-template-card">
+      .map((tpl) => {
+        const preContract = PRE_CONTRACT_TEMPLATE_IDS.has(tpl.id);
+        return `<div class="hr-template-card${preContract ? " hr-template-card--precontract" : ""}">
           <div class="hr-template-card__head">
             <strong>${escapeHtml(tpl.title)}</strong>
             ${tpl.update_available ? '<span class="status-pill status-warning">Update available</span>' : ""}
+            ${preContract ? '<span class="status-pill">Pre-employment</span>' : ""}
           </div>
           <p class="muted">${escapeHtml(tpl.description || "")}</p>
           <p class="muted" style="font-size:0.85rem;">Platform v${escapeHtml(tpl.platform_version)} · ${sourceBadge({ template_source: tpl.source })}</p>
           ${tpl.source_url ? `<p class="muted" style="font-size:0.85rem;"><a href="${escapeHtml(tpl.source_url)}" target="_blank" rel="noopener">ACAS source →</a></p>` : ""}
-          <p style="margin-top:8px;"><a class="btn ghost" href="#templates" data-template-edit="${escapeHtml(tpl.id)}">Customise in HR Templates</a></p>
-        </div>`
-      )
+          <p style="margin-top:8px;">
+            <a class="btn ghost" href="#templates" data-template-edit="${escapeHtml(tpl.id)}">Customise in HR Templates</a>
+            ${preContract ? '<a class="btn ghost" href="#recruitment">Use in Recruitment</a>' : ""}
+          </p>
+        </div>`;
+      })
       .join("");
   }
 
@@ -91,8 +206,17 @@
     const tbody = $("employment-contracts-body");
     if (!tbody) return;
     if (!contracts.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" class="muted">No employment contracts yet. Generate one for an employee using a template above.</td></tr>';
+      tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
+        icon: "file-text",
+        title: "No employment contracts yet",
+        message: "Generate a contract for an employee using a template above.",
+        actionLabel: "Scroll to generate",
+        actionId: "employment-contracts-scroll-generate",
+        compact: true,
+      })}</td></tr>`;
+      document.getElementById("employment-contracts-scroll-generate")?.addEventListener("click", () => {
+        $("employment-contracts-generate-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
     tbody.innerHTML = contracts
@@ -104,7 +228,7 @@
           <td>${escapeHtml(row.title)}</td>
           <td>${statusBadge(row.status)}</td>
           <td>v${escapeHtml(row.platform_template_version || "?")}</td>
-          <td>${row.signed_at ? escapeHtml(formatDate(row.signed_at)) : row.sent_at ? '<span class="muted">Awaiting signature</span>' : '<span class="muted">Not sent</span>'}</td>
+          <td>${signedColumnHtml(row)}</td>
         </tr>`;
       })
       .join("");
@@ -121,23 +245,28 @@
       if (!res.ok) throw new Error("Load failed");
       const data = await res.json();
       contracts = data.items || [];
+      if (selectedContractId && !contracts.some((c) => c.id === selectedContractId)) {
+        selectedContractId = null;
+      }
       renderContractsTable();
-      if (selectedContractId && contracts.some((c) => c.id === selectedContractId)) {
+      if (selectedContractId) {
         await selectContract(selectedContractId, { scroll: false });
+      } else {
+        syncDetailLayout();
       }
     } catch {
       contracts = [];
+      selectedContractId = null;
       if (tbody) {
         tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load employment contracts.</td></tr>';
       }
+      syncDetailLayout();
     }
   }
 
   function renderDetailPanel(data) {
-    const empty = $("employment-contracts-detail-empty");
     const content = $("employment-contracts-detail-content");
     if (!content) return;
-    empty?.setAttribute("hidden", "");
     content.hidden = false;
     const preview = data.html
       ? `<div class="contracts-preview-wrap"><div class="contracts-preview">${data.html}</div></div>`
@@ -154,21 +283,18 @@
         <div><dt>Email</dt><dd>${escapeHtml(data.employee_email || "Not set")}</dd></div>
         <div><dt>Template</dt><dd>${escapeHtml(data.title)} (v${escapeHtml(data.platform_template_version)})</dd></div>
         <div><dt>Source</dt><dd>${data.template_source === "acas" ? "ACAS-aligned" : "ShiftSwift"}${data.template_source_url ? ` · <a href="${escapeHtml(data.template_source_url)}" target="_blank" rel="noopener">View guidance</a>` : ""}</dd></div>
-        ${data.employee_document_id ? `<div><dt>Employee file</dt><dd>Saved to document store (#${escapeHtml(data.employee_document_id)}) — visible to the employee in <strong>Employee portal → My documents</strong> after sign.</dd></div>` : ""}
+        ${data.employee_document_id ? `<div><dt>Employee file</dt><dd>Saved to document store (#${escapeHtml(data.employee_document_id)})</dd></div>` : ""}
       </dl>
       ${preview}
       <div class="hr-detail-foot">
         ${data.status !== "signed" && data.employee_email ? `<button type="button" class="btn" id="employment-contract-send-btn">Send for e-signature</button>` : ""}
         <a class="btn ghost" href="#employees/${escapeHtml(data.employee_id)}/document_store">Open employee documents</a>
       </div>
-      <p class="muted" style="font-size:0.9rem;margin-top:10px;">
-        <strong>Format:</strong> HTML contract in the browser — employee signs electronically at
-        <code>sign-contract.html?token=…&amp;type=employment</code>. Signed copy is stored as HTML in the employee document store (not PDF unless you upload one separately).
-      </p>
       ${!data.employee_email ? `<p class="promo-result promo-result-message promo-result--error" style="margin-top:10px;">Add an email on the employee profile before sending.</p>` : ""}
       <div id="employment-signing-link-box" class="signing-link-box" hidden></div>
       <p class="muted" id="employment-contract-action-status"></p>`;
     content.querySelector("#employment-contract-send-btn")?.addEventListener("click", () => sendContract(data.id));
+    syncDetailLayout();
   }
 
   async function selectContract(id, { scroll = true } = {}) {
@@ -183,6 +309,7 @@
     } catch (error) {
       const status = $("employment-contract-action-status");
       if (status) status.textContent = error.message || "Could not load contract";
+      syncDetailLayout();
     }
   }
 
@@ -210,10 +337,63 @@
     }
   }
 
+  function suggestTemplateId(employeeId) {
+    const emp = employeeOptions.find((e) => String(e.id) === String(employeeId) || e.value === String(employeeId));
+    if (!emp?.employment_type) return null;
+    const suggested = TEMPLATE_BY_EMPLOYMENT_TYPE[emp.employment_type];
+    if (!suggested || !templates.some((t) => t.id === suggested)) return null;
+    return suggested;
+  }
+
+  function syncEmployeeEmailHint(employeeId) {
+    const hint = $("employment-contract-email-hint");
+    if (!hint) return;
+    const emp = employeeOptions.find((e) => String(e.id) === String(employeeId) || e.value === String(employeeId));
+    if (!emp) {
+      hint.hidden = true;
+      return;
+    }
+    if (emp.email) {
+      hint.hidden = true;
+      return;
+    }
+    hint.hidden = false;
+    hint.textContent = "This employee has no email — add one on their profile before you can send for signature.";
+    hint.className = "promo-result promo-result-message promo-result--error";
+  }
+
+  function applySuggestedTemplate(employeeId) {
+    const templateSelect = $("employment-contract-template");
+    if (!templateSelect || !employeeId) return;
+    const suggested = suggestTemplateId(employeeId);
+    if (suggested) templateSelect.value = suggested;
+    syncEmployeeEmailHint(employeeId);
+  }
+
+  function applyStartEmployeeFromHash() {
+    const employeeId = parseStartEmployeeFromHash();
+    if (!employeeId) return;
+    const select = $("employment-contract-employee");
+    if (!select) return;
+    if ([...select.options].some((opt) => opt.value === String(employeeId))) {
+      select.value = String(employeeId);
+      applySuggestedTemplate(employeeId);
+    }
+    const panel = $("employment-contracts-generate-panel");
+    panel?.classList.add("employment-contracts-generate-panel--highlight");
+    window.setTimeout(() => panel?.classList.remove("employment-contracts-generate-panel--highlight"), 2400);
+    panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function bindGenerateForm() {
     if (generateBound) return;
     const form = $("employment-contract-generate-form");
     if (!form) return;
+
+    $("employment-contract-employee")?.addEventListener("change", (event) => {
+      applySuggestedTemplate(event.target.value);
+    });
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const status = $("employment-contract-generate-status");
@@ -221,6 +401,11 @@
       const templateId = form.template_id.value;
       if (!employeeId || !templateId) {
         if (status) status.textContent = "Select an employee and template.";
+        return;
+      }
+      const emp = employeeOptions.find((e) => e.value === String(employeeId));
+      if (!emp?.email) {
+        if (status) status.textContent = "Add an email on the employee profile before generating (required for e-signature).";
         return;
       }
       if (status) status.textContent = "Generating…";
@@ -232,25 +417,28 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Generation failed");
         if (status) status.textContent = "Contract generated.";
-        form.reset();
         await loadContracts();
         if (data.contract?.id) await selectContract(data.contract.id);
       } catch (error) {
         if (status) status.textContent = error.message || "Generation failed";
       }
     });
+
+    $("employment-contract-detail-close")?.addEventListener("click", () => clearSelection());
     generateBound = true;
   }
 
   async function populateGenerateSelects() {
     await loadFormOptions();
-    const employees = await loadEmployees();
+    employeeOptions = await loadEmployees();
     const employeeSelect = $("employment-contract-employee");
     const templateSelect = $("employment-contract-template");
     if (employeeSelect) {
       employeeSelect.innerHTML =
         `<option value="">Select employee…</option>` +
-        employees.map((emp) => `<option value="${escapeHtml(emp.value)}">${escapeHtml(emp.label)}</option>`).join("");
+        employeeOptions
+          .map((emp) => `<option value="${escapeHtml(emp.value)}">${escapeHtml(emp.label)}</option>`)
+          .join("");
     }
     if (templateSelect) {
       templateSelect.innerHTML =
@@ -262,10 +450,15 @@
           )
           .join("");
     }
+    const startId = parseStartEmployeeFromHash();
+    if (startId) {
+      applyStartEmployeeFromHash();
+    }
   }
 
   async function initEmploymentContractsSection() {
     bindGenerateForm();
+    syncDetailLayout();
     await loadTemplates();
     await populateGenerateSelects();
     await loadContracts();
@@ -276,6 +469,10 @@
     sectionBound = true;
     window.addEventListener("admin:section", (event) => {
       if (event.detail?.section === "employment-contracts") initEmploymentContractsSection();
+    });
+    window.addEventListener("hashchange", () => {
+      if (parseHashBaseSection(window.location.hash) !== "employment-contracts") return;
+      applyStartEmployeeFromHash();
     });
     if (parseHashBaseSection(window.location.hash) === "employment-contracts") initEmploymentContractsSection();
   }

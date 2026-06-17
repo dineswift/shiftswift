@@ -1187,6 +1187,185 @@ Signature: __________ Date: __________
 _Ensure hourly rate and holiday pro-rata calculations are checked each April (NMW/NLW updates). Solicitor review required before use._""",
     },
     {
+        "id": "contract_zero_hours",
+        "category": "contracts",
+        "title": "Employment contract — Zero-hours / casual",
+        "description": "Zero-hours or casual hospitality contract — no guaranteed hours, NMW/NLW and Working Time protections.",
+        "sort_order": 135,
+        "version": "1.0",
+        "legal_basis": "Employment Rights Act 1996; National Minimum Wage Act 1998; Working Time Regulations 1998",
+        "change_summary": "Initial release — zero-hours hospitality contract with ACAS-aligned particulars structure.",
+        "source": "acas",
+        "source_url": "https://www.acas.org.uk/templates/written-statement-templates",
+        "source_label": "ACAS written statement of employment particulars",
+        "content_markdown": """# Contract of employment — Zero-hours / casual
+
+**This document is a template only.** Have it reviewed by qualified UK employment solicitors before use. ShiftSwift HR does not provide legal advice.
+
+---
+
+## 1. Parties
+
+**Employer:** __________  
+**Employee:** __________  
+**Start date:** __________  
+
+---
+
+## 2. Zero-hours status
+
+The employee is engaged on a **zero-hours** basis. There is **no guarantee** of minimum hours each week. Hours will be offered as business needs require and the employee may accept or decline shifts offered in line with your rota process.
+
+**Typical shift pattern (if any):** __________  
+
+---
+
+## 3. Job title and duties
+
+**Job title:** __________  
+**Main duties:** __________  
+
+---
+
+## 4. Place of work
+
+**Primary site:** __________  
+**Other locations:** As reasonably required  
+
+---
+
+## 5. Pay
+
+**Hourly rate:** £__________ (must meet National Minimum Wage / National Living Wage for age band)  
+**Pay interval:** Weekly / fortnightly / monthly (BACS)  
+**Overtime:** __________  
+
+---
+
+## 6. Hours and Working Time Regulations
+
+- Maximum weekly working time limits apply (including averaging where agreed).  
+- Rest breaks and rest periods as per Working Time Regulations 1998.  
+- **Opt-out of 48-hour week (if applicable):** __________  
+
+---
+
+## 7. Holiday
+
+**Annual leave (pro-rata to hours worked):** __________ days  
+**Holiday year:** __________  
+
+---
+
+## 8. Notice periods
+
+**Employee notice:** __________  
+**Employer notice:** __________ (statutory minimum applies)  
+
+---
+
+## 9. Disciplinary and grievance
+
+ACAS-aligned procedures — see staff handbook / separate policies.
+
+---
+
+## 10. Confidentiality
+
+Employee must not disclose confidential business information during or after employment except as required by law.
+
+---
+
+**Employee signature:** __________ **Date:** __________  
+**Employer signature:** __________ **Date:** __________  
+
+---
+_Check hourly rate each April when NMW/NLW rates change. Solicitor review required before issue._""",
+    },
+    {
+        "id": "contract_fixed_term",
+        "category": "contracts",
+        "title": "Employment contract — Fixed-term / seasonal",
+        "description": "Fixed-term contract for seasonal, event, or visa-limited hospitality roles with end date.",
+        "sort_order": 145,
+        "version": "1.0",
+        "legal_basis": "Employment Rights Act 1996; Fixed-term Employees (Prevention of Less Favourable Treatment) Regulations 2002",
+        "change_summary": "Initial release — fixed-term hospitality contract with end date and renewal clause.",
+        "source": "acas",
+        "source_url": "https://www.acas.org.uk/templates/written-statement-templates",
+        "source_label": "ACAS written statement templates",
+        "content_markdown": """# Contract of employment — Fixed-term / seasonal
+
+**This document is a template only.** Have it reviewed by qualified UK employment solicitors before use. ShiftSwift HR does not provide legal advice.
+
+---
+
+## 1. Parties and term
+
+**Employer:** __________  
+**Employee:** __________  
+**Start date:** __________  
+**End date (fixed term):** __________  
+**Reason for fixed term:** Seasonal demand / cover / project / other: __________  
+
+Employment ends automatically on the end date unless renewed in writing. Fixed-term employees must not be treated less favourably than comparable permanent staff unless objectively justified.
+
+---
+
+## 2. Job title and duties
+
+**Job title:** __________  
+**Duties:** __________  
+
+---
+
+## 3. Place of work
+
+**Location(s):** __________  
+
+---
+
+## 4. Hours and pay
+
+**Hours per week (expected):** __________  
+**Salary / hourly rate:** £__________ per __________  
+**Pay interval:** __________  
+
+---
+
+## 5. Holiday and sick pay
+
+**Annual leave:** __________ days (pro-rata if applicable)  
+**Sick pay:** Statutory Sick Pay and any company sick pay: __________  
+
+---
+
+## 6. Notice
+
+**During fixed term:** __________  
+**On expiry:** Employment ends on end date unless extended by written agreement.  
+
+---
+
+## 7. Renewal / extension
+
+Any extension must be agreed in writing before the end date. If employment continues after end date without new agreement, seek legal advice on permanent status.
+
+---
+
+## 8. Disciplinary and grievance
+
+ACAS-aligned procedures apply.
+
+---
+
+**Employee signature:** __________ **Date:** __________  
+**Employer signature:** __________ **Date:** __________  
+
+---
+_Review fixed-term fairness and renewal rules with employment solicitors. For sponsored workers, align end date with visa permission._""",
+    },
+    {
         "id": "written_statement_acas",
         "category": "contracts",
         "title": "Written statement of employment particulars",

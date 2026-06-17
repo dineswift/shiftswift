@@ -534,6 +534,7 @@ window.Admin = (() => {
       status: emp.status,
       job_title: emp.job_title,
       email: emp.email,
+      employment_type: emp.employment_type || "full_time",
     }));
     if (!formOptions) formOptions = {};
     formOptions.employees = options;

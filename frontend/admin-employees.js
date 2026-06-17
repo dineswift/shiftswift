@@ -950,6 +950,7 @@
     host.innerHTML = `
       ${sponsored ? '<a href="#compliance" class="btn ghost">Sponsor compliance</a>' : ""}
       <a href="#grievance" class="btn ghost">Grievance cases</a>
+      <a href="${employee?.id || activeEmployeeId ? `#employment-contracts/start/${employee?.id || activeEmployeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
       <a href="${employee?.id || activeEmployeeId ? `#offboarding/start/${employee?.id || activeEmployeeId}` : "#offboarding"}" class="btn ghost">Off-boarding workflow</a>
       <a href="#time-punch" class="btn ghost">Time punch</a>`;
   }
