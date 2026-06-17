@@ -162,6 +162,27 @@ def punch_status(
         conn.close()
 
 
+@employee_router.get("/my-timesheet")
+def my_timesheet(
+    current_user: Annotated[AuthUser, Depends(get_employee_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    week_start: str | None = None,
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    parsed = _parse_optional_date(week_start, "week_start") if week_start else None
+    conn = get_connection()
+    try:
+        employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
+        return timesheet_service.employee_weekly_timesheet(
+            tenant_id=tenant_id,
+            employee_id=int(employee["id"]),
+            week_start=parsed,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+
+
 @employee_router.post("/preview")
 def punch_preview(
     payload: GeofencePreviewRequest,

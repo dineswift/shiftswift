@@ -12673,6 +12673,187 @@ body.employee-portal.employee-clock-disabled [data-requires-clock] {
   display: none !important;
 }
 
+.employee-timesheet-card {
+  margin-top: 14px;
+}
+
+.employee-timesheet__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.employee-timesheet__title {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  color: var(--green-900);
+}
+
+.employee-timesheet__lead {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.employee-timesheet__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.employee-timesheet__week {
+  min-width: 7.5rem;
+  text-align: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--green-900);
+}
+
+.employee-timesheet__toolbar {
+  margin-bottom: 10px;
+}
+
+.employee-timesheet-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--green-100);
+}
+
+.employee-timesheet-summary__hours {
+  font-size: 0.92rem;
+  color: var(--green-900);
+}
+
+.employee-timesheet-summary__break {
+  font-size: 0.84rem;
+}
+
+.employee-timesheet-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.employee-timesheet-pill--ok {
+  background: #ecfdf5;
+  color: var(--green-800);
+}
+
+.employee-timesheet-pill--warn {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.employee-timesheet-pill--danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.employee-timesheet-days {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.employee-timesheet-day {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+.employee-timesheet-day--empty {
+  opacity: 0.72;
+}
+
+.employee-timesheet-day--warn {
+  border-color: rgba(154, 52, 18, 0.25);
+  background: #fffbf7;
+}
+
+.employee-timesheet-day__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.employee-timesheet-day__label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--green-900);
+}
+
+.employee-timesheet-day__date {
+  font-size: 0.8rem;
+}
+
+.employee-timesheet-day__hours {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--green-800);
+}
+
+.employee-timesheet-day__segments,
+.employee-timesheet-day__punches {
+  margin: 0 0 6px;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--gray-700);
+}
+
+.employee-timesheet-day__punches {
+  list-style: none;
+  padding-left: 0;
+}
+
+.employee-timesheet-day__punches li {
+  margin-bottom: 4px;
+}
+
+.employee-timesheet-day__break,
+.employee-timesheet-day__empty,
+.employee-timesheet-day__issues,
+.employee-timesheet-placeholder {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.employee-timesheet-day__issues {
+  color: #9a3412;
+}
+
+@media (max-width: 860px) {
+  body.employee-portal:has(#mobile-tab-bar) .employee-timesheet-card {
+    margin-top: 10px;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+  }
+}
+
+body.employee-portal.employee-clock-disabled .employee-timesheet-card {
+  display: none;
+}
+
 body.employee-portal.employee-clock-disabled .employee-home-quick {
   grid-template-columns: 1fr;
 }

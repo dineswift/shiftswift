@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v84" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v85" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -255,6 +255,27 @@
               <li>Loading…</li>
             </ul>
           </article>
+
+          <article class="card employee-timesheet-card">
+            <div class="employee-timesheet__head">
+              <div>
+                <h3 class="employee-timesheet__title">My hours this week</h3>
+                <p class="employee-timesheet__lead muted">Your punch record for this rota week (read-only).</p>
+              </div>
+              <div class="employee-timesheet__nav">
+                <button type="button" class="btn ghost btn-sm" id="employee-timesheet-prev" aria-label="Previous week">‹</button>
+                <span class="employee-timesheet__week" id="employee-timesheet-week-label">Loading…</span>
+                <button type="button" class="btn ghost btn-sm" id="employee-timesheet-next" aria-label="Next week">›</button>
+              </div>
+            </div>
+            <div class="employee-timesheet__toolbar">
+              <button type="button" class="btn ghost btn-sm" id="employee-timesheet-this-week">This week</button>
+            </div>
+            <div class="employee-timesheet-summary" id="employee-timesheet-summary"></div>
+            <div id="employee-timesheet-days" class="employee-timesheet-days">
+              <p class="employee-timesheet-placeholder muted">Loading your hours…</p>
+            </div>
+          </article>
         </section>
 
         <section id="my-shifts" class="admin-section" hidden>
@@ -492,7 +513,8 @@
     <script src="./employee-mobile.js?v=6"></script>
     <script src="./employee.js?v=10"></script>
     <script src="./employee-push-alerts.js?v=1"></script>
-    <script src="./employee-time-punch.js?v=6"></script>
+    <script src="./employee-time-punch.js?v=7"></script>
+    <script src="./employee-timesheet.js?v=1"></script>
     <script src="./employee-rota.js?v=6"></script>
     <script src="./employee-documents.js?v=5"></script>
     <script src="./employee-notes.js?v=2"></script>

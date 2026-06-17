@@ -425,6 +425,7 @@
           : `${punchType === "in" ? "Clocked in" : "Clocked out"} at ${data.site_name} (${Math.round(data.distance_meters)}m from site).`;
       setMessage(detail, "success");
       await loadStatus();
+      window.EmployeeTimesheet?.reload?.();
     } catch (error) {
       setMessage(error.message || "Punch failed.", "error");
     } finally {

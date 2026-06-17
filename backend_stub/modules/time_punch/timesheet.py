@@ -153,6 +153,117 @@ def _load_approvals(
     }
 
 
+def _load_employee_punch_log(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    week_start: date,
+    conn: Any,
+) -> dict[date, list[dict[str, Any]]]:
+    week_end = week_start + timedelta(days=6)
+    start_ts = datetime.combine(week_start, time.min, tzinfo=UK_TZ).astimezone(timezone.utc)
+    end_ts = datetime.combine(week_end + timedelta(days=1), time.min, tzinfo=UK_TZ).astimezone(timezone.utc)
+    grouped: dict[date, list[dict[str, Any]]] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT tp.punch_type, tp.punched_at, ps.name, tp.distance_meters, tp.punch_method
+            FROM time_punches tp
+            JOIN punch_sites ps ON ps.id = tp.punch_site_id AND ps.tenant_id = tp.tenant_id
+            WHERE tp.tenant_id = %s
+              AND tp.employee_id = %s
+              AND tp.punched_at >= %s
+              AND tp.punched_at < %s
+            ORDER BY tp.punched_at
+            """,
+            (tenant_id, employee_id, start_ts, end_ts),
+        )
+        rows = cur.fetchall()
+    punch_labels = {
+        "in": "Clock in",
+        "out": "Clock out",
+        "break_start": "Break start",
+        "break_end": "Break end",
+    }
+    for punch_type, punched_at, site_name, distance_meters, punch_method in rows:
+        ts = _parse_ts(punched_at).astimezone(UK_TZ)
+        day = ts.date()
+        grouped.setdefault(day, []).append(
+            {
+                "punch_type": str(punch_type),
+                "label": punch_labels.get(str(punch_type), str(punch_type)),
+                "time": ts.strftime("%H:%M"),
+                "punched_at": ts.isoformat(),
+                "site_name": site_name,
+                "distance_meters": round(float(distance_meters), 1) if distance_meters is not None else None,
+                "punch_method": punch_method,
+            }
+        )
+    return grouped
+
+
+def employee_weekly_timesheet(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    week_start: date | None,
+    conn: Any,
+) -> dict[str, Any]:
+    """Read-only weekly punch summary for one employee."""
+    week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    start = week_start_on_or_before(week_start or date.today(), week_start_day)
+    end = start + timedelta(days=6)
+    punches = _load_week_punches(
+        tenant_id=tenant_id,
+        employee_ids=[employee_id],
+        week_start=start,
+        conn=conn,
+    )
+    punch_log = _load_employee_punch_log(
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        week_start=start,
+        conn=conn,
+    )
+    approvals = _load_approvals(tenant_id=tenant_id, week_start=start, conn=conn)
+    days = _week_dates(start)
+    day_summaries: list[dict[str, Any]] = []
+    week_total = 0.0
+    week_break = 0
+    has_issues = False
+
+    for day in days:
+        summary = summarize_day_events(punches.get(employee_id, {}).get(day, []))
+        week_total += float(summary["total_hours"])
+        week_break += int(summary["break_minutes"])
+        if summary["issues"]:
+            has_issues = True
+        day_summaries.append(
+            {
+                "date": day.isoformat(),
+                "label": DAY_LABELS[day.weekday()],
+                "total_hours": summary["total_hours"],
+                "break_minutes": summary["break_minutes"],
+                "segments": summary["segments"],
+                "punches": punch_log.get(day, []),
+                "complete": summary["complete"],
+                "issues": summary["issues"],
+            }
+        )
+
+    approval = approvals.get(employee_id, {"status": "pending"})
+    return {
+        "week_start": start.isoformat(),
+        "week_end": end.isoformat(),
+        "week_start_day": week_start_day,
+        "week_total_hours": round(week_total, 2),
+        "week_break_minutes": week_break,
+        "has_issues": has_issues,
+        "approval_status": approval.get("status", "pending"),
+        "days": day_summaries,
+    }
+
+
 def weekly_timesheet(
     *,
     tenant_id: int,
