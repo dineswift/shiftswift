@@ -388,9 +388,9 @@ function redirectIfBusinessSession() {
     }
     return false;
   }
+  // Keep the business sign-in form available even if an employee session exists on this device.
   if (role === "employee") {
-    window.location.replace("./employee.html");
-    return true;
+    return false;
   }
   if (role && role !== "employee") {
     window.location.replace("./admin.html");

@@ -1,5 +1,5 @@
 /* ShiftSwift HR — shared PWA service worker (admin, employee, time clock shells). */
-const CACHE_NAME = "shiftswift-app-v11";
+const CACHE_NAME = "shiftswift-app-v12";
 const SHELL = [
   "./admin.html",
   "./employee.html",
@@ -36,8 +36,11 @@ function isNavigation(request) {
 
 function fallbackDocument(url) {
   const path = new URL(url).pathname;
-  if (path.includes("admin")) return "./admin.html";
-  if (path.includes("employee")) return "./employee.html";
+  if (/\/business-login\.html$/i.test(path)) return "./business-login.html";
+  if (/\/admin\.html$/i.test(path)) return "./admin.html";
+  if (/\/employee-login\.html$/i.test(path)) return "./employee-login.html";
+  if (/\/employee-forgot-password\.html$/i.test(path)) return "./employee-forgot-password.html";
+  if (/\/employee\.html$/i.test(path)) return "./employee.html";
   return "./punch.html";
 }
 
