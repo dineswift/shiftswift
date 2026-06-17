@@ -8,10 +8,11 @@ from typing import Annotated, Any
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from auth_service import AuthUser
 from config import load_settings
+from contracts_service import get_contract_detail, list_contracts, send_contract_for_signature
 from deps import client_ip, get_master_user
 from modules.master.audit import write_master_audit
 from modules.master.platform_ops import (
@@ -33,6 +34,7 @@ from modules.master.tenant_provision import (
     list_provision_plans,
     update_tenant_billing,
 )
+from modules.master.tenant_contracts import contract_prefill, generate_for_tenant
 from modules.master.platform_settings import (
     api_keys_snapshot,
     list_email_log,
@@ -108,6 +110,20 @@ class DisableMfaRequest(BaseModel):
 
 class CleanupDuplicatesRequest(BaseModel):
     confirm: bool = False
+
+
+class MasterGenerateContractRequest(BaseModel):
+    customer_legal_name: str = Field(min_length=2, max_length=200)
+    signatory_email: EmailStr
+    signatory_name: str | None = Field(default=None, max_length=120)
+    signatory_title: str | None = Field(default="Director", max_length=120)
+    customer_trading_name: str | None = Field(default=None, max_length=200)
+    company_number: str | None = Field(default=None, max_length=32)
+    registered_address: str | None = Field(default=None, max_length=500)
+    vat_number: str | None = Field(default=None, max_length=32)
+    plan_id: str | None = None
+    effective_date: str | None = None
+    template_id: str = Field(default="pack", pattern="^(msa|dpa|subscription_order|pack)$")
 
 
 class CreateTenantRequest(BaseModel):
@@ -413,6 +429,124 @@ def master_tenant_detail(
         return {"tenant": detail}
     finally:
         conn.close()
+
+
+@router.get("/tenants/{tenant_id}/contracts/prefill")
+def master_contract_prefill(
+    tenant_id: int,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    if tenant_id == int(settings.master_customer_id):
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    conn = _db_conn()
+    try:
+        return contract_prefill(tenant_id=tenant_id, conn=conn)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.get("/tenants/{tenant_id}/contracts")
+def master_list_contracts(
+    tenant_id: int,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    if tenant_id == int(settings.master_customer_id):
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    conn = _db_conn()
+    try:
+        items = list_contracts(conn, tenant_id)
+        return {"items": items, "count": len(items)}
+    finally:
+        conn.close()
+
+
+@router.get("/tenants/{tenant_id}/contracts/{contract_id}")
+def master_get_contract(
+    tenant_id: int,
+    contract_id: int,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    if tenant_id == int(settings.master_customer_id):
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    conn = _db_conn()
+    try:
+        return get_contract_detail(conn, contract_id=contract_id, tenant_id=tenant_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.post("/tenants/{tenant_id}/contracts/generate")
+def master_generate_contracts(
+    tenant_id: int,
+    payload: MasterGenerateContractRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    if tenant_id == int(settings.master_customer_id):
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    conn = _db_conn()
+    try:
+        result = generate_for_tenant(
+            conn,
+            tenant_id=tenant_id,
+            payload=payload.model_dump(),
+            actor=current_user.username,
+        )
+        _audit(
+            request=request,
+            current_user=current_user,
+            action="GENERATE_TENANT_CONTRACTS",
+            conn=conn,
+            target_tenant_id=tenant_id,
+            detail={"template_id": payload.template_id},
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/tenants/{tenant_id}/contracts/{contract_id}/send")
+def master_send_contract(
+    tenant_id: int,
+    contract_id: int,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    if tenant_id == int(settings.master_customer_id):
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    origin = request.headers.get("Origin") or os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+    conn = _db_conn()
+    try:
+        try:
+            result = send_contract_for_signature(
+                conn,
+                contract_id=contract_id,
+                tenant_id=tenant_id,
+                actor=current_user.username,
+                frontend_base=origin,
+            )
+            _audit(
+                request=request,
+                current_user=current_user,
+                action="SEND_TENANT_CONTRACT",
+                conn=conn,
+                target_tenant_id=tenant_id,
+                detail={"contract_id": contract_id},
+            )
+            from core.notifications import process_queued_notifications
+
+            process_queued_notifications(conn=conn)
+            conn.commit()
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return result
 
 
 @router.post("/tenants/{tenant_id}/impersonate")

@@ -1,10 +1,9 @@
-/** Legal contracts workspace — generate, send, preview, upload signed PDFs. */
+/** Service agreements — read-only tenant view (generate/send is Master-only). */
 (function () {
-  const { apiFetch, loadFormOptions, mountEditForm, FORM_SCHEMAS, escapeHtml, parseHashBaseSection } = window.Admin;
+  const { apiFetch, escapeHtml, parseHashBaseSection } = window.Admin;
 
   let contracts = [];
   let selectedContractId = null;
-  let formMounted = false;
   let sectionBound = false;
 
   function $(id) {
@@ -47,7 +46,7 @@
     if (!tbody) return;
     if (!contracts.length) {
       tbody.innerHTML =
-        '<tr><td colspan="6" class="muted">No contracts yet. Generate a pack above — details are prefilled from Settings → Business info.</td></tr>';
+        '<tr><td colspan="6" class="muted">No agreements on file yet. ShiftSwift prepares your MSA, DPA, and order form when you subscribe.</td></tr>';
       return;
     }
     tbody.innerHTML = contracts
@@ -71,7 +70,7 @@
 
   async function loadContracts() {
     const tbody = $("contracts-table-body");
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="muted">Loading contracts…</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="muted">Loading agreements…</td></tr>';
     try {
       const res = await apiFetch("/contracts");
       if (!res.ok) throw new Error("Load failed");
@@ -84,9 +83,19 @@
     } catch {
       contracts = [];
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load contracts. Check you are signed in and the API is running.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load agreements. Check you are signed in and the API is running.</td></tr>';
       }
     }
+  }
+
+  function signingHelpHtml(data) {
+    if (data.status === "signed") {
+      return `<p class="contracts-readonly-note contracts-readonly-note--ok">Signed on ${escapeHtml(formatDate(data.signed_at))}.</p>`;
+    }
+    if (data.status === "sent") {
+      return `<p class="contracts-readonly-note">Awaiting signature — a secure link was emailed to <strong>${escapeHtml(data.signatory_email)}</strong>. Check spam or contact ShiftSwift support if you need it resent.</p>`;
+    }
+    return `<p class="contracts-readonly-note muted">Not yet sent for signature. ShiftSwift will issue this when your subscription pack is ready.</p>`;
   }
 
   function renderDetailPanel(data) {
@@ -118,33 +127,19 @@
         <div><dt>Effective date</dt><dd>${escapeHtml(formatDate(data.effective_date))}</dd></div>
         <div><dt>Sent / signed</dt><dd>${data.signed_at ? escapeHtml(formatDate(data.signed_at)) : data.sent_at ? `Sent ${escapeHtml(formatDate(data.sent_at))}` : "Not sent"}</dd></div>
       </dl>
+      ${signingHelpHtml(data)}
       ${timeline.length ? `<ol class="contracts-timeline">${timeline.join("")}</ol>` : ""}
       <div class="contracts-preview-wrap">
-        <h4 class="hr-section-title">Contract preview</h4>
+        <h4 class="hr-section-title">Agreement preview</h4>
         <div class="contract-preview-panel">${data.html || "<p class=\"muted\">No preview available.</p>"}</div>
-      </div>
-      <div class="contracts-detail-foot">
-        <button type="button" class="btn" id="contracts-send-btn" ${data.status === "signed" ? "disabled" : ""}>Send for signature</button>
-        <label class="btn ghost contracts-upload-btn">
-          Upload signed PDF
-          <input type="file" id="contracts-upload-input" accept="application/pdf,.pdf" hidden />
-        </label>
-      </div>
-      <div id="contracts-signing-link" class="signing-link-box" hidden></div>
-      <p class="edit-form-status muted" id="contracts-detail-status"></p>`;
-
-    content.querySelector("#contracts-send-btn")?.addEventListener("click", () => sendContract(data.id));
-    content.querySelector("#contracts-upload-input")?.addEventListener("change", (event) => {
-      const file = event.target.files?.[0];
-      if (file) uploadSignedPdf(data.id, file);
-    });
+      </div>`;
   }
 
   async function selectContract(contractId, { scroll = true } = {}) {
     selectedContractId = contractId;
     renderContractsTable();
     const content = $("contracts-detail-content");
-    if (content) content.innerHTML = '<p class="muted">Loading contract…</p>';
+    if (content) content.innerHTML = '<p class="muted">Loading agreement…</p>';
     try {
       const res = await apiFetch(`/contracts/${contractId}`);
       const data = await res.json();
@@ -152,94 +147,11 @@
       renderDetailPanel(data);
       if (scroll) content?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } catch (error) {
-      if (content) content.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load contract.")}</p>`;
+      if (content) content.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load agreement.")}</p>`;
     }
-  }
-
-  async function sendContract(id) {
-    const status = $("contracts-detail-status");
-    if (status) status.textContent = "Sending for signature…";
-    const res = await apiFetch(`/contracts/${id}/send`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      if (status) status.textContent = data.detail || "Send failed";
-      return;
-    }
-    const linkBox = $("contracts-signing-link");
-    if (linkBox && data.signing_url) {
-      linkBox.hidden = false;
-      linkBox.innerHTML = `<label class="edit-field"><span class="edit-label">Client signing link</span><input readonly value="${escapeHtml(data.signing_url)}" onclick="this.select()" /></label>`;
-    }
-    if (status) status.textContent = `Sent to ${data.signatory_email || "signatory"}.`;
-    await loadContracts();
-    await selectContract(id, { scroll: false });
-  }
-
-  async function uploadSignedPdf(id, file) {
-    const status = $("contracts-detail-status");
-    if (status) status.textContent = "Uploading signed PDF…";
-    const formData = new FormData();
-    formData.append("signed_pdf", file);
-    try {
-      const res = await apiFetch(`/contracts/${id}/upload-signed`, { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Upload failed");
-      if (status) status.textContent = "Signed PDF stored.";
-      await loadContracts();
-      await selectContract(id, { scroll: false });
-    } catch (error) {
-      if (status) status.textContent = error.message || "Upload failed";
-    }
-  }
-
-  async function mountContractForm() {
-    const host = $("contract-generate-form");
-    if (!host || formMounted) return;
-
-    let profileValues = { effective_date: new Date().toISOString().slice(0, 10) };
-    try {
-      await loadFormOptions();
-      const profileRes = await apiFetch("/admin/tenant-profile");
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
-        profileValues = {
-          customer_legal_name: profile.name || "",
-          customer_trading_name: profile.trading_name || "",
-          company_number: profile.company_number || "",
-          vat_number: profile.vat_number || "",
-          registered_address: profile.registered_address || "",
-          signatory_email: profile.signatory_email || profile.billing_email || "",
-          signatory_name: profile.signatory_name || "",
-          signatory_title: profile.signatory_title || "Director",
-          plan_id: profile.subscription_plan || "",
-          template_id: "pack",
-          effective_date: new Date().toISOString().slice(0, 10),
-        };
-      }
-    } catch {
-      /* prefill optional */
-    }
-
-    mountEditForm(host, FORM_SCHEMAS.contract, {
-      values: profileValues,
-      onSubmit: async (payload) => {
-        const res = await apiFetch("/contracts/generate", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Generation failed");
-        await loadContracts();
-        const created = data.contract || (data.contracts || [])[0];
-        if (created?.id) await selectContract(created.id);
-        return data;
-      },
-    });
-    formMounted = true;
   }
 
   async function initContractsSection() {
-    await mountContractForm();
     await loadContracts();
   }
 

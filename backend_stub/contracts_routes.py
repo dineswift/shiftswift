@@ -106,47 +106,10 @@ def generate_contract(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    plan_fields = _plan_fields(payload.plan_id)
-    conn = _db_conn()
-    try:
-        common = {
-            "customer_legal_name": payload.customer_legal_name,
-            "signatory_email": payload.signatory_email,
-            "signatory_name": payload.signatory_name,
-            "signatory_title": payload.signatory_title,
-            "customer_trading_name": payload.customer_trading_name,
-            "company_number": payload.company_number,
-            "registered_address": payload.registered_address,
-            "vat_number": payload.vat_number,
-            "effective_date": payload.effective_date,
-            "created_by": current_user.username,
-            **plan_fields,
-        }
-        if payload.template_id == "pack":
-            created = generate_contract_pack(conn, tenant_id=tenant_id, **common)
-            conn.commit()
-            return {"generated": len(created), "contracts": created}
-        created = create_contract(
-            conn,
-            tenant_id=tenant_id,
-            template_id=payload.template_id,
-            customer_legal_name=payload.customer_legal_name,
-            signatory_email=str(payload.signatory_email),
-            signatory_name=payload.signatory_name,
-            signatory_title=payload.signatory_title,
-            customer_trading_name=payload.customer_trading_name,
-            company_number=payload.company_number,
-            registered_address=payload.registered_address,
-            vat_number=payload.vat_number,
-            effective_date=payload.effective_date,
-            created_by=current_user.username,
-            **plan_fields,
-        )
-        conn.commit()
-        return {"contract": created}
-    finally:
-        conn.close()
+    raise HTTPException(
+        status_code=403,
+        detail="Service agreements are issued by ShiftSwift. Contact support if you need a new MSA or DPA pack.",
+    )
 
 
 @router.get("/{contract_id}")
@@ -172,24 +135,10 @@ def send_contract(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    origin = request.headers.get("Origin") or os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
-    conn = _db_conn()
-    try:
-        try:
-            result = send_contract_for_signature(
-                conn,
-                contract_id=contract_id,
-                tenant_id=tenant_id,
-                actor=current_user.username,
-                frontend_base=origin,
-            )
-            conn.commit()
-        except LookupError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-    finally:
-        conn.close()
-    return result
+    raise HTTPException(
+        status_code=403,
+        detail="Signing links are sent by ShiftSwift. Check your inbox or contact support.",
+    )
 
 
 @router.get("/sign/view/{token}")
@@ -242,37 +191,7 @@ async def upload_signed_contract(
     signed_pdf: UploadFile = File(...),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    if signed_pdf.content_type not in {None, "application/pdf", "application/octet-stream"}:
-        raise HTTPException(status_code=400, detail="Only PDF uploads allowed")
-    pdf_bytes = await signed_pdf.read()
-    if not pdf_bytes.startswith(b"%PDF"):
-        raise HTTPException(status_code=400, detail="Invalid PDF file")
-
-    from contracts_service import STORAGE_DIR
-
-    storage = STORAGE_DIR
-    tenant_dir = storage / str(tenant_id)
-    tenant_dir.mkdir(parents=True, exist_ok=True)
-    path = tenant_dir / f"{contract_id}_signed_upload.pdf"
-    path.write_bytes(pdf_bytes)
-
-    conn = _db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE tenant_contracts
-                SET status = 'signed', signed_at = NOW(), signed_pdf_path = %s, updated_at = NOW()
-                WHERE id = %s AND tenant_id = %s
-                RETURNING contract_number
-                """,
-                (str(path), contract_id, tenant_id),
-            )
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status_code=404, detail="Contract not found")
-        conn.commit()
-    finally:
-        conn.close()
-    return {"contract_id": contract_id, "status": "signed", "stored_path": str(path)}
+    raise HTTPException(
+        status_code=403,
+        detail="Countersigned PDFs are stored by ShiftSwift. Contact support to upload a signed copy.",
+    )

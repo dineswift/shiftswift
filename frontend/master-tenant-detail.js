@@ -24,6 +24,8 @@
     return { allowed: true, reason: null };
   }
 
+  let latestCtx = null;
+
   function activateTenantTab(tabId) {
     document.querySelectorAll("[data-tenant-tab]").forEach((tab) => {
       const active = tab.dataset.tenantTab === tabId;
@@ -33,6 +35,7 @@
     document.querySelectorAll("[data-tenant-tab-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.tenantTabPanel !== tabId;
     });
+    return tabId;
   }
 
   function closeActionsMenu() {
@@ -96,7 +99,12 @@
     document.body.dataset.tenantDetailChromeReady = "1";
 
     document.querySelectorAll("[data-tenant-tab]").forEach((tab) => {
-      tab.addEventListener("click", () => activateTenantTab(tab.dataset.tenantTab));
+      tab.addEventListener("click", () => {
+        const tabId = activateTenantTab(tab.dataset.tenantTab);
+        if (tabId === "legal" && latestCtx?.tenant?.id) {
+          window.ShiftSwiftMasterTenantContracts?.mountLegalTab?.(latestCtx.tenant, latestCtx);
+        }
+      });
     });
   }
 
@@ -174,6 +182,7 @@
 
   function renderTenantDetail(tenant, ctx) {
     if (!tenant) return;
+    latestCtx = { ...ctx, tenant };
     initTenantDetailChrome();
 
     const { apiGet, apiPost, apiPut, provisionPlans, refresh } = ctx;

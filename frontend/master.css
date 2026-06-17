@@ -1881,3 +1881,142 @@ body.master-tenant-modal-open {
   max-width: none;
   margin: 0.75rem 0 0;
 }
+
+.master-legal-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.master-legal-subtitle {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--master-ink, #1a1a1a);
+}
+
+.master-legal-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.master-legal-form__wide {
+  grid-column: 1 / -1;
+}
+
+.master-legal-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--master-muted);
+}
+
+.master-legal-form input,
+.master-legal-form select {
+  font: inherit;
+  font-size: 0.84rem;
+  padding: 8px 10px;
+  border: 1px solid var(--master-border);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+}
+
+.master-legal-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.master-legal-detail {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--master-border);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.master-legal-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.master-legal-preview {
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--master-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.78rem;
+}
+
+.master-legal-link-field {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.master-legal-link-field input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  border: 1px solid var(--master-border);
+  border-radius: 8px;
+}
+
+.master-contract-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.master-contract-pill--draft {
+  background: #f3f3f1;
+  color: #666;
+}
+
+.master-contract-pill--sent {
+  background: #e6f1fb;
+  color: #185fa5;
+}
+
+.master-contract-pill--signed {
+  background: #e1f5ee;
+  color: #0f6e56;
+}
+
+.master-table--compact th,
+.master-table--compact td {
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+.master-contract-row {
+  cursor: pointer;
+}
+
+.master-contract-row.is-selected {
+  background: rgba(15, 110, 86, 0.08);
+}
+
+@media (max-width: 720px) {
+  .master-legal-form__grid {
+    grid-template-columns: 1fr;
+  }
+}

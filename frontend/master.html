@@ -11,7 +11,7 @@
     <title>ShiftSwift | Master Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./master.css?v=23" />
+    <link rel="stylesheet" href="./master.css?v=24" />
   </head>
   <body class="master-app">
     <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
@@ -273,6 +273,7 @@
             <div class="master-tenant-tabs" role="tablist" aria-label="Tenant sections">
               <button type="button" class="master-tenant-tabs__btn is-active" role="tab" aria-selected="true" data-tenant-tab="account">Account</button>
               <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="billing">Billing</button>
+              <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="legal">Legal</button>
               <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="usage">Usage</button>
               <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="admin">Admin</button>
             </div>
@@ -315,6 +316,10 @@
               </div>
             </section>
 
+            <section class="master-tenant-tab-panel" data-tenant-tab-panel="legal" role="tabpanel" hidden>
+              <div id="detail-legal-sections"><p class="muted">Open this tab to manage service agreements.</p></div>
+            </section>
+
             <section class="master-tenant-tab-panel" data-tenant-tab-panel="usage" role="tabpanel" hidden>
               <div id="detail-usage-sections"></div>
             </section>
@@ -355,7 +360,8 @@
     <script src="./session-auth.js?v=1"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=5"></script>
-    <script src="./master-tenant-detail.js?v=3"></script>
+    <script src="./master-tenant-detail.js?v=4"></script>
+    <script src="./master-tenant-contracts.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
     <script src="./master.js?v=21"></script>
   </body>

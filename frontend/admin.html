@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v95" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v97" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1482,7 +1482,7 @@
           <header class="section-header contracts-page-header">
             <div>
               <h2>Service agreements</h2>
-              <p class="muted">ShiftSwift ↔ your business: MSA, DPA, and subscription order forms. For employee contracts, use Employment contracts.</p>
+              <p class="muted">Your ShiftSwift subscription agreements (MSA, DPA, order form). Issued by ShiftSwift — view status and sign when prompted. For employee contracts, use Employment contracts.</p>
             </div>
             <div class="section-actions">
               <a class="btn ghost" href="./payment-terms.html" target="_blank" rel="noopener">Payment terms</a>
@@ -1502,14 +1502,13 @@
 
           <div class="contracts-workspace-layout">
             <div class="contracts-main-pane">
-              <article class="hr-surface-panel hr-log-panel contracts-generate-panel">
-                <h4 class="hr-section-title">Generate contract pack</h4>
-                <p class="muted">Prefilled from your business settings. Contracts are also created automatically on signup.</p>
-                <div id="contract-generate-form"></div>
-                <div id="signing-link-box" class="signing-link-box" hidden></div>
+              <article class="hr-surface-panel hr-log-panel contracts-readonly-notice">
+                <h4 class="hr-section-title">Platform agreements</h4>
+                <p class="muted">MSA, DPA, and subscription order forms are prepared and sent by ShiftSwift when you subscribe. Use the register below to preview documents and track signature status. To sign, use the link emailed to your signatory.</p>
+                <p class="muted">Need a revised pack after a company or plan change? Contact <a href="#" data-brand-support-mailto>ShiftSwift support</a>.</p>
               </article>
 
-              <h4 class="hr-section-title">Contract register</h4>
+              <h4 class="hr-section-title">Agreement register</h4>
               <div class="hr-table-wrap">
                 <table class="data-table">
                   <thead>
@@ -1531,7 +1530,7 @@
 
             <aside class="contracts-detail-panel" id="contracts-detail-panel">
               <div id="contracts-detail-empty" class="contracts-detail-empty muted">
-                <p>Select a contract from the register to preview, send for signature, or upload a signed PDF.</p>
+                <p>Select an agreement to preview it. Signing happens via the secure link emailed to your authorised signatory.</p>
               </div>
               <div id="contracts-detail-content" hidden></div>
             </aside>
@@ -2631,7 +2630,7 @@
     <script src="./admin-rota.js?v=24"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
-    <script src="./contracts.js?v=5"></script>
+    <script src="./contracts.js?v=6"></script>
     <script src="./employment-contracts.js?v=2"></script>
       <script src="./cookie-consent.js?v=1"></script>
   </body>
