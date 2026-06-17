@@ -25,9 +25,7 @@ echo "==> git pull"
 git pull --ff-only
 
 echo "==> ensure upload storage directories"
-mkdir -p "${API_ROOT}/backend_stub/uploads/documents"
-mkdir -p "${API_ROOT}/uploads/documents"
-mkdir -p "${API_ROOT}/uploads/rtw_immutable"
+bash deploy/cloudpanel/ensure-storage-dirs.sh
 
 if [ -f backend_stub/.venv/bin/activate ]; then
   # shellcheck disable=SC1091

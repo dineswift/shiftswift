@@ -27,6 +27,9 @@ LOGIN_RATE_WINDOW_SECONDS=900
 MAX_UPLOAD_BYTES=10485760
 RTW_STORAGE_DIR=/var/lib/shiftswift-hr/rtw
 DOCUMENTS_STORAGE_DIR=/var/lib/shiftswift-hr/documents
+# CloudPanel: run deploy/cloudpanel/ensure-storage-dirs.sh (or pull-production.sh) once with sudo
+# to create /var/lib/shiftswift-hr and chown to the API user. Or use uploads/documents instead:
+# DOCUMENTS_STORAGE_DIR=uploads/documents
 EOF
 
 echo "Generated ${ENV_FILE}"
