@@ -77,6 +77,31 @@
       const el = document.getElementById(id);
       if (el) el.textContent = String(value);
     });
+    updateMobileReviewStatTone(stats.needs_review ?? 0);
+  }
+
+  function updateMobileReviewStatTone(count) {
+    const valueEl = document.getElementById("compliance-mobile-stat-review");
+    const card = valueEl?.closest(".compliance-mobile-stat");
+    if (!card) return;
+    const hint = card.querySelector(".compliance-mobile-stat__hint");
+    const review = Number(count) || 0;
+    card.classList.remove("compliance-mobile-stat--danger", "compliance-mobile-stat--clear");
+    if (review > 0) {
+      card.classList.add("compliance-mobile-stat--danger");
+      if (hint) hint.textContent = "Action required";
+    } else {
+      card.classList.add("compliance-mobile-stat--clear");
+      if (hint) hint.textContent = "All clear";
+    }
+  }
+
+  function reviewStatCardClass(count) {
+    return Number(count) > 0 ? "compliance-mobile-stat--danger" : "compliance-mobile-stat--clear";
+  }
+
+  function reviewStatHint(count) {
+    return Number(count) > 0 ? "Action required" : "All clear";
   }
 
   function renderShell(overviewData) {
@@ -129,10 +154,10 @@
           <span class="compliance-mobile-stat__label">Expiring soon</span>
           <span class="compliance-mobile-stat__hint">Within 30 days</span>
         </div>
-        <div class="compliance-mobile-stat compliance-mobile-stat--danger">
+        <div class="compliance-mobile-stat ${reviewStatCardClass(rtw.needs_review ?? 0)}">
           <span class="compliance-mobile-stat__value" id="compliance-mobile-stat-review">${escapeHtml(rtw.needs_review ?? 0)}</span>
           <span class="compliance-mobile-stat__label">Needs review</span>
-          <span class="compliance-mobile-stat__hint">Action required</span>
+          <span class="compliance-mobile-stat__hint">${escapeHtml(reviewStatHint(rtw.needs_review ?? 0))}</span>
         </div>
       </div>
 

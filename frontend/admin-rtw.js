@@ -81,7 +81,24 @@
     document.getElementById("rtw-stat-verified").textContent = String(rtwStats.verified ?? 0);
     document.getElementById("rtw-stat-expiring").textContent = String(rtwStats.expiring_soon ?? 0);
     document.getElementById("rtw-stat-review").textContent = String(rtwStats.needs_review ?? 0);
+    updateReviewStatTone(rtwStats.needs_review ?? 0);
     window.dispatchEvent(new CustomEvent("admin:rtw-stats", { detail: { stats: rtwStats } }));
+  }
+
+  function updateReviewStatTone(count) {
+    const valueEl = document.getElementById("rtw-stat-review");
+    const card = valueEl?.closest(".rtw-stat-card");
+    if (!card) return;
+    const hint = card.querySelector(".rtw-stat-card__hint");
+    const review = Number(count) || 0;
+    card.classList.remove("rtw-stat-card--danger", "rtw-stat-card--clear");
+    if (review > 0) {
+      card.classList.add("rtw-stat-card--danger");
+      if (hint) hint.textContent = "Action required";
+    } else {
+      card.classList.add("rtw-stat-card--clear");
+      if (hint) hint.textContent = "All clear";
+    }
   }
 
   function renderMobileCards() {
@@ -300,6 +317,12 @@
     }
   }
 
+  async function tryLoadRtwRecords() {
+    const content = document.getElementById("compliance-tools-content");
+    if (content?.hasAttribute("hidden")) return;
+    await loadRtwRecords();
+  }
+
   function exportAllRecords() {
     const blob = new Blob([JSON.stringify({ stats: rtwStats, items: rtwItems }, null, 2)], {
       type: "application/json",
@@ -367,11 +390,12 @@
     });
 
     window.addEventListener("admin:rtw-refresh", () => loadRtwRecords());
+    window.addEventListener("admin:compliance-tools-ready", () => tryLoadRtwRecords());
   }
 
   async function initRtwSection() {
     bindRtwWorkspace();
-    await loadRtwRecords();
+    await tryLoadRtwRecords();
   }
 
   window.addEventListener("admin:section", (event) => {

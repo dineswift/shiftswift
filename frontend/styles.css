@@ -1774,6 +1774,10 @@ textarea:focus {
   width: 100%;
 }
 
+.admin-mobile-compliance-only {
+  display: none;
+}
+
 .compliance-mobile-shell {
   display: grid;
   gap: 14px;
@@ -1822,6 +1826,7 @@ textarea:focus {
 
 .compliance-mobile-stat--neutral { border-left-color: #94a3b8; }
 .compliance-mobile-stat--ok { border-left-color: #0f6e56; }
+.compliance-mobile-stat--clear { border-left-color: #0f6e56; }
 .compliance-mobile-stat--warn { border-left-color: #d97706; }
 .compliance-mobile-stat--danger { border-left-color: #dc2626; }
 
@@ -9931,8 +9936,30 @@ body.rota-week-readonly .rota-builder-hint {
 .rtw-stat-card {
   padding: 14px 16px;
   border: 1px solid var(--card-border);
+  border-left-width: 4px;
+  border-left-color: #94a3b8;
   border-radius: var(--radius-md);
   background: var(--card);
+}
+
+.rtw-stat-card--neutral {
+  border-left-color: #94a3b8;
+}
+
+.rtw-stat-card--ok {
+  border-left-color: #0f6e56;
+}
+
+.rtw-stat-card--warn {
+  border-left-color: #ba7517;
+}
+
+.rtw-stat-card--danger {
+  border-left-color: #b42318;
+}
+
+.rtw-stat-card--clear {
+  border-left-color: #0f6e56;
 }
 
 .rtw-stat-card__value {
@@ -9959,6 +9986,7 @@ body.rota-week-readonly .rota-builder-hint {
 .rtw-stat-card--ok .rtw-stat-card__value { color: var(--green-800); }
 .rtw-stat-card--warn .rtw-stat-card__value { color: #ba7517; }
 .rtw-stat-card--danger .rtw-stat-card__value { color: #b42318; }
+.rtw-stat-card--clear .rtw-stat-card__value { color: var(--green-800); }
 
 .rtw-toolbar {
   display: flex;

@@ -217,6 +217,7 @@
   }
 
   function renderMobileCompliance(data) {
+    if (!isMobile()) return;
     window.AdminComplianceMobile?.renderShell?.(data);
     window.AdminComplianceMobile?.openSectionFromHash?.();
   }

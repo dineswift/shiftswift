@@ -193,6 +193,7 @@
     if (acknowledged) {
       if (panel) panel.hidden = true;
       content?.removeAttribute("hidden");
+      window.dispatchEvent(new CustomEvent("admin:compliance-tools-ready"));
     } else {
       if (panel) panel.hidden = false;
       content?.setAttribute("hidden", "");
@@ -737,6 +738,9 @@
       markAuditExportTested();
       refreshSponsorOverview();
     });
+
+    window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
+    window.dispatchEvent(new CustomEvent("admin:absence-refresh"));
   }
 
   window.addEventListener("admin:section", (event) => {
