@@ -6,7 +6,11 @@ import logging
 from typing import Any
 
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
-from modules.documents.service import create_employee_document, update_employee_document
+from modules.documents.service import (
+    _table_columns,
+    create_employee_document,
+    update_employee_document,
+)
 from modules.documents.storage import write_document_file
 
 ACTIVE_EMPLOYEE_STATUSES = frozenset({"active", "onboarding"})
@@ -19,11 +23,17 @@ def _load_target_employees(
     employee_id: int | None,
     conn: Any,
 ) -> list[dict[str, Any]]:
+    employee_columns = _table_columns(conn, "employees")
+    email_pref_sql = (
+        "email_notifications_enabled"
+        if "email_notifications_enabled" in employee_columns
+        else "TRUE AS email_notifications_enabled"
+    )
     with conn.cursor() as cur:
         if employee_id is not None:
             cur.execute(
-                """
-                SELECT id, first_name, last_name, email, email_notifications_enabled, status
+                f"""
+                SELECT id, first_name, last_name, email, {email_pref_sql}, status
                 FROM employees
                 WHERE tenant_id = %s AND id = %s
                 """,
@@ -31,8 +41,8 @@ def _load_target_employees(
             )
         else:
             cur.execute(
-                """
-                SELECT id, first_name, last_name, email, email_notifications_enabled, status
+                f"""
+                SELECT id, first_name, last_name, email, {email_pref_sql}, status
                 FROM employees
                 WHERE tenant_id = %s AND status = ANY(%s)
                 ORDER BY last_name, first_name

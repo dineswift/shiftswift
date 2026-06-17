@@ -692,6 +692,13 @@ async def upload_tenant_document(
         conn.commit()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        from modules.documents.errors import document_service_error_message
+
+        raise HTTPException(
+            status_code=503,
+            detail=document_service_error_message(exc),
+        ) from exc
     finally:
         conn.close()
     if notifications is not None:
@@ -755,10 +762,12 @@ async def distribute_document_route(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
+        from modules.documents.errors import document_service_error_message
+
         logger.exception("Document distribute failed for tenant %s", tenant_id)
         raise HTTPException(
             status_code=503,
-            detail="Document upload is unavailable. Run database migrations and try again.",
+            detail=document_service_error_message(exc),
         ) from exc
     finally:
         conn.close()

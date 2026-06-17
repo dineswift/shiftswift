@@ -7,6 +7,7 @@ from typing import Any
 
 from core.notifications import send_email_content
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
+from modules.documents.service import _table_columns
 from modules.push.service import app_url_path, send_employee_push
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -38,11 +39,17 @@ def load_document_notification_targets(
     conn: Any,
 ) -> list[dict[str, Any]]:
     """Load employees who should receive a document-share notification."""
+    employee_columns = _table_columns(conn, "employees")
+    email_pref_sql = (
+        "email_notifications_enabled"
+        if "email_notifications_enabled" in employee_columns
+        else "TRUE AS email_notifications_enabled"
+    )
     with conn.cursor() as cur:
         if employee_id is not None:
             cur.execute(
-                """
-                SELECT id, first_name, last_name, email, email_notifications_enabled, status
+                f"""
+                SELECT id, first_name, last_name, email, {email_pref_sql}, status
                 FROM employees
                 WHERE tenant_id = %s AND id = %s
                 """,
@@ -50,8 +57,8 @@ def load_document_notification_targets(
             )
         elif employee_ids:
             cur.execute(
-                """
-                SELECT id, first_name, last_name, email, email_notifications_enabled, status
+                f"""
+                SELECT id, first_name, last_name, email, {email_pref_sql}, status
                 FROM employees
                 WHERE tenant_id = %s
                   AND id = ANY(%s)
@@ -62,8 +69,8 @@ def load_document_notification_targets(
             )
         else:
             cur.execute(
-                """
-                SELECT id, first_name, last_name, email, email_notifications_enabled, status
+                f"""
+                SELECT id, first_name, last_name, email, {email_pref_sql}, status
                 FROM employees
                 WHERE tenant_id = %s AND status = ANY(%s)
                 ORDER BY last_name, first_name

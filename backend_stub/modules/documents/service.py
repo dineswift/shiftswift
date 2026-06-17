@@ -581,7 +581,30 @@ def delete_employee_document(
     delete_stored_file(existing.get("storage_path"))
 
 
-def _row_to_tenant_document(row: tuple[Any, ...]) -> dict[str, Any]:
+def _row_to_tenant_document(row: tuple[Any, ...], *, columns: list[str] | None = None) -> dict[str, Any]:
+    if columns:
+        data = dict(zip(columns, row, strict=False))
+        return {
+            "id": data.get("id"),
+            "title": data.get("title"),
+            "category": data.get("category"),
+            "lifecycle_stage": data.get("lifecycle_stage"),
+            "document_url": data.get("document_url"),
+            "notes": data.get("notes"),
+            "uploaded_by": data.get("uploaded_by"),
+            "expires_at": _iso(data.get("expires_at")),
+            "original_filename": data.get("original_filename"),
+            "created_at": _iso(data.get("created_at")),
+            "updated_at": _iso(data.get("updated_at")),
+            "employee_id": data.get("employee_id"),
+            "storage_path": data.get("storage_path"),
+            "content_sha256": data.get("content_sha256"),
+            "content_type": data.get("content_type"),
+            "file_size_bytes": data.get("file_size_bytes"),
+            "expiry_alert_days": data.get("expiry_alert_days", 30),
+            "employee_visible": data.get("employee_visible", False),
+            "has_file": bool(data.get("storage_path")),
+        }
     return {
         "id": row[0],
         "title": row[1],
@@ -611,6 +634,39 @@ TENANT_DOCUMENT_SELECT = """
     storage_path, content_sha256, content_type, file_size_bytes,
     expiry_alert_days, employee_visible
 """
+
+
+def _tenant_document_select_columns(conn: Any) -> list[str]:
+    available = _table_columns(conn, "tenant_documents")
+    return [
+        column.strip()
+        for column in TENANT_DOCUMENT_SELECT.replace("\n", " ").split(",")
+        if column.strip() in available
+    ]
+
+
+def _load_tenant_document(
+    *,
+    tenant_id: int,
+    document_id: int,
+    conn: Any,
+) -> dict[str, Any] | None:
+    select_cols = _tenant_document_select_columns(conn)
+    if not select_cols:
+        return None
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT {", ".join(select_cols)}
+            FROM tenant_documents
+            WHERE tenant_id = %s AND id = %s
+            """,
+            (tenant_id, document_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    return _row_to_tenant_document(row, columns=select_cols)
 
 
 def list_tenant_documents(
@@ -678,17 +734,7 @@ def list_portal_tenant_documents(
 
 
 def get_tenant_document(*, tenant_id: int, document_id: int, conn: Any) -> dict[str, Any] | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT {TENANT_DOCUMENT_SELECT}
-            FROM tenant_documents
-            WHERE tenant_id = %s AND id = %s
-            """,
-            (tenant_id, document_id),
-        )
-        row = cur.fetchone()
-    return _row_to_tenant_document(row) if row else None
+    return _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
 
 
 def create_tenant_document(
@@ -699,40 +745,47 @@ def create_tenant_document(
     conn: Any,
 ) -> dict[str, Any]:
     payload = validate_tenant_document_data(data)
+    available = _table_columns(conn, "tenant_documents")
+    values = {
+        "tenant_id": tenant_id,
+        "title": payload["title"],
+        "category": payload["category"],
+        "lifecycle_stage": payload["lifecycle_stage"],
+        "document_url": payload["document_url"],
+        "notes": payload["notes"],
+        "uploaded_by": uploaded_by,
+        "expires_at": payload.get("expires_at"),
+        "original_filename": payload.get("original_filename"),
+        "employee_id": payload.get("employee_id"),
+        "storage_path": payload.get("storage_path"),
+        "content_sha256": payload.get("content_sha256"),
+        "content_type": payload.get("content_type"),
+        "file_size_bytes": payload.get("file_size_bytes"),
+        "expiry_alert_days": payload["expiry_alert_days"],
+        "employee_visible": payload["employee_visible"],
+    }
+    insert_cols = [key for key in values if key in available]
+    required = {"tenant_id", "title", "category"}
+    missing = required - set(insert_cols)
+    if missing:
+        raise RuntimeError(
+            f"tenant_documents table missing required columns: {', '.join(sorted(missing))}"
+        )
+
+    col_sql = ", ".join(insert_cols)
+    placeholders = ", ".join(["%s"] * len(insert_cols))
     with conn.cursor() as cur:
         cur.execute(
-            """
-            INSERT INTO tenant_documents (
-              tenant_id, title, category, lifecycle_stage, document_url, notes,
-              uploaded_by, expires_at, original_filename, employee_id,
-              storage_path, content_sha256, content_type, file_size_bytes,
-              expiry_alert_days, employee_visible
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING """
-            + TENANT_DOCUMENT_SELECT,
-            (
-                tenant_id,
-                payload["title"],
-                payload["category"],
-                payload["lifecycle_stage"],
-                payload["document_url"],
-                payload["notes"],
-                uploaded_by,
-                payload.get("expires_at"),
-                payload.get("original_filename"),
-                payload.get("employee_id"),
-                payload.get("storage_path"),
-                payload.get("content_sha256"),
-                payload.get("content_type"),
-                payload.get("file_size_bytes"),
-                payload["expiry_alert_days"],
-                payload["employee_visible"],
-            ),
+            f"INSERT INTO tenant_documents ({col_sql}) VALUES ({placeholders}) RETURNING id",
+            tuple(values[key] for key in insert_cols),
         )
-        row = cur.fetchone()
+        document_id = int(cur.fetchone()[0])
         conn.commit()
-    return _row_to_tenant_document(row)
+
+    doc = _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+    if not doc:
+        raise RuntimeError("Document insert succeeded but could not be loaded")
+    return doc
 
 
 def update_tenant_document(
@@ -777,7 +830,12 @@ def update_tenant_document(
         raise ValueError("Invalid document category")
     if "lifecycle_stage" in allowed and allowed["lifecycle_stage"] not in VALID_LIFECYCLE_STAGES:
         raise ValueError("Invalid lifecycle stage")
-    allowed["updated_at"] = datetime.utcnow()
+    available = _table_columns(conn, "tenant_documents")
+    allowed = {key: value for key, value in allowed.items() if key in available}
+    if "updated_at" in available:
+        allowed["updated_at"] = datetime.utcnow()
+    if not allowed:
+        raise ValueError("no fields to update")
     sets = ", ".join(f"{key} = %s" for key in allowed)
     values = list(allowed.values()) + [tenant_id, document_id]
     with conn.cursor() as cur:
@@ -785,7 +843,7 @@ def update_tenant_document(
             f"""
             UPDATE tenant_documents SET {sets}
             WHERE tenant_id = %s AND id = %s
-            RETURNING {TENANT_DOCUMENT_SELECT}
+            RETURNING id
             """,
             values,
         )
@@ -793,7 +851,10 @@ def update_tenant_document(
         if not row:
             raise LookupError("document not found")
         conn.commit()
-    return _row_to_tenant_document(row)
+    doc = _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+    if not doc:
+        raise LookupError("document not found")
+    return doc
 
 
 def delete_tenant_document(*, tenant_id: int, document_id: int, conn: Any) -> None:
