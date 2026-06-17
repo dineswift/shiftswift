@@ -1090,11 +1090,24 @@
     el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff · ${weekLabel}`;
   }
 
+  function isRotaSectionActive() {
+    const section = document.getElementById("rota");
+    return Boolean(section && !section.hidden);
+  }
+
   function syncPanelVisibility() {
     const panel = document.getElementById("rota-shift-panel");
     if (!panel) return;
+    if (!isRotaSectionActive() && panelOpen) {
+      panelOpen = false;
+      editingShiftIndex = null;
+    }
     const showPanel =
-      hasActiveEmployees() && panelOpen && (activeView === "grid" || isMobileViewport());
+      isRotaSectionActive() &&
+      hasActiveEmployees() &&
+      panelOpen &&
+      !isWeekReadOnly() &&
+      (activeView === "grid" || isMobileViewport());
     if (showPanel) {
       panel.removeAttribute("hidden");
       restorePanelPosition();
@@ -1193,9 +1206,6 @@
     }
     if (!hasStaff) {
       panelOpen = false;
-      syncPanelVisibility();
-    } else if (activeView === "grid" && !panelOpen) {
-      panelOpen = true;
       syncPanelVisibility();
     }
   }
@@ -1546,9 +1556,7 @@
     document.getElementById("rota-list-panel").hidden = view !== "list";
     document.getElementById("rota-view-grid")?.classList.toggle("is-active", view === "grid");
     document.getElementById("rota-view-list")?.classList.toggle("is-active", view === "list");
-    if (view === "grid" && hasActiveEmployees()) {
-      panelOpen = true;
-    } else if (view !== "list") {
+    if (view === "list") {
       panelOpen = false;
     }
     syncPanelVisibility();
@@ -1888,7 +1896,6 @@
     if (isMobileViewport()) {
       closeShiftPanel();
     } else {
-      panelOpen = true;
       syncPanelVisibility();
     }
   }
