@@ -737,18 +737,21 @@ async def distribute_document_route(
             uploaded_by=current_user.username,
             conn=conn,
         )
-        log_employee_data_event(
-            tenant_id=tenant_id,
-            actor_username=current_user.username,
-            actor_role=current_user.role,
-            action="distribute",
-            entity_type="employee_document",
-            entity_id=0,
-            field_name=f"count={result['distributed_count']}",
-            ip_address=client_ip(request),
-            user_agent=request.headers.get("User-Agent"),
-            conn=conn,
-        )
+        try:
+            log_employee_data_event(
+                tenant_id=tenant_id,
+                actor_username=current_user.username,
+                actor_role=current_user.role,
+                action="distribute",
+                entity_type="employee_document",
+                entity_id=0,
+                field_name=f"count={result['distributed_count']}",
+                ip_address=client_ip(request),
+                user_agent=request.headers.get("User-Agent"),
+                conn=conn,
+            )
+        except Exception:
+            logger.warning("Document distribute audit log failed for tenant %s", tenant_id, exc_info=True)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

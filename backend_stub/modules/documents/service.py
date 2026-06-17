@@ -345,6 +345,33 @@ EMPLOYEE_DOCUMENT_SELECT = """
 """
 
 
+def _load_employee_document(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    document_id: int,
+    conn: Any,
+) -> dict[str, Any] | None:
+    select_cols = _employee_document_select_columns(conn)
+    if not select_cols:
+        return None
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT {", ".join(select_cols)}
+            FROM employee_documents
+            WHERE tenant_id = %s AND employee_id = %s AND id = %s
+            """,
+            (tenant_id, employee_id, document_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    doc = _row_to_employee_document(row, columns=select_cols)
+    doc["employee_id"] = employee_id
+    return doc
+
+
 def list_employee_documents(
     *,
     tenant_id: int,
@@ -382,17 +409,12 @@ def get_employee_document(
     document_id: int,
     conn: Any,
 ) -> dict[str, Any] | None:
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT {EMPLOYEE_DOCUMENT_SELECT}
-            FROM employee_documents
-            WHERE tenant_id = %s AND employee_id = %s AND id = %s
-            """,
-            (tenant_id, employee_id, document_id),
-        )
-        row = cur.fetchone()
-    return _row_to_employee_document(row) if row else None
+    return _load_employee_document(
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        document_id=document_id,
+        conn=conn,
+    )
 
 
 def create_employee_document(
@@ -442,21 +464,14 @@ def create_employee_document(
         document_id = int(cur.fetchone()[0])
         conn.commit()
 
-    select_cols = _employee_document_select_columns(conn)
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT {", ".join(select_cols)}
-            FROM employee_documents
-            WHERE tenant_id = %s AND employee_id = %s AND id = %s
-            """,
-            (tenant_id, employee_id, document_id),
-        )
-        row = cur.fetchone()
-    if not row:
+    doc = _load_employee_document(
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        document_id=document_id,
+        conn=conn,
+    )
+    if not doc:
         raise RuntimeError("Document insert succeeded but could not be loaded")
-    doc = _row_to_employee_document(row, columns=select_cols)
-    doc["employee_id"] = employee_id
     return doc
 
 
@@ -508,7 +523,12 @@ def update_employee_document(
             del merged["employee_visible"]
         else:
             merged["employee_visible"] = visible
-    merged["updated_at"] = datetime.utcnow()
+    available = _table_columns(conn, "employee_documents")
+    merged = {key: value for key, value in merged.items() if key in available}
+    if "updated_at" in available:
+        merged["updated_at"] = datetime.utcnow()
+    if not merged:
+        raise ValueError("no fields to update")
     sets = ", ".join(f"{key} = %s" for key in merged)
     values = list(merged.values()) + [tenant_id, employee_id, document_id]
     with conn.cursor() as cur:
@@ -516,7 +536,7 @@ def update_employee_document(
             f"""
             UPDATE employee_documents SET {sets}
             WHERE tenant_id = %s AND employee_id = %s AND id = %s
-            RETURNING {EMPLOYEE_DOCUMENT_SELECT}
+            RETURNING id
             """,
             values,
         )
@@ -524,8 +544,14 @@ def update_employee_document(
         if not row:
             raise LookupError("document not found")
         conn.commit()
-    doc = _row_to_employee_document(row)
-    doc["employee_id"] = employee_id
+    doc = _load_employee_document(
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        document_id=document_id,
+        conn=conn,
+    )
+    if not doc:
+        raise LookupError("document not found")
     return doc
 
 

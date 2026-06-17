@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
@@ -9,6 +10,7 @@ from modules.documents.service import create_employee_document, update_employee_
 from modules.documents.storage import write_document_file
 
 ACTIVE_EMPLOYEE_STATUSES = frozenset({"active", "onboarding"})
+logger = logging.getLogger(__name__)
 
 
 def _load_target_employees(
@@ -130,22 +132,30 @@ def distribute_document(
 
         from modules.documents.notifications import notify_employee_document_shared
 
-        if notify_employee_document_shared(
-            tenant_id=tenant_id,
-            employee=employee,
-            document_id=int(doc["id"]),
-            document_title=title.strip(),
-            category=category,
-            category_label=EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(category, category),
-            pay_period=pay_period,
-            conn=conn,
-            commit=False,
-            send_email=send_email,
-            document_scope="employee",
-        ):
-            emails_sent += 1
-        elif send_email:
-            emails_skipped += 1
+        try:
+            if notify_employee_document_shared(
+                tenant_id=tenant_id,
+                employee=employee,
+                document_id=int(doc["id"]),
+                document_title=title.strip(),
+                category=category,
+                category_label=EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(category, category),
+                pay_period=pay_period,
+                conn=conn,
+                commit=False,
+                send_email=send_email,
+                document_scope="employee",
+            ):
+                emails_sent += 1
+            elif send_email:
+                emails_skipped += 1
+        except Exception:
+            logger.exception(
+                "Document distribute notification failed for tenant %s employee %s document %s",
+                tenant_id,
+                employee["id"],
+                doc["id"],
+            )
 
     conn.commit()
     return {
