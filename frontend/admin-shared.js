@@ -453,8 +453,20 @@ window.Admin = (() => {
       }
     });
     applyAddonGates();
+    applyPlatformOnlyGates();
     window.AdminMobile?.syncClockAvailability?.(Boolean(tenantFeatures.time_clock_enabled));
     window.dispatchEvent(new CustomEvent("admin:features", { detail: tenantFeatures }));
+  }
+
+  function applyPlatformOnlyGates() {
+    const show = isPlatformAdmin();
+    document.querySelectorAll("[data-platform-only]").forEach((el) => {
+      if (el.matches(".nav-link") || el.matches(".mobile-more-link") || el.matches(".admin-section")) {
+        el.hidden = !show;
+        return;
+      }
+      el.hidden = !show;
+    });
   }
 
   function parseHashPath(rawHash) {
@@ -474,6 +486,7 @@ window.Admin = (() => {
     if (baseSection.startsWith("compliance")) return "compliance";
     if (baseSection === "time-punch" && !tenantFeatures.time_clock_enabled) return "overview";
     if (baseSection === "crm" && !isAddonEnabled("crm")) return "overview";
+    if (baseSection === "promotions" && !isPlatformAdmin()) return "overview";
     return baseSection || "overview";
   }
 

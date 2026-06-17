@@ -557,18 +557,12 @@
             tone: (leave.pending_requests ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
-            icon: "trending-up",
-            title: "Promotions",
-            value: "Codes",
-            sub: "Discount & referral validation",
-            href: "#promotions",
-          }),
-          moduleCard({
             icon: "file-certificate",
-            title: "Service agreements (MSA)",
-            value: "Contracts",
-            sub: "Your ShiftSwift subscription pack",
+            title: "Service agreements",
+            value: String(contracts.pending_signature ?? 0),
+            sub: contracts.pending_signature ? "Awaiting signature" : "MSA pack",
             href: "#contracts",
+            tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
             icon: "sparkles",

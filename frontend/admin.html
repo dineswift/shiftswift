@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v105" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v107" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -70,7 +70,7 @@
             <span class="nav-link__icon" data-nav-icon="user-minus" aria-hidden="true"></span>
             <span class="nav-link__label">Offboarding</span>
           </a>
-          <a class="nav-link" href="#promotions" data-section="promotions">
+          <a class="nav-link" href="#promotions" data-section="promotions" data-platform-only hidden>
             <span class="nav-link__icon" data-nav-icon="trending-up" aria-hidden="true"></span>
             <span class="nav-link__label">Promotions</span>
           </a>
@@ -210,7 +210,7 @@
             <a class="mobile-more-link" href="#employees">Employees</a>
             <a class="mobile-more-link" href="#recruitment">Recruitment</a>
             <a class="mobile-more-link" href="#offboarding">Offboarding</a>
-            <a class="mobile-more-link" href="#promotions">Promotions</a>
+            <a class="mobile-more-link" href="#promotions" data-platform-only hidden>Promotions</a>
             <a class="mobile-more-link" href="#crm" data-addon="crm" hidden>CRM</a>
             <p class="mobile-more-group">Cases &amp; contracts</p>
             <a class="mobile-more-link" href="#employment-contracts">Employment contracts</a>
@@ -626,81 +626,83 @@
           </div>
         </section>
 
-        <section id="promotions" class="admin-section" hidden>
-          <header class="section-header">
+        <section id="promotions" class="admin-section" data-platform-only hidden>
+          <header class="section-header section-header--compact">
             <div>
               <h2>Promotions</h2>
-              <p class="muted">Validate discount and referral codes against platform plans before signup or checkout.</p>
+              <p class="muted">Platform ops — validate codes and review active billing promotions.</p>
             </div>
           </header>
 
-          <div class="hr-status-workflow" aria-label="Promotion workflow">
-            <span class="hr-workflow-step">Validate</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Browse codes</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Test pricing</span>
-          </div>
+          <div class="promo-workspace">
+            <article class="card promo-validator-surface">
+              <h3 class="promo-validator-surface__title">Billing code validator</h3>
+              <p class="muted promo-validator-surface__lead">Uses the same rules as signup. Select a plan, enter codes, preview pricing.</p>
+              <div id="promo-validate-form"></div>
+              <div id="promo-validation-result" class="promo-result" hidden></div>
+            </article>
 
-          <div class="hr-workspace-layout">
-            <div class="hr-main-pane">
-              <div class="hr-surface-panel hr-log-panel">
-                <h4 class="hr-section-title">Billing code validator</h4>
-                <p class="muted">Uses the same rules as signup. Select a plan, enter codes, and preview adjusted pricing.</p>
-                <div id="promo-validate-form"></div>
-                <div id="promo-validation-result" class="promo-result" hidden></div>
-              </div>
-              <h4 class="hr-section-title">Discount codes</h4>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Label</th>
-                      <th>Discount</th>
-                      <th>Plans</th>
-                      <th>Usage</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="discount-codes-body">
-                    <tr><td colspan="6" class="muted">Open this section to load discount codes…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="section-header section-header--compact" style="margin-top:1.25rem;">
-                <div>
-                  <h4 class="hr-section-title">Referral codes</h4>
-                  <p class="muted">Introducer codes for HR consultants and partners. Commission is paid manually — confirm against Stripe before payout.</p>
+            <div class="promo-catalog-grid">
+              <article class="card promo-catalog-card">
+                <div class="promo-catalog-card__head">
+                  <h4 class="hr-section-title">Active discount codes</h4>
+                  <label class="promo-catalog-toggle signup-check">
+                    <input type="checkbox" id="promo-show-inactive-discount" />
+                    <span>Show inactive</span>
+                  </label>
                 </div>
-                <div id="introducer-export-actions" class="link-row" hidden>
-                  <button type="button" class="btn secondary" id="export-all-introducers-btn">Export all introducers (CSV)</button>
+                <div class="hr-table-wrap promo-table-wrap">
+                  <table class="data-table data-table--compact">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Discount</th>
+                        <th>Plans</th>
+                        <th>Usage</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="discount-codes-body">
+                      <tr><td colspan="5" class="muted">Open this section to load discount codes…</td></tr>
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Partner</th>
-                      <th>Reward</th>
-                      <th>Agreed % (manual payout)</th>
-                      <th>Usage</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="referral-codes-body">
-                    <tr><td colspan="6" class="muted">Open this section to load referral codes…</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              </article>
+
+              <article class="card promo-catalog-card">
+                <div class="promo-catalog-card__head">
+                  <div>
+                    <h4 class="hr-section-title">Active referral codes</h4>
+                    <p class="muted promo-catalog-card__lead">Introducer codes — commission paid manually.</p>
+                  </div>
+                  <div class="promo-catalog-card__actions">
+                    <label class="promo-catalog-toggle signup-check">
+                      <input type="checkbox" id="promo-show-inactive-referral" />
+                      <span>Show inactive</span>
+                    </label>
+                    <div id="introducer-export-actions" class="link-row" hidden>
+                      <button type="button" class="btn ghost btn-sm" id="export-all-introducers-btn">Export CSV</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="hr-table-wrap promo-table-wrap">
+                  <table class="data-table data-table--compact">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Partner</th>
+                        <th>Reward</th>
+                        <th>Usage</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="referral-codes-body">
+                      <tr><td colspan="5" class="muted">Open this section to load referral codes…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
             </div>
-            <aside class="hr-detail-panel" id="promo-detail-panel">
-              <div id="promo-detail-empty" class="hr-detail-empty muted">
-                <p>Select a discount or referral code to preview details and test in the validator.</p>
-              </div>
-              <div id="promo-detail-content" hidden></div>
-            </aside>
           </div>
         </section>
 
@@ -2672,14 +2674,14 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=13"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v34"></script>
+    <script src="./admin-shared.js?v=admin-v35"></script>
     <script src="./admin-settings.js?v=27"></script>
-    <script src="./admin-workspace.js?v=admin-v21"></script>
+    <script src="./admin-workspace.js?v=admin-v22"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=27"></script>
     <script src="./admin-employees.js?v=23"></script>
     <script src="./admin-recruitment.js?v=6"></script>
-    <script src="./admin-promotions.js?v=admin-v5"></script>
+    <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>
     <script src="./admin-compliance.js?v=admin-v11"></script>
     <script src="./admin-absence.js?v=2"></script>

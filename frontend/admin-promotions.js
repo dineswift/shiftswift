@@ -1,11 +1,21 @@
-/** Admin promotions — validate discount/referral codes and browse catalogs. */
+/** Admin promotions — validate discount/referral codes (platform ops). */
 (async function initAdminPromotions() {
-  const { apiFetch, loadFormOptions, mountEditForm, FORM_SCHEMAS, escapeHtml, statusPill, parseHashBaseSection, downloadAuthenticated, isPlatformAdmin } = window.Admin;
+  const {
+    apiFetch,
+    loadFormOptions,
+    mountEditForm,
+    FORM_SCHEMAS,
+    escapeHtml,
+    parseHashBaseSection,
+    downloadAuthenticated,
+    isPlatformAdmin,
+  } = window.Admin;
 
   let validateForm = null;
   let discountCodes = [];
   let referralCodes = [];
-  let selectedPromo = null;
+  let showInactiveDiscount = false;
+  let showInactiveReferral = false;
   let exportsBound = false;
 
   function formatDiscount(row) {
@@ -20,8 +30,18 @@
   }
 
   function formatUsage(used, max) {
-    if (max == null) return `${used} used · unlimited`;
-    return `${used} / ${max} used`;
+    if (max == null) return `${used} used`;
+    return `${used}/${max}`;
+  }
+
+  function visibleDiscountCodes() {
+    if (showInactiveDiscount) return discountCodes;
+    return discountCodes.filter((row) => row.is_active);
+  }
+
+  function visibleReferralCodes() {
+    if (showInactiveReferral) return referralCodes;
+    return referralCodes.filter((row) => row.is_active);
   }
 
   function renderValidationResult(data, isError = false) {
@@ -62,7 +82,7 @@
     if (planId) validateForm.querySelector('[name="plan_id"]').value = planId;
     if (discountCode != null) validateForm.querySelector('[name="discount_code"]').value = discountCode;
     if (referralCode != null) validateForm.querySelector('[name="referral_code"]').value = referralCode;
-    document.getElementById("promo-validation-result")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    document.querySelector(".promo-validator-surface")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function mountPromoValidator() {
@@ -112,135 +132,74 @@
     host.dataset.mounted = "true";
   }
 
-  function renderPromoSidePanel() {
-    const empty = document.getElementById("promo-detail-empty");
-    const content = document.getElementById("promo-detail-content");
-    if (!content) return;
-    if (!selectedPromo) {
-      empty?.removeAttribute("hidden");
-      content.hidden = true;
-      return;
-    }
-    empty?.setAttribute("hidden", "");
-    content.hidden = false;
-
-    if (selectedPromo.kind === "discount") {
-      const row = selectedPromo.row;
-      content.innerHTML = `
-        <div class="hr-detail-head">
-          <div>
-            <h3>${escapeHtml(row.code)}</h3>
-            ${statusPill(row.is_active ? "active" : "inactive")}
-          </div>
-        </div>
-        <dl class="hr-detail-grid">
-          <div><dt>Label</dt><dd>${escapeHtml(row.label || "Not set")}</dd></div>
-          <div><dt>Discount</dt><dd>${escapeHtml(formatDiscount(row))}</dd></div>
-          <div><dt>Plans</dt><dd>${row.applicable_plan_ids?.length ? escapeHtml(row.applicable_plan_ids.join(", ")) : "All plans"}</dd></div>
-          <div><dt>Usage</dt><dd>${escapeHtml(formatUsage(row.redemption_count, row.max_redemptions))}</dd></div>
-        </dl>
-        <div class="hr-detail-foot">
-          <button type="button" class="btn" id="promo-side-test-discount-btn">Test in validator</button>
-        </div>`;
-      content.querySelector("#promo-side-test-discount-btn")?.addEventListener("click", () => {
-        prefillValidator({ discountCode: row.code });
-      });
-      return;
-    }
-
-    const row = selectedPromo.row;
-    content.innerHTML = `
-      <div class="hr-detail-head">
-        <div>
-          <h3>${escapeHtml(row.code)}</h3>
-          ${statusPill(row.is_active ? "active" : "inactive")}
-        </div>
-      </div>
-      <dl class="hr-detail-grid">
-        <div><dt>Partner</dt><dd>${escapeHtml(row.partner_name)}</dd></div>
-        <div><dt>Reward</dt><dd>${escapeHtml(formatReferralReward(row))}</dd></div>
-        <div><dt>Agreed commission</dt><dd>${escapeHtml(row.referrer_commission_percent)}% (manual payout)</dd></div>
-        <div><dt>Usage</dt><dd>${escapeHtml(formatUsage(row.use_count, row.max_uses))}</dd></div>
-      </dl>
-      <div class="hr-detail-foot">
-        <button type="button" class="btn" id="promo-side-test-referral-btn">Test in validator</button>
-        ${isPlatformAdmin() ? `<button type="button" class="btn ghost" id="promo-side-export-referral-btn">Export CSV</button>` : ""}
-      </div>`;
-    content.querySelector("#promo-side-test-referral-btn")?.addEventListener("click", () => {
-      prefillValidator({ referralCode: row.code });
-    });
-    content.querySelector("#promo-side-export-referral-btn")?.addEventListener("click", async () => {
-      try {
-        await exportIntroducerCode(row.code);
-      } catch (error) {
-        alert(error.message || "Export failed");
-      }
-    });
-  }
-
-  function selectDiscountCode(code) {
-    selectedPromo = { kind: "discount", code, row: discountCodes.find((r) => r.code === code) };
-    renderDiscountTable();
-    renderReferralTable();
-    renderPromoSidePanel();
-  }
-
-  function selectReferralCode(code) {
-    selectedPromo = { kind: "referral", code, row: referralCodes.find((r) => r.code === code) };
-    renderDiscountTable();
-    renderReferralTable();
-    renderPromoSidePanel();
-  }
-
   function renderDiscountTable() {
     const tbody = document.getElementById("discount-codes-body");
     if (!tbody) return;
+    const rows = visibleDiscountCodes();
     if (!discountCodes.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="muted">No discount codes configured. Seed the billing catalog.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">No discount codes configured.</td></tr>';
       return;
     }
-    tbody.innerHTML = discountCodes
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">No active discount codes. Toggle “Show inactive” to see archived codes.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows
       .map((row) => {
-        const selected =
-          selectedPromo?.kind === "discount" && selectedPromo.code === row.code ? " hr-register-row--selected" : "";
-        return `<tr class="hr-register-row${selected}" data-discount-code="${escapeHtml(row.code)}">
-          <td><strong>${escapeHtml(row.code)}</strong></td>
-          <td>${escapeHtml(row.label || "Not set")}</td>
+        return `<tr class="hr-register-row">
+          <td><strong>${escapeHtml(row.code)}</strong>${row.label ? `<span class="muted promo-code-label">${escapeHtml(row.label)}</span>` : ""}</td>
           <td>${escapeHtml(formatDiscount(row))}</td>
-          <td>${row.applicable_plan_ids?.length ? escapeHtml(row.applicable_plan_ids.join(", ")) : "<span class='muted'>All plans</span>"}</td>
+          <td>${row.applicable_plan_ids?.length ? escapeHtml(row.applicable_plan_ids.join(", ")) : "<span class='muted'>All</span>"}</td>
           <td>${escapeHtml(formatUsage(row.redemption_count, row.max_redemptions))}</td>
-          <td>${statusPill(row.is_active ? "active" : "inactive")}</td>
+          <td><button type="button" class="btn ghost btn-sm" data-test-discount="${escapeHtml(row.code)}">Test</button></td>
         </tr>`;
       })
       .join("");
-    tbody.querySelectorAll("[data-discount-code]").forEach((row) => {
-      row.addEventListener("click", () => selectDiscountCode(row.dataset.discountCode));
+    tbody.querySelectorAll("[data-test-discount]").forEach((btn) => {
+      btn.addEventListener("click", () => prefillValidator({ discountCode: btn.dataset.testDiscount }));
     });
   }
 
   function renderReferralTable() {
     const tbody = document.getElementById("referral-codes-body");
     if (!tbody) return;
+    const rows = visibleReferralCodes();
     if (!referralCodes.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="muted">No referral codes configured. Seed the billing catalog.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">No referral codes configured.</td></tr>';
       return;
     }
-    tbody.innerHTML = referralCodes
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">No active referral codes. Toggle “Show inactive” to see archived codes.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows
       .map((row) => {
-        const selected =
-          selectedPromo?.kind === "referral" && selectedPromo.code === row.code ? " hr-register-row--selected" : "";
-        return `<tr class="hr-register-row${selected}" data-referral-code="${escapeHtml(row.code)}">
+        const exportBtn = isPlatformAdmin()
+          ? `<button type="button" class="btn ghost btn-sm" data-export-referral="${escapeHtml(row.code)}">CSV</button>`
+          : "";
+        return `<tr class="hr-register-row">
           <td><strong>${escapeHtml(row.code)}</strong></td>
           <td>${escapeHtml(row.partner_name)}</td>
           <td>${escapeHtml(formatReferralReward(row))}</td>
-          <td>${escapeHtml(row.referrer_commission_percent)}% (manual)</td>
           <td>${escapeHtml(formatUsage(row.use_count, row.max_uses))}</td>
-          <td>${statusPill(row.is_active ? "active" : "inactive")}</td>
+          <td class="promo-row-actions">
+            <button type="button" class="btn ghost btn-sm" data-test-referral="${escapeHtml(row.code)}">Test</button>
+            ${exportBtn}
+          </td>
         </tr>`;
       })
       .join("");
-    tbody.querySelectorAll("[data-referral-code]").forEach((row) => {
-      row.addEventListener("click", () => selectReferralCode(row.dataset.referralCode));
+    tbody.querySelectorAll("[data-test-referral]").forEach((btn) => {
+      btn.addEventListener("click", () => prefillValidator({ referralCode: btn.dataset.testReferral }));
+    });
+    tbody.querySelectorAll("[data-export-referral]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await exportIntroducerCode(btn.dataset.exportReferral);
+        } catch (error) {
+          alert(error.message || "Export failed");
+        }
+      });
     });
   }
 
@@ -255,7 +214,7 @@
       renderDiscountTable();
     } catch {
       discountCodes = [];
-      tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load discount codes.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Could not load discount codes.</td></tr>';
     }
   }
 
@@ -294,15 +253,35 @@
       renderReferralTable();
     } catch {
       referralCodes = [];
-      tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load referral codes.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Could not load referral codes.</td></tr>';
+    }
+  }
+
+  function bindCatalogToggles() {
+    const discountToggle = document.getElementById("promo-show-inactive-discount");
+    const referralToggle = document.getElementById("promo-show-inactive-referral");
+    if (discountToggle && !discountToggle.dataset.bound) {
+      discountToggle.dataset.bound = "true";
+      discountToggle.addEventListener("change", () => {
+        showInactiveDiscount = discountToggle.checked;
+        renderDiscountTable();
+      });
+    }
+    if (referralToggle && !referralToggle.dataset.bound) {
+      referralToggle.dataset.bound = "true";
+      referralToggle.addEventListener("change", () => {
+        showInactiveReferral = referralToggle.checked;
+        renderReferralTable();
+      });
     }
   }
 
   async function loadPromotionsSection() {
+    if (!isPlatformAdmin()) return;
     setupIntroducerExports();
+    bindCatalogToggles();
     await mountPromoValidator();
     await Promise.all([loadDiscountCodes(), loadReferralCodes()]);
-    if (selectedPromo) renderPromoSidePanel();
   }
 
   window.addEventListener("admin:section", (event) => {
