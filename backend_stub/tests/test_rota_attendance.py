@@ -73,3 +73,35 @@ def test_evaluate_shift_attendance_matches_bst_punch_to_uk_shift() -> None:
     now = datetime(2026, 6, 16, 12, 0, tzinfo=timezone.utc)
     result = evaluate_shift_attendance(shift=shift, punches=punches, now=now)
     assert result["attendance_status"] == "attended"
+
+
+def test_evaluate_shift_attendance_early_evening_punch_counts() -> None:
+    """Managers often clock in well before a 17:00 shift starts."""
+    shift = {
+        "id": 5,
+        "employee_id": 1,
+        "shift_date": "2026-06-16",
+        "start_time": "17:00",
+        "end_time": "22:00",
+        "employee_name": "Shankar",
+    }
+    # 16:30 UK (BST) = 15:30 UTC — earlier than the 15-minute pre-shift window
+    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 16, 15, 30, tzinfo=timezone.utc)}]
+    now = datetime(2026, 6, 16, 20, 0, tzinfo=timezone.utc)
+    result = evaluate_shift_attendance(shift=shift, punches=punches, now=now)
+    assert result["attendance_status"] == "attended"
+
+
+def test_evaluate_shift_attendance_ongoing_session_counts_for_later_shift() -> None:
+    shift = {
+        "id": 6,
+        "employee_id": 1,
+        "shift_date": "2026-06-16",
+        "start_time": "17:00",
+        "end_time": "22:00",
+        "employee_name": "Shankar",
+    }
+    punches = [{"punch_type": "in", "punched_at": datetime(2026, 6, 16, 8, 0, tzinfo=timezone.utc)}]
+    now = datetime(2026, 6, 16, 20, 0, tzinfo=timezone.utc)
+    result = evaluate_shift_attendance(shift=shift, punches=punches, now=now)
+    assert result["attendance_status"] == "attended"

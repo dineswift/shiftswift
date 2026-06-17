@@ -25,6 +25,70 @@ def _parse_punch_time(value: Any) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+def _work_state_at(*, punches: list[dict[str, Any]], at: datetime) -> tuple[str, datetime | None]:
+    """Replay punches up to `at` and return work state plus any open clock-in."""
+    state = "off"
+    open_clock_in: datetime | None = None
+    for punch in sorted(punches, key=lambda item: item["punched_at"]):
+        ts = punch["punched_at"]
+        if ts > at:
+            break
+        punch_type = punch["punch_type"]
+        if punch_type == "in":
+            open_clock_in = ts
+            state = "clocked_in"
+        elif punch_type == "break_start":
+            state = "on_break"
+        elif punch_type == "break_end":
+            state = "clocked_in"
+        elif punch_type == "out":
+            open_clock_in = None
+            state = "off"
+    return state, open_clock_in
+
+
+def _shift_day_punches(*, punches: list[dict[str, Any]], shift_date: date, until: datetime) -> list[dict[str, Any]]:
+    day_start, _day_end = uk_date_range_utc(date_from=shift_date, date_to=shift_date)
+    return [p for p in punches if day_start <= p["punched_at"] < until]
+
+
+def _resolve_shift_clock_events(
+    *,
+    punches: list[dict[str, Any]],
+    shift_date: date,
+    window_start: datetime,
+    window_end: datetime,
+    check_from: datetime,
+    check_until: datetime,
+) -> tuple[datetime | None, datetime | None]:
+    """Match clock-in/out to a scheduled shift, including early or ongoing sessions."""
+    day_punches = _shift_day_punches(punches=punches, shift_date=shift_date, until=check_until)
+    state, open_clock_in = _work_state_at(punches=day_punches, at=window_start)
+    clock_in = open_clock_in if state in {"clocked_in", "on_break"} and open_clock_in else None
+
+    if clock_in is None:
+        for punch in day_punches:
+            ts = punch["punched_at"]
+            if ts < check_from or ts > check_until:
+                continue
+            if punch["punch_type"] == "in":
+                clock_in = ts
+                break
+
+    if clock_in is None:
+        return None, None
+
+    clock_out = None
+    for punch in day_punches:
+        ts = punch["punched_at"]
+        if ts <= clock_in or ts > check_until:
+            continue
+        if punch["punch_type"] == "out":
+            clock_out = ts
+            break
+    return clock_in, clock_out
+
+
 def load_punches_for_employees(
     *,
     tenant_id: int,
@@ -82,16 +146,14 @@ def evaluate_shift_attendance(
     check_until = window_end + timedelta(minutes=NO_SHOW_GRACE_AFTER_END_MINUTES)
     late_after = window_start + timedelta(minutes=LATE_GRACE_MINUTES)
 
-    clock_in = None
-    clock_out = None
-    for punch in punches:
-        ts = punch["punched_at"]
-        if ts < check_from or ts > check_until:
-            continue
-        if punch["punch_type"] == "in" and clock_in is None:
-            clock_in = ts
-        if punch["punch_type"] == "out" and clock_in is not None:
-            clock_out = ts
+    clock_in, clock_out = _resolve_shift_clock_events(
+        punches=punches,
+        shift_date=shift_date,
+        window_start=window_start,
+        window_end=window_end,
+        check_from=check_from,
+        check_until=check_until,
+    )
 
     if now < window_start:
         status = "scheduled"
@@ -110,7 +172,10 @@ def evaluate_shift_attendance(
         detail = "Clocked in but no clock-out after shift end"
     elif clock_in is not None:
         status = "attended"
-        detail = "Clock-in recorded for shift"
+        if clock_in < check_from:
+            detail = "Clock-in recorded for shift (already on clock)"
+        else:
+            detail = "Clock-in recorded for shift"
     else:
         status = "awaiting"
         detail = "Awaiting clock-in"
