@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v87" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v88" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2243,26 +2243,21 @@
         </section>
 
         <section id="settings" class="admin-section" hidden>
-          <header class="section-header">
-            <div>
-              <h2>Settings</h2>
-              <p class="muted">Manage your organisation, documents, billing, and integrations.</p>
-            </div>
-          </header>
-
           <div class="settings-workspace settings-workspace--hub">
             <div class="settings-main">
-              <div class="settings-topbar">
-                <button type="button" class="btn ghost settings-back-btn" id="settings-back-btn" hidden aria-label="Back to settings menu">← Settings</button>
+              <header class="settings-topbar">
+                <button type="button" class="btn ghost settings-back-btn" id="settings-back-btn" hidden aria-label="Back to settings menu">
+                  <span aria-hidden="true">←</span> Back
+                </button>
                 <div class="settings-topbar__copy">
-                  <h3 id="settings-panel-title">Settings</h3>
-                  <p class="muted" id="settings-panel-subtitle">Choose a section to manage.</p>
+                  <h2 class="settings-topbar__title" id="settings-panel-title">Settings</h2>
+                  <p class="settings-topbar__subtitle muted" id="settings-panel-subtitle">Choose a section to manage.</p>
                 </div>
                 <div class="settings-plan-badge">
                   <span id="settings-plan-label">Loading plan…</span>
                   <button type="button" class="settings-upgrade-link" id="settings-upgrade-link">Upgrade to Scale →</button>
                 </div>
-              </div>
+              </header>
 
               <div id="settings-toast" class="settings-toast" hidden role="status"></div>
 
@@ -2275,28 +2270,33 @@
               </article>
 
               <article class="card settings-panel hr-workspace" data-settings-panel="documents" hidden>
-                <div class="hr-workspace-body">
+                <div class="hr-workspace-body settings-doc-panel">
                   <div id="documents-panel-alert" class="settings-doc-alert" hidden role="alert" aria-live="assertive"></div>
-                  <p class="muted">Upload HR files to secure tenant storage, or register external links. Export a CSV manifest or ZIP archive for audits and offboarding.</p>
-                  <div class="settings-doc-export link-row" id="document-export-actions">
-                    <button type="button" class="btn outline settings-export-btn" id="documents-export-csv">
-                      <span aria-hidden="true">⬇</span> Export CSV manifest
-                    </button>
-                    <button type="button" class="btn outline settings-export-btn" id="documents-export-zip">
-                      <span aria-hidden="true">⬇</span> Export ZIP pack
-                    </button>
-                    <label class="signup-check settings-export-check">
-                      <input type="checkbox" id="documents-export-include-rtw" />
-                      <span>Include RTW PDFs in ZIP</span>
-                    </label>
-                  </div>
 
-                  <div class="settings-doc-tabs" role="tablist" aria-label="Add document">
-                    <button type="button" class="settings-doc-tab is-active" data-doc-tab="upload" role="tab" aria-selected="true">Upload file</button>
-                    <button type="button" class="settings-doc-tab" data-doc-tab="distribute" role="tab" aria-selected="false">Send to employees</button>
-                    <button type="button" class="settings-doc-tab" data-doc-tab="link" role="tab" aria-selected="false">Link external document</button>
+                  <div class="settings-doc-toolbar">
+                    <div class="settings-doc-toolbar__primary">
+                      <div class="settings-doc-tabs" role="tablist" aria-label="Add document">
+                        <button type="button" class="settings-doc-tab is-active" data-doc-tab="upload" role="tab" aria-selected="true">Upload file</button>
+                        <button type="button" class="settings-doc-tab" data-doc-tab="distribute" role="tab" aria-selected="false">Send to employees</button>
+                        <button type="button" class="settings-doc-tab" data-doc-tab="link" role="tab" aria-selected="false">Link external document</button>
+                      </div>
+                      <p class="settings-doc-tab-desc muted" id="document-tab-desc">Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.</p>
+                    </div>
+                    <div class="settings-doc-toolbar__actions" id="document-export-actions">
+                      <div class="settings-doc-export-actions">
+                        <button type="button" class="btn outline settings-export-btn" id="documents-export-csv">
+                          <span aria-hidden="true">⬇</span> CSV manifest
+                        </button>
+                        <button type="button" class="btn outline settings-export-btn" id="documents-export-zip">
+                          <span aria-hidden="true">⬇</span> ZIP pack
+                        </button>
+                      </div>
+                      <label class="signup-check settings-export-check">
+                        <input type="checkbox" id="documents-export-include-rtw" />
+                        <span>Include RTW PDFs in ZIP</span>
+                      </label>
+                    </div>
                   </div>
-                  <p class="settings-doc-tab-desc muted" id="document-tab-desc">Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.</p>
 
                   <div id="document-upload-panel" class="settings-doc-tab-panel" data-doc-panel="upload">
                     <form id="document-upload-form" class="edit-form edit-form--cols-2 settings-doc-form settings-doc-upload-form" enctype="multipart/form-data">
