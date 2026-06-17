@@ -844,16 +844,28 @@ def download_tenant_document_file(
     document_id: int,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    scope: str = "tenant",
+    employee_id: int | None = None,
 ):
     from fastapi.responses import FileResponse
 
-    from modules.documents.service import get_tenant_document
+    from modules.documents.service import get_employee_document, get_tenant_document
     from modules.documents.storage import download_filename, resolve_stored_file
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
-        doc = get_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
+        if scope == "employee":
+            if employee_id is None:
+                raise HTTPException(status_code=400, detail="employee_id is required for employee documents")
+            doc = get_employee_document(
+                tenant_id=tenant_id,
+                employee_id=employee_id,
+                document_id=document_id,
+                conn=conn,
+            )
+        else:
+            doc = get_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
     finally:
         conn.close()
     if not doc:

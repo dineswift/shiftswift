@@ -243,17 +243,20 @@
     await refreshExpiringDocuments().catch(() => {});
 
     const alertVisible = document.getElementById("documents-panel-alert") && !document.getElementById("documents-panel-alert").hidden;
+    const uploadSucceeded = statusEl?.classList.contains("edit-form-status--success");
     if (alertVisible) {
       console.warn("Document list refresh failed");
-      if (statusEl) {
+      if (statusEl && !uploadSucceeded) {
         setFormStatus(statusEl, "Uploaded — refresh the lists below if needed.", "warn");
       }
-      window.AdminSettings?.showSettingsToast?.("Document saved — tap Try again if lists look empty.", { variant: "warn" });
+      if (uploadSucceeded) {
+        window.AdminSettings?.showSettingsToast?.("Document saved — reload lists below if they look empty.", { variant: "warn" });
+      }
       return;
     }
 
     setDocumentsPanelAlert({});
-    if (statusEl) {
+    if (statusEl && !uploadSucceeded) {
       setFormStatus(statusEl, "Uploaded ✓", "success");
     }
   }
@@ -279,8 +282,20 @@
   }
 
   function audienceLabel(row) {
+    if (row.scope === "employee" && row.employee_id) {
+      return employeeLabel(row.employee_id);
+    }
     if (!row.employee_id) return "All employees";
     return employeeLabel(row.employee_id);
+  }
+
+  function documentDownloadPath(row) {
+    const scope = row.scope || "tenant";
+    const params = new URLSearchParams({ scope });
+    if (scope === "employee" && row.employee_id) {
+      params.set("employee_id", String(row.employee_id));
+    }
+    return `/admin/documents/${row.id}/file?${params.toString()}`;
   }
 
   function portalVisibilityMarkup(row) {
@@ -1137,7 +1152,7 @@
               key: "has_file",
               render: (row) =>
                 row.has_file
-                  ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>`
+                  ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
                   : "<span class='muted'>No file</span>",
             },
             {
@@ -1155,7 +1170,9 @@
             {
               key: "actions",
               render: (row) =>
-                `<div class="table-actions">
+                row.scope === "employee"
+                  ? `<span class="muted">Employee copy</span>`
+                  : `<div class="table-actions">
                   <button type="button" class="btn ghost" data-edit-doc="${row.id}">Edit</button>
                   <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
                 </div>`,
@@ -1166,9 +1183,23 @@
 
         tbody.querySelectorAll("[data-download-doc]").forEach((btn) => {
           btn.addEventListener("click", async () => {
-            const row = (data.items || []).find((item) => String(item.id) === btn.dataset.downloadDoc);
-            const name = row?.original_filename || `${row?.title || "document"}.bin`;
-            await downloadAuthenticated(`/admin/documents/${btn.dataset.downloadDoc}/file`, name);
+            const row = {
+              id: btn.dataset.downloadDoc,
+              scope: btn.dataset.docScope || "tenant",
+              employee_id: btn.dataset.docEmployeeId ? Number(btn.dataset.docEmployeeId) : null,
+              original_filename: (data.items || []).find(
+                (item) =>
+                  String(item.id) === btn.dataset.downloadDoc &&
+                  (item.scope || "tenant") === (btn.dataset.docScope || "tenant")
+              )?.original_filename,
+              title: (data.items || []).find(
+                (item) =>
+                  String(item.id) === btn.dataset.downloadDoc &&
+                  (item.scope || "tenant") === (btn.dataset.docScope || "tenant")
+              )?.title,
+            };
+            const name = row.original_filename || `${row.title || "document"}.bin`;
+            await downloadAuthenticated(documentDownloadPath(row), name);
           });
         });
 

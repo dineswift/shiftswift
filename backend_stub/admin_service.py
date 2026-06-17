@@ -703,9 +703,9 @@ def list_documents(
     category: str | None = None,
     lifecycle_stage: str | None = None,
 ) -> list[dict[str, Any]]:
-    from modules.documents.service import list_tenant_documents
+    from modules.documents.service import list_workspace_documents
 
-    return list_tenant_documents(
+    return list_workspace_documents(
         tenant_id=tenant_id,
         conn=conn,
         category=category,

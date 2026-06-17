@@ -774,18 +774,24 @@ def list_tenant_documents(
         clauses.append("employee_id = %s")
         params.append(employee_id)
     where = " AND ".join(clauses)
+    select_cols = _tenant_document_select_columns(conn)
+    if not select_cols:
+        return []
+    order_by = "id DESC"
+    if "created_at" in select_cols:
+        order_by = "created_at DESC NULLS LAST, id DESC"
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT {TENANT_DOCUMENT_SELECT}
+            SELECT {", ".join(select_cols)}
             FROM tenant_documents
             WHERE {where}
-            ORDER BY created_at DESC
+            ORDER BY {order_by}
             LIMIT %s
             """,
             [*params, limit],
         )
-        return [_row_to_tenant_document(row) for row in cur.fetchall()]
+        return [_row_to_tenant_document(row, columns=select_cols) for row in cur.fetchall()]
 
 
 def tenant_document_accessible_to_employee(doc: dict[str, Any], employee_id: int) -> bool:
@@ -802,19 +808,25 @@ def list_portal_tenant_documents(
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     """Tenant documents for the employee portal — company-wide plus any assigned to them."""
+    select_cols = _tenant_document_select_columns(conn)
+    if not select_cols:
+        return []
+    order_by = "id DESC"
+    if "created_at" in select_cols:
+        order_by = "created_at DESC NULLS LAST, id DESC"
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT {TENANT_DOCUMENT_SELECT}
+            SELECT {", ".join(select_cols)}
             FROM tenant_documents
             WHERE tenant_id = %s
               AND (employee_id IS NULL OR employee_id = %s)
-            ORDER BY created_at DESC
+            ORDER BY {order_by}
             LIMIT %s
             """,
             (tenant_id, employee_id, limit),
         )
-        return [_row_to_tenant_document(row) for row in cur.fetchall()]
+        return [_row_to_tenant_document(row, columns=select_cols) for row in cur.fetchall()]
 
 
 def get_tenant_document(*, tenant_id: int, document_id: int, conn: Any) -> dict[str, Any] | None:
@@ -990,18 +1002,61 @@ def list_all_employee_documents(
         clauses.append("lifecycle_stage = %s")
         params.append(lifecycle_stage)
     where = " AND ".join(clauses)
+    select_cols = _employee_document_select_columns(conn)
+    if not select_cols:
+        return []
+    order_by = "id DESC"
+    if "created_at" in select_cols:
+        order_by = "created_at DESC NULLS LAST, id DESC"
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT {EMPLOYEE_DOCUMENT_SELECT}
+            SELECT {", ".join(select_cols)}
             FROM employee_documents
             WHERE {where}
-            ORDER BY created_at DESC
+            ORDER BY {order_by}
             LIMIT %s
             """,
             [*params, limit],
         )
-        return [_row_to_employee_document(row) for row in cur.fetchall()]
+        rows = cur.fetchall()
+    docs: list[dict[str, Any]] = []
+    for row in rows:
+        doc = _row_to_employee_document(row, columns=select_cols)
+        if doc.get("employee_id") is None and "employee_id" in select_cols:
+            idx = select_cols.index("employee_id")
+            doc["employee_id"] = row[idx]
+        docs.append(doc)
+    return docs
+
+
+def list_workspace_documents(
+    *,
+    tenant_id: int,
+    conn: Any,
+    category: str | None = None,
+    lifecycle_stage: str | None = None,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """Tenant-wide document store list — company documents plus per-employee uploads."""
+    tenant_docs = list_tenant_documents(
+        tenant_id=tenant_id,
+        conn=conn,
+        category=category,
+        lifecycle_stage=lifecycle_stage,
+        limit=limit,
+    )
+    employee_docs = list_all_employee_documents(
+        tenant_id=tenant_id,
+        conn=conn,
+        category=category,
+        lifecycle_stage=lifecycle_stage,
+        limit=limit,
+    )
+    items: list[dict[str, Any]] = [{**doc, "scope": "tenant"} for doc in tenant_docs]
+    items.extend({**doc, "scope": "employee"} for doc in employee_docs)
+    items.sort(key=lambda doc: (str(doc.get("created_at") or ""), int(doc.get("id") or 0)), reverse=True)
+    return items[:limit]
 
 
 def qualification_certificate_summary(*, tenant_id: int, conn: Any) -> dict[str, int]:
