@@ -6136,42 +6136,57 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   border: none;
 }
 
-.settings-doc-mobile-list {
-  display: none;
+.settings-doc-mobile-list,
+.settings-doc-strip-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-doc-strip-loading {
+  margin: 0;
+  padding: 8px 0;
+}
+
+.settings-doc-stored .settings-doc-desktop-table {
+  display: none !important;
 }
 
 .settings-doc-strip {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
   background: var(--card, #fff);
 }
 
-.settings-doc-strip__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.settings-doc-strip__main {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
 }
 
 .settings-doc-strip__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.92rem;
   line-height: 1.35;
+  color: var(--green-900);
 }
 
 .settings-doc-strip__meta {
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   color: var(--ink-500);
 }
 
-.settings-doc-strip__footer {
+.settings-doc-strip__aside {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -6185,13 +6200,31 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .settings-doc-strip__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
 }
 
-.settings-doc-strip__date {
-  font-size: 0.78rem;
-  color: var(--ink-500);
+.settings-doc-strip__actions .table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-doc-strip__actions .btn {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .settings-doc-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-doc-strip__aside {
+    justify-content: space-between;
+  }
 }
 
 .settings-doc-edit-caption {
@@ -6199,16 +6232,7 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 @media (max-width: 860px) {
-  body:has(#mobile-tab-bar) .settings-doc-table-wrap.settings-doc-desktop-table {
-    display: none;
-  }
-
-  body:has(#mobile-tab-bar) .settings-doc-mobile-list:not([hidden]) {
-    display: grid;
-    gap: 10px;
-  }
-
-  body:has(#mobile-tab-bar) .settings-doc-mobile-list .settings-doc-empty {
+  body:has(#mobile-tab-bar) .settings-doc-strip-list .settings-doc-empty {
     margin: 0;
   }
 }
@@ -6915,10 +6939,16 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 
 .settings-doc-filter select {
   min-width: 150px;
+  max-width: 220px;
   padding: 6px 10px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
   font: inherit;
+}
+
+.settings-doc-filter:first-child select {
+  min-width: 180px;
+  max-width: 240px;
 }
 
 .settings-gated-card--locked .settings-gated-card__unlocked {
@@ -12139,26 +12169,63 @@ body.rota-week-readonly .rota-builder-hint {
 
 .lifecycle-stage-rail {
   margin-bottom: 16px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
 }
 
 .lifecycle-stage-rail__track {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 4px;
+  gap: 0;
+}
+
+.lifecycle-stage-rail__track::before {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 14px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--card-border);
+  z-index: 0;
+}
+
+.lifecycle-stage-rail__track::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  width: calc(72% * var(--lifecycle-progress, 0) / 100);
+  top: 14px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--green-700);
+  z-index: 0;
+  transition: width 0.2s ease;
+}
+
+.lifecycle-stage-rail__track--neutral::after {
+  width: 0;
 }
 
 .lifecycle-stage-rail__step {
+  position: relative;
+  z-index: 1;
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 1 1 0;
   min-width: 0;
   border: none;
   background: transparent;
-  padding: 0;
+  padding: 0 4px;
   cursor: pointer;
   font: inherit;
+  color: inherit;
 }
 
 .lifecycle-stage-rail__marker {
@@ -12183,12 +12250,13 @@ body.rota-week-readonly .rota-builder-hint {
 
 .lifecycle-stage-rail__step--current .lifecycle-stage-rail__marker {
   border-color: var(--green-700);
-  background: #e1f5ee;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(15, 110, 86, 0.15);
   color: var(--green-800);
 }
 
 .lifecycle-stage-rail__label {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-align: center;
   color: var(--ink-500);
@@ -12196,20 +12264,72 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .lifecycle-stage-rail__step--current .lifecycle-stage-rail__label {
-  color: var(--ink-800);
+  color: var(--green-800);
+}
+
+.lifecycle-stage-rail__state {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--ink-500);
+  text-align: center;
+}
+
+.lifecycle-stage-rail__step--current .lifecycle-stage-rail__state {
+  color: var(--green-800);
+}
+
+.lifecycle-stage-rail__link {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--green-800);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.lifecycle-stage-rail__step:hover .lifecycle-stage-rail__link,
+.lifecycle-stage-rail__step:focus-visible .lifecycle-stage-rail__link {
+  text-decoration: underline;
 }
 
 .lifecycle-stage-rail__line {
-  flex: 0 0 12px;
-  height: 2px;
-  margin-top: 14px;
-  background: var(--card-border);
-  border-radius: 999px;
+  display: none;
 }
 
-.lifecycle-stage-rail__step--done + .lifecycle-stage-rail__line,
-.lifecycle-stage-rail__line:has(+ .lifecycle-stage-rail__step--current) {
-  background: rgba(15, 110, 86, 0.35);
+.employees-side-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  margin: 8px 0;
+  border: 1px dashed var(--card-border);
+  border-radius: var(--radius-md);
+  background: #faf9f6;
+  text-align: center;
+}
+
+.employees-side-empty__icon {
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #eef6f2;
+  color: var(--green-800);
+}
+
+.employees-side-empty__title {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-800);
+}
+
+.employees-side-empty__text {
+  margin: 0;
+  max-width: 26ch;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--ink-500);
 }
 
 .employees-lifecycle-hub {

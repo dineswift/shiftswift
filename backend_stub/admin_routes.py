@@ -479,6 +479,7 @@ def read_documents(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     category: str | None = None,
     lifecycle_stage: str | None = None,
+    employee_id: int | None = None,
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
@@ -488,6 +489,7 @@ def read_documents(
             conn=conn,
             category=category,
             lifecycle_stage=lifecycle_stage,
+            employee_id=employee_id,
         )
     finally:
         conn.close()

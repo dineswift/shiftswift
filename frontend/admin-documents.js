@@ -5,7 +5,10 @@
   const FILTER_IDS = {
     category: "document-filter-category",
     stage: "document-filter-stage",
+    employee: "document-filter-employee",
   };
+
+  const STRIP_LIST_ID = "documents-strip-list";
 
   const TAB_DESCRIPTIONS = {
     upload: "Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.",
@@ -163,23 +166,21 @@
     );
   }
 
-  function renderDocumentsTableState(tbody, colSpan, { variant = "empty", title, message, actionHtml = "" }) {
+  function renderTableEmptyState(tbody, colSpan, { variant = "empty", title, message, actionHtml = "" }) {
     if (!tbody) return;
     tbody.innerHTML = `<tr><td colspan="${colSpan}" class="settings-doc-table-empty">
       ${documentsEmptyStateHtml({ variant, title, message, actionHtml })}
     </td></tr>`;
-    if (isMobileView()) {
-      renderDocumentsMobileList(null, { variant, title, message, actionHtml });
-    } else {
-      clearDocumentsMobileList();
-    }
+  }
+
+  function renderDocumentsListState({ variant = "empty", title, message, actionHtml = "" }) {
+    const host = document.getElementById(STRIP_LIST_ID);
+    if (!host) return;
+    host.hidden = false;
+    host.innerHTML = documentsEmptyStateHtml({ variant, title, message, actionHtml });
   }
 
   let lastDocumentRows = null;
-
-  function isMobileView() {
-    return window.matchMedia("(max-width: 860px)").matches;
-  }
 
   function documentsEmptyStateHtml({ variant = "empty", title, message, actionHtml = "" }) {
     const icon = variant === "error" ? "⚠️" : variant === "ok" ? "✓" : "📄";
@@ -191,27 +192,23 @@
       </div>`;
   }
 
-  function clearDocumentsMobileList() {
-    const host = document.getElementById("documents-mobile-list");
+  function clearDocumentsStripList() {
+    const host = document.getElementById(STRIP_LIST_ID);
     if (!host) return;
     host.hidden = true;
     host.innerHTML = "";
   }
 
-  function renderDocumentsMobileList(rows, emptyState) {
-    const host = document.getElementById("documents-mobile-list");
+  function renderDocumentsStripList(rows, emptyState) {
+    const host = document.getElementById(STRIP_LIST_ID);
     if (!host) return;
-    if (!isMobileView()) {
-      clearDocumentsMobileList();
-      return;
-    }
     if (emptyState) {
       host.hidden = false;
       host.innerHTML = documentsEmptyStateHtml(emptyState);
       return;
     }
     if (!rows?.length) {
-      clearDocumentsMobileList();
+      clearDocumentsStripList();
       return;
     }
     host.hidden = false;
@@ -222,16 +219,14 @@
           : row.document_url
             ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
             : "";
-        const manageActions = documentActionsMarkup(row);
         return `<article class="settings-doc-strip">
-          <div class="settings-doc-strip__head">
-            <h5 class="settings-doc-strip__title">${escapeHtml(row.title)}</h5>
-            <span class="settings-doc-strip__date">${escapeHtml((row.created_at || "").slice(0, 10))}</span>
+          <div class="settings-doc-strip__main">
+            <strong class="settings-doc-strip__title">${escapeHtml(row.title)}</strong>
+            <span class="settings-doc-strip__meta">${escapeHtml(audienceLabel(row))} · ${escapeHtml(categoryLabel(row.category))} · ${escapeHtml(stageLabel(row.lifecycle_stage || "general"))} · ${escapeHtml((row.created_at || "").slice(0, 10))}</span>
           </div>
-          <p class="settings-doc-strip__meta">${escapeHtml(audienceLabel(row))} · ${escapeHtml(categoryLabel(row.category))} · ${escapeHtml(stageLabel(row.lifecycle_stage || "general"))}</p>
-          <div class="settings-doc-strip__footer">
+          <div class="settings-doc-strip__aside">
             <div class="settings-doc-strip__badges">${portalVisibilityMarkup(row)}</div>
-            <div class="settings-doc-strip__actions">${fileAction}${manageActions}</div>
+            <div class="settings-doc-strip__actions">${fileAction}${documentActionsMarkup(row)}</div>
           </div>
         </article>`;
       })
@@ -342,8 +337,10 @@
     scope.querySelector("[data-doc-clear-filters]")?.addEventListener("click", () => {
       const categoryEl = document.getElementById(FILTER_IDS.category);
       const stageEl = document.getElementById(FILTER_IDS.stage);
+      const employeeEl = document.getElementById(FILTER_IDS.employee);
       if (categoryEl) categoryEl.value = "";
       if (stageEl) stageEl.value = "";
+      if (employeeEl) employeeEl.value = "";
       void refreshDocuments();
     });
     scope.querySelector("[data-doc-focus-upload]")?.addEventListener("click", () => {
@@ -774,10 +771,20 @@
     const params = new URLSearchParams();
     const category = document.getElementById(FILTER_IDS.category)?.value;
     const stage = document.getElementById(FILTER_IDS.stage)?.value;
+    const employeeId = document.getElementById(FILTER_IDS.employee)?.value;
     if (category) params.set("category", category);
     if (stage) params.set("lifecycle_stage", stage);
+    if (employeeId) params.set("employee_id", employeeId);
     const query = params.toString();
     return query ? `?${query}` : "";
+  }
+
+  function documentsFiltersActive() {
+    return Boolean(
+      document.getElementById(FILTER_IDS.category)?.value ||
+        document.getElementById(FILTER_IDS.stage)?.value ||
+        document.getElementById(FILTER_IDS.employee)?.value
+    );
   }
 
   function buildExportQuery(format) {
@@ -1271,7 +1278,7 @@
 
         const rows = data.items || [];
         if (!rows.length) {
-          renderDocumentsTableState(tbody, 5, {
+          renderTableEmptyState(tbody, 5, {
             variant: "ok",
             title: "No expiry dates to track yet",
             message: "Add an expiry date when you upload or link a document — HR alerts appear here automatically.",
@@ -1299,7 +1306,7 @@
       } catch (error) {
         window.Admin?.preserveScroll?.(() => {
           renderExpiryStats(null, "error");
-          renderDocumentsTableState(tbody, 5, {
+          renderTableEmptyState(tbody, 5, {
             variant: "error",
             title: "Could not load expiry overview",
             message: friendlyError(error, "The expiry list is unavailable right now."),
@@ -1350,7 +1357,21 @@
     if (filtersHost && !filtersHost.dataset.ready) {
       const categories = window.Admin.formOptions?.document_categories || [];
       const stages = window.Admin.formOptions?.document_lifecycle_stages || [];
+      const employees = (window.Admin.formOptions?.employees || [])
+        .map((item) => ({
+          id: item.value || item.id,
+          label: item.label || `${item.first_name || ""} ${item.last_name || ""}`.trim(),
+        }))
+        .filter((item) => item.id && item.label)
+        .sort((a, b) => a.label.localeCompare(b.label, "en"));
       filtersHost.innerHTML = `
+        <label class="settings-doc-filter">
+          <span class="muted">Employee</span>
+          <select id="${FILTER_IDS.employee}">
+            <option value="">All employees</option>
+            ${employees.map((item) => `<option value="${escapeHtml(String(item.id))}">${escapeHtml(item.label)}</option>`).join("")}
+          </select>
+        </label>
         <label class="settings-doc-filter">
           <span class="muted">Category</span>
           <select id="${FILTER_IDS.category}">
@@ -1371,6 +1392,12 @@
       });
     }
 
+    const stripHost = document.getElementById(STRIP_LIST_ID);
+    if (stripHost) {
+      stripHost.hidden = false;
+      stripHost.innerHTML = `<p class="muted settings-doc-strip-loading">Loading documents…</p>`;
+    }
+
     refreshDocuments = async () => {
       let loadError = null;
       try {
@@ -1383,78 +1410,35 @@
         const rows = (data.items || []).filter(documentHasAttachment);
 
         if (!rows.length) {
-          const hasFilters = Boolean(
-            document.getElementById(FILTER_IDS.category)?.value || document.getElementById(FILTER_IDS.stage)?.value
-          );
-          renderDocumentsTableState(tbody, 10, {
+          const hasFilters = documentsFiltersActive();
+          renderDocumentsListState({
             variant: hasFilters ? "empty" : "ok",
             title: hasFilters ? "No documents match these filters" : "No documents stored yet",
             message: hasFilters
-              ? "Try a different category or lifecycle stage, or clear the filters."
+              ? "Try a different employee, category, or lifecycle stage, or clear the filters."
               : "Use Upload file above to store PDFs and images, or Link external document for SharePoint and Drive URLs.",
             actionHtml: hasFilters
               ? `<button type="button" class="btn outline" data-doc-clear-filters>Clear filters</button>`
               : `<button type="button" class="btn outline" data-doc-focus-upload>Upload a document</button>`,
           });
-          bindDocumentsEmptyActions(tbody);
-          bindDocumentsEmptyActions(document.getElementById("documents-mobile-list"));
+          bindDocumentsEmptyActions(document.getElementById(STRIP_LIST_ID));
           lastDocumentRows = null;
           setDocumentsPanelAlert({});
           return;
         }
 
-        renderTableBody(tbody, {
-          emptyMessage: "No documents stored yet.",
-          columns: [
-            { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
-            { key: "audience", render: (row) => escapeHtml(audienceLabel(row)) },
-            { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
-            { key: "lifecycle_stage", render: (row) => escapeHtml(stageLabel(row.lifecycle_stage || "general")) },
-            {
-              key: "employee_visible",
-              render: (row) => portalVisibilityMarkup(row),
-            },
-            {
-              key: "has_file",
-              render: (row) =>
-                row.has_file
-                  ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
-                  : "<span class='muted'>No file</span>",
-            },
-            {
-              key: "document_url",
-              render: (row) =>
-                row.document_url
-                  ? `<a href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
-                  : "<span class='muted'>None</span>",
-            },
-            {
-              key: "expires_at",
-              render: (row) => expiryDateMarkup(row),
-            },
-            { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10)) },
-            {
-              key: "actions",
-              render: (row) => documentActionsMarkup(row),
-            },
-          ],
-          rows,
-        });
-
         lastDocumentRows = rows;
-        bindDocumentRowActions(tbody, rows);
-        renderDocumentsMobileList(rows);
+        renderDocumentsStripList(rows);
         setDocumentsPanelAlert({});
       } catch (error) {
         loadError = error;
-        renderDocumentsTableState(tbody, 10, {
+        renderDocumentsListState({
           variant: "error",
           title: "Could not load documents",
           message: friendlyError(error, "The document list is unavailable right now."),
           actionHtml: `<button type="button" class="btn outline" data-doc-retry-list>Try again</button>`,
         });
-        bindDocumentsEmptyActions(tbody);
-        bindDocumentsEmptyActions(document.getElementById("documents-mobile-list"));
+        bindDocumentsEmptyActions(document.getElementById(STRIP_LIST_ID));
         lastDocumentRows = null;
       }
 
@@ -1472,13 +1456,6 @@
     };
 
     mountLinkForm();
-    window.matchMedia("(max-width: 860px)").addEventListener("change", () => {
-      if (lastDocumentRows) {
-        renderDocumentsMobileList(lastDocumentRows);
-      } else {
-        clearDocumentsMobileList();
-      }
-    });
     try {
       await refreshDocuments();
     } catch {

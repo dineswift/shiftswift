@@ -394,6 +394,9 @@
         el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
       });
       void renderEmployeeSidePanel(rows[0]);
+    } else {
+      selectedEmployeeId = null;
+      renderEmployeeSidePanel(null);
     }
     renderLifecycleHub(employeesCache);
   }
@@ -423,32 +426,98 @@
     return palettes[Math.abs(Number(employeeId)) % palettes.length];
   }
 
-  function renderLifecycleStageRail(buckets) {
+  function renderLifecycleStageRail(buckets, { selectedEmployee = null, totalEmployees = 0 } = {}) {
     const rail = $("lifecycle-stage-rail");
     if (!rail) return;
-    const stages = LIFECYCLE_STAGES.map((stage) => {
+
+    const stageIndex = (id) => LIFECYCLE_STAGES.findIndex((stage) => stage.id === id);
+    const selectedStage = selectedEmployee ? lifecycleStage(selectedEmployee) : null;
+    const selectedIdx = selectedStage ? stageIndex(selectedStage) : -1;
+    const progressPct =
+      selectedIdx > 0 ? Math.round((selectedIdx / Math.max(1, LIFECYCLE_STAGES.length - 1)) * 100) : 0;
+
+    const steps = LIFECYCLE_STAGES.map((stage, index) => {
       const count = buckets[stage.id]?.length ?? 0;
-      const isCurrent = lifecycleHubOpenStage === stage.id;
-      const isComplete =
+      let stateClass = "";
+      let marker;
+      let stateLabel = "";
+
+      if (selectedEmployee) {
+        const isDone = selectedIdx > index;
+        const isCurrent = stage.id === selectedStage;
+        if (isDone) {
+          stateClass = " lifecycle-stage-rail__step--done";
+          marker = `<span class="lifecycle-stage-rail__marker lifecycle-stage-rail__marker--done" aria-hidden="true">✓</span>`;
+        } else if (isCurrent) {
+          stateClass = " lifecycle-stage-rail__step--current";
+          marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
+          stateLabel = `<span class="lifecycle-stage-rail__state">In progress</span>`;
+        } else {
+          marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
+        }
+      } else {
+        marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
+        if (totalEmployees === 0 && index === 0) {
+          stateLabel = `<span class="lifecycle-stage-rail__state">Start here</span>`;
+        } else if (count > 0) {
+          stateLabel = `<span class="lifecycle-stage-rail__state">${count} in stage</span>`;
+        }
+      }
+
+      const shortcut =
         stage.id === "recruitment"
-          ? count === 0 && (buckets.onboarding?.length || buckets.active?.length)
-          : false;
-      const stateClass = isComplete ? " lifecycle-stage-rail__step--done" : isCurrent ? " lifecycle-stage-rail__step--current" : "";
-      const marker = isComplete
-        ? `<span class="lifecycle-stage-rail__marker lifecycle-stage-rail__marker--done" aria-hidden="true">✓</span>`
-        : `<span class="lifecycle-stage-rail__marker">${LIFECYCLE_STAGES.indexOf(stage) + 1}</span>`;
-      return `<div class="lifecycle-stage-rail__step${stateClass}" data-lifecycle-stage="${stage.id}">
+          ? `<span class="lifecycle-stage-rail__link">Recruitment pipeline →</span>`
+          : stage.id === "offboarding"
+            ? `<span class="lifecycle-stage-rail__link">Offboarding workflow →</span>`
+            : "";
+
+      return `<button type="button" class="lifecycle-stage-rail__step${stateClass}" data-lifecycle-stage="${stage.id}"${
+        selectedEmployee && stage.id === selectedStage ? ' aria-current="step"' : ""
+      }>
         ${marker}
         <span class="lifecycle-stage-rail__label">${escapeHtml(stage.shortLabel)}</span>
-      </div>`;
-    }).join(`<span class="lifecycle-stage-rail__line" aria-hidden="true"></span>`);
-    rail.innerHTML = `<div class="lifecycle-stage-rail__track">${stages}</div>`;
+        ${stateLabel}
+        ${shortcut}
+      </button>`;
+    });
+
+    const lines = steps
+      .slice(0, -1)
+      .map(
+        (_, index) =>
+          `<span class="lifecycle-stage-rail__line${
+            selectedEmployee && selectedIdx > index ? " lifecycle-stage-rail__line--filled" : ""
+          }" aria-hidden="true"></span>`
+      );
+
+    const trackParts = [];
+    steps.forEach((step, index) => {
+      trackParts.push(step);
+      if (index < lines.length) trackParts.push(lines[index]);
+    });
+
+    rail.innerHTML = `<div class="lifecycle-stage-rail__track${
+      selectedEmployee ? "" : " lifecycle-stage-rail__track--neutral"
+    }" style="--lifecycle-progress:${progressPct}%">${trackParts.join("")}</div>`;
+
     rail.querySelectorAll("[data-lifecycle-stage]").forEach((el) => {
       el.addEventListener("click", () => {
-        lifecycleHubOpenStage = el.dataset.lifecycleStage;
+        const stageId = el.dataset.lifecycleStage;
+        if (stageId === "recruitment") {
+          window.location.hash = "recruitment";
+          return;
+        }
+        if (stageId === "offboarding") {
+          window.location.hash = "offboarding";
+          return;
+        }
+        if (!isMobileEmployeesHub()) return;
+        lifecycleHubOpenStage = stageId;
         lifecycleHubExpanded[lifecycleHubOpenStage] = true;
         renderLifecycleHub(employeesCache);
-        document.querySelector(`[data-lifecycle-section="${lifecycleHubOpenStage}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document
+          .querySelector(`[data-lifecycle-section="${lifecycleHubOpenStage}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   }
@@ -485,7 +554,9 @@
     const hub = $("employees-lifecycle-hub");
     if (!hub) return;
     const buckets = bucketEmployeesByStage(items);
-    renderLifecycleStageRail(buckets);
+    const selected =
+      selectedEmployeeId && items.length ? items.find((row) => row.id === selectedEmployeeId) || null : null;
+    renderLifecycleStageRail(buckets, { selectedEmployee: selected, totalEmployees: items.length });
 
     if (!isMobileEmployeesHub()) {
       hub.hidden = true;
@@ -1842,6 +1913,7 @@
       empty?.removeAttribute("hidden");
       content.hidden = true;
       content.innerHTML = "";
+      renderLifecycleHub(employeesCache);
       return;
     }
     empty?.setAttribute("hidden", "");
@@ -1929,6 +2001,7 @@
       renderSidePanelSectionExpand(workspace);
       void refreshEmployeeSidePanelKioskPin(employee.id);
       bindSidePanelInlineFields(employee, workspace);
+      renderLifecycleHub(employeesCache);
 
       content.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
         void sendPortalInvite(employee.id, "employees-side-invite-status");

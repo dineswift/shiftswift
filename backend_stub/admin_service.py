@@ -702,6 +702,7 @@ def list_documents(
     limit: int = 200,
     category: str | None = None,
     lifecycle_stage: str | None = None,
+    employee_id: int | None = None,
 ) -> list[dict[str, Any]]:
     from modules.documents.service import list_workspace_documents
 
@@ -710,6 +711,7 @@ def list_documents(
         conn=conn,
         category=category,
         lifecycle_stage=lifecycle_stage,
+        employee_id=employee_id,
         limit=limit,
     )
 

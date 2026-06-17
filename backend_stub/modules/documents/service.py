@@ -1069,6 +1069,7 @@ def list_workspace_documents(
     conn: Any,
     category: str | None = None,
     lifecycle_stage: str | None = None,
+    employee_id: int | None = None,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
     """Tenant-wide document store list — company documents plus per-employee uploads."""
@@ -1077,12 +1078,14 @@ def list_workspace_documents(
         conn=conn,
         category=category,
         lifecycle_stage=lifecycle_stage,
+        employee_id=employee_id,
         limit=limit,
         stored_only=True,
     )
     employee_docs = list_all_employee_documents(
         tenant_id=tenant_id,
         conn=conn,
+        employee_id=employee_id,
         category=category,
         lifecycle_stage=lifecycle_stage,
         limit=limit,
