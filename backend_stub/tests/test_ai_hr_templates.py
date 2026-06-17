@@ -92,3 +92,21 @@ def test_build_download_markdown_warns_when_update_available():
     )
     assert "Platform update available" in body
     assert "v1.1" in body
+
+
+export_mod = _load_module("hr_export", "modules/hr_templates/export_document.py")
+
+
+def test_build_template_pdf_bytes_starts_with_pdf_header():
+    markdown = "# Test policy\n\n## Section\n\n- Item one\n- Item two\n\nPlain paragraph."
+    pdf = export_mod.build_template_pdf_bytes(markdown, title="Test policy")
+    assert pdf[:4] == b"%PDF"
+    assert len(pdf) > 500
+
+
+def test_build_template_word_bytes_is_html_document():
+    markdown = "# Test policy\n\nHello **world**."
+    doc = export_mod.build_template_word_bytes(markdown, title="Test policy")
+    text = doc.decode("utf-8")
+    assert "<html" in text.lower()
+    assert "<strong>world</strong>" in text

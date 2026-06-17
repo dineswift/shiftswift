@@ -27,6 +27,25 @@
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
+  function templateDownloadFormat() {
+    return document.getElementById("template-download-format")?.value || "pdf";
+  }
+
+  function templateDownloadExt(format) {
+    if (format === "pdf") return "pdf";
+    if (format === "doc") return "doc";
+    return "md";
+  }
+
+  function downloadHrTemplate(templateId, variant) {
+    const format = templateDownloadFormat();
+    const ext = templateDownloadExt(format);
+    downloadAuthenticated(
+      `/hr-templates/${templateId}/download?variant=${variant}&format=${format}`,
+      `${templateId}.${ext}`,
+    );
+  }
+
   function syncStatusPill(item) {
     if (item.update_available) {
       return `<span class="status-pill status-warning">Update v${escapeHtml(item.platform_version)}</span>`;
@@ -262,10 +281,10 @@
       openEditor(item.id);
     });
     content.querySelector("#templates-side-dl-platform-btn")?.addEventListener("click", () =>
-      downloadAuthenticated(`/hr-templates/${item.id}/download?variant=platform`, `${item.id}.md`)
+      downloadHrTemplate(item.id, "platform")
     );
     content.querySelector("#templates-side-dl-copy-btn")?.addEventListener("click", () =>
-      downloadAuthenticated(`/hr-templates/${item.id}/download?variant=effective`, `${item.id}.md`)
+      downloadHrTemplate(item.id, "effective")
     );
   }
 
@@ -535,10 +554,10 @@
     document.getElementById("template-reset-btn")?.addEventListener("click", () => resetTemplate());
     document.getElementById("template-apply-update-btn")?.addEventListener("click", () => applyPlatformUpdate());
     document.getElementById("template-download-btn")?.addEventListener("click", () => {
-      if (selectedId) downloadAuthenticated(`/hr-templates/${selectedId}/download?variant=effective`, `${selectedId}.md`);
+      if (selectedId) downloadHrTemplate(selectedId, "effective");
     });
     document.getElementById("template-download-platform-btn")?.addEventListener("click", () => {
-      if (selectedId) downloadAuthenticated(`/hr-templates/${selectedId}/download?variant=platform`, `${selectedId}.md`);
+      if (selectedId) downloadHrTemplate(selectedId, "platform");
     });
     document.getElementById("ai-draft-btn")?.addEventListener("click", () => runAiDraft());
     document.getElementById("template-editor-close")?.addEventListener("click", () => closeEditor());

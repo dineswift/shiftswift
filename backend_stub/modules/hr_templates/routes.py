@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from config import load_settings
 from deps import AuthUser, get_hr_user, resolve_tenant_id
+from modules.hr_templates.export_document import build_template_pdf_bytes, build_template_word_bytes
 from modules.hr_templates.service import (
     apply_platform_update,
     build_template_download,
@@ -182,6 +183,7 @@ def download_template(
     template_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     variant: Literal["platform", "effective"] = Query(default="effective"),
+    format: Literal["md", "pdf", "doc"] = Query(default="md"),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ):
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
@@ -192,14 +194,27 @@ def download_template(
             template_id=template_id,
             variant=variant,
             conn=conn,
+            ext=format,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
         conn.close()
 
+    if format == "pdf":
+        title = template_id.replace("_", " ").title()
+        content = build_template_pdf_bytes(body, title=title)
+        media_type = "application/pdf"
+    elif format == "doc":
+        title = template_id.replace("_", " ").title()
+        content = build_template_word_bytes(body, title=title)
+        media_type = "application/msword"
+    else:
+        content = body.encode("utf-8")
+        media_type = "text/markdown; charset=utf-8"
+
     return Response(
-        content=body,
-        media_type="text/markdown; charset=utf-8",
+        content=content,
+        media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

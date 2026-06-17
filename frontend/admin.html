@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v111" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v112" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1056,6 +1056,14 @@
                       <span class="edit-label">Category</span>
                       <select id="hr-templates-category-filter">
                         <option value="">All categories</option>
+                      </select>
+                    </label>
+                    <label class="templates-filter">
+                      <span class="edit-label">Download as</span>
+                      <select id="template-download-format">
+                        <option value="pdf">PDF</option>
+                        <option value="doc">Word</option>
+                        <option value="md">Markdown</option>
                       </select>
                     </label>
                     <label class="templates-filter templates-filter--search">
@@ -2352,38 +2360,102 @@
               <p class="muted">Staff submit requests in the employee portal. Approve or reject here — working days Mon–Fri are counted automatically.</p>
             </div>
           </header>
-          <article class="card hr-workspace">
-            <header class="hr-workspace-header section-header section-header--compact">
-              <div>
-                <h3>Leave requests</h3>
-                <p class="muted"><span id="leave-pending-count">0</span> pending approval</p>
-              </div>
-              <div class="stack">
-                <button type="button" class="btn secondary" data-leave-filter="pending">Pending</button>
-                <button type="button" class="btn ghost" data-leave-filter="approved">Approved</button>
-                <button type="button" class="btn ghost" data-leave-filter="rejected">Rejected</button>
-                <button type="button" class="btn ghost" data-leave-filter="">All</button>
-              </div>
-            </header>
-            <div class="hr-table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Type</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Days</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="leave-requests-body">
-                  <tr><td colspan="7" class="muted">Open this section to load leave requests…</td></tr>
-                </tbody>
-              </table>
+
+          <div class="hr-status-workflow leave-status-workflow" id="leave-status-workflow" aria-label="Leave request workflow"></div>
+
+          <div class="hr-stats-grid leave-stats-grid" aria-label="Leave summary">
+            <div class="hr-stat-card hr-stat-card--warn">
+              <span class="hr-stat-card__icon" aria-hidden="true">⏳</span>
+              <span class="hr-stat-card__label">Pending approval</span>
+              <span class="hr-stat-card__value" id="leave-stat-pending">0</span>
+              <span class="hr-stat-card__sub" id="leave-stat-pending-sub">Awaiting your decision</span>
             </div>
-          </article>
+            <div class="hr-stat-card hr-stat-card--ok">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Approved</span>
+              <span class="hr-stat-card__value" id="leave-stat-approved">0</span>
+              <span class="hr-stat-card__sub">In current view</span>
+            </div>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📅</span>
+              <span class="hr-stat-card__label">Days requested</span>
+              <span class="hr-stat-card__value" id="leave-stat-days">0</span>
+              <span class="hr-stat-card__sub">Working days in view</span>
+            </div>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">👥</span>
+              <span class="hr-stat-card__label">Employees</span>
+              <span class="hr-stat-card__value" id="leave-stat-employees">0</span>
+              <span class="hr-stat-card__sub">With requests in view</span>
+            </div>
+          </div>
+
+          <div class="leave-workspace-layout hr-workspace-layout" id="leave-workspace">
+            <div class="hr-main-pane">
+              <article class="hr-surface-panel leave-register-panel">
+                <header class="hr-surface-panel__head leave-register-head">
+                  <div>
+                    <h4 class="hr-section-title">Leave requests</h4>
+                    <p class="muted leave-register-sub" id="leave-register-sub">Loading…</p>
+                  </div>
+                  <div class="leave-register-toolbar">
+                    <div class="hr-filter-tabs leave-filter-tabs" role="tablist" aria-label="Filter leave requests">
+                      <button type="button" class="hr-filter-tab is-active" data-leave-filter="pending">Pending</button>
+                      <button type="button" class="hr-filter-tab" data-leave-filter="approved">Approved</button>
+                      <button type="button" class="hr-filter-tab" data-leave-filter="rejected">Rejected</button>
+                      <button type="button" class="hr-filter-tab" data-leave-filter="">All</button>
+                    </div>
+                    <label class="leave-search">
+                      <span class="visually-hidden">Search leave requests</span>
+                      <input type="search" id="leave-search-input" placeholder="Search employee…" maxlength="80" />
+                    </label>
+                  </div>
+                </header>
+                <div class="hr-table-wrap leave-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leave-requests-body">
+                      <tr><td colspan="6" class="muted">Loading leave requests…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel leave-guide-panel" id="leave-guide-panel">
+                <h4 class="hr-section-title">How leave works</h4>
+                <ul class="leave-guide-list">
+                  <li><strong>Employee portal</strong> — staff submit annual, sick, unpaid, or other leave from their dashboard.</li>
+                  <li><strong>Working days</strong> — Mon–Fri are counted automatically; weekends are excluded.</li>
+                  <li><strong>Annual balance</strong> — approving annual leave checks the employee’s remaining allowance for the year.</li>
+                  <li><strong>Sponsored workers</strong> — approved leave is mirrored to sponsor absence tracking where applicable.</li>
+                </ul>
+                <p class="muted leave-guide-foot">
+                  Set annual leave allowance on each employee profile under
+                  <a href="#employees">Employees</a>.
+                </p>
+              </article>
+            </div>
+
+            <aside class="hr-detail-panel leave-detail-panel" id="leave-detail-panel" hidden>
+              <header class="hr-detail-panel__head leave-detail-panel__head">
+                <h4 class="leave-detail-panel__title">Request detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="leave-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="leave-detail-content" class="leave-detail-body" hidden></div>
+              <div id="leave-detail-empty" class="hr-detail-empty muted">
+                Select a leave request to review dates, balance, and approve or reject.
+              </div>
+            </aside>
+          </div>
         </section>
 
         <section id="settings" class="admin-section" hidden>
@@ -2765,10 +2837,10 @@
     <script src="./admin-grievance.js?v=6"></script>
     <script src="./admin-disciplinary.js?v=2"></script>
     <script src="./admin-offboarding.js?v=admin-v7"></script>
-    <script src="./admin-templates.js?v=admin-v9"></script>
+    <script src="./admin-templates.js?v=admin-v10"></script>
     <script src="./admin-time-punch.js?v=32"></script>
     <script src="./admin-rota.js?v=27"></script>
-    <script src="./admin-leave.js?v=2"></script>
+    <script src="./admin-leave.js?v=admin-v3"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>
     <script src="./employment-contracts.js?v=3"></script>

@@ -30,7 +30,10 @@ def version_gt(left: str, right: str) -> bool:
     return parse_version(left) > parse_version(right)
 
 
-def format_download_filename(*, template_id: str, version: str, variant: str) -> str:
+def format_download_filename(
+    *, template_id: str, version: str, variant: str, ext: str = "md"
+) -> str:
     safe_id = template_id.replace("_", "-")
     safe_version = version.replace(".", "-")
-    return f"shiftswift-hr-{safe_id}-v{safe_version}-{variant}.md"
+    safe_ext = ext.strip().lower().lstrip(".") or "md"
+    return f"shiftswift-hr-{safe_id}-v{safe_version}-{variant}.{safe_ext}"

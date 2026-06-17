@@ -1,14 +1,40 @@
-/** Admin — leave and holiday requests. */
+/** Admin — leave and holiday requests with detail panel review. */
 (function initAdminLeave() {
   const { apiFetch, escapeHtml, parseHashBaseSection, emptyStateHtml } = window.Admin;
 
+  const WORKFLOW_STEPS = [
+    { id: "submitted", label: "Submitted" },
+    { id: "pending", label: "Pending review" },
+    { id: "decided", label: "Approved / rejected" },
+  ];
+
+  const LEAVE_TYPE_TONE = {
+    annual: "annual",
+    sick: "sick",
+    unpaid: "unpaid",
+    other: "other",
+  };
+
   let sectionReady = false;
+  let allRequests = [];
   let filterStatus = "pending";
+  let searchFilter = "";
+  let selectedId = null;
+  let reviewBusy = false;
+
+  function $(id) {
+    return document.getElementById(id);
+  }
 
   function statusPill(status) {
     const tone =
       status === "approved" ? "ok" : status === "rejected" ? "danger" : status === "cancelled" ? "muted" : "warn";
     return `<span class="status-pill status-pill--${tone}">${escapeHtml(status)}</span>`;
+  }
+
+  function leaveTypePill(type, label) {
+    const tone = LEAVE_TYPE_TONE[type] || "other";
+    return `<span class="leave-type-pill leave-type-pill--${tone}">${escapeHtml(label || type)}</span>`;
   }
 
   function formatDate(iso) {
@@ -20,62 +46,306 @@
     });
   }
 
-  async function loadRequests() {
-    const tbody = document.getElementById("leave-requests-body");
-    const pendingEl = document.getElementById("leave-pending-count");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="muted">Loading leave requests…</td></tr>`;
+  function formatDateTime(iso) {
+    if (!iso) return "—";
     try {
-      const params = filterStatus ? `?status=${encodeURIComponent(filterStatus)}` : "";
-      const res = await apiFetch(`/admin/leave/requests${params}`);
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
-      if (pendingEl) pendingEl.textContent = String(data.pending_count ?? 0);
-      const items = data.items || [];
-      if (!tbody) return;
-      if (!items.length) {
-        const filterLabel = filterStatus === "pending" ? "pending" : filterStatus || "matching";
-        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="7">${emptyStateHtml({
-          icon: "calendar-off",
-          title: filterStatus === "pending" ? "No pending leave requests" : "No leave requests",
-          message:
-            filterStatus === "pending"
-              ? "When staff request holiday or leave in the portal, they appear here for approval."
-              : `No ${filterLabel} leave requests in this view.`,
-          actionLabel: "View employees",
-          actionHref: "#employees",
-          compact: true,
-        })}</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = items
-        .map(
-          (item) => `<tr>
-            <td>${escapeHtml(item.employee_name)}</td>
-            <td>${escapeHtml(item.leave_type_label)}</td>
-            <td>${escapeHtml(formatDate(item.start_date))}</td>
-            <td>${escapeHtml(formatDate(item.end_date))}</td>
-            <td>${escapeHtml(String(item.days_requested))}</td>
-            <td>${statusPill(item.status)}</td>
-            <td class="leave-actions-cell">
-              ${
-                item.status === "pending"
-                  ? `<button type="button" class="btn ghost leave-approve-btn" data-id="${item.id}">Approve</button>
-                     <button type="button" class="btn ghost leave-reject-btn" data-id="${item.id}">Reject</button>`
-                  : `<span class="muted">${escapeHtml(item.reviewed_by || "—")}</span>`
-              }
-            </td>
-          </tr>`
-        )
-        .join("");
-      tbody.querySelectorAll(".leave-approve-btn").forEach((btn) => {
-        btn.addEventListener("click", () => reviewRequest(Number(btn.dataset.id), "approved"));
-      });
-      tbody.querySelectorAll(".leave-reject-btn").forEach((btn) => {
-        btn.addEventListener("click", () => reviewRequest(Number(btn.dataset.id), "rejected"));
+      return new Date(iso).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch {
+      return iso;
+    }
+  }
+
+  function filteredRequests() {
+    let items = allRequests;
+    if (filterStatus) {
+      items = items.filter((item) => item.status === filterStatus);
+    }
+    const q = searchFilter.trim().toLowerCase();
+    if (q) {
+      items = items.filter((item) => String(item.employee_name || "").toLowerCase().includes(q));
+    }
+    return items;
+  }
+
+  function computeStats(items) {
+    const pending = allRequests.filter((item) => item.status === "pending").length;
+    const approved = items.filter((item) => item.status === "approved").length;
+    const days = items.reduce((sum, item) => sum + Number(item.days_requested || 0), 0);
+    const employees = new Set(items.map((item) => item.employee_id)).size;
+    return { pending, approved, days, employees, visible: items.length };
+  }
+
+  function renderStats(items) {
+    const stats = computeStats(items);
+    const pendingEl = $("leave-stat-pending");
+    const pendingSub = $("leave-stat-pending-sub");
+    if (pendingEl) pendingEl.textContent = String(stats.pending);
+    if (pendingSub) {
+      pendingSub.textContent =
+        stats.pending === 0 ? "Nothing waiting on you" : stats.pending === 1 ? "One request needs action" : "Awaiting your decision";
+    }
+    const approvedEl = $("leave-stat-approved");
+    if (approvedEl) approvedEl.textContent = String(stats.approved);
+    const daysEl = $("leave-stat-days");
+    if (daysEl) daysEl.textContent = stats.days % 1 === 0 ? String(stats.days) : stats.days.toFixed(1);
+    const employeesEl = $("leave-stat-employees");
+    if (employeesEl) employeesEl.textContent = String(stats.employees);
+    const sub = $("leave-register-sub");
+    if (sub) {
+      sub.textContent =
+        stats.visible === 0
+          ? "No requests match this filter"
+          : `${stats.visible} request${stats.visible === 1 ? "" : "s"} in this view`;
+    }
+  }
+
+  function computeWorkflowStates(item) {
+    if (!item) {
+      return WORKFLOW_STEPS.map((step) => ({ ...step, state: step.id === "submitted" ? "active" : "pending" }));
+    }
+    if (item.status === "pending") {
+      return WORKFLOW_STEPS.map((step) => ({
+        ...step,
+        state: step.id === "submitted" ? "done" : step.id === "pending" ? "active" : "pending",
+      }));
+    }
+    return WORKFLOW_STEPS.map((step) => ({
+      ...step,
+      state: step.id === "decided" ? "done" : "done",
+    }));
+  }
+
+  function renderStatusWorkflow(item) {
+    const host = $("leave-status-workflow");
+    if (!host) return;
+    const states = computeWorkflowStates(item);
+    host.innerHTML = states
+      .map((step, index) => {
+        const stepClass =
+          step.state === "pending" ? "hr-workflow-step" : `hr-workflow-step hr-workflow-step--${step.state}`;
+        const arrow =
+          index < states.length - 1 ? '<span class="hr-workflow-arrow" aria-hidden="true">→</span>' : "";
+        return `<span class="${stepClass}">${escapeHtml(step.label)}</span>${arrow}`;
+      })
+      .join("");
+  }
+
+  function syncDetailLayout() {
+    const workspace = $("leave-workspace");
+    const panel = $("leave-detail-panel");
+    const guide = $("leave-guide-panel");
+    const hasSelection = Boolean(selectedId);
+    workspace?.classList.toggle("leave-workspace-layout--detail-open", hasSelection);
+    if (panel) panel.hidden = !hasSelection;
+    if (guide) guide.hidden = hasSelection;
+    const item = allRequests.find((row) => row.id === selectedId);
+    renderStatusWorkflow(item || null);
+  }
+
+  function clearSelection() {
+    selectedId = null;
+    $("leave-detail-content")?.setAttribute("hidden", "");
+    $("leave-detail-empty")?.removeAttribute("hidden");
+    renderTable();
+    syncDetailLayout();
+  }
+
+  async function loadEmployeeBalance(employeeId, leaveType) {
+    if (leaveType !== "annual") return null;
+    try {
+      const res = await apiFetch(`/admin/leave/employees/${employeeId}/balance`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+
+  function balanceHtml(balance, daysRequested) {
+    if (!balance) return "";
+    const remaining = Number(balance.remaining_days);
+    const low = remaining < 3;
+    const insufficient = daysRequested > remaining;
+    let cls = "leave-balance-panel";
+    if (insufficient) cls += " leave-balance-panel--danger";
+    else if (low) cls += " leave-balance-panel--warn";
+    return `
+      <div class="${cls}">
+        <p class="leave-balance-panel__label">Annual leave balance (${balance.year})</p>
+        <p class="leave-balance-panel__value">${escapeHtml(String(balance.remaining_days))} days remaining</p>
+        <p class="muted leave-balance-panel__meta">
+          Allowance ${escapeHtml(String(balance.allowance_days))} ·
+          used ${escapeHtml(String(balance.used_days))} ·
+          pending ${escapeHtml(String(balance.pending_days))}
+        </p>
+        ${insufficient ? '<p class="leave-balance-panel__alert">This request exceeds remaining allowance.</p>' : ""}
+      </div>`;
+  }
+
+  async function renderDetail(item) {
+    const content = $("leave-detail-content");
+    const empty = $("leave-detail-empty");
+    if (!content || !item) return;
+    empty?.setAttribute("hidden", "");
+    content.hidden = false;
+    content.innerHTML = `<p class="muted">Loading detail…</p>`;
+    const balance = await loadEmployeeBalance(item.employee_id, item.leave_type);
+    content.innerHTML = `
+      <div class="hr-detail-head">
+        <div>
+          <h3>${escapeHtml(item.employee_name)}</h3>
+          ${leaveTypePill(item.leave_type, item.leave_type_label)}
+        </div>
+        ${statusPill(item.status)}
+      </div>
+      ${balanceHtml(balance, Number(item.days_requested))}
+      <dl class="hr-detail-grid">
+        <div><dt>From</dt><dd>${escapeHtml(formatDate(item.start_date))}</dd></div>
+        <div><dt>To</dt><dd>${escapeHtml(formatDate(item.end_date))}</dd></div>
+        <div><dt>Working days</dt><dd>${escapeHtml(String(item.days_requested))}</dd></div>
+        <div><dt>Submitted</dt><dd>${escapeHtml(formatDateTime(item.created_at))}</dd></div>
+        ${item.reason ? `<div><dt>Reason</dt><dd>${escapeHtml(item.reason)}</dd></div>` : ""}
+        ${item.reviewed_by ? `<div><dt>Reviewed by</dt><dd>${escapeHtml(item.reviewed_by)}</dd></div>` : ""}
+        ${item.reviewed_at ? `<div><dt>Reviewed at</dt><dd>${escapeHtml(formatDateTime(item.reviewed_at))}</dd></div>` : ""}
+        ${item.review_note ? `<div><dt>Review note</dt><dd>${escapeHtml(item.review_note)}</dd></div>` : ""}
+      </dl>
+      ${
+        item.status === "pending"
+          ? `
+        <label class="edit-field leave-review-field">
+          <span class="edit-label">Note for employee <span class="muted">(optional)</span></span>
+          <textarea id="leave-review-note" rows="3" maxlength="2000" placeholder="Reason for rejection or confirmation message…"></textarea>
+        </label>
+        <div class="hr-detail-foot leave-detail-foot">
+          <button type="button" class="btn" id="leave-approve-btn">Approve</button>
+          <button type="button" class="btn ghost" id="leave-reject-btn">Reject</button>
+        </div>
+        <p class="leave-review-status muted" id="leave-review-status" aria-live="polite"></p>`
+          : `
+        <div class="hr-detail-foot">
+          <a class="btn ghost" href="#employees/${item.employee_id}">Open employee profile</a>
+        </div>`
+      }`;
+  if (item.status === "pending") {
+      content.querySelector("#leave-approve-btn")?.addEventListener("click", () => reviewRequest(item.id, "approved"));
+      content.querySelector("#leave-reject-btn")?.addEventListener("click", () => reviewRequest(item.id, "rejected"));
+    }
+  }
+
+  function selectRequest(requestId) {
+    selectedId = requestId;
+    const item = allRequests.find((row) => row.id === requestId);
+    renderTable();
+    if (item) renderDetail(item);
+    syncDetailLayout();
+  }
+
+  function renderTable() {
+    const tbody = $("leave-requests-body");
+    if (!tbody) return;
+    const items = filteredRequests();
+    renderStats(items);
+
+    if (!allRequests.length) {
+      tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
+        icon: "calendar-off",
+        title: "No leave requests yet",
+        message: "When staff request holiday or leave in the employee portal, they appear here for approval.",
+        actionLabel: "View employees",
+        actionHref: "#employees",
+        compact: true,
+      })}</td></tr>`;
+      return;
+    }
+
+    if (!items.length) {
+      const filterLabel = filterStatus || "matching";
+      tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
+        icon: "search",
+        title: filterStatus === "pending" ? "No pending leave requests" : "No leave requests",
+        message:
+          searchFilter.trim()
+            ? "Try a different search or clear the filter."
+            : filterStatus === "pending"
+              ? "When staff request holiday or leave in the portal, they appear here for approval."
+              : `No ${filterLabel} leave requests in this view.`,
+        actionLabel: searchFilter.trim() ? "Clear search" : "Show all",
+        actionId: "leave-clear-filter-btn",
+        compact: true,
+      })}</td></tr>`;
+      document.getElementById("leave-clear-filter-btn")?.addEventListener("click", () => {
+        if (searchFilter.trim()) {
+          searchFilter = "";
+          const input = $("leave-search-input");
+          if (input) input.value = "";
+        } else {
+          setFilter("");
+        }
+        renderTable();
+      });
+      return;
+    }
+
+    tbody.innerHTML = items
+      .map((item) => {
+        const selected = selectedId === item.id ? " hr-register-row--selected" : "";
+        return `<tr class="hr-register-row leave-register-row${selected}" data-leave-id="${item.id}">
+          <td><strong>${escapeHtml(item.employee_name)}</strong>
+            ${item.reason ? `<div class="muted leave-row-reason">${escapeHtml(item.reason.slice(0, 60))}${item.reason.length > 60 ? "…" : ""}</div>` : ""}
+          </td>
+          <td>${leaveTypePill(item.leave_type, item.leave_type_label)}</td>
+          <td>${escapeHtml(formatDate(item.start_date))}</td>
+          <td>${escapeHtml(formatDate(item.end_date))}</td>
+          <td>${escapeHtml(String(item.days_requested))}</td>
+          <td>${statusPill(item.status)}</td>
+        </tr>`;
+      })
+      .join("");
+
+    tbody.querySelectorAll(".leave-register-row").forEach((row) => {
+      row.addEventListener("click", () => selectRequest(Number(row.dataset.leaveId)));
+    });
+  }
+
+  function setFilter(status) {
+    filterStatus = status;
+    document.querySelectorAll("[data-leave-filter]").forEach((el) => {
+      el.classList.toggle("is-active", el.dataset.leaveFilter === status);
+    });
+    if (selectedId && !filteredRequests().some((item) => item.id === selectedId)) {
+      selectedId = null;
+      $("leave-detail-content")?.setAttribute("hidden", "");
+      $("leave-detail-empty")?.removeAttribute("hidden");
+    }
+    renderTable();
+    syncDetailLayout();
+  }
+
+  async function loadRequests() {
+    const tbody = $("leave-requests-body");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading leave requests…</td></tr>`;
+    try {
+      const res = await apiFetch("/admin/leave/requests");
+      if (!res.ok) throw new Error("Load failed");
+      const data = await res.json();
+      allRequests = data.items || [];
+      renderTable();
+      if (selectedId) {
+        const item = allRequests.find((row) => row.id === selectedId);
+        if (item) await renderDetail(item);
+        else clearSelection();
+      }
+      syncDetailLayout();
+    } catch {
+      allRequests = [];
       if (tbody) {
-        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="7">${emptyStateHtml({
+        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
           icon: "alert",
           title: "Could not load leave",
           message: "Check your connection and try again.",
@@ -89,12 +359,12 @@
   }
 
   async function reviewRequest(requestId, decision) {
-    const reviewNote =
-      window.prompt(
-        decision === "approved"
-          ? "Optional note for the employee:"
-          : "Optional reason for rejection:"
-      ) || "";
+    if (reviewBusy) return;
+    const noteEl = $("leave-review-note");
+    const statusEl = $("leave-review-status");
+    const reviewNote = noteEl?.value?.trim() || "";
+    reviewBusy = true;
+    if (statusEl) statusEl.textContent = decision === "approved" ? "Approving…" : "Rejecting…";
     try {
       const res = await apiFetch(`/admin/leave/requests/${requestId}/review`, {
         method: "POST",
@@ -102,25 +372,30 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Review failed");
+      if (statusEl) statusEl.textContent = decision === "approved" ? "Approved." : "Rejected.";
       await loadRequests();
     } catch (error) {
+      if (statusEl) statusEl.textContent = "";
       window.alert(error.message || "Could not update leave request.");
+    } finally {
+      reviewBusy = false;
     }
   }
 
   function bindSection() {
     if (sectionReady) return;
     sectionReady = true;
+
     document.querySelectorAll("[data-leave-filter]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        filterStatus = btn.dataset.leaveFilter ?? "pending";
-        document.querySelectorAll("[data-leave-filter]").forEach((el) => {
-          el.classList.toggle("secondary", el === btn);
-          el.classList.toggle("ghost", el !== btn);
-        });
-        loadRequests();
-      });
+      btn.addEventListener("click", () => setFilter(btn.dataset.leaveFilter ?? ""));
     });
+
+    $("leave-search-input")?.addEventListener("input", (event) => {
+      searchFilter = event.target.value;
+      renderTable();
+    });
+
+    $("leave-detail-close")?.addEventListener("click", () => clearSelection());
   }
 
   window.addEventListener("admin:section", (event) => {
@@ -128,4 +403,9 @@
     bindSection();
     loadRequests();
   });
+
+  if (parseHashBaseSection(window.location.hash) === "leave") {
+    bindSection();
+    loadRequests();
+  }
 })();

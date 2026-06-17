@@ -52,6 +52,27 @@ def _employee_for_user(*, tenant_id: int, user: AuthUser, conn: Any) -> dict[str
     return employee
 
 
+@admin_router.get("/employees/{employee_id}/balance")
+def admin_employee_leave_balance(
+    employee_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        balance = leave_service.leave_balance(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            conn=conn,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return balance
+
+
 @admin_router.get("/requests")
 def list_admin_leave_requests(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],

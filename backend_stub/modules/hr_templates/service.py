@@ -282,6 +282,7 @@ def build_template_download(
     template_id: str,
     variant: str,
     conn: Any,
+    ext: str = "md",
 ) -> tuple[str, str]:
     """Return (filename, markdown body). variant: platform | effective"""
     template = get_template_content(tenant_id=tenant_id, template_id=template_id, conn=conn)
@@ -299,7 +300,10 @@ def build_template_download(
             published_at=template["published_at"],
         )
         filename = format_download_filename(
-            template_id=template_id, version=platform_version, variant="platform-latest"
+            template_id=template_id,
+            version=platform_version,
+            variant="platform-latest",
+            ext=ext,
         )
         return filename, body
 
@@ -316,7 +320,10 @@ def build_template_download(
         update_available=template["update_available"],
     )
     filename = format_download_filename(
-        template_id=template_id, version=f"{based_on}-custom", variant="custom"
+        template_id=template_id,
+        version=f"{based_on}-custom",
+        variant="custom",
+        ext=ext,
     )
     return filename, body
 
