@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v107" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v109" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -572,56 +572,81 @@
               <h2>Offboarding</h2>
               <p class="muted">ACAS appeal windows and sponsorship cessation reporting.</p>
             </div>
-            <div class="section-actions">
-              <a class="btn ghost" href="#grievance">Grievance cases</a>
-            </div>
           </header>
 
-          <div class="hr-status-workflow" aria-label="Offboarding workflow">
-            <span class="hr-workflow-step">Leaver identified</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">ACAS appeal window</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Sponsor cessation</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Complete</span>
-          </div>
+          <div class="hr-status-workflow offboarding-status-workflow" id="offboarding-status-workflow" aria-label="Offboarding workflow"></div>
 
-          <div class="hr-workspace-layout">
+          <div class="offboarding-workspace-layout hr-workspace-layout" id="offboarding-workspace">
             <div class="hr-main-pane">
-              <article class="hr-surface-panel hr-log-panel">
+              <article class="hr-surface-panel hr-log-panel offboarding-start-panel">
                 <h4 class="hr-section-title">Start leaver workflow</h4>
-                <p class="muted employee-section-hint employee-section-hint--warn">Starting offboarding creates an ACAS appeal deadline and sponsor cessation tasks where applicable.</p>
-                <div class="edit-form edit-form--cols-2">
-                  <label class="edit-field"><span class="edit-label">Employee</span><select id="offboarding-employee"></select></label>
-                  <label class="edit-field"><span class="edit-label">Reason</span><input id="offboarding-reason" type="text" placeholder="Resignation, dismissal…" /></label>
-                  <div class="edit-form-actions" data-span="2"><button type="button" class="btn" id="offboarding-start-btn">Start workflow</button></div>
+                <p class="muted employee-section-hint employee-section-hint--warn offboarding-start-hint">Starting offboarding creates an ACAS appeal deadline and sponsor cessation tasks where applicable.</p>
+                <div class="offboarding-start-row">
+                  <label class="edit-field offboarding-start-field">
+                    <span class="edit-label">Employee</span>
+                    <select id="offboarding-employee"></select>
+                  </label>
+                  <label class="edit-field offboarding-start-field">
+                    <span class="edit-label">Reason</span>
+                    <select id="offboarding-reason-type">
+                      <option value="Resignation">Resignation</option>
+                      <option value="Dismissal">Dismissal</option>
+                      <option value="Redundancy">Redundancy</option>
+                      <option value="End of contract">End of contract</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </label>
+                  <label class="edit-field offboarding-start-field offboarding-reason-detail-field" id="offboarding-reason-detail-wrap" hidden>
+                    <span class="edit-label">Details</span>
+                    <input id="offboarding-reason-detail" type="text" placeholder="Brief reason…" maxlength="200" />
+                  </label>
+                  <div class="offboarding-start-actions">
+                    <button type="button" class="btn" id="offboarding-start-btn">Start workflow</button>
+                  </div>
                 </div>
               </article>
-              <h4 class="hr-section-title">Active workflows</h4>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Employee</th>
-                      <th>Reason</th>
-                      <th>Status</th>
-                      <th>ACAS appeal by</th>
-                      <th>Cessation</th>
-                    </tr>
-                  </thead>
-                  <tbody id="offboarding-body">
-                    <tr><td colspan="6" class="muted">Open this section to load workflows…</td></tr>
-                  </tbody>
-                </table>
-              </div>
+
+              <article class="hr-surface-panel offboarding-register-panel">
+                <h4 class="hr-section-title">Active workflows</h4>
+                <div class="hr-table-wrap offboarding-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Employee</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>ACAS appeal by</th>
+                        <th>Cessation</th>
+                      </tr>
+                    </thead>
+                    <tbody id="offboarding-body">
+                      <tr><td colspan="6" class="muted">Open this section to load workflows…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel offboarding-guide-panel" id="offboarding-guide-panel">
+                <h4 class="hr-section-title">What happens when you start</h4>
+                <ul class="offboarding-checklist">
+                  <li><strong>ACAS appeal window</strong> — a 21-day appeal deadline is recorded from the leaver date.</li>
+                  <li><strong>Sponsored workers</strong> — sponsor cessation reporting tasks are created where applicable.</li>
+                  <li><strong>Employee record</strong> — open the leaver’s offboarding tab for documents and final checks.</li>
+                </ul>
+                <p class="muted offboarding-guide-foot">
+                  Linked disciplinary or grievance cases can be opened from the workflow detail panel.
+                  <a href="#grievance">View grievance cases</a>
+                </p>
+              </article>
             </div>
-            <aside class="hr-detail-panel" id="offboarding-detail-panel">
-              <div id="offboarding-detail-empty" class="hr-detail-empty muted">
-                <p>Select a workflow to view ACAS deadlines and sponsor cessation actions.</p>
-              </div>
-              <div id="offboarding-detail-content" hidden></div>
+
+            <aside class="hr-detail-panel offboarding-detail-panel" id="offboarding-detail-panel" hidden>
+              <header class="hr-detail-panel__head offboarding-detail-panel__head">
+                <h4 class="offboarding-detail-panel__title">Workflow detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="offboarding-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="offboarding-detail-content" class="offboarding-detail-body" hidden></div>
             </aside>
           </div>
         </section>
@@ -2688,7 +2713,7 @@
     <script src="./admin-rtw.js?v=3"></script>
     <script src="./admin-grievance.js?v=6"></script>
     <script src="./admin-disciplinary.js?v=2"></script>
-    <script src="./admin-offboarding.js?v=admin-v5"></script>
+    <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
     <script src="./admin-time-punch.js?v=32"></script>
     <script src="./admin-rota.js?v=27"></script>

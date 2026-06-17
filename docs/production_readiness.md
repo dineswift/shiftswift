@@ -19,7 +19,7 @@ Checklist for going live on **shiftswifthr.co.uk** with real customer data. Use 
 
 ## 1. Blockers (must be green before launch)
 
-- [ ] **All migrations applied** (through `083_time_punch_state_flags.sql`)
+- [ ] **All migrations applied** (through `084_offboarding_cancel_reason.sql`)
   ```bash
   DATABASE_URL=postgresql://... bash scripts/run_migrations.sh
   ```
