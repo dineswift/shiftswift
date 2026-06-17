@@ -39,7 +39,8 @@ def test_evaluate_skips_before_grace_period() -> None:
         "employee_email": "alex@example.com",
         "email_notifications_enabled": True,
     }
-    now = datetime(2026, 6, 10, 9, 10, tzinfo=timezone.utc)
+    # 09:10 UK (BST) = 08:10 UTC — before 15-minute post-start alert window (08:15 UTC)
+    now = datetime(2026, 6, 10, 8, 10, tzinfo=timezone.utc)
 
     with patch(
         "modules.rota.missed_punch.list_published_shifts_on_date",
@@ -84,7 +85,8 @@ def test_evaluate_creates_alert_after_grace_without_punch() -> None:
         "employee_email": "alex@example.com",
         "email_notifications_enabled": True,
     }
-    now = datetime(2026, 6, 10, 9, 20, tzinfo=timezone.utc)
+    # 09:20 UK (BST) = 08:20 UTC — after alert window, no punch
+    now = datetime(2026, 6, 10, 8, 20, tzinfo=timezone.utc)
 
     with patch(
         "modules.rota.missed_punch.list_published_shifts_on_date",
@@ -102,6 +104,12 @@ def test_evaluate_creates_alert_after_grace_without_punch() -> None:
     ), patch(
         "admin_service.get_tenant_profile",
         return_value={"name": "Demo Ltd", "trading_name": "Demo Ltd"},
+    ), patch(
+        "modules.employees.notification_branding.employer_legal_name",
+        return_value="Demo Ltd",
+    ), patch(
+        "modules.employees.notification_branding.employee_notification_from_name",
+        return_value="Demo Ltd",
     ), patch("core.notifications.queue_notification") as queue_mock:
         result = evaluate_missed_punch_alerts(tenant_id=1, conn=conn, now=now)
 

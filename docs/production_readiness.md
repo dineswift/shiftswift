@@ -19,11 +19,11 @@ Checklist for going live on **shiftswifthr.co.uk** with real customer data. Use 
 
 ## 1. Blockers (must be green before launch)
 
-- [ ] **All migrations applied** (through `065_master_platform_ops.sql`)
+- [ ] **All migrations applied** (through `083_time_punch_state_flags.sql`)
   ```bash
   DATABASE_URL=postgresql://... bash scripts/run_migrations.sh
   ```
-  Includes time punch QR/kiosk (`063`–`064`), employee GDPR consent (`055`), master platform ops (`065`).
+  Includes time punch QR/kiosk (`063`–`064`), employee GDPR consent (`055`), master platform ops (`065`), punch state flags (`082`–`083`).
 - [ ] **Strong secrets** — `JWT_SECRET` ≥ 32 characters, `ENCRYPTION_KEY` set (64 hex chars for grievance module)
   ```bash
   bash scripts/generate_secrets.sh

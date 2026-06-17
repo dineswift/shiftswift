@@ -4,13 +4,21 @@ Use this after deploy to verify the pilot-ready UX polish (Sprints 1–4).
 
 **Test accounts (local seed):** `hr@shiftswifthr.co.uk` / tenant HR password from `dev_credentials.py`
 
+**Progress tracker:** [pilot_completion_tracker.md](./pilot_completion_tracker.md)
+
 ---
 
 ## Automated (CI / local)
 
 ```bash
+bash scripts/run_pilot_qa_tests.sh
+```
+
+Or manually:
+
+```bash
 cd backend_stub
-.venv/bin/python -m pytest tests/test_plan_features.py tests/test_time_punch.py tests/test_signup_legal.py -q
+.venv/bin/python -m pytest tests/test_plan_features.py tests/test_time_punch.py tests/test_signup_legal.py tests/test_rota_attendance.py tests/test_rota_export_attendance.py tests/test_rota_export_pdf.py -q
 ```
 
 Expected: all pass.
@@ -49,6 +57,19 @@ Expected: all pass.
 
 ---
 
+## Rota & attendance (after deploy of attendance fixes)
+
+| # | Check | Pass |
+|---|--------|------|
+| 1 | **Rota → List view** — on-time clock-ins show **Attended**, not NO SHOW | ☐ |
+| 2 | Hover **Attended** / **Late** badge — tooltip shows UK clock-in time | ☐ |
+| 3 | **Export CSV** — file includes Day, Employee, Attendance, Clock in columns | ☐ |
+| 4 | **Export PDF** — same data in table layout | ☐ |
+| 5 | Evening shift (e.g. 17:00) — staff who punched before 16:45 still **Attended** | ☐ |
+| 6 | **Time punch → Punch records** matches rota attendance for same shift | ☐ |
+
+---
+
 ## Plan tiers
 
 | Plan | Verify |
@@ -83,3 +104,5 @@ Expected: all pass.
 |------|------|------|
 | Product | | |
 | Pilot customer | | |
+
+When all rows above are ticked, update [pilot_completion_tracker.md](./pilot_completion_tracker.md) Phase 2.

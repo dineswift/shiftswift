@@ -128,7 +128,9 @@ Seed plans, Stripe prices, feature gates for Growth/Scale, annual discount displ
 Screenshots, comparison table, social proof, deploy to www + app.
 
 ### Sprint 4 — Product gaps (ongoing)
-Multi-site dashboard, rota (if not built), API docs for Scale tier.
+Multi-site dashboard, rota attendance exports, API docs for Scale tier.
+
+**Sprint 4 status (June 2026):** Rota attendance timezone + export done; pilot QA script + checklist expanded; manual sign-off pending on production.
 
 ---
 

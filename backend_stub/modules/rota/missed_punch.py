@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from modules.rota.attendance import evaluate_shift_attendance, load_punches_for_employees
 from modules.rota.service import shift_window
+
+UK_TZ = ZoneInfo("Europe/London")
 
 MISSED_PUNCH_ALERT_MINUTES = 15
 
@@ -93,7 +96,7 @@ def evaluate_missed_punch_alerts(
     if not tenant_has_active_punch_sites(tenant_id=tenant_id, conn=conn):
         return []
 
-    on_date = now.date()
+    on_date = now.astimezone(UK_TZ).date()
     shifts = list_published_shifts_on_date(tenant_id=tenant_id, on_date=on_date, conn=conn)
     if not shifts:
         return []
