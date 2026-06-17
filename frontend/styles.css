@@ -12772,10 +12772,6 @@ body.employee-portal.employee-clock-disabled [data-requires-clock] {
   color: var(--green-900);
 }
 
-.employee-timesheet__toolbar {
-  margin-bottom: 10px;
-}
-
 .employee-timesheet-summary {
   display: flex;
   flex-wrap: wrap;

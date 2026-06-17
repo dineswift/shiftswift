@@ -1,7 +1,7 @@
 /** Keep employee pages on the employee service worker — not the shared admin SW. */
 (function () {
-  const SW_URL = "./employee-sw.js?v=4";
-  const BLOCKED_SW = ["app-sw.js", "punch-sw.js"];
+  const SW_URL = "./employee-sw.js?v=5";
+  const BLOCKED_SW = ["app-sw.js", "punch-sw.js", "admin-sw.js"];
 
   function registerEmployeeSw() {
     if (!("serviceWorker" in navigator)) return Promise.resolve(null);

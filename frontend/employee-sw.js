@@ -1,5 +1,5 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v4";
+const CACHE_NAME = "shiftswift-employee-v5";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
@@ -25,7 +25,7 @@ const SHELL = [
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
 const HR_ONLY_PATHS =
-  /\/(business-login|login|admin|signup|signup-success|ops-9x7k2|master|master-tenant|tenant-login|master-login)\.html$/i;
+  /\/(login|admin|signup|signup-success|ops-9x7k2|master|master-tenant|tenant-login|master-login)\.html$/i;
 
 function employeeForgotPasswordUrl(requestUrl) {
   return new URL("./employee-forgot-password.html", requestUrl).toString();
@@ -45,6 +45,10 @@ function isNavigation(request) {
 
 function employeeLoginUrl(requestUrl) {
   return new URL("./employee-login.html", requestUrl).toString();
+}
+
+function businessLoginUrl(requestUrl) {
+  return new URL("./business-login.html", requestUrl).toString();
 }
 
 function fallbackDocument(url) {
@@ -88,7 +92,7 @@ self.addEventListener("fetch", (event) => {
       return;
     }
     if (HR_ONLY_PATHS.test(path)) {
-      event.respondWith(Response.redirect(employeeLoginUrl(event.request.url), 302));
+      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
       return;
     }
 

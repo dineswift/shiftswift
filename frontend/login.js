@@ -360,7 +360,14 @@ function initBusinessLoginTabs() {
 function redirectIfEmployeeSession() {
   if (document.body.dataset.loginPage !== "employee") return false;
   const role = localStorage.getItem("userRole");
-  if (window.ShiftSwiftSession?.hasSession?.() && role === "employee") {
+  const hasSession = window.ShiftSwiftSession?.hasSession?.();
+  if (!hasSession) {
+    if (role && role !== "employee") {
+      localStorage.removeItem("userRole");
+    }
+    return false;
+  }
+  if (role === "employee") {
     window.location.replace("./employee.html");
     return true;
   }
@@ -374,12 +381,19 @@ function redirectIfEmployeeSession() {
 function redirectIfBusinessSession() {
   if (document.body.dataset.loginPage !== "business") return false;
   const role = localStorage.getItem("userRole");
-  if (window.ShiftSwiftSession?.hasSession?.() && role && role !== "employee") {
-    window.location.replace("./admin.html");
-    return true;
+  const hasSession = window.ShiftSwiftSession?.hasSession?.();
+  if (!hasSession) {
+    if (role === "employee") {
+      localStorage.removeItem("userRole");
+    }
+    return false;
   }
   if (role === "employee") {
-    window.location.replace("./employee-login.html");
+    window.location.replace("./employee.html");
+    return true;
+  }
+  if (role && role !== "employee") {
+    window.location.replace("./admin.html");
     return true;
   }
   return false;

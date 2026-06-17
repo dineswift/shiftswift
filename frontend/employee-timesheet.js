@@ -165,10 +165,6 @@
 
   document.getElementById("employee-timesheet-prev")?.addEventListener("click", () => shiftWeek(-7));
   document.getElementById("employee-timesheet-next")?.addEventListener("click", () => shiftWeek(7));
-  document.getElementById("employee-timesheet-this-week")?.addEventListener("click", () => {
-    weekStart = null;
-    loadTimesheet();
-  });
 
   window.addEventListener("employee:profile-loaded", loadTimesheet);
   window.addEventListener("hashchange", () => {
