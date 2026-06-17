@@ -34,13 +34,6 @@ WHERE category IS NULL
      'payslip', 'visa_brp', 'dbs', 'training'
    );
 
-ALTER TABLE employee_documents DROP CONSTRAINT IF EXISTS employee_documents_category_check;
-ALTER TABLE employee_documents ADD CONSTRAINT employee_documents_category_check
-  CHECK (category IN (
-    'general', 'contract', 'id', 'rtw', 'qualification', 'disciplinary', 'policy', 'other',
-    'payslip', 'visa_brp', 'dbs', 'training'
-  ));
-
 CREATE INDEX IF NOT EXISTS idx_employee_documents_category
   ON employee_documents (tenant_id, employee_id, category);
 

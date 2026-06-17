@@ -818,6 +818,48 @@ def _expiring_document_item(
     }
 
 
+def _table_has_columns(conn: Any, table: str, *columns: str) -> bool:
+    if not columns:
+        return True
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = ANY(%s)
+            """,
+            (table, list(columns)),
+        )
+        found = {row[0] for row in cur.fetchall()}
+    return all(column in found for column in columns)
+
+
+def _expiring_document_from_row(row: tuple[Any, ...], *, full: bool) -> dict[str, Any]:
+    if full:
+        return {
+            "id": row[0],
+            "title": row[1],
+            "category": row[2],
+            "lifecycle_stage": row[3],
+            "expires_at": _iso(row[4]),
+            "employee_id": row[5],
+            "expiry_alert_days": row[6],
+            "employee_visible": row[7],
+        }
+    return {
+        "id": row[0],
+        "title": row[1],
+        "category": row[2],
+        "expires_at": _iso(row[3]),
+        "employee_id": row[4],
+        "lifecycle_stage": None,
+        "expiry_alert_days": 30,
+        "employee_visible": True,
+    }
+
+
 def list_expiring_documents(
     *,
     tenant_id: int,
@@ -827,40 +869,79 @@ def list_expiring_documents(
 ) -> dict[str, Any]:
     """Documents with expiry dates, sorted soonest first, with red/amber/green status."""
     today = as_of or date.today()
+    tenant_full = _table_has_columns(
+        conn,
+        "tenant_documents",
+        "expires_at",
+        "expiry_alert_days",
+        "employee_visible",
+        "lifecycle_stage",
+    )
+    employee_full = _table_has_columns(
+        conn,
+        "employee_documents",
+        "expires_at",
+        "expiry_alert_days",
+        "employee_visible",
+        "lifecycle_stage",
+    )
+    tenant_can_query = _table_has_columns(conn, "tenant_documents", "expires_at")
+    employee_can_query = _table_has_columns(conn, "employee_documents", "expires_at")
+
+    tenant_rows: list[tuple[Any, ...]] = []
+    employee_rows: list[tuple[Any, ...]] = []
     with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT {TENANT_DOCUMENT_SELECT},
-                   NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '')
-            FROM tenant_documents
-            LEFT JOIN employees e
-              ON e.id = tenant_documents.employee_id AND e.tenant_id = tenant_documents.tenant_id
-            WHERE tenant_documents.tenant_id = %s AND tenant_documents.expires_at IS NOT NULL
-            """,
-            (tenant_id,),
-        )
-        tenant_rows = cur.fetchall()
-        cur.execute(
-            f"""
-            SELECT {EMPLOYEE_DOCUMENT_SELECT},
-                   NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '')
-            FROM employee_documents
-            JOIN employees e
-              ON e.id = employee_documents.employee_id AND e.tenant_id = employee_documents.tenant_id
-            WHERE employee_documents.tenant_id = %s AND employee_documents.expires_at IS NOT NULL
-            """,
-            (tenant_id,),
-        )
-        employee_rows = cur.fetchall()
+        if tenant_can_query:
+            tenant_select = (
+                "tenant_documents.id, tenant_documents.title, tenant_documents.category, "
+                "tenant_documents.lifecycle_stage, tenant_documents.expires_at, tenant_documents.employee_id, "
+                "tenant_documents.expiry_alert_days, tenant_documents.employee_visible"
+                if tenant_full
+                else "tenant_documents.id, tenant_documents.title, tenant_documents.category, "
+                "tenant_documents.expires_at, tenant_documents.employee_id"
+            )
+            cur.execute(
+                f"""
+                SELECT {tenant_select},
+                       NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '')
+                FROM tenant_documents
+                LEFT JOIN employees e
+                  ON e.id = tenant_documents.employee_id AND e.tenant_id = tenant_documents.tenant_id
+                WHERE tenant_documents.tenant_id = %s AND tenant_documents.expires_at IS NOT NULL
+                """,
+                (tenant_id,),
+            )
+            tenant_rows = cur.fetchall()
+        if employee_can_query:
+            employee_select = (
+                "employee_documents.id, employee_documents.title, employee_documents.category, "
+                "employee_documents.lifecycle_stage, employee_documents.expires_at, employee_documents.employee_id, "
+                "employee_documents.expiry_alert_days, employee_documents.employee_visible"
+                if employee_full
+                else "employee_documents.id, employee_documents.title, employee_documents.category, "
+                "employee_documents.expires_at, employee_documents.employee_id"
+            )
+            cur.execute(
+                f"""
+                SELECT {employee_select},
+                       NULLIF(TRIM(CONCAT(e.first_name, ' ', e.last_name)), '')
+                FROM employee_documents
+                JOIN employees e
+                  ON e.id = employee_documents.employee_id AND e.tenant_id = employee_documents.tenant_id
+                WHERE employee_documents.tenant_id = %s AND employee_documents.expires_at IS NOT NULL
+                """,
+                (tenant_id,),
+            )
+            employee_rows = cur.fetchall()
 
     items: list[dict[str, Any]] = []
     for row in tenant_rows:
         name = row[-1]
-        doc = _row_to_tenant_document(row[:-1])
+        doc = _expiring_document_from_row(row[:-1], full=tenant_full)
         items.append(_expiring_document_item(scope="tenant", doc=doc, employee_name=name, as_of=today))
     for row in employee_rows:
         name = row[-1]
-        doc = _row_to_employee_document(row[:-1])
+        doc = _expiring_document_from_row(row[:-1], full=employee_full)
         items.append(_expiring_document_item(scope="employee", doc=doc, employee_name=name, as_of=today))
 
     items.sort(key=lambda item: (item.get("expires_at") or "9999", item.get("title") or ""))
