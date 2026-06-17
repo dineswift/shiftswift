@@ -70,6 +70,7 @@
 
   async function loadProfile() {
     const welcome = document.getElementById("employee-welcome");
+    const welcomeMobile = document.getElementById("employee-welcome-mobile");
     const employerHeader = document.getElementById("topbar-employer-name");
     const employerSubtitle = document.getElementById("mobile-employer-subtitle");
     try {
@@ -94,16 +95,18 @@
       const employerLabel = user.employer_name || "Your employer";
       if (employerHeader) employerHeader.textContent = employerLabel;
       if (employerSubtitle) employerSubtitle.textContent = employerLabel;
-      if (welcome) {
-        welcome.textContent = `Signed in as ${user.username}`;
-      }
+      const signedInText = user.username ? `Signed in as ${user.username}` : "Signed in";
+      if (welcome) welcome.textContent = signedInText;
+      if (welcomeMobile) welcomeMobile.textContent = signedInText;
       window.EmployeeMobile?.refreshGreeting?.();
       if (user.gdpr_consent_required) {
         showGdprModal(user.employer_name);
       }
       window.dispatchEvent(new CustomEvent("employee:profile-loaded", { detail: { user } }));
     } catch {
-      if (welcome) welcome.textContent = "Could not load your account.";
+      const fallback = "Could not load your account.";
+      if (welcome) welcome.textContent = fallback;
+      if (welcomeMobile) welcomeMobile.textContent = fallback;
     }
   }
 

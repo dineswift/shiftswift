@@ -17,6 +17,27 @@
     if (messageEl) messageEl.textContent = text || "";
   }
 
+  function setShiftsSummary(text) {
+    const source = document.getElementById("employee-shifts-summary");
+    if (source) source.textContent = text;
+    document.querySelectorAll('[data-mirror="employee-shifts-summary"]').forEach((el) => {
+      el.textContent = text;
+    });
+  }
+
+  function formatShiftSummary(items) {
+    if (!items.length) return "No shifts published this week.";
+    const countLabel = items.length === 1 ? "1 shift this week" : `${items.length} shifts this week`;
+    const next = items[0];
+    const day = new Date(`${next.shift_date}T12:00:00`).toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+    const time = `${next.start_time}–${next.end_time}`;
+    return `${countLabel} · next ${day} ${time}`;
+  }
+
   async function requestCover(shiftId) {
     const note = window.prompt("Why do you need cover? (optional note)") || "";
     const targetRaw = window.prompt("Colleague employee ID for cover (ask HR if unsure):") || "";
@@ -50,9 +71,11 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         listEl.innerHTML = "<li class=\"muted\">Could not load shifts.</li>";
+        setShiftsSummary("Could not load shifts.");
         return;
       }
       const items = data.shifts || [];
+      setShiftsSummary(formatShiftSummary(items));
       if (!items.length) {
         listEl.innerHTML = "<li class=\"muted\">No published shifts this week yet.</li>";
         return;
@@ -72,6 +95,7 @@
       });
     } catch {
       listEl.innerHTML = "<li class=\"muted\">Could not load shifts.</li>";
+      setShiftsSummary("Could not load shifts.");
     }
   }
 

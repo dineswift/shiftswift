@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v77" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v78" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -95,9 +95,75 @@
         </div>
 
         <section id="overview" class="admin-section">
-          <div class="mobile-home-header employee-mobile-home-only">
-            <p class="mobile-greeting" id="mobile-greeting">Good afternoon</p>
-            <p class="mobile-business-name" id="mobile-employer-subtitle"></p>
+          <div class="employee-home employee-mobile-home-only">
+            <header class="employee-home-hero">
+              <p class="employee-home-greeting" id="mobile-greeting">Good afternoon</p>
+              <p class="employee-home-employer" id="mobile-employer-subtitle">Your employer</p>
+              <p class="employee-home-signed-in" id="employee-welcome-mobile">Loading your account…</p>
+            </header>
+
+            <div class="employee-home-quick">
+              <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock">
+                <span class="employee-quick-btn__icon" aria-hidden="true"></span>
+                <span class="employee-quick-btn__label">Clock in / out</span>
+              </a>
+              <a class="employee-quick-btn" href="#my-shifts">
+                <span class="employee-quick-btn__icon" aria-hidden="true"></span>
+                <span class="employee-quick-btn__label">My shifts</span>
+              </a>
+            </div>
+
+            <h2 class="employee-home-section-title">Your workplace</h2>
+            <div class="employee-home-grid" id="employee-home-grid">
+              <a class="employee-home-card employee-home-card--clock" href="#time-clock">
+                <span class="employee-home-card__icon" data-icon="clock" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Time clock</span>
+                  <span class="employee-home-card__value" data-mirror="employee-punch-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--shifts" href="#my-shifts">
+                <span class="employee-home-card__icon" data-icon="calendar" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">My shifts</span>
+                  <span class="employee-home-card__value" id="employee-shifts-summary" data-mirror="employee-shifts-summary">View this week&apos;s rota</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--docs" href="#documents">
+                <span class="employee-home-card__icon" data-icon="file" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">My documents</span>
+                  <span class="employee-home-card__value" data-mirror="employee-docs-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--payslips" href="#payslips">
+                <span class="employee-home-card__icon" data-icon="card" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Payslips</span>
+                  <span class="employee-home-card__value" data-mirror="employee-payslips-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--notes" href="#notes">
+                <span class="employee-home-card__icon" data-icon="bell" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Notes from HR</span>
+                  <span class="employee-home-card__value" data-mirror="employee-notes-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--leave" href="#leave">
+                <span class="employee-home-card__icon" data-icon="beach" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Leave balance</span>
+                  <span class="employee-home-card__value" data-mirror="employee-leave-balance">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+            </div>
           </div>
           <header class="section-header section-header--desktop">
             <div>
@@ -105,68 +171,7 @@
               <p class="muted" id="employee-welcome">Loading your account…</p>
             </div>
           </header>
-          <div class="overview-module-grid employee-mobile-home-only" id="employee-home-grid">
-            <a class="overview-module-card" href="#documents">
-              <div class="overview-module-card__head">
-                <span class="overview-module-card__icon" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
-                </span>
-                <span class="overview-module-card__chevron" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                </span>
-              </div>
-              <span class="overview-module-card__title">My documents</span>
-              <span class="overview-module-card__value" data-mirror="employee-docs-summary">Loading…</span>
-            </a>
-            <a class="overview-module-card" href="#notes">
-              <div class="overview-module-card__head">
-                <span class="overview-module-card__icon" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 5h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="M9 3h6v4H9z"/></svg>
-                </span>
-                <span class="overview-module-card__chevron" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                </span>
-              </div>
-              <span class="overview-module-card__title">Notes from HR</span>
-              <span class="overview-module-card__value" data-mirror="employee-notes-summary">Loading…</span>
-            </a>
-            <a class="overview-module-card" href="#time-clock">
-              <div class="overview-module-card__head">
-                <span class="overview-module-card__icon" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 7v5l3 3"/><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18"/></svg>
-                </span>
-                <span class="overview-module-card__chevron" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                </span>
-              </div>
-              <span class="overview-module-card__title">Time clock</span>
-              <span class="overview-module-card__value" data-mirror="employee-punch-summary">Loading…</span>
-            </a>
-            <a class="overview-module-card" href="#leave">
-              <div class="overview-module-card__head">
-                <span class="overview-module-card__icon" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 17h18"/><path d="M6 17c2-4 4-6 6-6s4 2 6 6"/><path d="M12 5v6"/><path d="M9 8l3-3l3 3"/></svg>
-                </span>
-                <span class="overview-module-card__chevron" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                </span>
-              </div>
-              <span class="overview-module-card__title">Leave balance</span>
-              <span class="overview-module-card__value" data-mirror="employee-leave-balance">Loading…</span>
-            </a>
-            <a class="overview-module-card" href="#payslips">
-              <div class="overview-module-card__head">
-                <span class="overview-module-card__icon" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg>
-                </span>
-                <span class="overview-module-card__chevron" aria-hidden="true">
-                  <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
-                </span>
-              </div>
-              <span class="overview-module-card__title">Payslips</span>
-              <span class="overview-module-card__value" data-mirror="employee-payslips-summary">Loading…</span>
-            </a>
-          </div>
+          <div class="overview-module-grid employee-mobile-home-only employee-home-grid--legacy" id="employee-home-grid-legacy" hidden aria-hidden="true"></div>
           <div class="metric-grid employee-desktop-only">
             <article class="card">
               <h3>My documents</h3>
@@ -365,24 +370,24 @@
     </div>
 
     <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Main navigation">
-      <button type="button" class="mobile-tab mobile-tab--active" data-mobile-tab="home">
-        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+      <button type="button" class="mobile-tab mobile-tab--active" data-mobile-tab="home" data-tab-icon="home">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">Home</span>
       </button>
-      <button type="button" class="mobile-tab" data-mobile-tab="shifts">
-        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 8h18"/><path d="M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"/></svg>
+      <button type="button" class="mobile-tab" data-mobile-tab="shifts" data-tab-icon="calendar">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">Shifts</span>
       </button>
-      <button type="button" class="mobile-tab" data-mobile-tab="clock">
-        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 7v5l3 3"/><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18"/></svg>
+      <button type="button" class="mobile-tab" data-mobile-tab="clock" data-tab-icon="clock">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">Clock</span>
       </button>
-      <button type="button" class="mobile-tab" data-mobile-tab="leave">
-        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M3 17h18"/><path d="M6 17c2-4 4-6 6-6s4 2 6 6"/><path d="M12 5v6"/><path d="M9 8l3-3l3 3"/></svg>
+      <button type="button" class="mobile-tab" data-mobile-tab="leave" data-tab-icon="beach">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">Leave</span>
       </button>
-      <button type="button" class="mobile-tab" data-mobile-tab="more">
-        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 12h.01"/><path d="M12 12h.01"/><path d="M19 12h.01"/></svg>
+      <button type="button" class="mobile-tab" data-mobile-tab="more" data-tab-icon="menu">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">More</span>
       </button>
     </nav>
@@ -445,15 +450,33 @@
     ></script>
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
-    <script src="./admin-icons.js?v=1"></script>
+    <script src="./admin-icons.js?v=2"></script>
     <script src="./employee-mobile.js?v=2"></script>
-    <script src="./employee.js?v=6"></script>
+    <script src="./employee.js?v=8"></script>
     <script src="./employee-time-punch.js?v=6"></script>
-    <script src="./employee-rota.js?v=3"></script>
+    <script src="./employee-rota.js?v=5"></script>
     <script src="./employee-documents.js?v=5"></script>
     <script src="./employee-notes.js?v=2"></script>
     <script src="./employee-security.js?v=2"></script>
     <script src="./employee-leave.js?v=2"></script>
       <script src="./cookie-consent.js?v=1"></script>
+    <script>
+      (function hydrateEmployeeChrome() {
+        if (!window.AdminIcons) return;
+        document.querySelectorAll(".employee-home-card__icon[data-icon]").forEach((el) => {
+          const name = el.getAttribute("data-icon");
+          if (name) el.innerHTML = window.AdminIcons.svg(name, "employee-home-card__svg");
+        });
+        document.querySelectorAll(".employee-quick-btn__icon").forEach((el, index) => {
+          const name = index === 0 ? "clock" : "calendar";
+          el.innerHTML = window.AdminIcons.svg(name, "employee-quick-btn__svg");
+        });
+        document.querySelectorAll("#mobile-tab-bar [data-tab-icon]").forEach((btn) => {
+          const wrap = btn.querySelector(".mobile-tab__icon-wrap");
+          const name = btn.getAttribute("data-tab-icon");
+          if (wrap && name) wrap.innerHTML = window.AdminIcons.svg(name, "mobile-tab__icon");
+        });
+      })();
+    </script>
   </body>
 </html>

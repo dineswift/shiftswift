@@ -1541,6 +1541,26 @@ textarea:focus {
   height: 22px;
 }
 
+.mobile-tab__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  color: var(--ink-700);
+}
+
+.mobile-tab__icon-wrap .admin-icon,
+.mobile-tab__icon-wrap svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.25;
+}
+
+.mobile-tab--active .mobile-tab__icon-wrap .admin-icon,
+.mobile-tab--active .mobile-tab__icon-wrap svg {
+  color: var(--green-800);
+}
+
 .mobile-tab__label {
   font-size: 0.68rem;
   font-weight: 700;
@@ -1553,6 +1573,10 @@ textarea:focus {
 }
 
 .mobile-tab--active .mobile-tab__icon {
+  opacity: 1;
+}
+
+.mobile-tab--active .mobile-tab__icon-wrap {
   opacity: 1;
 }
 
@@ -3647,8 +3671,13 @@ textarea:focus {
     display: grid;
     gap: 10px;
   }
-  body.employee-portal #employee-home-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  body.employee-portal .section-header--desktop {
+    display: none;
+  }
+
+  body.employee-portal .employee-home {
+    display: block;
   }
   body.employee-portal .overview-module-card__value {
     font-size: 0.76rem;
@@ -11827,6 +11856,228 @@ body.rota-week-readonly .rota-builder-hint {
 
   .mobile-tab__label {
     font-size: 0.72rem;
+  }
+}
+
+/* Employee portal — mobile home */
+.employee-home-hero {
+  margin-bottom: 16px;
+  padding: 20px 18px 22px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #0f6e56 0%, #15803d 55%, #166534 100%);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(15, 110, 86, 0.22);
+}
+
+.employee-home-greeting {
+  margin: 0 0 6px;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.employee-home-employer {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  opacity: 0.96;
+}
+
+.employee-home-signed-in {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  opacity: 0.82;
+}
+
+.employee-home-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.employee-quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 92px;
+  padding: 14px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  text-decoration: none;
+  color: var(--green-900);
+  font-weight: 700;
+  font-size: 0.84rem;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.employee-quick-btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--green-100);
+  color: var(--green-800);
+}
+
+.employee-quick-btn__icon .admin-icon,
+.employee-quick-btn__icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.25;
+}
+
+.employee-quick-btn--primary {
+  background: var(--green-800);
+  border-color: transparent;
+  color: #fff;
+}
+
+.employee-quick-btn--primary .employee-quick-btn__icon {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.employee-quick-btn:active {
+  transform: scale(0.98);
+}
+
+.employee-home-section-title {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.employee-home-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.employee-home-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 14px 14px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--card);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow-card);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.employee-home-card:active {
+  transform: scale(0.985);
+}
+
+.employee-home-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.employee-home-card__icon .admin-icon,
+.employee-home-card__icon svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.25;
+}
+
+.employee-home-card--clock .employee-home-card__icon {
+  background: #d8f3dc;
+  color: #0f6e56;
+}
+
+.employee-home-card--shifts .employee-home-card__icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.employee-home-card--docs .employee-home-card__icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.employee-home-card--payslips .employee-home-card__icon {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.employee-home-card--notes .employee-home-card__icon {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.employee-home-card--leave .employee-home-card__icon {
+  background: #cffafe;
+  color: #0e7490;
+}
+
+.employee-home-card__body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.employee-home-card__title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.employee-home-card__value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--green-900);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.employee-home-card__chevron {
+  flex-shrink: 0;
+  color: var(--ink-400);
+  font-size: 1.35rem;
+  font-weight: 300;
+  line-height: 1;
+  padding-left: 4px;
+}
+
+.employee-home-card__chevron::before {
+  content: "›";
+}
+
+body.employee-portal[data-mobile-tab="home"] .topbar.app-mobile-header {
+  margin-bottom: 4px;
+}
+
+@media (min-width: 861px) {
+  .employee-home {
+    display: none !important;
   }
 }
 
