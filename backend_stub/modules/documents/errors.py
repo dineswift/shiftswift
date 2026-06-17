@@ -112,7 +112,7 @@ def document_service_error_message(exc: Exception) -> str:
         )
     if "missing required columns" in msg:
         return "Document upload is unavailable. Run database migrations and try again."
-    if "document insert succeeded but could not be loaded" in msg:
+    if "document insert did not return an id" in msg:
         return "Document upload is unavailable. Run database migrations and try again."
 
     hint = _sanitize_error_hint(str(exc))

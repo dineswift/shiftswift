@@ -339,9 +339,27 @@ def _table_columns(conn: Any, table: str) -> frozenset[str]:
         return frozenset(row[0] for row in cur.fetchall())
 
 
+def _document_select_columns(conn: Any, table: str, template: str) -> list[str]:
+    available = _table_columns(conn, table)
+    columns = [
+        column.strip()
+        for column in template.replace("\n", " ").split(",")
+        if column.strip() in available
+    ]
+    if "id" in available and "id" not in columns:
+        columns.insert(0, "id")
+    return columns
+
+
+def _insert_returning_id(cur: Any) -> int:
+    row = cur.fetchone()
+    if not row or row[0] is None:
+        raise RuntimeError("Document insert did not return an id")
+    return int(row[0])
+
+
 def _employee_document_select_columns(conn: Any) -> list[str]:
-    available = _table_columns(conn, "employee_documents")
-    return [column for column in EMPLOYEE_DOCUMENT_SELECT.replace("\n", " ").split(",") if column.strip() in available]
+    return _document_select_columns(conn, "employee_documents", EMPLOYEE_DOCUMENT_SELECT)
 
 
 def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None = None) -> dict[str, Any]:
@@ -425,6 +443,8 @@ def _load_employee_document(
         return None
     doc = _row_to_employee_document(row, columns=select_cols)
     doc["employee_id"] = employee_id
+    if doc.get("id") is None:
+        doc["id"] = document_id
     return doc
 
 
@@ -517,7 +537,7 @@ def create_employee_document(
             f"INSERT INTO employee_documents ({col_sql}) VALUES ({placeholders}) RETURNING id",
             tuple(values[key] for key in insert_cols),
         )
-        document_id = int(cur.fetchone()[0])
+        document_id = _insert_returning_id(cur)
         conn.commit()
 
     doc = _load_employee_document(
@@ -532,6 +552,7 @@ def create_employee_document(
             employee_id=employee_id,
             payload={**payload, "uploaded_by": uploaded_by},
         )
+    doc["id"] = document_id
     return doc
 
 
@@ -616,6 +637,7 @@ def update_employee_document(
             employee_id=employee_id,
             payload=merged,
         )
+    doc["id"] = document_id
     return doc
 
 
@@ -701,12 +723,7 @@ TENANT_DOCUMENT_SELECT = """
 
 
 def _tenant_document_select_columns(conn: Any) -> list[str]:
-    available = _table_columns(conn, "tenant_documents")
-    return [
-        column.strip()
-        for column in TENANT_DOCUMENT_SELECT.replace("\n", " ").split(",")
-        if column.strip() in available
-    ]
+    return _document_select_columns(conn, "tenant_documents", TENANT_DOCUMENT_SELECT)
 
 
 def _load_tenant_document(
@@ -730,7 +747,10 @@ def _load_tenant_document(
         row = cur.fetchone()
     if not row:
         return None
-    return _row_to_tenant_document(row, columns=select_cols)
+    doc = _row_to_tenant_document(row, columns=select_cols)
+    if doc.get("id") is None:
+        doc["id"] = document_id
+    return doc
 
 
 def list_tenant_documents(
@@ -843,7 +863,7 @@ def create_tenant_document(
             f"INSERT INTO tenant_documents ({col_sql}) VALUES ({placeholders}) RETURNING id",
             tuple(values[key] for key in insert_cols),
         )
-        document_id = int(cur.fetchone()[0])
+        document_id = _insert_returning_id(cur)
         conn.commit()
 
     doc = _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
@@ -852,6 +872,7 @@ def create_tenant_document(
             document_id=document_id,
             payload={**payload, "uploaded_by": uploaded_by},
         )
+    doc["id"] = document_id
     return doc
 
 
@@ -921,6 +942,7 @@ def update_tenant_document(
     doc = _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
     if not doc:
         doc = _minimal_tenant_document(document_id=document_id, payload=allowed)
+    doc["id"] = document_id
     return doc
 
 

@@ -46,4 +46,6 @@ def log_employee_data_event(
         )
         row = cur.fetchone()
         conn.commit()
-        return int(row[0])
+        if row and row[0] is not None:
+            return int(row[0])
+        return 0
