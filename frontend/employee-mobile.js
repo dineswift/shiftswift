@@ -11,7 +11,7 @@
 
   const DETAIL_EXEMPT = new Set(["overview", "my-shifts", "time-clock", "leave"]);
 
-  let currentTab = localStorage.getItem("employeeMobileTab") || "home";
+  let currentTab = localStorage.getItem("employeeMobileTab") || "clock";
   let previousTab = "home";
 
   function isMobile() {

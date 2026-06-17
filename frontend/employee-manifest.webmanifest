@@ -3,7 +3,7 @@
   "name": "ShiftSwift Employee Portal",
   "short_name": "Employee",
   "description": "View payslips, documents, shifts, and clock in from your phone.",
-  "start_url": "./employee.html?source=pwa",
+  "start_url": "./employee.html?source=pwa#time-clock",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
@@ -48,7 +48,7 @@
     {
       "name": "Time clock",
       "short_name": "Clock",
-      "url": "./punch.html?source=shortcut",
+      "url": "./employee.html?source=shortcut#time-clock",
       "icons": [
         {
           "src": "./assets/shiftswift-clock-app-icon-192.png?v=brandkit-v5",

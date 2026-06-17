@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <script src="./brand-config.js?v=brand-v5"></script>
     <script src="./app-host-guard.js?v=1"></script>
+    <script>
+      (function () {
+        var target = new URL("./employee.html", window.location.href);
+        target.hash = "time-clock";
+        if (window.location.search) target.search = window.location.search;
+        window.location.replace(target.toString());
+      })();
+    </script>
     <meta name="theme-color" content="#0f6e56" />
     <script src="./app-icons.js?v=brandkit-v5"></script>
     <meta name="mobile-web-app-capable" content="yes" />

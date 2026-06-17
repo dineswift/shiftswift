@@ -264,9 +264,9 @@ def login_portal_mismatch_message(
 
     role = row["role"]
     if require_role == "hr" and role == "employee":
-        return "This is an employee account. Switch to the Employee tab, then sign in."
+        return "This is an employee account. Use the employee sign-in page instead."
     if require_role == "employee" and role == "hr":
-        return "This is an HR admin account. Switch to the Business HR tab, then sign in."
+        return "This is an HR admin account. Use the business sign-in page instead."
     if portal == "master" and role != "admin":
         return "Platform master admin uses a separate sign-in page."
     if portal == "business" and role == "admin":

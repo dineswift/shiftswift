@@ -132,8 +132,8 @@ window.ShiftSwiftBrand.portals = function portals(options = {}) {
       id: "employee",
       label: "Employee",
       description: "Payslips, documents & leave",
-      href: this.appUrl("/business-login.html?portal=employee"),
-      display: `${host}/business-login.html`,
+      href: this.appUrl("/employee-login.html"),
+      display: `${host}/employee-login.html`,
     },
     {
       id: "master",
@@ -144,10 +144,10 @@ window.ShiftSwiftBrand.portals = function portals(options = {}) {
     },
     {
       id: "clock",
-      label: "Time Clock",
+      label: "Time clock",
       description: "Clock in & out on site",
-      href: this.appUrl("/punch.html"),
-      display: `${host}/punch.html`,
+      href: this.appUrl("/employee.html#time-clock"),
+      display: `${host}/employee.html#time-clock`,
     },
   ];
   if (!includeMaster) {

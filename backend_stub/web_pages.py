@@ -30,6 +30,10 @@ def register_web_pages(app: FastAPI, settings: Settings) -> None:
     def login_redirect() -> RedirectResponse:
         return RedirectResponse(url="/app/login.html", status_code=307)
 
+    @app.get("/employee-login", include_in_schema=False)
+    def employee_login_redirect() -> RedirectResponse:
+        return RedirectResponse(url="/app/employee-login.html", status_code=307)
+
     @app.get("/business-login", include_in_schema=False)
     def business_login_redirect() -> RedirectResponse:
         return RedirectResponse(url="/app/business-login.html", status_code=307)

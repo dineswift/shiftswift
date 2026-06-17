@@ -3,7 +3,7 @@
   const API_BASE = session.getApiBase();
 
   if (!session.hasSession()) {
-    window.location.replace("./business-login.html");
+    window.location.replace("./employee-login.html");
     return;
   }
 
@@ -107,7 +107,7 @@
     session.clearSession();
     localStorage.removeItem("employeeUsername");
     localStorage.removeItem("employeeDisplayName");
-    window.location.href = "./business-login.html";
+    window.location.href = "./employee-login.html";
   }
 
   document.querySelectorAll("[data-sign-out]").forEach((el) => {

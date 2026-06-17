@@ -3,41 +3,41 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="canonical" href="https://app.shiftswifthr.co.uk/business-login.html" />
+    <link rel="canonical" href="https://app.shiftswifthr.co.uk/employee-login.html" />
     <script src="./brand-config.js?v=brand-v7"></script>
     <script src="./app-host-guard.js?v=2"></script>
     <script src="./app-icons.js?v=brandkit-v5"></script>
-    <title>ShiftSwift HR | Business sign in</title>
+    <title>ShiftSwift HR | Employee sign in</title>
     <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
   </head>
-  <body class="portal-login-page" data-login-page="business">
+  <body class="portal-login-page" data-login-page="employee">
     <div class="portal-login-shell">
       <header class="portal-login-brand">
         <a href="./index.html">
           <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" />
         </a>
-        <p class="portal-login-brand-copy">HR admin dashboard</p>
+        <p class="portal-login-brand-copy">Employee portal &amp; time clock</p>
       </header>
 
-      <section class="portal-login-card portal-login-card--business" id="portal-login-card">
+      <section class="portal-login-card portal-login-card--employee" id="portal-login-card">
         <div class="portal-login-role-banner" id="login-role-banner" role="status" aria-live="polite">
-          <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Business HR</span>
+          <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Employee</span>
           <p class="portal-login-role-banner__copy" id="login-role-banner-copy">
-            You are signing in as an <strong>HR admin</strong> — manage employees, rotas, and compliance.
+            Sign in to clock in, view payslips, documents, and your shift schedule.
           </p>
         </div>
 
         <div id="login-shell" class="portal-login-card-body">
           <div class="portal-login-card-head">
-            <h1>Business sign in</h1>
-            <p class="portal-login-card-lead" id="login-lead">Sign in to your ShiftSwift HR account.</p>
-            <p class="muted portal-login-card-note">One email address maps to one HR workspace. If you signed up more than once while testing, use the email from your welcome message.</p>
+            <h1>Employee sign in</h1>
+            <p class="portal-login-card-lead" id="login-lead">Sign in to view payslips, documents, and your shift schedule.</p>
+            <p class="muted portal-login-card-note">Use the work email address your employer invited you with.</p>
           </div>
 
           <form id="portal-login-form" class="portal-login-form">
             <label>
               Username
-              <input name="username" required autocomplete="username" placeholder="hr@shiftswifthr.co.uk" />
+              <input name="username" required autocomplete="username" placeholder="employee@shiftswifthr.co.uk" />
             </label>
             <label class="portal-login-password-field">
               <span class="portal-login-password-label">
@@ -45,7 +45,7 @@
                 <a
                   class="portal-login-inline-link portal-login-forgot"
                   id="forgot-password-link"
-                  href="./forgot-password.html"
+                  href="./forgot-password.html?role=employee"
                 >Forgot password?</a>
               </span>
               <input
@@ -61,7 +61,7 @@
             <p id="login-status" class="form-error-message" hidden></p>
 
             <button class="btn portal-login-submit" type="submit" id="login-submit">
-              Open HR dashboard
+              Open employee portal
             </button>
 
             <p class="portal-login-secure-note">
@@ -70,12 +70,8 @@
           </form>
 
           <p class="portal-login-alt-note">
-            No account yet?
-            <a class="portal-login-inline-link" href="./signup.html">Start your free 14-day trial</a>
-          </p>
-          <p class="portal-login-alt-note">
-            Staff member?
-            <a class="portal-login-inline-link" href="./employee-login.html">Employee sign in</a>
+            HR admin or business owner?
+            <a class="portal-login-inline-link" href="./business-login.html">Business sign in</a>
           </p>
         </div>
 

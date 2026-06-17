@@ -63,6 +63,12 @@
     if (!form) return;
 
     const params = new URLSearchParams(window.location.search);
+    const backLink = document.getElementById("forgot-back-link");
+    const syncBackLink = () => {
+      if (!backLink) return;
+      backLink.href = resetRole === "employee" ? "./employee-login.html" : "./business-login.html";
+    };
+
     if (params.get("role") === "employee") {
       resetRole = "employee";
       document.querySelectorAll("[data-reset-tab]").forEach((tab) => {
@@ -71,6 +77,7 @@
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
     }
+    syncBackLink();
 
     document.querySelectorAll("[data-reset-tab]").forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -80,6 +87,7 @@
           item.classList.toggle("is-active", active);
           item.setAttribute("aria-selected", active ? "true" : "false");
         });
+        syncBackLink();
       });
     });
 
@@ -162,7 +170,7 @@
         });
         setStatus(status, result.message || "Password updated.", true);
         setTimeout(() => {
-          window.location.href = "./business-login.html?portal=employee";
+          window.location.href = "./employee-login.html";
         }, 1500);
       } catch (error) {
         setStatus(status, friendlyError(error.message), false);

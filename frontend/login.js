@@ -17,17 +17,17 @@ const LOGIN_MODES = {
     usernamePlaceholder: "hr@shiftswifthr.co.uk",
     bannerPill: "Business HR",
     bannerCopy:
-      "You are signing in as an <strong>HR admin</strong> — manage employees, rotas, and compliance. Employees should use the Employee tab.",
+      "You are signing in as an <strong>HR admin</strong> — manage employees, rotas, and compliance.",
   },
   employee: {
     endpoint: "/auth/employee-login",
-    redirect: "./employee.html",
+    redirect: "./employee.html#time-clock",
     lead: "Sign in to view payslips, documents, and your shift schedule.",
     submit: "Open employee portal",
     usernamePlaceholder: "employee@shiftswifthr.co.uk",
     bannerPill: "Employee",
     bannerCopy:
-      "You are signing in as a <strong>staff member</strong> — payslips, documents, and leave only. HR managers should use the Business HR tab.",
+      "Sign in to clock in, view payslips, documents, and your shift schedule.",
   },
 };
 
@@ -168,9 +168,9 @@ function friendlyLoginError(message, endpoint, username) {
       return "Use your platform master account here (admin@shiftswifthr.co.uk). Business HR and employees sign in via Business sign in.";
     }
     if (endpoint.includes("employee")) {
-      return "Use your employee account here. HR admins should choose the Business HR tab.";
+      return "Use your employee username and password. HR admins should use the business sign-in page.";
     }
-    return "Check your username and password. HR admins use the Business HR tab; employees use the Employee tab.";
+    return "Check your username and password. HR admins use business sign-in; employees use employee sign-in.";
   }
   if (message === "Invalid username or password" || message === "Login failed") {
     return message;
@@ -209,7 +209,7 @@ function storeSession(data) {
 }
 
 function redirectForRole(data, fallback) {
-  if (data.role === "employee") return "./employee.html";
+  if (data.role === "employee") return "./employee.html#time-clock";
   return fallback;
 }
 
@@ -328,6 +328,14 @@ function switchLoginMode(nextMode) {
   setStatus("");
 }
 
+function initDedicatedLogin(mode) {
+  if (!LOGIN_MODES[mode]) return;
+  activeLoginMode = mode;
+  switchLoginMode(mode);
+  bindPortalLogin();
+  bindMfaEnrollmentSubmit();
+}
+
 function initBusinessLoginTabs() {
   const tabs = document.querySelectorAll("[data-login-tab]");
   if (!tabs.length) return;
@@ -345,13 +353,23 @@ function initBusinessLoginTabs() {
   });
 
   switchLoginMode("business");
-  const portalHint = new URLSearchParams(window.location.search).get("portal");
-  if (portalHint === "employee") {
-    const employeeTab = document.querySelector('[data-login-tab="employee"]');
-    employeeTab?.click();
-  }
   bindPortalLogin();
   bindMfaEnrollmentSubmit();
+}
+
+function initLoginPage() {
+  const portalHint = new URLSearchParams(window.location.search).get("portal");
+  if (portalHint === "employee") {
+    window.location.replace("./employee-login.html");
+    return;
+  }
+
+  const pageMode = document.body.dataset.loginPage;
+  if (pageMode && LOGIN_MODES[pageMode]) {
+    initDedicatedLogin(pageMode);
+    return;
+  }
+  initBusinessLoginTabs();
 }
 
 function bindSimpleLogin(formId, endpoint, redirectUrl) {
@@ -417,7 +435,7 @@ if (window.ShiftSwiftBrand?.portals) {
 }
 
 showLocalDevHints();
-initBusinessLoginTabs();
+initLoginPage();
 bindSimpleLogin("ops-master-login-form", "/auth/master-login", "./master.html");
 
 (function showMasterLoginNotice() {

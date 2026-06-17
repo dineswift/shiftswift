@@ -451,7 +451,7 @@ def invite_employee_to_portal(
             notification_from_name=notification_from_name,
             employer_legal_name=legal_name,
             setup_url=reset_url,
-            login_url=f"{app_url}/business-login.html",
+            login_url=f"{app_url}/employee-login.html",
             reset_hours=RESET_HOURS,
         ),
         ip_address=ip_address,

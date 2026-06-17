@@ -214,8 +214,8 @@ def signup_platform_guide_email(
 ) -> EmailContent:
     login_url = f"{APP_URL}/business-login.html"
     admin_url = f"{APP_URL}/admin.html"
-    employee_portal_url = f"{APP_URL}/employee.html"
-    time_clock_url = f"{APP_URL}/punch.html"
+    employee_portal_url = f"{APP_URL}/employee-login.html"
+    time_clock_url = f"{APP_URL}/employee.html#time-clock"
     subject = f"{APP_NAME} — how to use your HR platform, employee portal & time clock"
     text = (
         f"Hello,\n\n"
@@ -228,22 +228,20 @@ def signup_platform_guide_email(
         f"require different sign-up procedures when offered.\n\n"
         f"HR ADMIN PORTAL (YOU)\n"
         f"1. Sign in at {login_url}\n"
-        f"2. Choose the Business HR tab\n"
-        f"3. Username: {billing_email}\n"
-        f"4. Open your dashboard: {admin_url}\n"
-        f"5. Add employees under Employees, then send portal invites from the employee side panel\n\n"
+        f"2. Username: {billing_email}\n"
+        f"3. Open your dashboard: {admin_url}\n"
+        f"4. Add employees under Employees, then send portal invites from the employee side panel\n\n"
         f"EMPLOYEE PORTAL (YOUR STAFF)\n"
         f"1. You send a portal invite from Employees in the HR admin dashboard\n"
         f"2. The employee opens the email link and sets a password\n"
-        f"3. They sign in at {login_url} using the Employee tab (not Business HR)\n"
-        f"4. Portal home: {employee_portal_url}\n"
+        f"3. They sign in at {employee_portal_url}\n"
+        f"4. Portal home: {APP_URL}/employee.html — clock in on the Clock tab\n"
         f"5. Staff can view payslips, documents, and published rotas\n"
         f"6. Ask staff to check junk/spam if the invite email is missing\n\n"
-        f"TIME CLOCK APP (CLOCK IN / OUT)\n"
-        f"1. Open {time_clock_url} on the employee's phone\n"
-        f"2. Install to the home screen when prompted (Add to Home Screen on iPhone)\n"
-        f"3. Sign in with the employee portal username and password\n"
-        f"4. Allow location access — clock in/out works at assigned work sites only\n\n"
+        f"TIME CLOCK (CLOCK IN / OUT)\n"
+        f"1. Staff sign in at {employee_portal_url} and open the Clock tab\n"
+        f"2. Install the employee app to the home screen when prompted (Add to Home Screen on iPhone)\n"
+        f"3. Allow location access — clock in/out works at assigned work sites only\n\n"
         f"SUPPORT\n"
         f"General help & onboarding: {SUPPORT_EMAIL}\n"
         f"Legal & contracts: {LEGAL_EMAIL}\n"
@@ -266,9 +264,9 @@ def signup_platform_guide_email(
                 f"A separate full HR service from ShiftSwift HR is not offered yet and would use "
                 f"different sign-up procedures when available."
             ),
-            f"HR admin sign-in: {login_url} → Business HR tab → username {billing_email} → dashboard {admin_url}. Add employees, then send portal invites from Employees.",
-            f"Employee portal: invite staff from Employees → they set a password from the email → sign in at {login_url} on the Employee tab → {employee_portal_url} for payslips and documents.",
-            f"Time clock app: open {time_clock_url} on a phone, install to the home screen, sign in as the employee, and allow location at the work site.",
+            f"HR admin sign-in: {login_url} → username {billing_email} → dashboard {admin_url}. Add employees, then send portal invites from Employees.",
+            f"Employee portal: invite staff from Employees → they set a password from the email → sign in at {employee_portal_url} → clock in on the Clock tab at {time_clock_url}.",
+            "Staff can install the employee app to their home screen from the portal banner for quick access.",
         ],
         details=[
             ("Support", SUPPORT_EMAIL),
@@ -443,7 +441,6 @@ def employee_portal_invite_email(
         f"Choose a password using this secure link (expires in {reset_hours} hours):\n"
         f"{setup_url}\n\n"
         f"After that, sign in as an employee at:\n{login_url}\n"
-        f"On the sign-in page, choose the Employee tab (not Business HR).\n"
         f"Use the same work email address this invite was sent to.\n"
         f"If you do not see this email, check your junk or spam folder.\n\n"
         f"Privacy policy: {privacy_url}\n\n"
@@ -455,8 +452,7 @@ def employee_portal_invite_email(
         intro=f"Hello {employee_name}, {intro}",
         paragraphs=[
             gdpr_note,
-            f"This link expires in {reset_hours} hours. Choose a password, then sign in using your work email.",
-            "On the sign-in page, open the Employee tab (not Business HR).",
+            f"This link expires in {reset_hours} hours. Choose a password, then sign in using your work email at {login_url}.",
             "If you do not see this email, check your junk or spam folder.",
             f"Portal sign-in: {login_url}",
             f'Privacy policy: <a href="{privacy_url}">{privacy_url}</a>',

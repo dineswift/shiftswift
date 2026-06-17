@@ -98,6 +98,7 @@ rsync -a --delete --delete-excluded \
 # rsync --delete alone keeps stale HR pages on www (they still exist in source but are filtered out)
 WWW_FORBIDDEN=(
   business-login.html
+  employee-login.html
   admin.html
   employee.html
   signup.html
