@@ -6,6 +6,7 @@ from plan_features import (
     default_rota_mode,
     effective_features_for_tenant,
     features_for_plan,
+    plan_display_name,
     resolve_rota_mode,
     validate_rota_mode_choice,
 )
@@ -16,6 +17,9 @@ def test_starter_plan_hides_growth_features() -> None:
     assert feats["payroll_enabled"] is False
     assert feats["grievance_enabled"] is False
     assert feats["sponsor_compliance_enabled"] is False
+    assert plan_display_name("site_starter_monthly") == "Essentials"
+    assert plan_display_name("site_medium_monthly") == "Compliance"
+    assert plan_display_name("site_growth_monthly") == "Multi-site"
 
 
 def test_trial_unlocks_growth_features_on_starter() -> None:

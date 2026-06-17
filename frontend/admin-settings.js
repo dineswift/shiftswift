@@ -459,7 +459,7 @@
             : `<p class="muted settings-feature-toggle__help">Included on <strong>Scale</strong> plans. You are on <strong>${escapeHtml(planName)}</strong>.</p>`
         }
       </div>
-      <label class="settings-toggle" title="${enabled ? "Enabled on your account" : "Upgrade to Scale to enable"}">
+      <label class="settings-toggle" title="${enabled ? "Enabled on your account" : "Upgrade your plan to enable"}">
         <input type="checkbox" data-addon-toggle="${escapeHtml(addon.id)}" ${enabled ? "checked" : ""} ${enabled ? "disabled" : ""} />
         <span class="settings-toggle__track" aria-hidden="true"></span>
         <span class="visually-hidden">${enabled ? "Enabled" : "Disabled"}</span>
@@ -477,7 +477,7 @@
           return;
         }
         input.checked = false;
-        showSettingsToast("Upgrade to Scale to enable this add-on.");
+        showSettingsToast("Upgrade your plan to enable this add-on.");
         void startUpgrade();
       });
     });
@@ -501,7 +501,7 @@
           scaleLocked
             ? `<div class="alert-card alert-card-warning settings-addons-upgrade">
                 <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade to unlock both, or email support if you are already on Scale.</p>
-                <button type="button" class="btn outline" data-settings-upgrade>Upgrade to Scale</button>
+                <button type="button" class="btn outline" data-settings-upgrade>View plans</button>
               </div>`
             : ""
         }

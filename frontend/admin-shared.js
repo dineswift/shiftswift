@@ -703,7 +703,7 @@ window.Admin = (() => {
     return `<div class="admin-empty-state${compact ? " admin-empty-state--compact" : ""}">
       <span class="admin-empty-state__icon" aria-hidden="true">${iconSvg}</span>
       ${titleHtml}
-      <p class="admin-empty-state__message muted">${message}</p>
+      <p class="admin-empty-state__message muted">${escapeHtml(message)}</p>
       ${action}
     </div>`;
   }
