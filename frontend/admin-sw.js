@@ -1,5 +1,5 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v2";
+const CACHE_NAME = "shiftswift-admin-v3";
 const SHELL = [
   "./admin.html",
   "./business-login.html",
@@ -76,6 +76,10 @@ self.addEventListener("fetch", (event) => {
 
   if (isNavigation(event.request)) {
     const path = new URL(event.request.url).pathname;
+    if (path === "/" || /\/index\.html$/i.test(path)) {
+      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
+      return;
+    }
     if (EMPLOYEE_ONLY_PATHS.test(path)) {
       event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
       return;

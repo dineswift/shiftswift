@@ -1,5 +1,5 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v6";
+const CACHE_NAME = "shiftswift-employee-v7";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
@@ -101,7 +101,7 @@ self.addEventListener("fetch", (event) => {
     }
 
     if (path.endsWith("/") || path.endsWith("/index.html")) {
-      event.respondWith(Response.redirect(employeeLoginUrl(event.request.url), 302));
+      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
       return;
     }
 
