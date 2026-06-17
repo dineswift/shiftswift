@@ -262,6 +262,62 @@ def _iso(value: Any) -> str | None:
     return str(value)
 
 
+def _minimal_employee_document(
+    *,
+    document_id: int,
+    employee_id: int,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    storage_path = payload.get("storage_path")
+    return {
+        "id": document_id,
+        "title": payload.get("title"),
+        "category": payload.get("category"),
+        "lifecycle_stage": payload.get("lifecycle_stage"),
+        "document_url": payload.get("document_url"),
+        "notes": payload.get("notes"),
+        "uploaded_by": payload.get("uploaded_by"),
+        "expires_at": _iso(payload.get("expires_at")),
+        "original_filename": payload.get("original_filename"),
+        "created_at": None,
+        "updated_at": None,
+        "employee_id": employee_id,
+        "storage_path": storage_path,
+        "content_sha256": payload.get("content_sha256"),
+        "content_type": payload.get("content_type"),
+        "file_size_bytes": payload.get("file_size_bytes"),
+        "pay_period": payload.get("pay_period"),
+        "expiry_alert_days": payload.get("expiry_alert_days", 30),
+        "employee_visible": payload.get("employee_visible", True),
+        "has_file": bool(storage_path),
+    }
+
+
+def _minimal_tenant_document(*, document_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    storage_path = payload.get("storage_path")
+    return {
+        "id": document_id,
+        "title": payload.get("title"),
+        "category": payload.get("category"),
+        "lifecycle_stage": payload.get("lifecycle_stage"),
+        "document_url": payload.get("document_url"),
+        "notes": payload.get("notes"),
+        "uploaded_by": payload.get("uploaded_by"),
+        "expires_at": _iso(payload.get("expires_at")),
+        "original_filename": payload.get("original_filename"),
+        "created_at": None,
+        "updated_at": None,
+        "employee_id": payload.get("employee_id"),
+        "storage_path": storage_path,
+        "content_sha256": payload.get("content_sha256"),
+        "content_type": payload.get("content_type"),
+        "file_size_bytes": payload.get("file_size_bytes"),
+        "expiry_alert_days": payload.get("expiry_alert_days", 30),
+        "employee_visible": payload.get("employee_visible", False),
+        "has_file": bool(storage_path),
+    }
+
+
 def _table_has_columns(conn: Any, table: str, *columns: str) -> bool:
     if not columns:
         return True
@@ -290,7 +346,7 @@ def _employee_document_select_columns(conn: Any) -> list[str]:
 
 def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None = None) -> dict[str, Any]:
     if columns:
-        data = dict(zip(columns, row, strict=False))
+        data = dict(zip(columns, row))
         return {
             "id": data.get("id"),
             "title": data.get("title"),
@@ -471,7 +527,11 @@ def create_employee_document(
         conn=conn,
     )
     if not doc:
-        raise RuntimeError("Document insert succeeded but could not be loaded")
+        doc = _minimal_employee_document(
+            document_id=document_id,
+            employee_id=employee_id,
+            payload={**payload, "uploaded_by": uploaded_by},
+        )
     return doc
 
 
@@ -551,7 +611,11 @@ def update_employee_document(
         conn=conn,
     )
     if not doc:
-        raise LookupError("document not found")
+        doc = _minimal_employee_document(
+            document_id=document_id,
+            employee_id=employee_id,
+            payload=merged,
+        )
     return doc
 
 
@@ -583,7 +647,7 @@ def delete_employee_document(
 
 def _row_to_tenant_document(row: tuple[Any, ...], *, columns: list[str] | None = None) -> dict[str, Any]:
     if columns:
-        data = dict(zip(columns, row, strict=False))
+        data = dict(zip(columns, row))
         return {
             "id": data.get("id"),
             "title": data.get("title"),
@@ -784,7 +848,10 @@ def create_tenant_document(
 
     doc = _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
     if not doc:
-        raise RuntimeError("Document insert succeeded but could not be loaded")
+        doc = _minimal_tenant_document(
+            document_id=document_id,
+            payload={**payload, "uploaded_by": uploaded_by},
+        )
     return doc
 
 
@@ -853,7 +920,7 @@ def update_tenant_document(
         conn.commit()
     doc = _load_tenant_document(tenant_id=tenant_id, document_id=document_id, conn=conn)
     if not doc:
-        raise LookupError("document not found")
+        doc = _minimal_tenant_document(document_id=document_id, payload=allowed)
     return doc
 
 

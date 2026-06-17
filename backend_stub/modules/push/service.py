@@ -143,6 +143,7 @@ def record_push_sent(
     employee_id: int,
     notification_key: str,
     conn: Any,
+    commit: bool = True,
 ) -> bool:
     """Return True if this is the first send for notification_key."""
     with conn.cursor() as cur:
@@ -156,7 +157,8 @@ def record_push_sent(
             (tenant_id, employee_id, notification_key),
         )
         row = cur.fetchone()
-    conn.commit()
+    if commit:
+        conn.commit()
     return row is not None
 
 
@@ -218,6 +220,7 @@ def send_employee_push(
             employee_id=employee_id,
             notification_key=notification_key,
             conn=conn,
+            commit=False,
         ):
             return {"sent": 0, "skipped": "duplicate"}
 

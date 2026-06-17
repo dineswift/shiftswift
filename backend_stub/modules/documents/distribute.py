@@ -101,7 +101,7 @@ def distribute_document(
             data={
                 "title": title.strip(),
                 "category": category,
-                "lifecycle_stage": "document_store",
+                "lifecycle_stage": "induction",
                 "notes": notes or "File stored on ShiftSwift HR",
                 "pay_period": pay_period,
                 "original_filename": original_filename,
@@ -167,8 +167,6 @@ def distribute_document(
                 employee["id"],
                 doc["id"],
             )
-            from modules.documents.errors import _rollback_quietly
-
             _rollback_quietly(conn)
 
     try:

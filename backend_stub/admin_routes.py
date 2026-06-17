@@ -615,7 +615,6 @@ async def upload_tenant_document(
     from modules.documents.storage import read_validated_upload, write_document_file
 
     logger = logging.getLogger(__name__)
-
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
     conn = _db_conn()
@@ -739,6 +738,7 @@ async def distribute_document_route(
     import logging
 
     from modules.documents.distribute import distribute_document
+    from modules.documents.errors import _rollback_quietly
     from modules.documents.storage import read_validated_upload
 
     logger = logging.getLogger(__name__)
@@ -776,6 +776,7 @@ async def distribute_document_route(
             )
         except Exception:
             logger.warning("Document distribute audit log failed for tenant %s", tenant_id, exc_info=True)
+            _rollback_quietly(conn)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except HTTPException:

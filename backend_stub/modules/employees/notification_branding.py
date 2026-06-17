@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from modules.documents.errors import _rollback_quietly
+
 EMPLOYEE_NOTIFICATION_DEFAULT = "Your employer"
 _EMPLOYEE_DISPLAY_NAME_KEY = "employee_display_name"
 
@@ -14,19 +16,24 @@ def _stored_notification_json(raw: Any) -> dict[str, Any]:
 
 def employee_notification_from_name(*, tenant_id: int, conn: Any) -> str:
     """Name shown to employees in emails/push copy (Settings → Notifications)."""
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT notification_preferences
-            FROM tenants
-            WHERE id = %s
-            """,
-            (tenant_id,),
-        )
-        row = cur.fetchone()
-    stored = _stored_notification_json(row[0] if row else None)
-    custom = str(stored.get(_EMPLOYEE_DISPLAY_NAME_KEY) or "").strip()
-    return custom or EMPLOYEE_NOTIFICATION_DEFAULT
+    tenant_name = EMPLOYEE_NOTIFICATION_DEFAULT
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT notification_preferences
+                FROM tenants
+                WHERE id = %s
+                """,
+                (tenant_id,),
+            )
+            row = cur.fetchone()
+        stored = _stored_notification_json(row[0] if row else None)
+        custom = str(stored.get(_EMPLOYEE_DISPLAY_NAME_KEY) or "").strip()
+        tenant_name = custom or EMPLOYEE_NOTIFICATION_DEFAULT
+    except Exception:
+        _rollback_quietly(conn)
+    return tenant_name
 
 
 def employer_legal_name(*, tenant_id: int, conn: Any) -> str:

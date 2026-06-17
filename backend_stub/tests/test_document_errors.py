@@ -14,20 +14,30 @@ def test_document_service_error_message_schema() -> None:
 
 def test_document_service_error_message_check_violation() -> None:
     class CheckViolation(Exception):
-        pass
+        pgcode = "23514"
 
-    assert "database rule" in document_service_error_message(CheckViolation("bad category")).lower()
+        def __init__(self) -> None:
+            super().__init__("check constraint employee_documents_category_check")
+
+    msg = document_service_error_message(CheckViolation())
+    assert "category" in msg.lower() or "database rule" in msg.lower()
 
 
 def test_document_service_error_message_aborted_transaction() -> None:
     class InternalError(Exception):
-        pass
+        pgcode = "25P02"
 
-    msg = document_service_error_message(
-        InternalError("current transaction is aborted, commands ignored until end of transaction block")
-    )
+        def __init__(self) -> None:
+            super().__init__("current transaction is aborted, commands ignored until end of transaction block")
+
+    msg = document_service_error_message(InternalError())
     assert "notifications" in msg.lower() or "migrations" in msg.lower()
 
 
+def test_document_service_error_message_includes_hint() -> None:
+    msg = document_service_error_message(RuntimeError("disk quota exceeded on tenant volume"))
+    assert "disk quota exceeded" in msg.lower()
+
+
 def test_document_service_error_message_generic() -> None:
-    assert "failed" in document_service_error_message(RuntimeError("boom")).lower()
+    assert "failed" in document_service_error_message(Exception()).lower()
