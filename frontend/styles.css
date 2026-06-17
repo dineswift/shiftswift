@@ -12360,25 +12360,41 @@ body.rota-week-readonly .rota-builder-hint {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   margin-left: auto;
-  border: 0;
-  border-radius: 12px;
+  flex-shrink: 0;
+  border: 1px solid rgba(21, 128, 61, 0.16);
+  border-radius: 11px;
   background: var(--green-100);
   color: var(--green-800);
   -webkit-tap-highlight-color: transparent;
 }
 
+.employee-topbar-alerts-btn__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
 .employee-topbar-alerts-btn__icon svg,
 .employee-topbar-alerts-btn__icon .admin-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
 }
 
 .employee-topbar-alerts-btn--active {
   background: var(--green-700);
+  border-color: transparent;
   color: #fff;
+}
+
+.employee-topbar-alerts-btn--active .employee-topbar-alerts-btn__icon svg,
+.employee-topbar-alerts-btn--active .employee-topbar-alerts-btn__icon .admin-icon {
+  stroke: #fff;
 }
 
 @media (max-width: 860px) {
@@ -12398,6 +12414,58 @@ body.rota-week-readonly .rota-builder-hint {
   body:has(#mobile-tab-bar) .app-mobile-header {
     align-items: center;
   }
+
+  body.employee-portal:has(#mobile-tab-bar) .topbar.app-mobile-header {
+    padding: 4px max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left));
+    padding-top: max(4px, env(safe-area-inset-top));
+    margin-bottom: 0;
+    gap: 6px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .topbar-brand__logo,
+  body.employee-portal:has(#mobile-tab-bar) .topbar-brand .app-mark {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    border-radius: 10px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .topbar-brand__name {
+    font-size: 0.84rem;
+    line-height: 1.15;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .topbar-brand__app {
+    font-size: 0.62rem;
+    line-height: 1.1;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-hero {
+    margin-bottom: 10px;
+    padding: 14px 14px 16px;
+    border-radius: 16px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-name {
+    margin-bottom: 8px;
+    font-size: 1.42rem;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-alerts-banner {
+    margin-bottom: 10px;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-quick {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-section-title {
+    margin-bottom: 8px;
+  }
 }
 
 .employee-home-signed-in {
@@ -12410,46 +12478,52 @@ body.rota-week-readonly .rota-builder-hint {
 .employee-home-quick {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 22px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .employee-quick-btn {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
-  min-height: 92px;
-  padding: 14px 10px;
-  border-radius: 16px;
+  min-height: 0;
+  padding: 11px 12px;
+  border-radius: 14px;
   border: 1px solid var(--card-border);
   background: var(--card);
   text-decoration: none;
   color: var(--green-900);
   font-weight: 700;
   font-size: 0.84rem;
-  text-align: center;
+  text-align: left;
   box-shadow: var(--shadow-card);
   -webkit-tap-highlight-color: transparent;
+}
+
+.employee-quick-btn__label {
+  line-height: 1.2;
 }
 
 .employee-quick-btn__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 11px;
   background: var(--green-100);
   color: var(--green-800);
 }
 
 .employee-quick-btn__icon .admin-icon,
 .employee-quick-btn__icon svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   stroke-width: 2.25;
+  stroke: currentColor;
 }
 
 .employee-quick-btn--primary {
@@ -12459,8 +12533,13 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employee-quick-btn--primary .employee-quick-btn__icon {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
+}
+
+.employee-quick-btn--primary .employee-quick-btn__icon svg,
+.employee-quick-btn--primary .employee-quick-btn__icon .admin-icon {
+  stroke: #fff;
 }
 
 .employee-quick-btn:active {
@@ -12587,7 +12666,7 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 body.employee-portal[data-mobile-tab="home"] .topbar.app-mobile-header {
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 body.employee-portal.employee-clock-disabled [data-requires-clock] {

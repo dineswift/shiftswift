@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v83" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v84" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -502,11 +502,18 @@
     <script>
       (function hydrateEmployeeChrome() {
         if (!window.AdminIcons) return;
-        document.querySelectorAll(".employee-home-card__icon[data-icon]").forEach((el) => {
+        const iconClass = (el) => {
+          if (el.classList.contains("employee-topbar-alerts-btn__icon")) return "employee-topbar-alerts-btn__svg";
+          if (el.classList.contains("employee-alerts-banner__icon")) return "employee-alerts-banner__svg";
+          if (el.classList.contains("employee-quick-btn__icon")) return "employee-quick-btn__svg";
+          return "employee-home-card__svg";
+        };
+        document.querySelectorAll("[data-icon]").forEach((el) => {
           const name = el.getAttribute("data-icon");
-          if (name) el.innerHTML = window.AdminIcons.svg(name, "employee-home-card__svg");
+          if (name) el.innerHTML = window.AdminIcons.svg(name, iconClass(el));
         });
         document.querySelectorAll(".employee-quick-btn__icon").forEach((el, index) => {
+          if (el.innerHTML.trim()) return;
           const name = index === 0 ? "clock" : "calendar";
           el.innerHTML = window.AdminIcons.svg(name, "employee-quick-btn__svg");
         });
