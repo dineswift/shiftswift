@@ -22,6 +22,8 @@
   let timesheetWeekStart = rotaWeekStartIso();
   let timesheetData = null;
   let filters = { date_from: "", date_to: "", employee_id: "", site_id: "", punch_type: "" };
+  let dailyFilters = { employee_id: "", site_id: "", punch_type: "", review_status: "" };
+  let recordsViewMode = "each";
   let bound = false;
   let sectionReady = false;
   let punchDataLoadedAt = null;
@@ -60,12 +62,176 @@
   function updateDailyPunchSummary() {
     const el = $("punch-day-summary");
     if (!el) return;
-    const count = todayPunches.length;
     const label = formatDayLabel(punchHistoryDate);
-    el.textContent =
-      count === 0
-        ? `No punches recorded · ${label}`
-        : `${count} punch${count === 1 ? "" : "es"} · ${label}`;
+    const groups = groupDailyPunches(todayPunches);
+    const shiftCount = groups.reduce((sum, group) => sum + group.shifts.length, 0);
+    const punchCount = todayPunches.length;
+    const pendingCount = todayPunches.filter((row) => row.hr_review_pending).length;
+    const rapidCount = todayPunches.filter((row) => row.rapid_re_punch).length;
+    if (punchCount === 0) {
+      el.textContent = `No punches recorded · ${label}`;
+      return;
+    }
+    const staffLabel = `${groups.length} staff · ${shiftCount} shift${shiftCount === 1 ? "" : "s"}`;
+    const pendingLabel =
+      pendingCount > 0 ? ` · ${pendingCount} need${pendingCount === 1 ? "s" : ""} HR review` : "";
+    const rapidLabel =
+      rapidCount > 0 ? ` · ${rapidCount} rapid re-punch${rapidCount === 1 ? "" : "es"}` : "";
+    el.textContent = `${staffLabel} · ${punchCount} punch${punchCount === 1 ? "" : "es"}${pendingLabel}${rapidLabel} · ${label}`;
+  }
+
+  function setRecordsViewMode(mode) {
+    recordsViewMode = mode === "shifts" ? "shifts" : "each";
+    document.querySelectorAll("[data-records-view]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.recordsView === recordsViewMode);
+    });
+    const eachWrap = $("punch-records-each-wrap");
+    const shiftsWrap = $("punch-records-shifts-wrap");
+    if (eachWrap) eachWrap.hidden = recordsViewMode !== "each";
+    if (shiftsWrap) shiftsWrap.hidden = recordsViewMode !== "shifts";
+    renderTodayPreview();
+  }
+
+  function renderPunchFlags(row) {
+    const flags = [];
+    if (row.rapid_re_punch) {
+      flags.push('<span class="punch-flag punch-flag--rapid" title="Clock-in within 10 minutes of clock-out">Rapid re-punch</span>');
+    }
+    return flags.join("");
+  }
+
+  function renderReviewBadge(row) {
+    const flags = renderPunchFlags(row);
+    if (row.hr_review_pending) {
+      return `${flags}<span class="punch-review-badge punch-review-badge--pending">Needs review</span>`;
+    }
+    const reviewer = escapeHtml(row.hr_reviewed_by || "HR");
+    const when = row.hr_reviewed_at ? escapeHtml(formatWhen(row.hr_reviewed_at)) : "";
+    return `${flags}<span class="punch-review-badge punch-review-badge--done">Reviewed</span>${
+      when ? `<span class="punch-review-meta">${reviewer} · ${when}</span>` : ""
+    }`;
+  }
+
+  function renderEachPunchRecords() {
+    const tbody = $("punch-records-each-body");
+    if (!tbody) return;
+    if (!todayPunches.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No punches on ${escapeHtml(formatDayLabel(punchHistoryDate).toLowerCase())}.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = todayPunches
+      .map((row) => {
+        const acceptBtn = row.hr_review_pending
+          ? `<button type="button" class="btn ghost btn-sm punch-records-accept" data-punch-id="${row.id}">Accept</button>`
+          : '<span class="muted">—</span>';
+        return `<tr class="${row.hr_review_pending || row.rapid_re_punch ? "punch-records-row--pending" : ""}">
+          <td>${escapeHtml(formatWhen(row.punched_at))}</td>
+          <td>${escapeHtml(row.employee_name)}</td>
+          <td>${renderTypeBadge(row.punch_type)}</td>
+          <td>${renderLocationCell(row)}</td>
+          <td>${renderReviewBadge(row)}</td>
+          <td class="punch-records-actions">${acceptBtn}</td>
+        </tr>`;
+      })
+      .join("");
+    tbody.querySelectorAll(".punch-records-accept").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void acceptPunchRecord(Number(btn.dataset.punchId));
+      });
+    });
+  }
+
+  function isClockInType(type) {
+    return type === "in" || type === "break_end";
+  }
+
+  function isClockOutType(type) {
+    return type === "out" || type === "break_start";
+  }
+
+  function pairEmployeeShifts(punches) {
+    const sorted = [...punches].sort(
+      (a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime()
+    );
+    const segments = [];
+    let openIn = null;
+    for (const punch of sorted) {
+      if (isClockInType(punch.punch_type)) {
+        if (openIn) {
+          segments.push({ clockIn: openIn, clockOut: null, orphan: true });
+        }
+        openIn = punch;
+      } else if (isClockOutType(punch.punch_type)) {
+        if (openIn) {
+          segments.push({ clockIn: openIn, clockOut: punch, orphan: false });
+          openIn = null;
+        } else {
+          segments.push({ clockIn: null, clockOut: punch, orphan: true });
+        }
+      }
+    }
+    if (openIn) {
+      segments.push({ clockIn: openIn, clockOut: null, orphan: true });
+    }
+    return segments.reverse();
+  }
+
+  function groupDailyPunches(punches) {
+    const byEmployee = new Map();
+    punches.forEach((punch) => {
+      const key = String(punch.employee_id || punch.employee_name || "unknown");
+      if (!byEmployee.has(key)) {
+        byEmployee.set(key, {
+          employee_name: punch.employee_name || "Employee",
+          punches: [],
+        });
+      }
+      byEmployee.get(key).punches.push(punch);
+    });
+    return [...byEmployee.values()]
+      .sort((a, b) => a.employee_name.localeCompare(b.employee_name))
+      .map((group) => ({ ...group, shifts: pairEmployeeShifts(group.punches) }));
+  }
+
+  function formatShiftDuration(clockIn, clockOut) {
+    if (!clockIn?.punched_at || !clockOut?.punched_at) return null;
+    const ms = new Date(clockOut.punched_at).getTime() - new Date(clockIn.punched_at).getTime();
+    if (ms < 0) return null;
+    const totalMinutes = Math.round(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes}m`;
+    return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+
+  function renderShiftTimeCell(punch) {
+    if (!punch) {
+      return '<td class="punch-shift-time punch-shift-time--missing"><span class="muted">—</span></td>';
+    }
+    const time = escapeHtml(formatTimeShort(punch.punched_at));
+    const admin = punch.admin_override
+      ? ` <span class="punch-shift-admin muted" title="${escapeHtml(punch.admin_note || "Admin punch")}">(admin)</span>`
+      : "";
+    return `<td class="punch-shift-time">${time}${admin}</td>`;
+  }
+
+  function renderShiftDurationCell(shift) {
+    if (shift.clockIn && !shift.clockOut) {
+      return '<td class="punch-shift-duration punch-shift-duration--open">Open shift</td>';
+    }
+    const duration = formatShiftDuration(shift.clockIn, shift.clockOut);
+    if (!duration) {
+      return '<td class="punch-shift-duration punch-shift-duration--orphan">—</td>';
+    }
+    return `<td class="punch-shift-duration">${escapeHtml(duration)}</td>`;
+  }
+
+  function renderShiftLocationCell(shift) {
+    const punch = shift.clockIn || shift.clockOut;
+    if (!punch) {
+      return '<td class="punch-shift-location"><span class="muted">—</span></td>';
+    }
+    return `<td class="punch-shift-location">${renderLocationCell(punch)}</td>`;
   }
 
   function stopPunchAutoRefresh() {
@@ -567,7 +733,11 @@
       panel.hidden = panel.dataset.punchPanel !== tab;
     });
     if (tab === "sites") {
-      void Promise.all([loadSites(), loadDailyPunches(punchHistoryDate, { quiet: true })]).then(updatePunchStats);
+      void loadSites().then(updatePunchStats);
+      void loadDailyPunches(punchHistoryDate, { quiet: true });
+    }
+    if (tab === "records") {
+      void Promise.all([loadEmployeeList(), loadSites(), loadDailyPunches(punchHistoryDate)]).then(updatePunchStats);
     }
     if (tab === "log") void loadPunches();
     if (tab === "summary") void loadWeekPunches().then(renderActivityChart);
@@ -604,13 +774,14 @@
       value: e.id,
       label: `${e.first_name} ${e.last_name}`.trim(),
     }));
+    const siteOptions = sites.map((s) => ({ value: s.id, label: s.name }));
     populateSelect($("punch-filter-employee"), employeeOptions, "All employees");
+    populateSelect($("punch-day-filter-employee"), employeeOptions, "All employees");
+    populateSelect($("punch-export-employee"), employeeOptions, "All employees");
     populateSelect($("punch-admin-employee"), employeeOptions, "Select employee…");
-    populateSelect(
-      $("punch-filter-site"),
-      sites.map((s) => ({ value: s.id, label: s.name })),
-      "All sites"
-    );
+    populateSelect($("punch-filter-site"), siteOptions, "All sites");
+    populateSelect($("punch-day-filter-site"), siteOptions, "All sites");
+    populateSelect($("punch-export-site"), siteOptions, "All sites");
     populateSelect(
       $("punch-admin-site"),
       sites.filter((s) => s.is_active).map((s) => ({ value: s.id, label: s.name })),
@@ -1085,24 +1256,43 @@
   }
 
   function renderTodayPreview() {
-    const tbody = $("punch-today-preview-body");
-    if (!tbody) return;
     updateDailyPunchSummary();
     syncPunchHistoryControls();
+    if (recordsViewMode === "shifts") {
+      renderShiftGroupedPreview();
+    } else {
+      renderEachPunchRecords();
+    }
+  }
+
+  function renderShiftGroupedPreview() {
+    const tbody = $("punch-today-preview-body");
+    if (!tbody) return;
     if (!todayPunches.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="muted">No punches on ${escapeHtml(formatDayLabel(punchHistoryDate).toLowerCase())}.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">No punches on ${escapeHtml(formatDayLabel(punchHistoryDate).toLowerCase())}.</td></tr>`;
       return;
     }
-    tbody.innerHTML = todayPunches
-      .slice(0, 30)
-      .map(
-        (row) => `<tr>
-          <td>${escapeHtml(formatWhen(row.punched_at))}</td>
-          <td>${escapeHtml(row.employee_name)}</td>
-          <td>${renderTypeBadge(row.punch_type)}</td>
-          <td>${renderLocationCell(row)}</td>
-        </tr>`
-      )
+    const groups = groupDailyPunches(todayPunches);
+    tbody.innerHTML = groups
+      .map((group) => {
+        const shiftRows = group.shifts
+          .map((shift, index) => {
+            const rowClass = shift.orphan ? "punch-shift-row punch-shift-row--orphan" : "punch-shift-row";
+            const employeeCell =
+              index === 0
+                ? `<td class="punch-shift-employee" rowspan="${group.shifts.length}">${escapeHtml(group.employee_name)}</td>`
+                : "";
+            return `<tr class="${rowClass}">
+              ${employeeCell}
+              ${renderShiftTimeCell(shift.clockIn)}
+              ${renderShiftTimeCell(shift.clockOut)}
+              ${renderShiftDurationCell(shift)}
+              ${renderShiftLocationCell(shift)}
+            </tr>`;
+          })
+          .join("");
+        return shiftRows;
+      })
       .join("");
   }
 
@@ -1111,7 +1301,12 @@
     punchHistoryDate = iso;
     syncPunchHistoryControls();
     try {
-      const res = await apiFetch(`/admin/time-punch/punches?limit=200&date_from=${iso}&date_to=${iso}`);
+      const params = new URLSearchParams({ limit: "200", date_from: iso, date_to: iso });
+      if (dailyFilters.employee_id) params.set("employee_id", dailyFilters.employee_id);
+      if (dailyFilters.site_id) params.set("site_id", dailyFilters.site_id);
+      if (dailyFilters.punch_type) params.set("punch_type", dailyFilters.punch_type);
+      if (dailyFilters.review_status) params.set("review_status", dailyFilters.review_status);
+      const res = await apiFetch(`/admin/time-punch/punches?${params.toString()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(parseApiDetail(data, "Could not load punches for this day."));
       todayPunches = data.items || [];
@@ -1135,7 +1330,8 @@
   }
 
   function scrollToTodayPreview() {
-    const target = $("punch-today-preview-body")?.closest(".punch-today-preview");
+    setActiveTab("records");
+    const target = $("punch-records-each-body")?.closest(".punch-records-panel");
     if (!target) return;
     window.requestAnimationFrame(() => {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1144,12 +1340,47 @@
 
   function applyTimePunchRoute() {
     const path = window.location.hash.replace("#", "");
-    if (path === "time-punch/today") {
-      setActiveTab("sites");
+    if (path === "time-punch/today" || path === "time-punch/records") {
+      setActiveTab("records");
       scrollToTodayPreview();
       return true;
     }
     return false;
+  }
+
+  async function acceptPunchRecord(punchId) {
+    if (!punchId) return;
+    try {
+      const res = await apiFetch(`/admin/time-punch/punches/${punchId}/review`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not accept punch record."));
+      showPunchNote("Punch record accepted.", "ok");
+      await loadDailyPunches(punchHistoryDate, { quiet: true });
+    } catch (error) {
+      showPunchNote(error.message || "Could not accept punch record.", "error");
+    }
+  }
+
+  async function acceptVisiblePunchRecords() {
+    const pendingIds = todayPunches.filter((row) => row.hr_review_pending).map((row) => row.id);
+    if (!pendingIds.length) {
+      showPunchNote("No punch records in this view need review.", "warn");
+      return;
+    }
+    try {
+      const res = await apiFetch("/admin/time-punch/punches/review-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ punch_ids: pendingIds }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not accept punch records."));
+      const count = Number(data.reviewed_count || 0);
+      showPunchNote(`${count} punch record${count === 1 ? "" : "s"} accepted.`, "ok");
+      await loadDailyPunches(punchHistoryDate, { quiet: true });
+    } catch (error) {
+      showPunchNote(error.message || "Could not accept punch records.", "error");
+    }
   }
 
   function renderPunchesTable() {
@@ -1735,22 +1966,51 @@
     });
   }
 
-  function fillExportDialogFields(preset = exportPreset) {
+  function readExportFilterValues() {
+    return {
+      employee_id: $("punch-export-employee")?.value || "",
+      site_id: $("punch-export-site")?.value || "",
+      punch_type: $("punch-export-type")?.value || "",
+      review_status: $("punch-export-review")?.value || "",
+    };
+  }
+
+  function applyExportFilterValues(values = {}) {
+    const employeeEl = $("punch-export-employee");
+    const siteEl = $("punch-export-site");
+    const typeEl = $("punch-export-type");
+    const reviewEl = $("punch-export-review");
+    if (employeeEl) employeeEl.value = values.employee_id || "";
+    if (siteEl) siteEl.value = values.site_id || "";
+    if (typeEl) typeEl.value = values.punch_type || "";
+    if (reviewEl) reviewEl.value = values.review_status || "";
+  }
+
+  function fillExportDialogFields(preset = exportPreset, filterSource = null) {
     const range = exportRangeForPreset(preset === "custom" ? "custom" : preset);
     const fromEl = $("punch-export-from");
     const toEl = $("punch-export-to");
     if (fromEl) fromEl.value = range.date_from;
     if (toEl) toEl.value = range.date_to;
     highlightExportPreset(preset);
+    if (filterSource === "daily") {
+      applyExportFilterValues(dailyFilters);
+      return;
+    }
+    if (filterSource === "log") {
+      applyExportFilterValues(filters);
+      return;
+    }
+    applyExportFilterValues({});
   }
 
-  function openExportDialog(defaultPreset = "week") {
+  function openExportDialog(defaultPreset = "week", filterSource = null) {
     const dialog = $("punch-export-dialog");
     if (!dialog) {
       void exportPunchesCsv(false);
       return;
     }
-    fillExportDialogFields(defaultPreset);
+    fillExportDialogFields(defaultPreset, filterSource);
     if (typeof dialog.showModal === "function") dialog.showModal();
   }
 
@@ -1771,14 +2031,16 @@
       await exportHoursPdf(range);
       return;
     }
+    const exportFilters = readExportFilterValues();
     try {
       const params = new URLSearchParams({
         date_from: range.date_from,
         date_to: range.date_to,
       });
-      if (filters.employee_id) params.set("employee_id", filters.employee_id);
-      if (filters.site_id) params.set("site_id", filters.site_id);
-      if (filters.punch_type) params.set("punch_type", filters.punch_type);
+      if (exportFilters.employee_id) params.set("employee_id", exportFilters.employee_id);
+      if (exportFilters.site_id) params.set("site_id", exportFilters.site_id);
+      if (exportFilters.punch_type) params.set("punch_type", exportFilters.punch_type);
+      if (exportFilters.review_status) params.set("review_status", exportFilters.review_status);
       await downloadAuthenticated(
         `/admin/time-punch/punches/export.csv?${params.toString()}`,
         `time-punches-${range.date_from}-to-${range.date_to}.csv`,
@@ -1791,10 +2053,10 @@
 
   async function exportPunchesCsv(useTodayOnly) {
     if (useTodayOnly) {
-      openExportDialog("today");
+      openExportDialog("today", "daily");
       return;
     }
-    openExportDialog(filters.date_from && filters.date_to ? "custom" : "week");
+    openExportDialog(filters.date_from && filters.date_to ? "custom" : "week", "log");
   }
 
   function openPosterWindow() {
@@ -1836,6 +2098,7 @@
     bound = true;
 
     bindSetupGuideActions();
+    setRecordsViewMode("each");
     $("sync-punch-site-btn")?.addEventListener("click", (e) => syncFromAddress(e.currentTarget));
 
     document.querySelectorAll(".punch-view-tab").forEach((tab) => {
@@ -1916,19 +2179,44 @@
       await loadPunches();
     });
 
-    $("punch-export-csv-btn")?.addEventListener("click", () => openExportDialog("week"));
+    $("punch-export-csv-btn")?.addEventListener("click", () => openExportDialog("week", "log"));
     $("punch-preview-export-btn")?.addEventListener("click", () => {
       if (punchHistoryDate === todayIso()) {
-        openExportDialog("today");
+        openExportDialog("today", "daily");
         return;
       }
-      openExportDialog("custom");
+      openExportDialog("custom", "daily");
       const fromEl = $("punch-export-from");
       const toEl = $("punch-export-to");
       if (fromEl) fromEl.value = punchHistoryDate;
       if (toEl) toEl.value = punchHistoryDate;
       highlightExportPreset("custom");
     });
+    $("punch-day-filter-apply")?.addEventListener("click", () => {
+      dailyFilters = {
+        employee_id: $("punch-day-filter-employee")?.value || "",
+        site_id: $("punch-day-filter-site")?.value || "",
+        punch_type: $("punch-day-filter-type")?.value || "",
+        review_status: $("punch-day-filter-review")?.value || "",
+      };
+      void loadDailyPunches(punchHistoryDate);
+    });
+    $("punch-day-filter-clear")?.addEventListener("click", () => {
+      dailyFilters = { employee_id: "", site_id: "", punch_type: "", review_status: "" };
+      ["punch-day-filter-employee", "punch-day-filter-site", "punch-day-filter-type", "punch-day-filter-review"].forEach(
+        (id) => {
+          const el = $(id);
+          if (el) el.value = "";
+        }
+      );
+      void loadDailyPunches(punchHistoryDate);
+    });
+    $("punch-records-view-each")?.addEventListener("click", () => setRecordsViewMode("each"));
+    $("punch-records-view-shifts")?.addEventListener("click", () => setRecordsViewMode("shifts"));
+    $("punch-records-review-all")?.addEventListener("click", () => {
+      void acceptVisiblePunchRecords();
+    });
+    $("punch-open-records-btn")?.addEventListener("click", () => setActiveTab("records"));
     $("punch-day-prev")?.addEventListener("click", () => {
       void loadDailyPunches(shiftIsoDate(punchHistoryDate, -1));
     });

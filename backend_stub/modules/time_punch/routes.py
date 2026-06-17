@@ -19,6 +19,7 @@ from modules.time_punch import timesheet as timesheet_service
 from modules.time_punch.qr import punch_qr_data_uri, punch_qr_png_bytes
 
 PunchAction = Literal["in", "out", "break_start", "break_end"]
+PunchReviewStatus = Literal["pending", "reviewed"]
 
 settings = load_settings()
 
@@ -124,6 +125,7 @@ def _punch_filters(
     date_from: str | None = None,
     date_to: str | None = None,
     punch_type: PunchAction | None = None,
+    review_status: PunchReviewStatus | None = None,
 ) -> dict[str, Any]:
     return {
         "employee_id": employee_id,
@@ -131,6 +133,7 @@ def _punch_filters(
         "date_from": _parse_optional_date(date_from, "date_from"),
         "date_to": _parse_optional_date(date_to, "date_to"),
         "punch_type": punch_type,
+        "review_status": review_status,
     }
 
 
@@ -521,6 +524,7 @@ def list_punches(
     date_from: str | None = None,
     date_to: str | None = None,
     punch_type: PunchAction | None = None,
+    review_status: PunchReviewStatus | None = None,
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     filters = _punch_filters(
@@ -529,6 +533,7 @@ def list_punches(
         date_from=date_from,
         date_to=date_to,
         punch_type=punch_type,
+        review_status=review_status,
     )
     conn = get_connection()
     try:
@@ -538,9 +543,54 @@ def list_punches(
             limit=min(limit, 500),
             **filters,
         )
+        pending_count = sum(1 for item in items if item.get("hr_review_pending"))
     finally:
         conn.close()
-    return {"items": items, "count": len(items)}
+    return {"items": items, "count": len(items), "pending_count": pending_count}
+
+
+class PunchReviewBulkRequest(BaseModel):
+    punch_ids: list[int] = Field(min_length=1, max_length=500)
+
+
+@admin_router.post("/punches/{punch_id}/review")
+def review_punch(
+    punch_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        return punch_service.review_punch(
+            tenant_id=tenant_id,
+            punch_id=punch_id,
+            reviewed_by=current_user.username,
+            conn=conn,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/punches/review-bulk")
+def review_punches_bulk(
+    payload: PunchReviewBulkRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        return punch_service.review_punches_bulk(
+            tenant_id=tenant_id,
+            punch_ids=payload.punch_ids,
+            reviewed_by=current_user.username,
+            conn=conn,
+        )
+    finally:
+        conn.close()
 
 
 @admin_router.get("/punches/export.csv")
@@ -552,6 +602,7 @@ def export_punches_csv(
     date_from: str | None = None,
     date_to: str | None = None,
     punch_type: PunchAction | None = None,
+    review_status: PunchReviewStatus | None = None,
 ) -> Response:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     filters = _punch_filters(
@@ -560,6 +611,7 @@ def export_punches_csv(
         date_from=date_from,
         date_to=date_to,
         punch_type=punch_type,
+        review_status=review_status,
     )
     conn = get_connection()
     try:

@@ -38,6 +38,8 @@ PunchType = Literal["in", "out", "break_start", "break_end"]
 PunchMethod = Literal["gps", "site_qr", "admin", "kiosk"]
 WorkState = Literal["off", "clocked_in", "on_break"]
 SITE_SCAN_VALID_MINUTES = 10
+RAPID_RE_PUNCH_MINUTES = int(os.getenv("PUNCH_RAPID_REPUNCH_MINUTES", "10"))
+PUNCH_QR_MAX_AGE_HOURS = int(os.getenv("PUNCH_QR_MAX_AGE_HOURS", "24"))
 DEFAULT_RADIUS_M = int(os.getenv("PUNCH_GEOFENCE_RADIUS_M", "150"))
 
 
@@ -118,7 +120,9 @@ def ensure_site_clock_token(*, tenant_id: int, site_id: int, conn: Any) -> str:
         cur.execute(
             """
             UPDATE punch_sites
-            SET site_clock_token = %s, updated_at = NOW()
+            SET site_clock_token = %s,
+                site_clock_token_issued_at = NOW(),
+                updated_at = NOW()
             WHERE id = %s AND tenant_id = %s
             """,
             (token, site_id, tenant_id),
@@ -133,7 +137,9 @@ def rotate_site_clock_token(*, tenant_id: int, site_id: int, conn: Any) -> str:
         cur.execute(
             """
             UPDATE punch_sites
-            SET site_clock_token = %s, updated_at = NOW()
+            SET site_clock_token = %s,
+                site_clock_token_issued_at = NOW(),
+                updated_at = NOW()
             WHERE id = %s AND tenant_id = %s
             RETURNING id
             """,
@@ -166,13 +172,50 @@ def work_state_from_last(last: dict[str, Any] | None) -> WorkState:
     return "off"
 
 
+def _parse_punched_at(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def _detect_rapid_re_punch(*, last: dict[str, Any] | None, punch_type: PunchType) -> bool:
+    """Flag clock-in shortly after clock-out (payroll / audit visibility)."""
+    if punch_type != "in" or not last or last.get("punch_type") != "out":
+        return False
+    last_at = _parse_punched_at(last.get("punched_at"))
+    if not last_at:
+        return False
+    now = datetime.now(timezone.utc)
+    delta_seconds = (now - last_at).total_seconds()
+    return 0 <= delta_seconds <= RAPID_RE_PUNCH_MINUTES * 60
+
+
+def _validate_site_clock_token_freshness(site: dict[str, Any]) -> None:
+    if PUNCH_QR_MAX_AGE_HOURS <= 0:
+        return
+    issued_at = _parse_punched_at(site.get("site_clock_token_issued_at"))
+    if not issued_at:
+        return
+    age_hours = (datetime.now(timezone.utc) - issued_at).total_seconds() / 3600.0
+    if age_hours > PUNCH_QR_MAX_AGE_HOURS:
+        raise LookupError(
+            "This premises QR code has expired — ask your manager to print a fresh code from Time punch."
+        )
+
+
 def _validate_punch_transition(*, tenant_id: int, employee_id: int, punch_type: PunchType, conn: Any) -> None:
     last = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     state = work_state_from_last(last)
     allowed: dict[WorkState, set[PunchType]] = {
         "off": {"in"},
         "clocked_in": {"out", "break_start"},
-        "on_break": {"break_end"},
+        "on_break": {"break_end", "out"},
     }
     if punch_type not in allowed.get(state, set()):
         if punch_type == "in":
@@ -200,6 +243,7 @@ def _insert_time_punch(
     user_agent: str | None,
     punch_method: PunchMethod,
     conn: Any,
+    rapid_re_punch: bool = False,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -207,9 +251,9 @@ def _insert_time_punch(
             INSERT INTO time_punches (
               tenant_id, employee_id, punch_site_id, punch_type, punched_at,
               latitude, longitude, accuracy_meters, distance_meters, within_geofence,
-              app_username, ip_address, user_agent, punch_method
+              app_username, ip_address, user_agent, punch_method, rapid_re_punch
             )
-            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s)
             RETURNING id, punched_at
             """,
             (
@@ -225,6 +269,7 @@ def _insert_time_punch(
                 ip_address,
                 user_agent,
                 punch_method,
+                rapid_re_punch,
             ),
         )
         row = cur.fetchone()
@@ -241,6 +286,7 @@ def _insert_time_punch(
         "on_break": work_state == "on_break",
         "work_state": work_state,
         "punch_method": punch_method,
+        "rapid_re_punch": rapid_re_punch,
     }
 
 
@@ -252,7 +298,7 @@ def resolve_site_by_clock_token(*, clock_token: str, conn: Any) -> dict[str, Any
         cur.execute(
             """
             SELECT id, tenant_id, name, address, latitude, longitude, radius_meters, is_primary, is_active, updated_at,
-                   COALESCE(permitted_roles, 'all')
+                   COALESCE(permitted_roles, 'all'), site_clock_token_issued_at
             FROM punch_sites
             WHERE site_clock_token = %s AND is_active = TRUE
             LIMIT 1
@@ -262,7 +308,11 @@ def resolve_site_by_clock_token(*, clock_token: str, conn: Any) -> dict[str, Any
         row = cur.fetchone()
     if not row:
         return None
-    return _site_row(row)
+    site = _site_row(row)
+    site["site_clock_token_issued_at"] = (
+        row[11].isoformat() if len(row) > 11 and isinstance(row[11], datetime) else row[11] if len(row) > 11 else None
+    )
+    return site
 
 
 def employee_can_punch_at_site(*, tenant_id: int, employee_id: int, site_id: int, conn: Any) -> bool:
@@ -281,6 +331,7 @@ def scan_site_token(
     site = resolve_site_by_clock_token(clock_token=clock_token, conn=conn)
     if not site:
         raise LookupError("Invalid or expired premises code")
+    _validate_site_clock_token_freshness(site)
     if site["tenant_id"] != tenant_id:
         raise PermissionError("This premises code belongs to another business")
     if not employee_can_punch_at_site(
@@ -696,11 +747,27 @@ def employee_punch_status(*, tenant_id: int, employee_id: int, conn: Any) -> dic
     )
     from employee_portal_consent import tenant_display_name
 
+    last_clock_out_at = None
+    seconds_since_clock_out = None
+    break_started_at = None
+    if last:
+        last_at = _parse_punched_at(last.get("punched_at"))
+        if work_state == "on_break" and last_at:
+            break_started_at = last.get("punched_at")
+        if last.get("punch_type") == "out" and last_at:
+            last_clock_out_at = last.get("punched_at")
+            seconds_since_clock_out = max(0, int((datetime.now(timezone.utc) - last_at).total_seconds()))
+
     return {
         "clocked_in": clocked_in,
         "on_break": work_state == "on_break",
         "work_state": work_state,
         "last_punch": last,
+        "last_clock_out_at": last_clock_out_at,
+        "seconds_since_clock_out": seconds_since_clock_out,
+        "break_started_at": break_started_at,
+        "rapid_re_punch_window_minutes": RAPID_RE_PUNCH_MINUTES,
+        "clock_in_cooldown_seconds": int(os.getenv("PUNCH_CLOCK_IN_COOLDOWN_SECONDS", "90")),
         "tenant_name": tenant_display_name(tenant_id=tenant_id, conn=conn),
         "assigned_sites": [
             {
@@ -755,6 +822,9 @@ def record_punch(
             f"(currently ~{int(best_distance)}m away)"
         )
 
+    prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    rapid_re_punch = _detect_rapid_re_punch(last=prior, punch_type=punch_type)
+
     result = _insert_time_punch(
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -769,6 +839,7 @@ def record_punch(
         user_agent=user_agent,
         punch_method="gps",
         conn=conn,
+        rapid_re_punch=rapid_re_punch,
     )
     result["site_name"] = best_site["name"]
     return result
@@ -801,6 +872,7 @@ def record_punch_via_site_token(
     site = resolve_site_by_clock_token(clock_token=clock_token, conn=conn)
     if not site:
         raise LookupError("Invalid or expired premises code")
+    _validate_site_clock_token_freshness(site)
     if site["tenant_id"] != tenant_id:
         raise PermissionError("This premises code belongs to another business")
     if not employee_can_punch_at_site(
@@ -810,6 +882,9 @@ def record_punch_via_site_token(
         conn=conn,
     ):
         raise PermissionError(f"You are not assigned to punch at {site['name']}")
+
+    prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    rapid_re_punch = _detect_rapid_re_punch(last=prior, punch_type=punch_type)
 
     result = _insert_time_punch(
         tenant_id=tenant_id,
@@ -825,6 +900,7 @@ def record_punch_via_site_token(
         user_agent=user_agent,
         punch_method="site_qr",
         conn=conn,
+        rapid_re_punch=rapid_re_punch,
     )
     result["site_name"] = site["name"]
     return result
@@ -918,26 +994,36 @@ def record_admin_punch(
 
 def _punch_row(row: tuple[Any, ...]) -> dict[str, Any]:
     punched_at = row[2]
-    radius_meters = int(row[11]) if len(row) > 11 and row[11] is not None else None
-    within_geofence = bool(row[12]) if len(row) > 12 else True
+    radius_meters = int(row[12]) if len(row) > 12 and row[12] is not None else None
+    within_geofence = bool(row[13]) if len(row) > 13 else True
     distance = float(row[3]) if row[3] is not None else None
-    if distance is not None and radius_meters is not None and not bool(row[8] if len(row) > 8 else False):
+    if distance is not None and radius_meters is not None and not bool(row[9] if len(row) > 9 else False):
         within_geofence = distance <= radius_meters
+    reviewed_at = row[16] if len(row) > 16 else None
+    reviewed_by = row[17] if len(row) > 17 else None
+    rapid_re_punch = bool(row[18]) if len(row) > 18 else False
+    if isinstance(reviewed_at, datetime):
+        reviewed_at = reviewed_at.isoformat()
     return {
         "id": row[0],
         "punch_type": row[1],
         "punched_at": punched_at.isoformat() if isinstance(punched_at, datetime) else punched_at,
         "distance_meters": distance,
-        "employee_name": f"{row[4]} {row[5]}".strip(),
-        "employee_email": row[6],
-        "site_name": row[7],
-        "admin_override": bool(row[8]) if len(row) > 8 else False,
-        "admin_note": row[9] if len(row) > 9 else None,
-        "punch_site_id": row[10] if len(row) > 10 else None,
+        "employee_id": int(row[4]) if row[4] is not None else None,
+        "employee_name": f"{row[5]} {row[6]}".strip(),
+        "employee_email": row[7],
+        "site_name": row[8],
+        "admin_override": bool(row[9]) if len(row) > 9 else False,
+        "admin_note": row[10] if len(row) > 10 else None,
+        "punch_site_id": row[11] if len(row) > 11 else None,
         "radius_meters": radius_meters,
         "within_geofence": within_geofence,
-        "accuracy_meters": float(row[13]) if len(row) > 13 and row[13] is not None else None,
-        "punch_method": row[14] if len(row) > 14 and row[14] else "gps",
+        "accuracy_meters": float(row[14]) if len(row) > 14 and row[14] is not None else None,
+        "punch_method": row[15] if len(row) > 15 and row[15] else "gps",
+        "hr_reviewed_at": reviewed_at,
+        "hr_reviewed_by": reviewed_by,
+        "hr_review_pending": reviewed_at is None,
+        "rapid_re_punch": rapid_re_punch,
     }
 
 
@@ -951,6 +1037,7 @@ def list_recent_punches(
     punch_type: PunchType | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    review_status: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses = ["tp.tenant_id = %s"]
     params: list[Any] = [tenant_id]
@@ -963,6 +1050,10 @@ def list_recent_punches(
     if punch_type is not None:
         clauses.append("tp.punch_type = %s")
         params.append(punch_type)
+    if review_status == "pending":
+        clauses.append("tp.hr_reviewed_at IS NULL")
+    elif review_status == "reviewed":
+        clauses.append("tp.hr_reviewed_at IS NOT NULL")
     range_start, range_end = uk_day_range_bounds(date_from=date_from, date_to=date_to)
     if range_start is not None:
         clauses.append("tp.punched_at >= %s")
@@ -976,10 +1067,11 @@ def list_recent_punches(
         cur.execute(
             f"""
             SELECT tp.id, tp.punch_type, tp.punched_at, tp.distance_meters,
-                   e.first_name, e.last_name, e.email, ps.name,
+                   tp.employee_id, e.first_name, e.last_name, e.email, ps.name,
                    COALESCE(tp.admin_override, FALSE), tp.admin_note,
                    tp.punch_site_id, ps.radius_meters, tp.within_geofence, tp.accuracy_meters,
-                   COALESCE(tp.punch_method, 'gps')
+                   COALESCE(tp.punch_method, 'gps'), tp.hr_reviewed_at, tp.hr_reviewed_by,
+                   COALESCE(tp.rapid_re_punch, FALSE)
             FROM time_punches tp
             JOIN employees e ON e.id = tp.employee_id
             JOIN punch_sites ps ON ps.id = tp.punch_site_id
@@ -993,6 +1085,55 @@ def list_recent_punches(
     return [_punch_row(row) for row in rows]
 
 
+def review_punch(
+    *,
+    tenant_id: int,
+    punch_id: int,
+    reviewed_by: str,
+    conn: Any,
+) -> dict[str, Any]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE time_punches
+            SET hr_reviewed_at = NOW(), hr_reviewed_by = %s
+            WHERE id = %s AND tenant_id = %s AND hr_reviewed_at IS NULL
+            RETURNING id
+            """,
+            (reviewed_by.strip(), punch_id, tenant_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError("Punch not found or already reviewed")
+    conn.commit()
+    return {"id": int(row[0]), "reviewed": True}
+
+
+def review_punches_bulk(
+    *,
+    tenant_id: int,
+    punch_ids: list[int],
+    reviewed_by: str,
+    conn: Any,
+) -> dict[str, int]:
+    if not punch_ids:
+        return {"reviewed_count": 0}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE time_punches
+            SET hr_reviewed_at = NOW(), hr_reviewed_by = %s
+            WHERE tenant_id = %s
+              AND id = ANY(%s)
+              AND hr_reviewed_at IS NULL
+            """,
+            (reviewed_by.strip(), tenant_id, punch_ids),
+        )
+        reviewed_count = cur.rowcount
+    conn.commit()
+    return {"reviewed_count": reviewed_count}
+
+
 def export_punches_csv(
     *,
     tenant_id: int,
@@ -1003,6 +1144,7 @@ def export_punches_csv(
     punch_type: PunchType | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    review_status: str | None = None,
 ) -> str:
     items = list_recent_punches(
         tenant_id=tenant_id,
@@ -1013,6 +1155,7 @@ def export_punches_csv(
         punch_type=punch_type,
         date_from=date_from,
         date_to=date_to,
+        review_status=review_status,
     )
     buffer = io.StringIO()
     writer = csv.writer(buffer)
@@ -1028,6 +1171,9 @@ def export_punches_csv(
             "Method",
             "Admin override",
             "Admin note",
+            "HR reviewed at",
+            "HR reviewed by",
+            "Rapid re-punch",
         ]
     )
     for item in items:
@@ -1037,18 +1183,28 @@ def export_punches_csv(
             "site_qr": "Premises QR",
             "admin": "Admin",
         }.get(method, method)
+        punch_type_val = item.get("punch_type")
+        type_label = {
+            "in": "Clock in",
+            "out": "Clock out",
+            "break_start": "Break start",
+            "break_end": "Break end",
+        }.get(punch_type_val, punch_type_val or "")
         writer.writerow(
             [
                 item.get("punched_at") or "",
                 item.get("employee_name") or "",
                 item.get("employee_email") or "",
-                "Clock in" if item.get("punch_type") == "in" else "Clock out",
+                type_label,
                 item.get("site_name") or "",
                 item.get("distance_meters") if item.get("distance_meters") is not None else "",
                 item.get("accuracy_meters") if item.get("accuracy_meters") is not None else "",
                 method_label,
                 "Yes" if item.get("admin_override") else "No",
                 item.get("admin_note") or "",
+                item.get("hr_reviewed_at") or "",
+                item.get("hr_reviewed_by") or "",
+                "Yes" if item.get("rapid_re_punch") else "No",
             ]
         )
     return buffer.getvalue()

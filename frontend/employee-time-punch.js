@@ -5,12 +5,23 @@
 
   if (!session.hasSession() || !tenantId) return;
 
-  const statusEl = document.getElementById("punch-status");
+  const statusEl = document.getElementById("punch-work-state-label");
+  const stateOffEl = document.getElementById("punch-state-off");
+  const stateWorkingEl = document.getElementById("punch-state-working");
+  const stateBreakEl = document.getElementById("punch-state-break");
   const sitesEl = document.getElementById("punch-sites");
   const messageEl = document.getElementById("punch-message");
   const geofenceEl = document.getElementById("punch-geofence-status");
   const clockInBtn = document.getElementById("punch-in-btn");
+  const reclockBtn = document.getElementById("punch-reclock-btn");
+  const cooldownNoteEl = document.getElementById("punch-cooldown-note");
   const clockOutBtn = document.getElementById("punch-out-btn");
+  const breakStartBtn = document.getElementById("punch-break-start-btn");
+  const breakEndBtn = document.getElementById("punch-break-end-btn");
+  const outDuringBreakBtn = document.getElementById("punch-out-during-break-btn");
+  const reclockDialog = document.getElementById("punch-reclock-dialog");
+  const reclockDialogCopy = document.getElementById("punch-reclock-dialog-copy");
+  const reclockCancelBtn = document.getElementById("punch-reclock-cancel");
   const expectedEl = document.getElementById("employee-expected-shift");
   const scanBtn = document.getElementById("punch-scan-btn");
   const siteScanStatusEl = document.getElementById("punch-site-scan-status");
@@ -23,14 +34,19 @@
 
   const SITE_SCAN_KEY = "employeePortalSiteScan";
   const SITE_SCAN_TTL_MS = 10 * 60 * 1000;
+  const DEFAULT_COOLDOWN_SECONDS = 90;
 
   let punchInFlight = false;
-  let clockedInState = false;
+  let workState = "off";
   let geofenceWithin = false;
   let geofenceCheckInFlight = false;
+  let geofencePreview = null;
   let siteScanReady = false;
   let siteScanToken = null;
   let siteScanName = "";
+  let secondsSinceClockOut = null;
+  let breakStartedAt = null;
+  let clockInCooldownSeconds = DEFAULT_COOLDOWN_SECONDS;
   let scanStream = null;
   let scanFrameHandle = null;
 
@@ -79,21 +95,91 @@
     }
   }
 
-  function clockReady() {
+  function clockInReady() {
     return geofenceWithin || siteScanReady;
   }
 
-  function syncClockButtons() {
-    const online = navigator.onLine;
-    const ready = clockReady();
-    if (clockInBtn) {
-      clockInBtn.disabled =
-        punchInFlight || !online || clockedInState || !ready || geofenceCheckInFlight;
-      clockInBtn.classList.toggle("is-ready", ready && !clockedInState && online && !punchInFlight);
+  function inCooldownWindow() {
+    return (
+      workState === "off" &&
+      secondsSinceClockOut != null &&
+      secondsSinceClockOut >= 0 &&
+      secondsSinceClockOut < clockInCooldownSeconds
+    );
+  }
+
+  function formatDurationSince(iso) {
+    if (!iso) return "";
+    try {
+      const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins} min`;
+      const hours = Math.floor(mins / 60);
+      const rem = mins % 60;
+      return rem ? `${hours}h ${rem}m` : `${hours}h`;
+    } catch {
+      return "";
     }
+  }
+
+  function formatTimeShort(iso) {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+
+  function syncClockWidget() {
+    const online = navigator.onLine;
+    const readyIn = clockInReady();
+    const cooldown = inCooldownWindow();
+    const geofenceRow = document.querySelector(".punch-geofence-row");
+    if (geofenceRow) geofenceRow.hidden = workState !== "off";
+
+    if (stateOffEl) stateOffEl.hidden = workState !== "off";
+    if (stateWorkingEl) stateWorkingEl.hidden = workState !== "clocked_in";
+    if (stateBreakEl) stateBreakEl.hidden = workState !== "on_break";
+
+    if (clockInBtn) {
+      const showPrimaryIn = workState === "off" && !cooldown;
+      clockInBtn.hidden = !showPrimaryIn;
+      clockInBtn.disabled =
+        punchInFlight || !online || !readyIn || geofenceCheckInFlight || workState !== "off" || cooldown;
+      clockInBtn.classList.toggle("is-ready", showPrimaryIn && readyIn && online && !punchInFlight);
+    }
+
+    if (reclockBtn) {
+      reclockBtn.hidden = !(workState === "off" && cooldown);
+      reclockBtn.disabled = punchInFlight || !online || !readyIn || geofenceCheckInFlight;
+    }
+
+    if (cooldownNoteEl) {
+      if (workState === "off" && cooldown) {
+        cooldownNoteEl.hidden = false;
+        cooldownNoteEl.textContent = `You clocked out ${secondsSinceClockOut} sec ago — confirm if clocking in again.`;
+      } else {
+        cooldownNoteEl.hidden = true;
+        cooldownNoteEl.textContent = "";
+      }
+    }
+
     if (clockOutBtn) {
-      clockOutBtn.disabled =
-        punchInFlight || !online || !clockedInState || !ready || geofenceCheckInFlight;
+      clockOutBtn.hidden = workState !== "clocked_in";
+      clockOutBtn.disabled = punchInFlight || !online || workState !== "clocked_in";
+    }
+    if (breakStartBtn) {
+      breakStartBtn.hidden = workState !== "clocked_in";
+      breakStartBtn.disabled = punchInFlight || !online || workState !== "clocked_in";
+    }
+    if (breakEndBtn) {
+      breakEndBtn.hidden = workState !== "on_break";
+      breakEndBtn.disabled = punchInFlight || !online || workState !== "on_break";
+    }
+    if (outDuringBreakBtn) {
+      outDuringBreakBtn.hidden = workState !== "on_break";
+      outDuringBreakBtn.disabled = punchInFlight || !online || workState !== "on_break";
     }
   }
 
@@ -106,12 +192,45 @@
     }
   }
 
+  function updateWorkStateLabel(data) {
+    if (!statusEl) return;
+    const last = data?.last_punch;
+    if (data?.work_state === "on_break") {
+      const since = formatTimeShort(data.break_started_at || last?.punched_at);
+      const duration = formatDurationSince(data.break_started_at || last?.punched_at);
+      statusEl.innerHTML = `<strong>On break</strong> since ${since}${duration ? ` · ${duration}` : ""}.`;
+      statusEl.className = "punch-work-state-label punch-work-state-label--break";
+      return;
+    }
+    if (data?.work_state === "clocked_in") {
+      statusEl.innerHTML = `<strong>Working</strong> since ${formatTimeShort(last?.punched_at)} at ${last?.site_name || "work site"}.`;
+      statusEl.className = "punch-work-state-label punch-work-state-label--working";
+      return;
+    }
+    if (secondsSinceClockOut != null && data?.last_punch?.punch_type === "out") {
+      statusEl.textContent = `Clocked out ${secondsSinceClockOut < 60 ? `${secondsSinceClockOut} sec` : formatDurationSince(last?.punched_at)} ago.`;
+      statusEl.className = "punch-work-state-label";
+      return;
+    }
+    if (geofencePreview?.within_geofence) {
+      statusEl.textContent = `On site · within ${geofencePreview.site_name || "your site"}.`;
+    } else if (siteScanReady) {
+      statusEl.textContent = `Premises verified — ${siteScanName}.`;
+    } else {
+      statusEl.textContent = "Not clocked in.";
+    }
+    statusEl.className = "punch-work-state-label muted";
+  }
+
   function updatePunchSummary(data) {
-    const text = data?.clocked_in
-      ? `Clocked in at ${data.last_punch?.site_name || "work site"}`
-      : data?.last_punch
-        ? `Last punch: ${data.last_punch.punch_type === "in" ? "in" : "out"}`
-        : "Ready to clock in";
+    let text = "Ready to clock in";
+    if (data?.work_state === "on_break") {
+      text = `On break since ${formatTimeShort(data.break_started_at || data.last_punch?.punched_at)}`;
+    } else if (data?.work_state === "clocked_in") {
+      text = `Working since ${formatTimeShort(data.last_punch?.punched_at)}`;
+    } else if (data?.last_punch?.punch_type === "out") {
+      text = `Clocked out at ${formatTimeShort(data.last_punch?.punched_at)}`;
+    }
     document.querySelectorAll("[data-mirror='employee-punch-summary']").forEach((el) => {
       el.textContent = text;
     });
@@ -129,13 +248,11 @@
         return;
       }
       const data = await response.json();
-      const last = data.last_punch;
-      clockedInState = Boolean(data.clocked_in);
-      statusEl.innerHTML = data.clocked_in
-        ? `<strong>Clocked in</strong> since ${formatTime(last?.punched_at)} at ${last?.site_name || "work site"}.`
-        : last
-          ? `Last punch: ${last.punch_type === "in" ? "in" : "out"} at ${formatTime(last.punched_at)}.`
-          : "Not clocked in yet today.";
+      workState = data.work_state || (data.clocked_in ? "clocked_in" : "off");
+      secondsSinceClockOut = data.seconds_since_clock_out ?? null;
+      breakStartedAt = data.break_started_at || null;
+      clockInCooldownSeconds = Number(data.clock_in_cooldown_seconds) || DEFAULT_COOLDOWN_SECONDS;
+      updateWorkStateLabel(data);
       if (sitesEl) {
         const sites = data.assigned_sites || [];
         sitesEl.innerHTML = sites.length
@@ -150,7 +267,7 @@
         expectedEl.hidden = true;
       }
       updatePunchSummary(data);
-      syncClockButtons();
+      syncClockWidget();
       refreshGeofencePreview();
     } catch {
       statusEl.textContent = "Could not reach the time punch service.";
@@ -185,7 +302,7 @@
     siteScanToken = null;
     siteScanName = "";
     setSiteScanStatus("");
-    syncClockButtons();
+    syncClockWidget();
   }
 
   function applySiteScanSession(data) {
@@ -194,7 +311,7 @@
     siteScanName = data.site_name || "your site";
     saveSiteScanSession(data);
     setSiteScanStatus(`Premises verified — ${siteScanName}. You can clock in or out without GPS.`);
-    syncClockButtons();
+    syncClockWidget();
   }
 
   function restoreSiteScanSession() {
@@ -356,7 +473,7 @@
     geofenceCheckInFlight = true;
     geofenceWithin = false;
     setGeofenceStatus("Getting your location…", "loading");
-    syncClockButtons();
+    syncClockWidget();
 
     try {
       const location = await readLocation();
@@ -371,16 +488,46 @@
       }
 
       geofenceWithin = Boolean(data.within_geofence);
+      geofencePreview = data;
       const accuracyNote =
         data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
       setGeofenceStatus(`${data.message}${accuracyNote}`, geofenceWithin ? "ok" : "warn");
+      if (workState === "off") {
+        updateWorkStateLabel({
+          work_state: workState,
+          last_punch: null,
+        });
+      }
       if (geofenceWithin) maybePromptPushNotifications();
     } catch (error) {
       setGeofenceStatus(error.message || "Could not read your location.", "error");
     } finally {
       geofenceCheckInFlight = false;
-      syncClockButtons();
+      syncClockWidget();
     }
+  }
+
+  function punchTypeLabel(punchType) {
+    return (
+      {
+        in: "Clocked in",
+        out: "Clocked out",
+        break_start: "Break started",
+        break_end: "Break ended",
+      }[punchType] || "Punch recorded"
+    );
+  }
+
+  function requestClockIn(force = false) {
+    if (inCooldownWindow() && !force) {
+      if (reclockDialogCopy) {
+        reclockDialogCopy.textContent = `You clocked out ${secondsSinceClockOut} seconds ago — clock in again? This will be flagged for HR review.`;
+      }
+      if (reclockDialog?.showModal) reclockDialog.showModal();
+      else if (reclockDialog) reclockDialog.open = true;
+      return;
+    }
+    void submitPunch("in");
   }
 
   async function submitPunch(punchType) {
@@ -388,19 +535,34 @@
       setMessage("Connect to the internet to clock in or out.", "error");
       return;
     }
-    if (!clockReady()) {
+    const needsSiteCheck = punchType === "in";
+    if (needsSiteCheck && !clockInReady()) {
       setMessage("Move within your site geofence or scan the premises QR code first.", "error");
       return;
     }
 
     punchInFlight = true;
-    syncClockButtons();
+    syncClockWidget();
     setMessage("Submitting punch…", "info");
 
     try {
       let response;
       let data;
-      if (siteScanReady && siteScanToken) {
+      if (needsSiteCheck && siteScanReady && siteScanToken) {
+        response = await apiFetch("/time-punch/punch-site", {
+          method: "POST",
+          body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken }),
+        });
+        data = await response.json().catch(() => ({}));
+      } else if (needsSiteCheck) {
+        setMessage("Reading your location…", "info");
+        const location = await readLocation();
+        response = await apiFetch("/time-punch/punch", {
+          method: "POST",
+          body: JSON.stringify({ punch_type: punchType, ...location }),
+        });
+        data = await response.json().catch(() => ({}));
+      } else if (siteScanReady && siteScanToken) {
         response = await apiFetch("/time-punch/punch-site", {
           method: "POST",
           body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken }),
@@ -419,18 +581,18 @@
         setMessage(parseApiError(data, "Punch failed."), "error");
         return;
       }
-      const detail =
-        data.punch_method === "site_qr"
-          ? `${punchType === "in" ? "Clocked in" : "Clocked out"} at ${data.site_name} (premises QR).`
-          : `${punchType === "in" ? "Clocked in" : "Clocked out"} at ${data.site_name} (${Math.round(data.distance_meters)}m from site).`;
-      setMessage(detail, "success");
+      let detail = `${punchTypeLabel(punchType)} at ${data.site_name}`;
+      if (data.punch_method === "site_qr") detail += " (premises QR)";
+      else if (data.distance_meters != null) detail += ` (${Math.round(data.distance_meters)}m from site)`;
+      if (data.rapid_re_punch) detail += " — flagged for HR review.";
+      setMessage(`${detail}.`, "success");
       await loadStatus();
       window.EmployeeTimesheet?.reload?.();
     } catch (error) {
       setMessage(error.message || "Punch failed.", "error");
     } finally {
       punchInFlight = false;
-      syncClockButtons();
+      syncClockWidget();
     }
   }
 
@@ -454,8 +616,18 @@
 
   scanDialog?.addEventListener("close", stopQrScanner);
 
-  clockInBtn?.addEventListener("click", () => submitPunch("in"));
+  clockInBtn?.addEventListener("click", () => requestClockIn(false));
+  reclockBtn?.addEventListener("click", () => requestClockIn(false));
+  reclockDialog?.querySelector("form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    reclockDialog?.close();
+    void submitPunch("in");
+  });
+  reclockCancelBtn?.addEventListener("click", () => reclockDialog?.close());
   clockOutBtn?.addEventListener("click", () => submitPunch("out"));
+  breakStartBtn?.addEventListener("click", () => submitPunch("break_start"));
+  breakEndBtn?.addEventListener("click", () => submitPunch("break_end"));
+  outDuringBreakBtn?.addEventListener("click", () => submitPunch("out"));
   window.addEventListener("online", loadStatus);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && navigator.onLine) loadStatus();

@@ -8227,6 +8227,119 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   border-color: #fecaca;
 }
 
+.punch-card--clock-widget {
+  display: grid;
+  gap: 12px;
+}
+
+.punch-work-state-label {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.punch-work-state-label--working {
+  color: var(--green-800, #166534);
+  font-weight: 600;
+}
+
+.punch-work-state-label--break {
+  color: #92400e;
+  font-weight: 600;
+}
+
+.punch-geofence-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.punch-geofence-row .punch-geofence-status {
+  flex: 1 1 220px;
+  margin: 0;
+}
+
+.punch-geofence-qr {
+  align-self: stretch;
+  white-space: nowrap;
+}
+
+.punch-clock-state {
+  display: grid;
+  gap: 10px;
+}
+
+.punch-clock-primary {
+  width: 100%;
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+.punch-clock-secondary {
+  width: 100%;
+  min-height: 44px;
+}
+
+.punch-clock-secondary--cooldown {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.punch-clock-link {
+  justify-self: center;
+  padding: 0;
+  min-height: auto;
+  font-size: 0.92rem;
+}
+
+.punch-cooldown-note {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.punch-reclock-dialog {
+  border: none;
+  padding: 0;
+  max-width: min(420px, calc(100vw - 32px));
+  background: transparent;
+}
+
+.punch-reclock-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.punch-reclock-dialog__card {
+  margin: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+.punch-reclock-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.punch-flag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.punch-flag--rapid {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
 .punch-scan-row {
   display: flex;
   flex-wrap: wrap;
@@ -11397,6 +11510,105 @@ body.rota-week-readonly .rota-builder-hint {
 .punch-day-footnote {
   margin-top: 8px;
   font-size: 0.8rem;
+}
+
+.punch-records-promo {
+  margin-top: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.punch-records-panel {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.punch-records-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.punch-records-view-toggle .btn.is-active {
+  background: #edf9f3;
+  border-color: var(--green-700);
+}
+
+.punch-review-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.punch-review-badge--pending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.punch-review-badge--done {
+  background: #edf9f3;
+  color: var(--green-800, #166534);
+}
+
+.punch-review-meta {
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.rota-list-panel__lead {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+}
+
+.punch-day-filters {
+  margin-bottom: 10px;
+}
+
+.punch-day-table td {
+  vertical-align: top;
+}
+
+.punch-day-table .punch-shift-employee {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.punch-shift-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.punch-shift-time--missing {
+  color: var(--muted);
+}
+
+.punch-shift-duration {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.punch-shift-duration--open {
+  color: var(--amber-700, #b45309);
+  font-weight: 600;
+}
+
+.punch-shift-duration--orphan {
+  color: var(--muted);
+}
+
+.punch-shift-row--orphan .punch-shift-time:not(.punch-shift-time--missing) {
+  font-weight: 600;
 }
 
 .punch-export-dialog {

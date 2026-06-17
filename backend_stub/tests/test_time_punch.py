@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -10,10 +11,13 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 from modules.time_punch.service import (
+    _detect_rapid_re_punch,
+    _punch_row,
     haversine_meters,
     preview_geofence,
     record_punch,
     record_punch_via_site_token,
+    review_punch,
     scan_site_token,
 )
 
@@ -153,6 +157,7 @@ def test_record_punch_via_site_token_inserts_qr_punch() -> None:
             None,
             "all",
         ),
+        None,
         (42, "2026-06-08T09:00:00+00:00"),
     ]
     cursor.fetchall.side_effect = [
@@ -173,5 +178,73 @@ def test_record_punch_via_site_token_inserts_qr_punch() -> None:
     assert result["punch_method"] == "site_qr"
     assert result["site_name"] == "Main site"
     assert result["clocked_in"] is True
-    insert_sql = cursor.execute.call_args_list[-1][0][0]
-    assert "site_qr" in insert_sql
+    insert_params = cursor.execute.call_args_list[-1][0][1]
+    assert insert_params[11] == "site_qr"
+
+
+def test_punch_row_includes_hr_review_fields() -> None:
+    now = datetime.now(timezone.utc)
+    row = (
+        1,
+        "in",
+        now,
+        20.0,
+        5,
+        "Karun",
+        "Acharya",
+        "k@example.com",
+        "Main site",
+        False,
+        None,
+        1,
+        100,
+        True,
+        9.0,
+        "gps",
+        now,
+        "hr.admin",
+        False,
+    )
+    item = _punch_row(row)
+    assert item["employee_id"] == 5
+    assert item["hr_reviewed_by"] == "hr.admin"
+    assert item["hr_review_pending"] is False
+    assert item["rapid_re_punch"] is False
+
+
+def test_detect_rapid_re_punch_within_window() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    last_at = datetime.now(timezone.utc) - timedelta(minutes=3)
+    assert (
+        _detect_rapid_re_punch(
+            last={"punch_type": "out", "punched_at": last_at.isoformat()},
+            punch_type="in",
+        )
+        is True
+    )
+
+
+def test_detect_rapid_re_punch_after_window() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    last_at = datetime.now(timezone.utc) - timedelta(minutes=20)
+    assert (
+        _detect_rapid_re_punch(
+            last={"punch_type": "out", "punched_at": last_at.isoformat()},
+            punch_type="in",
+        )
+        is False
+    )
+
+
+def test_review_punch_marks_record() -> None:
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchone.return_value = (42,)
+
+    result = review_punch(tenant_id=1, punch_id=42, reviewed_by="hr.admin", conn=conn)
+
+    assert result == {"id": 42, "reviewed": True}
+    conn.commit.assert_called_once()

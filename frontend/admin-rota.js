@@ -1822,7 +1822,7 @@
       if (isWeekReadOnly()) {
         setMessage(readonlyMessage(), "info");
       } else if (weekMeta.status === "published") {
-        setMessage("Published — punch vs rota flags update live.");
+        setMessage("Published — shift attendance flags update live.");
       } else if (!hasActiveEmployees()) {
         setMessage("Add active employees before building a rota.");
       } else if (!shifts.length) {

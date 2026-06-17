@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v97" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v100" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1684,7 +1684,8 @@
 
           <div class="punch-view-tabs" role="tablist" aria-label="Time punch views">
             <button type="button" class="punch-view-tab is-active" data-punch-tab="sites" role="tab" aria-selected="true"><span aria-hidden="true">📍</span> Configure sites</button>
-            <button type="button" class="punch-view-tab" data-punch-tab="log" role="tab" aria-selected="false"><span aria-hidden="true">🕐</span> Punch log</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="records" role="tab" aria-selected="false"><span aria-hidden="true">🕐</span> Punch records</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="log" role="tab" aria-selected="false"><span aria-hidden="true">✏️</span> Admin punch</button>
             <button type="button" class="punch-view-tab" data-punch-tab="timesheet" role="tab" aria-selected="false"><span aria-hidden="true">📋</span> Timesheets</button>
             <button type="button" class="punch-view-tab" data-punch-tab="summary" role="tab" aria-selected="false"><span aria-hidden="true">📊</span> Activity summary</button>
           </div>
@@ -1767,10 +1768,18 @@
                   <div id="punch-qr-gallery-grid" class="punch-qr-gallery-grid muted">Sync a punch site to generate QR codes.</div>
                 </section>
 
-                <div class="punch-today-preview">
+                <div class="punch-records-promo card">
+                  <p class="muted punch-tab-intro">Individual clock in/out records are on the <strong>Punch records</strong> tab — filter them, mark as reviewed by HR, and export. The Rota tab only compares published shifts to attendance.</p>
+                  <button type="button" class="btn outline btn-sm" id="punch-open-records-btn">Open punch records</button>
+                </div>
+              </div>
+
+              <div id="punch-tab-records" class="punch-tab-panel" data-punch-panel="records" hidden>
+                <p class="muted punch-tab-intro">Each clock in and clock out from the Time Clock app. Review and accept records before payroll — this is separate from the Rota attendance view.</p>
+                <div class="punch-today-preview punch-records-panel">
                   <div class="punch-table-head">
                     <div>
-                      <h4 class="hr-section-title">Daily punch history</h4>
+                      <h4 class="hr-section-title">Punch records</h4>
                       <div class="punch-day-nav" aria-label="Choose day">
                         <button type="button" class="btn ghost btn-sm" id="punch-day-prev" aria-label="Previous day">←</button>
                         <input type="date" id="punch-day-picker" class="punch-day-picker" aria-label="Punch date" />
@@ -1779,25 +1788,58 @@
                         <button type="button" class="btn ghost btn-sm" id="punch-day-refresh" title="Refresh punch list">↻ Refresh</button>
                       </div>
                     </div>
-                    <button type="button" class="btn outline punch-table-head__btn" id="punch-preview-export-btn">Export…</button>
+                    <div class="punch-table-head__actions">
+                      <div class="punch-records-view-toggle" role="group" aria-label="Record layout">
+                        <button type="button" class="btn ghost btn-sm is-active" id="punch-records-view-each" data-records-view="each">Each punch</button>
+                        <button type="button" class="btn ghost btn-sm" id="punch-records-view-shifts" data-records-view="shifts">By shift</button>
+                      </div>
+                      <button type="button" class="btn outline punch-table-head__btn" id="punch-records-review-all">Accept visible</button>
+                      <button type="button" class="btn outline punch-table-head__btn" id="punch-preview-export-btn">Export…</button>
+                    </div>
                   </div>
                   <p id="punch-day-summary" class="punch-day-summary muted" aria-live="polite"></p>
-                  <div class="hr-table-wrap">
-                    <table class="data-table">
+                  <div class="punch-filters punch-day-filters" aria-label="Filter punch records">
+                    <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-day-filter-employee"><option value="">All employees</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Site</span><select id="punch-day-filter-site"><option value="">All sites</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Type</span><select id="punch-day-filter-type"><option value="">All types</option><option value="in">Clock in only</option><option value="out">Clock out only</option></select></label>
+                    <label class="edit-field"><span class="edit-label">HR review</span><select id="punch-day-filter-review"><option value="">All</option><option value="pending">Needs review</option><option value="reviewed">Reviewed</option></select></label>
+                    <button type="button" class="btn ghost" id="punch-day-filter-apply">Apply</button>
+                    <button type="button" class="btn ghost" id="punch-day-filter-clear">Clear</button>
+                  </div>
+                  <div class="hr-table-wrap punch-records-table-wrap" id="punch-records-each-wrap">
+                    <table class="data-table punch-day-table">
                       <thead>
                         <tr>
                           <th>When</th>
                           <th>Employee</th>
                           <th>Type</th>
                           <th>Location</th>
+                          <th>HR review</th>
+                          <th></th>
                         </tr>
                       </thead>
-                      <tbody id="punch-today-preview-body">
-                        <tr><td colspan="4" class="muted">Loading punches…</td></tr>
+                      <tbody id="punch-records-each-body">
+                        <tr><td colspan="6" class="muted">Loading punches…</td></tr>
                       </tbody>
                     </table>
                   </div>
-                  <p class="muted punch-tab-intro punch-day-footnote">Times shown in your local timezone. Yellow shifts on the Rota mean a late clock-in; red means no show.</p>
+                  <div class="hr-table-wrap punch-records-table-wrap" id="punch-records-shifts-wrap" hidden>
+                    <table class="data-table punch-day-table">
+                      <thead>
+                        <tr>
+                          <th>Employee</th>
+                          <th>Clock in</th>
+                          <th>Clock out</th>
+                          <th>Duration</th>
+                          <th>Location</th>
+                        </tr>
+                      </thead>
+                      <tbody id="punch-today-preview-body">
+                        <tr><td colspan="5" class="muted">Loading punches…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="muted punch-tab-intro punch-day-footnote">Times shown in your local timezone. Accept records after checking geofence and admin corrections. Rota colours (late / no show) are on the Rota tab only.</p>
                 </div>
               </div>
 
@@ -1960,6 +2002,10 @@
                   <option value="hours-pdf">Working hours PDF (for accountant)</option>
                 </select>
               </label>
+              <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-export-employee"><option value="">All employees</option></select></label>
+              <label class="edit-field"><span class="edit-label">Site</span><select id="punch-export-site"><option value="">All sites</option></select></label>
+              <label class="edit-field" data-span="2"><span class="edit-label">Punch type</span><select id="punch-export-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option></select></label>
+              <label class="edit-field" data-span="2"><span class="edit-label">HR review</span><select id="punch-export-review"><option value="">All</option><option value="pending">Needs review</option><option value="reviewed">Reviewed</option></select></label>
             </div>
             <footer class="punch-export-dialog__foot">
               <button type="button" class="btn ghost" id="punch-export-cancel">Cancel</button>
@@ -2072,6 +2118,7 @@
           <article class="card rota-desktop-only" id="rota-list-panel" hidden>
             <div class="rota-list-panel__head">
               <h3>Shifts this week</h3>
+              <p class="muted rota-list-panel__lead">Scheduled shifts with attendance status — not the raw punch log.</p>
             </div>
             <div id="rota-shifts-cards" class="rota-shift-cards" hidden aria-label="Shifts this week"></div>
             <div class="table-wrap rota-shifts-table-wrap">
@@ -2083,7 +2130,7 @@
                     <th>Start</th>
                     <th>End</th>
                     <th>Role</th>
-                    <th>Punch</th>
+                    <th>Attendance</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -2094,8 +2141,8 @@
             </div>
           </article>
           <article class="card" id="rota-attendance-panel" hidden>
-            <h3>Punch vs rota</h3>
-            <p class="muted">Late and no-show flags compare published shifts to geofenced clock-ins.</p>
+            <h3>Shift attendance (rota only)</h3>
+            <p class="muted">Compares published shifts to clock-ins — late and no-show flags. For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
@@ -2624,8 +2671,8 @@
     <script src="./admin-disciplinary.js?v=1"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
-    <script src="./admin-time-punch.js?v=28"></script>
-    <script src="./admin-rota.js?v=24"></script>
+    <script src="./admin-time-punch.js?v=31"></script>
+    <script src="./admin-rota.js?v=25"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>

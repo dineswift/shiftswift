@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v92" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v100" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -235,26 +235,52 @@
               <p class="muted">Clock in and out when you are at an assigned work site. Location access is required.</p>
             </div>
           </header>
-          <article class="card punch-card">
+          <article class="card punch-card punch-card--clock-widget">
             <div id="employee-expected-shift" class="punch-expected-shift" hidden></div>
-            <p id="punch-status" class="muted">Loading punch status…</p>
-            <div id="punch-geofence-status" class="punch-geofence-status punch-geofence-status--loading" aria-live="polite">
-              Getting your location…
+            <p id="punch-work-state-label" class="punch-work-state-label muted" aria-live="polite">Loading…</p>
+            <div class="punch-geofence-row">
+              <div id="punch-geofence-status" class="punch-geofence-status punch-geofence-status--loading" aria-live="polite">
+                Getting your location…
+              </div>
+              <button type="button" class="btn outline btn-sm punch-geofence-qr" id="punch-scan-btn">Scan premises QR</button>
             </div>
-            <div class="punch-scan-row">
-              <button type="button" class="btn outline" id="punch-scan-btn">Scan premises QR</button>
-              <p id="punch-site-scan-status" class="punch-site-scan-status muted" hidden aria-live="polite"></p>
+            <p id="punch-site-scan-status" class="punch-site-scan-status muted" hidden aria-live="polite"></p>
+
+            <div id="punch-state-off" class="punch-clock-state">
+              <button type="button" class="btn primary punch-clock-primary" id="punch-in-btn">Clock in</button>
+              <button type="button" class="btn outline punch-clock-secondary punch-clock-secondary--cooldown" id="punch-reclock-btn" hidden>
+                Clock in again?
+              </button>
+              <p id="punch-cooldown-note" class="punch-cooldown-note muted" hidden></p>
             </div>
-            <div class="punch-actions">
-              <button type="button" class="btn primary" id="punch-in-btn">Clock in</button>
-              <button type="button" class="btn ghost" id="punch-out-btn" disabled>Clock out</button>
+
+            <div id="punch-state-working" class="punch-clock-state" hidden>
+              <button type="button" class="btn outline punch-clock-secondary" id="punch-out-btn">Clock out</button>
+              <button type="button" class="btn outline punch-clock-secondary" id="punch-break-start-btn">Start break</button>
             </div>
+
+            <div id="punch-state-break" class="punch-clock-state" hidden>
+              <button type="button" class="btn primary punch-clock-primary" id="punch-break-end-btn">End break</button>
+              <button type="button" class="btn link punch-clock-link" id="punch-out-during-break-btn">Clock out instead</button>
+            </div>
+
             <p id="punch-message" class="punch-message" aria-live="polite"></p>
             <h3>Your punch sites</h3>
             <ul id="punch-sites" class="punch-site-list muted">
               <li>Loading…</li>
             </ul>
           </article>
+
+          <dialog id="punch-reclock-dialog" class="punch-reclock-dialog">
+            <form method="dialog" class="punch-reclock-dialog__card">
+              <h3>Clock in again?</h3>
+              <p id="punch-reclock-dialog-copy" class="muted">You clocked out recently. Only continue if this is intentional.</p>
+              <footer class="punch-reclock-dialog__foot">
+                <button type="button" class="btn ghost" id="punch-reclock-cancel">Cancel</button>
+                <button type="submit" class="btn primary" id="punch-reclock-confirm">Yes, clock in</button>
+              </footer>
+            </form>
+          </dialog>
 
           <article class="card employee-timesheet-card">
             <div class="employee-timesheet__head">
@@ -510,7 +536,7 @@
     <script src="./employee-mobile.js?v=6"></script>
     <script src="./employee.js?v=10"></script>
     <script src="./employee-push-alerts.js?v=1"></script>
-    <script src="./employee-time-punch.js?v=7"></script>
+    <script src="./employee-time-punch.js?v=8"></script>
     <script src="./employee-timesheet.js?v=2"></script>
     <script src="./employee-rota.js?v=7"></script>
     <script src="./employee-documents.js?v=6"></script>
