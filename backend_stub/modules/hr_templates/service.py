@@ -328,16 +328,30 @@ def build_template_download(
     return filename, body
 
 
-def tenant_ai_enabled(*, tenant_id: int, conn: Any) -> bool:
+def tenant_ai_document_addon_enabled(*, tenant_id: int, conn: Any) -> bool:
+    from core.schema import column_expr
+
+    col = column_expr(
+        conn,
+        table="tenants",
+        column="ai_document_addon",
+        alias=None,
+        null_sql="FALSE AS ai_document_addon",
+    )
     with conn.cursor() as cur:
-        cur.execute("SELECT ai_assistant_enabled FROM tenants WHERE id = %s", (tenant_id,))
+        cur.execute(f"SELECT {col} FROM tenants WHERE id = %s", (tenant_id,))
         row = cur.fetchone()
-    if not row:
-        return False
-    return bool(row[0])
+    return bool(row and row[0])
+
+
+def tenant_ai_enabled(*, tenant_id: int, conn: Any) -> bool:
+    """AI is available only when the paid document add-on is enabled."""
+    return tenant_ai_document_addon_enabled(tenant_id=tenant_id, conn=conn)
 
 
 def set_tenant_ai_enabled(*, tenant_id: int, enabled: bool, conn: Any) -> bool:
+    if enabled and not tenant_ai_document_addon_enabled(tenant_id=tenant_id, conn=conn):
+        raise ValueError("AI document assistant add-on is not enabled on this subscription.")
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE tenants SET ai_assistant_enabled = %s WHERE id = %s RETURNING ai_assistant_enabled",

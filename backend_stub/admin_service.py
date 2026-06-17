@@ -143,6 +143,27 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         alias=None,
         null_sql="FALSE AS crm_addon",
     )
+    crm_addon_monthly_col = column_expr(
+        conn,
+        table="tenants",
+        column="crm_addon_monthly_gbp",
+        alias=None,
+        null_sql="NULL::numeric AS crm_addon_monthly_gbp",
+    )
+    ai_document_addon_col = column_expr(
+        conn,
+        table="tenants",
+        column="ai_document_addon",
+        alias=None,
+        null_sql="FALSE AS ai_document_addon",
+    )
+    ai_document_monthly_col = column_expr(
+        conn,
+        table="tenants",
+        column="ai_document_addon_monthly_gbp",
+        alias=None,
+        null_sql="NULL::numeric AS ai_document_addon_monthly_gbp",
+    )
     registered_lat_col = column_expr(
         conn,
         table="tenants",
@@ -168,7 +189,8 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    sponsor_licence_acknowledged_by, sponsor_licence_ack_version,
                    payroll_accountant_email, payroll_hours_report_enabled,
                    {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col},
-                   {crm_addon_col}, {registered_lat_col}, {registered_lng_col}
+                   {crm_addon_col}, {crm_addon_monthly_col}, {ai_document_addon_col}, {ai_document_monthly_col},
+                   {registered_lat_col}, {registered_lng_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -205,8 +227,11 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "rota_multi_site_addon": bool(row[24]),
             "rota_week_start_day": int(row[25] or 0),
             "crm_addon": bool(row[26]),
-            "registered_latitude": float(row[27]) if row[27] is not None else None,
-            "registered_longitude": float(row[28]) if row[28] is not None else None,
+            "crm_addon_monthly_gbp": float(row[27]) if row[27] is not None else None,
+            "ai_document_addon": bool(row[28]),
+            "ai_document_addon_monthly_gbp": float(row[29]) if row[29] is not None else None,
+            "registered_latitude": float(row[30]) if row[30] is not None else None,
+            "registered_longitude": float(row[31]) if row[31] is not None else None,
         }
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
@@ -1053,6 +1078,9 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     plan_flags["rota_modes_all"] = list(ROTA_MODES)
     plan_flags["upgrade_messages"] = UPGRADE_MESSAGES
     plan_flags["crm_addon"] = bool(profile.get("crm_addon"))
+    plan_flags["crm_addon_monthly_gbp"] = profile.get("crm_addon_monthly_gbp")
+    plan_flags["ai_document_addon"] = bool(profile.get("ai_document_addon"))
+    plan_flags["ai_document_addon_monthly_gbp"] = profile.get("ai_document_addon_monthly_gbp")
 
     rtw_needs_review = rtw_expired
     rtw_verified = max(rtw_total - rtw_expired - rtw_expiring_soon, 0)

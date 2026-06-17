@@ -16,7 +16,7 @@ from modules.ai.client import (
     configured_provider,
     generate_hr_document,
 )
-from modules.hr_templates.service import log_ai_usage, set_tenant_ai_enabled, tenant_ai_enabled
+from modules.hr_templates.service import log_ai_usage, tenant_ai_document_addon_enabled, tenant_ai_enabled
 
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 settings = load_settings()
@@ -52,8 +52,11 @@ def _ensure_ai_allowed(tenant_id: int, conn: Any) -> None:
             status_code=503,
             detail="AI provider not configured. Set GEMINI_API_KEY (recommended) or OPENAI_API_KEY.",
         )
-    if not tenant_ai_enabled(tenant_id=tenant_id, conn=conn):
-        raise HTTPException(status_code=403, detail="AI assistant is not enabled for this business")
+    if not tenant_ai_document_addon_enabled(tenant_id=tenant_id, conn=conn):
+        raise HTTPException(
+            status_code=403,
+            detail="AI document assistant is a paid add-on (£10/month ex VAT). Add it under Settings → Billing & plan.",
+        )
 
 
 @router.get("/status")
@@ -64,19 +67,22 @@ def ai_status(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
-        tenant_on = tenant_ai_enabled(tenant_id=tenant_id, conn=conn)
+        addon_on = tenant_ai_document_addon_enabled(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
     provider = configured_provider()
+    server_ready = ai_globally_enabled() and provider is not None
     return {
         "globally_enabled": ai_globally_enabled(),
         "provider_configured": provider is not None,
         "provider": provider,
         "recommended_provider": "gemini",
         "recommended_model": "gemini-2.0-flash",
-        "tenant_enabled": tenant_on,
-        "available": ai_globally_enabled() and provider is not None and tenant_on,
-        "note": "Google Gemini Flash is the default — low cost and strong for HR document drafting.",
+        "addon_enabled": addon_on,
+        "tenant_enabled": addon_on,
+        "available": server_ready and addon_on,
+        "monthly_price_gbp_ex_vat": 10.0,
+        "note": "AI document assistant is a subscription add-on. Contact support or view Billing & plan to add it (£10/month ex VAT).",
     }
 
 
@@ -88,7 +94,7 @@ def read_ai_settings(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
-        enabled = tenant_ai_enabled(tenant_id=tenant_id, conn=conn)
+        enabled = tenant_ai_document_addon_enabled(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
     return {"enabled": enabled}
@@ -103,9 +109,18 @@ def update_ai_settings(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
+        if payload.enabled and not tenant_ai_document_addon_enabled(tenant_id=tenant_id, conn=conn):
+            raise HTTPException(
+                status_code=403,
+                detail="AI document assistant is a paid add-on. Add it under Settings → Billing & plan.",
+            )
+        from modules.hr_templates.service import set_tenant_ai_enabled
+
         enabled = set_tenant_ai_enabled(tenant_id=tenant_id, enabled=payload.enabled, conn=conn)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
     return {"enabled": enabled}

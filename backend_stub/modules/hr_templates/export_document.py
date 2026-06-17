@@ -1,4 +1,4 @@
-"""Export HR template markdown as PDF or Word (.doc HTML)."""
+"""Export HR template markdown as PDF or Word (.docx)."""
 
 from __future__ import annotations
 
@@ -6,72 +6,6 @@ import html
 import io
 import re
 from datetime import datetime, timezone
-
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer
-
-
-def _markdown_to_html(markdown: str) -> str:
-    """Minimal markdown → HTML for Word export."""
-    lines = markdown.splitlines()
-    out: list[str] = []
-    in_ul = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("### "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h3>{html.escape(stripped[4:])}</h3>")
-        elif stripped.startswith("## "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h2>{html.escape(stripped[3:])}</h2>")
-        elif stripped.startswith("# "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h1>{html.escape(stripped[2:])}</h1>")
-        elif stripped.startswith("- [ ] ") or stripped.startswith("- [x] "):
-            if not in_ul:
-                out.append("<ul>")
-                in_ul = True
-            text = stripped[6:]
-            out.append(f"<li>{html.escape(text)}</li>")
-        elif stripped.startswith("- "):
-            if not in_ul:
-                out.append("<ul>")
-                in_ul = True
-            out.append(f"<li>{html.escape(stripped[2:])}</li>")
-        elif stripped.startswith("|") and "---" in stripped:
-            continue
-        elif stripped.startswith("|"):
-            cells = [html.escape(c.strip()) for c in stripped.strip("|").split("|")]
-            out.append(f"<p>{' · '.join(cells)}</p>")
-        elif stripped == "---":
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append("<hr />")
-        elif not stripped:
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append("<br />")
-        else:
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            text = html.escape(stripped)
-            text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
-            out.append(f"<p>{text}</p>")
-    if in_ul:
-        out.append("</ul>")
-    return "\n".join(out)
 
 
 def _inline_markup(text: str) -> str:
@@ -81,7 +15,78 @@ def _inline_markup(text: str) -> str:
     return escaped
 
 
+def _add_docx_rich_paragraph(document, text: str, *, style: str | None = None, italic: bool = False) -> None:
+    paragraph = document.add_paragraph(style=style)
+    parts = re.split(r"(\*\*.+?\*\*|\*.+?\*)", text)
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("**") and part.endswith("**"):
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+            if italic:
+                run.italic = True
+        elif part.startswith("*") and part.endswith("*") and not part.startswith("**"):
+            run = paragraph.add_run(part[1:-1])
+            run.italic = True
+        else:
+            run = paragraph.add_run(part)
+            if italic:
+                run.italic = True
+
+
+def _markdown_to_docx(document, markdown: str) -> None:
+    bullet_items: list[str] = []
+
+    def flush_bullets() -> None:
+        nonlocal bullet_items
+        for item in bullet_items:
+            _add_docx_rich_paragraph(document, item, style="List Bullet")
+        bullet_items = []
+
+    for line in markdown.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            flush_bullets()
+            document.add_heading(stripped[2:], level=1)
+        elif stripped.startswith("## "):
+            flush_bullets()
+            document.add_heading(stripped[3:], level=2)
+        elif stripped.startswith("### "):
+            flush_bullets()
+            document.add_heading(stripped[4:], level=3)
+        elif stripped.startswith("- "):
+            bullet_items.append(stripped[2:])
+        elif stripped.startswith("- [ ] ") or stripped.startswith("- [x] "):
+            prefix = "☐ " if stripped.startswith("- [ ] ") else "☑ "
+            bullet_items.append(prefix + stripped[6:])
+        elif stripped.startswith("|") and "---" in stripped:
+            continue
+        elif stripped.startswith("|"):
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
+            flush_bullets()
+            _add_docx_rich_paragraph(document, " · ".join(cells))
+        elif stripped == "---":
+            flush_bullets()
+            document.add_paragraph()
+        elif not stripped:
+            flush_bullets()
+            document.add_paragraph()
+        else:
+            flush_bullets()
+            if stripped.startswith("_") and stripped.endswith("_"):
+                _add_docx_rich_paragraph(document, stripped.strip("_"), italic=True)
+            else:
+                _add_docx_rich_paragraph(document, stripped)
+
+    flush_bullets()
+
+
 def _markdown_to_pdf_flowables(markdown: str) -> list:
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import ListFlowable, ListItem, Paragraph, Spacer
+
     styles = getSampleStyleSheet()
     h1 = ParagraphStyle(
         "TemplateH1",
@@ -107,7 +112,6 @@ def _markdown_to_pdf_flowables(markdown: str) -> list:
         textColor=colors.HexColor("#334155"),
     )
     body = ParagraphStyle("TemplateBody", parent=styles["Normal"], fontSize=10, leading=14)
-    meta = ParagraphStyle("TemplateMeta", parent=styles["Normal"], fontSize=9, leading=12, textColor=colors.HexColor("#64748B"))
     italic = ParagraphStyle("TemplateItalic", parent=body, fontName="Helvetica-Oblique")
 
     flowables: list = []
@@ -162,6 +166,12 @@ def _markdown_to_pdf_flowables(markdown: str) -> list:
 
 
 def build_template_pdf_bytes(markdown: str, *, title: str) -> bytes:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -192,25 +202,30 @@ def build_template_pdf_bytes(markdown: str, *, title: str) -> bytes:
     return buffer.getvalue()
 
 
+def build_template_docx_bytes(markdown: str, *, title: str) -> bytes:
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+
+    document = Document()
+    normal = document.styles["Normal"]
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(11)
+
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    meta = document.add_paragraph()
+    meta_run = meta.add_run(f"Generated by ShiftSwift HR (shiftswifthr.co.uk) · {generated}")
+    meta_run.italic = True
+    meta_run.font.size = Pt(9)
+    meta_run.font.color.rgb = RGBColor(0x64, 0x74, 0x8B)
+    document.add_paragraph()
+
+    _markdown_to_docx(document, markdown)
+
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
 def build_template_word_bytes(markdown: str, *, title: str) -> bytes:
-    html_body = _markdown_to_html(markdown)
-    safe_title = html.escape(title)
-    document = f"""<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word">
-<head>
-<meta charset="utf-8">
-<title>{safe_title}</title>
-<style>
-body {{ font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.45; margin: 2cm; color: #1e293b; }}
-h1 {{ font-size: 18pt; color: #0f6e56; margin-bottom: 12pt; }}
-h2 {{ font-size: 14pt; margin-top: 14pt; margin-bottom: 6pt; }}
-h3 {{ font-size: 12pt; margin-top: 10pt; margin-bottom: 4pt; }}
-p {{ margin: 0 0 8pt; }}
-ul {{ margin: 0 0 8pt 18pt; }}
-hr {{ border: none; border-top: 1px solid #cbd5e1; margin: 12pt 0; }}
-</style>
-</head>
-<body>{html_body}</body>
-</html>"""
-    return document.encode("utf-8")
+    """Word download — real Office Open XML (.docx), not HTML masquerading as .doc."""
+    return build_template_docx_bytes(markdown, title=title)

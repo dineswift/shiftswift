@@ -130,6 +130,32 @@ def list_plan_catalog() -> dict[str, object]:
     }
 
 
+class QuoteRequest(BaseModel):
+    plan_id: str
+    active_employees: int = Field(default=0, ge=0, le=10000)
+
+
+@router.post("/quote")
+def subscription_quote(payload: QuoteRequest) -> dict[str, object]:
+    from billing_pricing import calculate_monthly_quote
+
+    plan = get_plan(payload.plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Unknown plan")
+    if payload.active_employees > plan.max_employees:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This plan supports up to {plan.max_employees} employees. Choose a higher plan or reduce headcount.",
+        )
+    quote = calculate_monthly_quote(plan, active_employees=payload.active_employees)
+    return {
+        "plan_id": plan.id,
+        "plan_name": plan.name,
+        "max_employees": plan.max_employees,
+        **quote,
+    }
+
+
 @router.post("/validate-promo")
 def validate_promo(payload: PromoValidateRequest) -> dict[str, object]:
     plan = get_plan(payload.plan_id)

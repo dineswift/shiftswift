@@ -14,6 +14,7 @@ from pydantic import BaseModel, EmailStr, Field
 from auth_service import AuthUser, create_token_pair, hash_password, log_security_event
 from brand import EMAIL_SUPPORT
 from billing_plans import get_plan
+from billing_pricing import calculate_monthly_quote, estimate_monthly_total
 from billing_promotions import validate_promotions
 from billing_stripe_service import provision_tenant_billing
 from config import load_settings
@@ -41,6 +42,7 @@ class SignupStartRequest(BaseModel):
     accept_eula: bool = False
     accept_payment_terms: bool = False
     accept_dpa: bool = False
+    expected_active_employees: int = Field(default=0, ge=0, le=10000)
 
 
 def _validate_payroll_for_platform(platform_plan, payroll_plan_id: str | None):
@@ -225,9 +227,19 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
 
     payroll_plan = _validate_payroll_for_platform(plan, payload.payroll_plan_id)
 
+    expected_headcount = max(0, int(payload.expected_active_employees))
+    if expected_headcount > plan.max_employees:
+        raise HTTPException(
+            status_code=400,
+            detail=f"This plan supports up to {plan.max_employees} active employees. Choose a higher plan or reduce headcount.",
+        )
+
+    monthly_total = estimate_monthly_total(plan, active_employees=expected_headcount)
+    quote = calculate_monthly_quote(plan, active_employees=expected_headcount)
+
     promotion = validate_promotions(
         plan_id=plan.id,
-        base_price_gbp=plan.price_gbp_ex_vat,
+        base_price_gbp=monthly_total,
         discount_code=payload.discount_code,
         referral_code=payload.referral_code,
     )
@@ -304,6 +316,7 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
             promotion=promotion,
             vat_number=payload.vat_number,
             payroll_plan=payroll_plan,
+            expected_active_employees=expected_headcount,
         )
         try:
             contracts_created = generate_contract_pack(
@@ -403,7 +416,7 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
     )
     tokens = create_token_pair(settings, trial_user)
 
-    adjusted_price = round(plan.price_gbp_ex_vat - promotion.discount_amount_gbp, 2)
+    adjusted_price = round(monthly_total - promotion.discount_amount_gbp, 2)
     payroll_price = payroll_plan.price_gbp_ex_vat if payroll_plan else 0
     total_price = round(max(adjusted_price, 0) + payroll_price, 2)
 
@@ -411,6 +424,8 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
         "tenant_id": tenant_id,
         "plan_id": plan.id,
         "plan_name": plan.name,
+        "expected_active_employees": expected_headcount,
+        "billing_quote": quote,
         "payroll_plan_id": payroll_plan.id if payroll_plan else None,
         "payroll_plan_name": payroll_plan.name if payroll_plan else None,
         "payroll_enabled": bool(payroll_plan),
@@ -423,7 +438,7 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
         "checkout_url": billing_info.get("checkout_url"),
         "promotion_message": promotion.message,
         "discount_applied_gbp": promotion.discount_amount_gbp,
-        "price_gbp_ex_vat": plan.price_gbp_ex_vat,
+        "price_gbp_ex_vat": monthly_total,
         "payroll_price_gbp_ex_vat": payroll_price if payroll_plan else None,
         "adjusted_price_gbp_ex_vat": max(adjusted_price, 0),
         "total_price_gbp_ex_vat": total_price,

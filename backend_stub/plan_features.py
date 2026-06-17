@@ -218,6 +218,7 @@ UPGRADE_MESSAGES = {
     "api_access": "API access is included on the Multi-site plan.",
     "rota_advanced": "Advanced rota is a paid add-on. Contact support to add it to your subscription.",
     "rota_multi_site": "Multi-site rota is a paid add-on. Contact support to add it to your subscription.",
+    "ai_document": "AI document assistant is a paid add-on at £10/month ex VAT. Add it under Settings → Billing & plan.",
 }
 
 

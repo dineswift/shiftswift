@@ -74,15 +74,25 @@
   }
 
   function crmAddonLabel(tenant) {
-    if (!tenant.crm_addon) return "Not enabled";
-    let label = "Enabled";
-    if (tenant.crm_addon_monthly_gbp != null && tenant.crm_addon_monthly_gbp !== "") {
-      label += ` · £${Number(tenant.crm_addon_monthly_gbp).toFixed(2)}/mo ex VAT`;
-    }
+    if (!tenant.crm_addon) return "Not enabled · £10.00/mo ex VAT";
+    const monthly =
+      tenant.crm_addon_monthly_gbp != null && tenant.crm_addon_monthly_gbp !== ""
+        ? Number(tenant.crm_addon_monthly_gbp).toFixed(2)
+        : "10.00";
+    let label = `Enabled · £${monthly}/mo ex VAT`;
     if (tenant.crm_addon_billing_notes) {
       label += `<br><small class="muted">${escapeHtml(tenant.crm_addon_billing_notes)}</small>`;
     }
     return label;
+  }
+
+  function aiDocumentAddonLabel(tenant) {
+    if (!tenant.ai_document_addon) return "Not enabled · £10.00/mo ex VAT";
+    const monthly =
+      tenant.ai_document_addon_monthly_gbp != null && tenant.ai_document_addon_monthly_gbp !== ""
+        ? Number(tenant.ai_document_addon_monthly_gbp).toFixed(2)
+        : "10.00";
+    return `Enabled · £${monthly}/mo ex VAT`;
   }
 
   function tenantMetaLine(tenant) {
@@ -252,6 +262,7 @@
         kvRow("Billing notes", escapeHtml(tenant.billing_notes || "—")),
         kvRow("Rota add-ons", rotaAddonsLabel(tenant)),
         kvRow("CRM add-on", crmAddonLabel(tenant)),
+        kvRow("AI document assistant", aiDocumentAddonLabel(tenant)),
       ].join(""),
     );
 
@@ -316,6 +327,8 @@
     const crmAddon = document.getElementById("detail-crm-addon");
     const crmMonthlyGbp = document.getElementById("detail-crm-monthly-gbp");
     const crmBillingNotes = document.getElementById("detail-crm-billing-notes");
+    const aiDocumentAddon = document.getElementById("detail-ai-document-addon");
+    const aiDocumentMonthlyGbp = document.getElementById("detail-ai-document-monthly-gbp");
 
     const hideChangePlanPanel = () => {
       if (changePlanWrap) changePlanWrap.hidden = true;
@@ -352,9 +365,16 @@
           crmMonthlyGbp.value =
             tenant.crm_addon_monthly_gbp != null && tenant.crm_addon_monthly_gbp !== ""
               ? String(tenant.crm_addon_monthly_gbp)
-              : "";
+              : "10";
         }
         if (crmBillingNotes) crmBillingNotes.value = tenant.crm_addon_billing_notes || "";
+        if (aiDocumentAddon) aiDocumentAddon.checked = Boolean(tenant.ai_document_addon);
+        if (aiDocumentMonthlyGbp) {
+          aiDocumentMonthlyGbp.value =
+            tenant.ai_document_addon_monthly_gbp != null && tenant.ai_document_addon_monthly_gbp !== ""
+              ? String(tenant.ai_document_addon_monthly_gbp)
+              : "10";
+        }
         if (changePlanStatus) changePlanStatus.textContent = "Update plan and/or add-ons, then apply.";
         changePlanWrap?.scrollIntoView({ block: "nearest", behavior: "smooth" });
       } catch (error) {
@@ -383,13 +403,20 @@
         const crmMonthlyValue =
           crmMonthlyGbp?.value && crmMonthlyGbp.value.trim() !== "" ? Number(crmMonthlyGbp.value) : null;
         const crmNotesValue = (crmBillingNotes?.value || "").trim();
+        const aiDocumentAddonEnabled = Boolean(aiDocumentAddon?.checked);
+        const aiDocumentMonthlyValue =
+          aiDocumentMonthlyGbp?.value && aiDocumentMonthlyGbp.value.trim() !== ""
+            ? Number(aiDocumentMonthlyGbp.value)
+            : null;
         const planChanged = planId !== tenant.plan_id;
         const addonsChanged =
           advancedAddon !== Boolean(tenant.rota_advanced_addon) ||
           multiSiteAddon !== Boolean(tenant.rota_multi_site_addon) ||
           crmAddonEnabled !== Boolean(tenant.crm_addon) ||
           crmMonthlyValue !== (tenant.crm_addon_monthly_gbp ?? null) ||
-          crmNotesValue !== (tenant.crm_addon_billing_notes || "");
+          crmNotesValue !== (tenant.crm_addon_billing_notes || "") ||
+          aiDocumentAddonEnabled !== Boolean(tenant.ai_document_addon) ||
+          aiDocumentMonthlyValue !== (tenant.ai_document_addon_monthly_gbp ?? null);
         if (!planChanged && !addonsChanged) {
           if (changePlanStatus) changePlanStatus.textContent = "No changes to apply.";
           return;
@@ -416,6 +443,8 @@
             crm_addon: crmAddonEnabled,
             crm_addon_monthly_gbp: crmMonthlyValue,
             crm_addon_billing_notes: crmNotesValue,
+            ai_document_addon: aiDocumentAddonEnabled,
+            ai_document_addon_monthly_gbp: aiDocumentMonthlyValue,
           });
           hideChangePlanPanel();
           await refresh();

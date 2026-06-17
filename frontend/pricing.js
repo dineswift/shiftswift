@@ -136,6 +136,24 @@
       .join("");
   }
 
+  function signupPerHeadPricingHtml(plan, activeEmployees) {
+    const headcount = clampHeadcountToPlan(plan, activeEmployees);
+    const billable = billableSeatQuantity(plan, headcount);
+    const total = estimateMonthlyBill(plan, headcount);
+    const incVat = formatMoney(total * 1.2);
+    const cap = planMonthlyCap(plan);
+    const capLine =
+      cap != null ? `<p class="pricing-staff-cap">Cap £${formatMoney(cap)} + VAT / month</p>` : "";
+    return `
+        <div class="pricing-amount">
+          <span class="currency">£</span>
+          <span class="value">${formatMoney(total)}</span>
+          <span class="interval">+ VAT / month</span>
+        </div>
+        <p class="pricing-vat"><strong>£${incVat}</strong> inc. VAT · ${billable} employee${billable === 1 ? "" : "s"}</p>
+        ${capLine}`;
+  }
+
   function perHeadPricingHtml(plan) {
     const base = formatMoney(planBasePrice(plan));
     const perHead = formatMoney(planPerHeadPrice(plan));
@@ -287,8 +305,11 @@
     const perHead = usesPerHeadPricing(plan);
     const exVat = formatMoney(planBasePrice(plan));
     const incVat = formatMoney(planBasePrice(plan) * 1.2);
+    const signupHeadcount = options.signupHeadcount;
     const pricingBlock = perHead
-      ? perHeadPricingHtml(plan)
+      ? signupHeadcount != null
+        ? signupPerHeadPricingHtml(plan, signupHeadcount)
+        : perHeadPricingHtml(plan)
       : `
         <div class="pricing-amount">
           <span class="currency">£</span>
@@ -395,7 +416,43 @@
     }
   }
 
-  function updateSummary(planId, platformPlans, payrollPlanId, payrollPlans) {
+  function readSignupHeadcount() {
+    const input = document.getElementById("signup-active-employees");
+    return Math.max(0, Number(input?.value) || 0);
+  }
+
+  function clampHeadcountToPlan(plan, headcount) {
+    const max = Number(plan?.max_employees) || 500;
+    return Math.min(Math.max(0, headcount), max);
+  }
+
+  function billingSummaryText(plan, activeEmployees) {
+    const headcount = clampHeadcountToPlan(plan, activeEmployees);
+    const interval = intervalLabel(plan.billing_interval).trim();
+    const detailEl = document.getElementById("signup-summary-detail");
+    if (!usesPerHeadPricing(plan)) {
+      if (detailEl) detailEl.textContent = `Flat plan · up to ${plan.max_employees} employees on this tier.`;
+      return `£${formatMoney(plan.price_gbp_ex_vat)} + VAT ${interval} · up to ${plan.max_employees} staff`;
+    }
+    const billable = billableSeatQuantity(plan, headcount);
+    const total = estimateMonthlyBill(plan, headcount);
+    const incVat = formatMoney(total * 1.2);
+    const cap = planMonthlyCap(plan);
+    let priceText = `≈ £${formatMoney(total)} + VAT / month (£${incVat} inc. VAT)`;
+    if (cap != null) priceText += ` · cap £${formatMoney(cap)} + VAT`;
+    if (detailEl) {
+      let detail = `£${formatMoney(planBasePrice(plan))} base + £${formatMoney(
+        planPerHeadPrice(plan)
+      )} × ${billable} employee${billable === 1 ? "" : "s"} (ex VAT).`;
+      if (headcount > billable && cap != null) {
+        detail += ` Monthly cap reached — billed for ${billable} of ${headcount} employees entered.`;
+      }
+      detailEl.textContent = detail;
+    }
+    return priceText;
+  }
+
+  function updateSummary(planId, platformPlans, payrollPlanId, payrollPlans, activeEmployees) {
     const summary = document.getElementById("signup-plan-summary");
     if (!summary) return;
     const plan = platformPlans.find((p) => p.id === planId);
@@ -406,23 +463,21 @@
     const priceLine = document.getElementById("signup-summary-price");
 
     const payroll = payrollPlanId ? payrollPlans.find((p) => p.id === payrollPlanId) : null;
-    const interval = intervalLabel(plan.billing_interval).trim();
+    const headcount = activeEmployees ?? readSignupHeadcount();
 
     if (hrLine) hrLine.textContent = `${plan.name} · HR platform`;
     if (payrollLine) {
       payrollLine.hidden = true;
     }
     if (priceLine) {
-      if (usesPerHeadPricing(plan)) {
-        const base = formatMoney(planBasePrice(plan));
-        const perHead = formatMoney(planPerHeadPrice(plan));
-        const cap = planMonthlyCap(plan);
-        priceLine.textContent = cap
-          ? `From £${base} + £${perHead}/active employee · capped at £${formatMoney(cap)} + VAT / month`
-          : `From £${base} + £${perHead}/active employee + VAT / month`;
-      } else {
-        priceLine.textContent = `£${formatMoney(plan.price_gbp_ex_vat)} + VAT ${interval} · up to ${plan.max_employees} staff`;
-      }
+      priceLine.textContent = billingSummaryText(plan, headcount);
+    }
+
+    const headcountInput = document.getElementById("signup-active-employees");
+    if (headcountInput) {
+      headcountInput.max = String(plan.max_employees);
+      const clamped = clampHeadcountToPlan(plan, headcount);
+      if (Number(headcountInput.value) !== clamped) headcountInput.value = String(clamped);
     }
 
     summary.hidden = false;
@@ -548,12 +603,14 @@
       url.searchParams.set("plan", selectedPlanId);
       url.searchParams.delete("payroll");
       window.history.replaceState({}, "", url);
-      updateSummary(selectedPlanId, catalog.platform_plans, null, []);
+      const headcount = readSignupHeadcount();
+      updateSummary(selectedPlanId, catalog.platform_plans, null, [], headcount);
       if (platformContainer) {
         renderPlans(platformContainer, catalog.platform_plans.filter((p) => p.billing_interval === "month"), {
           mode: "selectable",
           cardType: "platform",
           selectedPlanId,
+          signupHeadcount: headcount,
           platformPlans: catalog.platform_plans,
           payrollPlans: [],
           onSelect: (id) => {
@@ -569,6 +626,9 @@
     }
 
     document.getElementById("signup-hr-plan-select")?.addEventListener("change", syncFromSelects);
+    document.getElementById("signup-active-employees")?.addEventListener("input", () => {
+      syncFromSelects();
+    });
 
     syncFromSelects();
 
@@ -586,7 +646,8 @@
         planId || currentSelectedPlan,
         catalog.platform_plans,
         payrollPlanId !== undefined ? payrollPlanId : currentSelectedPayroll,
-        catalog.payroll_plans
+        catalog.payroll_plans,
+        readSignupHeadcount()
       );
     });
   }
@@ -599,5 +660,8 @@
     initSignup,
     refreshSummary,
     formatMoney,
+    readSignupHeadcount,
+    estimateMonthlyBill,
+    billableSeatQuantity,
   };
 })();

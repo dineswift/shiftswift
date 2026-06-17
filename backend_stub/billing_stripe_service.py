@@ -48,6 +48,7 @@ def provision_tenant_billing(
     promotion: PromotionResult,
     vat_number: str | None = None,
     payroll_plan: PayrollPlan | None = None,
+    expected_active_employees: int | None = None,
 ) -> dict[str, object]:
     cfg = stripe_settings()
     trial_days = (DEFAULT_TRIAL_DAYS if start_trial else 0) + promotion.extra_trial_days
@@ -87,7 +88,12 @@ def provision_tenant_billing(
             except Exception:
                 pass
 
-        line_items = build_platform_subscription_items(plan=plan, conn=conn, tenant_id=tenant_id)
+        line_items = build_platform_subscription_items(
+            plan=plan,
+            conn=conn,
+            tenant_id=tenant_id,
+            active_employees_override=expected_active_employees,
+        )
         if payroll_price_id:
             line_items.append({"price": payroll_price_id, "quantity": 1})
 

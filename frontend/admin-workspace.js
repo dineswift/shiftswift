@@ -566,7 +566,7 @@
           }),
           moduleCard({
             icon: "sparkles",
-            title: "HR Templates & AI",
+            title: "HR Templates",
             value: "Tools",
             sub: "Documents & AI assistant",
             href: "#templates",

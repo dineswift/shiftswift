@@ -19,6 +19,10 @@
   let allRequests = [];
   let filterStatus = "pending";
   let searchFilter = "";
+  let employeeFilterId = null;
+  let employeeFilterName = "";
+  let employeesCache = [];
+  let pickerSearch = "";
   let selectedId = null;
   let reviewBusy = false;
 
@@ -63,6 +67,9 @@
 
   function filteredRequests() {
     let items = allRequests;
+    if (employeeFilterId) {
+      items = items.filter((item) => item.employee_id === employeeFilterId);
+    }
     if (filterStatus) {
       items = items.filter((item) => item.status === filterStatus);
     }
@@ -71,6 +78,121 @@
       items = items.filter((item) => String(item.employee_name || "").toLowerCase().includes(q));
     }
     return items;
+  }
+
+  function syncEmployeeFilterBanner() {
+    const banner = $("leave-employee-filter-banner");
+    const nameEl = $("leave-employee-filter-name");
+    if (!banner) return;
+    if (employeeFilterId && employeeFilterName) {
+      banner.hidden = false;
+      if (nameEl) nameEl.textContent = employeeFilterName;
+    } else {
+      banner.hidden = true;
+      if (nameEl) nameEl.textContent = "";
+    }
+  }
+
+  function clearEmployeeFilter() {
+    employeeFilterId = null;
+    employeeFilterName = "";
+    syncEmployeeFilterBanner();
+  }
+
+  function employeeDisplayName(emp) {
+    return `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || "Employee";
+  }
+
+  async function loadEmployeesList() {
+    const res = await apiFetch("/admin/employees");
+    if (!res.ok) throw new Error("Could not load employees");
+    const data = await res.json();
+    employeesCache = (data.items || []).filter((emp) => emp.status !== "terminated");
+    return employeesCache;
+  }
+
+  function renderEmployeePickerList() {
+    const host = $("leave-employee-picker-list");
+    if (!host) return;
+    const q = pickerSearch.trim().toLowerCase();
+    const rows = employeesCache.filter((emp) => {
+      if (!q) return true;
+      const name = employeeDisplayName(emp).toLowerCase();
+      const dept = String(emp.department || "").toLowerCase();
+      const title = String(emp.job_title || "").toLowerCase();
+      return name.includes(q) || dept.includes(q) || title.includes(q);
+    });
+
+    if (!employeesCache.length) {
+      host.innerHTML = `<p class="muted leave-employee-picker__empty">No employees found.</p>`;
+      return;
+    }
+
+    if (!rows.length) {
+      host.innerHTML = `<p class="muted leave-employee-picker__empty">No employees match your search.</p>`;
+      return;
+    }
+
+    host.innerHTML = rows
+      .map((emp) => {
+        const name = employeeDisplayName(emp);
+        const meta = [emp.job_title, emp.department].filter(Boolean).join(" · ") || emp.status || "";
+        return `<button type="button" class="leave-employee-picker__item" data-employee-id="${emp.id}" role="option">
+          <span class="leave-employee-picker__name">${escapeHtml(name)}</span>
+          <span class="muted leave-employee-picker__meta">${escapeHtml(meta)}</span>
+        </button>`;
+      })
+      .join("");
+
+    host.querySelectorAll(".leave-employee-picker__item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const emp = employeesCache.find((row) => row.id === Number(btn.dataset.employeeId));
+        if (!emp) return;
+        selectEmployeeFromPicker(emp.id, employeeDisplayName(emp));
+      });
+    });
+  }
+
+  async function openEmployeePicker() {
+    const picker = $("leave-employee-picker");
+    const searchInput = $("leave-employee-picker-search");
+    if (!picker) return;
+    picker.hidden = false;
+    pickerSearch = "";
+    if (searchInput) searchInput.value = "";
+    const list = $("leave-employee-picker-list");
+    if (list) list.innerHTML = `<p class="muted leave-employee-picker__empty">Loading employees…</p>`;
+    try {
+      await loadEmployeesList();
+      renderEmployeePickerList();
+    } catch {
+      if (list) {
+        list.innerHTML = `<p class="muted leave-employee-picker__empty">Could not load employees. Try again.</p>`;
+      }
+    }
+    searchInput?.focus();
+  }
+
+  function closeEmployeePicker() {
+    const picker = $("leave-employee-picker");
+    if (picker) picker.hidden = true;
+    pickerSearch = "";
+  }
+
+  function selectEmployeeFromPicker(employeeId, name) {
+    employeeFilterId = employeeId;
+    employeeFilterName = name;
+    searchFilter = "";
+    const searchInput = $("leave-search-input");
+    if (searchInput) searchInput.value = "";
+    setFilter("");
+    syncEmployeeFilterBanner();
+    closeEmployeePicker();
+    renderTable();
+  }
+
+  function bindEmptyStateActions() {
+    $("leave-view-employees-btn")?.addEventListener("click", () => openEmployeePicker());
   }
 
   function computeStats(items) {
@@ -249,6 +371,7 @@
   function renderTable() {
     const tbody = $("leave-requests-body");
     if (!tbody) return;
+    syncEmployeeFilterBanner();
     const items = filteredRequests();
     renderStats(items);
 
@@ -258,25 +381,33 @@
         title: "No leave requests yet",
         message: "When staff request holiday or leave in the employee portal, they appear here for approval.",
         actionLabel: "View employees",
-        actionHref: "#employees",
+        actionId: "leave-view-employees-btn",
         compact: true,
       })}</td></tr>`;
+      bindEmptyStateActions();
       return;
     }
 
     if (!items.length) {
       const filterLabel = filterStatus || "matching";
+      const employeeOnly = employeeFilterId && employeeFilterName;
+      const showViewEmployees = employeeOnly || (!searchFilter.trim() && filterStatus === "pending");
       tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
         icon: "search",
-        title: filterStatus === "pending" ? "No pending leave requests" : "No leave requests",
-        message:
-          searchFilter.trim()
+        title: employeeOnly
+          ? `No leave requests for ${employeeFilterName}`
+          : filterStatus === "pending"
+            ? "No pending leave requests"
+            : "No leave requests",
+        message: employeeOnly
+          ? "This employee has no leave requests in this view. Try All statuses or choose another employee."
+          : searchFilter.trim()
             ? "Try a different search or clear the filter."
             : filterStatus === "pending"
               ? "When staff request holiday or leave in the portal, they appear here for approval."
               : `No ${filterLabel} leave requests in this view.`,
-        actionLabel: searchFilter.trim() ? "Clear search" : "Show all",
-        actionId: "leave-clear-filter-btn",
+        actionLabel: showViewEmployees ? "View employees" : searchFilter.trim() ? "Clear search" : "Show all",
+        actionId: showViewEmployees ? "leave-view-employees-btn" : "leave-clear-filter-btn",
         compact: true,
       })}</td></tr>`;
       document.getElementById("leave-clear-filter-btn")?.addEventListener("click", () => {
@@ -284,11 +415,14 @@
           searchFilter = "";
           const input = $("leave-search-input");
           if (input) input.value = "";
+        } else if (employeeFilterId) {
+          clearEmployeeFilter();
         } else {
           setFilter("");
         }
         renderTable();
       });
+      bindEmptyStateActions();
       return;
     }
 
@@ -396,6 +530,24 @@
     });
 
     $("leave-detail-close")?.addEventListener("click", () => clearSelection());
+
+    $("leave-browse-employees-btn")?.addEventListener("click", () => openEmployeePicker());
+    $("leave-employee-filter-clear")?.addEventListener("click", () => {
+      clearEmployeeFilter();
+      renderTable();
+    });
+    $("leave-employee-picker-close")?.addEventListener("click", () => closeEmployeePicker());
+    $("leave-employee-picker-backdrop")?.addEventListener("click", () => closeEmployeePicker());
+    $("leave-employee-picker-search")?.addEventListener("input", (event) => {
+      pickerSearch = event.target.value;
+      renderEmployeePickerList();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if ($("leave-employee-picker")?.hidden) return;
+      closeEmployeePicker();
+    });
   }
 
   window.addEventListener("admin:section", (event) => {

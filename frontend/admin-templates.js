@@ -1,6 +1,6 @@
-/** HR process templates + AI document assistant. */
+/** HR process templates — optional AI drafting via subscription add-on. */
 (async function initAdminTemplates() {
-  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection } = window.Admin;
+  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, isAddonEnabled } = window.Admin;
 
   let controlsBound = false;
   let selectedId = null;
@@ -33,17 +33,21 @@
 
   function templateDownloadExt(format) {
     if (format === "pdf") return "pdf";
-    if (format === "doc") return "doc";
+    if (format === "doc" || format === "docx") return "docx";
     return "md";
   }
 
-  function downloadHrTemplate(templateId, variant) {
+  async function downloadHrTemplate(templateId, variant) {
     const format = templateDownloadFormat();
     const ext = templateDownloadExt(format);
-    downloadAuthenticated(
-      `/hr-templates/${templateId}/download?variant=${variant}&format=${format}`,
-      `${templateId}.${ext}`,
-    );
+    try {
+      await downloadAuthenticated(
+        `/hr-templates/${templateId}/download?variant=${variant}&format=${format}`,
+        `${templateId}.${ext}`,
+      );
+    } catch (error) {
+      window.alert(error?.message || "Could not download template. Try again or choose another format.");
+    }
   }
 
   function syncStatusPill(item) {
@@ -213,33 +217,38 @@
       Open a template and choose <strong>Apply platform update</strong>, or download platform latest without changing your saved copy.</p>`;
   }
 
+  async function syncAiAddonNotice() {
+    const notice = document.getElementById("templates-ai-addon-notice");
+    if (!notice) return;
+    if (isAddonEnabled("ai-document")) {
+      notice.hidden = true;
+      notice.innerHTML = "";
+      return;
+    }
+    notice.hidden = false;
+    notice.innerHTML = `
+      <p><strong>AI document assistant</strong> is a subscription add-on at <strong>£10/month ex VAT</strong>.
+      Add it under <a href="#settings/billing">Settings → Billing &amp; plan</a>, or
+      <a href="#" data-brand-support-mailto="AI document assistant add-on">contact support</a>.</p>`;
+    window.ShiftSwiftBrand?.applyBrandDom?.(notice);
+  }
+
   async function loadAiStatus() {
-    const panel = document.getElementById("ai-status-panel");
-    if (!panel) return;
+    aiStatus = { available: false, addon_enabled: isAddonEnabled("ai-document") };
+    if (!aiStatus.addon_enabled) {
+      const aiPanel = document.getElementById("ai-assist-panel");
+      if (aiPanel) aiPanel.setAttribute("hidden", "");
+      return;
+    }
     try {
       const res = await apiFetch("/ai/status");
       aiStatus = await res.json();
       if (!res.ok) throw new Error("Status unavailable");
-      const toggle = document.getElementById("ai-tenant-toggle");
-      if (toggle) toggle.checked = !!aiStatus.tenant_enabled;
-      panel.innerHTML = `
-        <p class="promo-result-message ${aiStatus.available ? "promo-result-message--ok" : ""}">
-          Provider: <strong>${escapeHtml(aiStatus.provider || "not configured")}</strong>
-          · ${aiStatus.available ? "Ready when enabled above" : aiStatus.provider_configured ? "Enable for this business" : "Add GEMINI_API_KEY to backend .env"}
-        </p>`;
-      const aiPanel = document.getElementById("ai-assist-panel");
-      if (aiPanel && !aiStatus.available) aiPanel.setAttribute("hidden", "");
     } catch {
-      panel.innerHTML = `<p class="muted">Could not load AI status.</p>`;
+      aiStatus = { available: false, addon_enabled: true };
     }
-  }
-
-  async function saveAiToggle(enabled) {
-    await apiFetch("/ai/settings", {
-      method: "PATCH",
-      body: JSON.stringify({ enabled }),
-    });
-    await loadAiStatus();
+    const aiPanel = document.getElementById("ai-assist-panel");
+    if (aiPanel && !aiStatus.available) aiPanel.setAttribute("hidden", "");
   }
 
   function renderTemplateSidePanel(item) {
@@ -529,10 +538,6 @@
     if (controlsBound) return;
     controlsBound = true;
 
-    document.getElementById("ai-tenant-toggle")?.addEventListener("change", (e) => {
-      saveAiToggle(e.target.checked).catch((err) => alert(err.message));
-    });
-
     document.getElementById("hr-templates-category-filter")?.addEventListener("change", (e) => {
       categoryFilter = e.target.value;
       renderTemplateTable();
@@ -565,6 +570,8 @@
 
   async function initTemplatesSection() {
     bindControls();
+    await window.Admin.loadTenantFeatures?.();
+    await syncAiAddonNotice();
     await loadAiStatus();
     await loadTemplateList();
     const pendingId = sessionStorage.getItem("templatesOpenId");

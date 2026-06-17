@@ -177,6 +177,8 @@ def update_tenant_billing(
     crm_addon: bool | None = None,
     crm_addon_monthly_gbp: float | None = None,
     crm_addon_billing_notes: str | None = None,
+    ai_document_addon: bool | None = None,
+    ai_document_addon_monthly_gbp: float | None = None,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -253,6 +255,14 @@ def update_tenant_billing(
     if crm_addon_billing_notes is not None:
         updates.append("crm_addon_billing_notes = %s")
         params.append(_normalize_notes(crm_addon_billing_notes))
+    if ai_document_addon is not None:
+        updates.append("ai_document_addon = %s")
+        params.append(bool(ai_document_addon))
+        updates.append("ai_assistant_enabled = %s")
+        params.append(bool(ai_document_addon))
+    if ai_document_addon_monthly_gbp is not None:
+        updates.append("ai_document_addon_monthly_gbp = %s")
+        params.append(ai_document_addon_monthly_gbp)
 
     params.append(tenant_id)
     with conn.cursor() as cur:
@@ -275,6 +285,10 @@ def update_tenant_billing(
         "crm_addon_monthly_gbp": float(crm_addon_monthly_gbp) if crm_addon_monthly_gbp is not None else None,
         "crm_addon_billing_notes": _normalize_notes(crm_addon_billing_notes)
         if crm_addon_billing_notes is not None
+        else None,
+        "ai_document_addon": ai_document_addon,
+        "ai_document_addon_monthly_gbp": float(ai_document_addon_monthly_gbp)
+        if ai_document_addon_monthly_gbp is not None
         else None,
         "stripe_subscription_cancelled": bool(stripe_cancel.get("cancelled")),
         "stripe_cancel": stripe_cancel,

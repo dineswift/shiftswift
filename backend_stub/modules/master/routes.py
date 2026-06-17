@@ -151,6 +151,8 @@ class UpdateTenantBillingRequest(BaseModel):
     crm_addon: bool | None = None
     crm_addon_monthly_gbp: float | None = Field(default=None, ge=0)
     crm_addon_billing_notes: str | None = Field(default=None, max_length=2000)
+    ai_document_addon: bool | None = None
+    ai_document_addon_monthly_gbp: float | None = Field(default=None, ge=0)
 
 
 @router.get("/overview")
@@ -299,6 +301,8 @@ def master_update_tenant_billing(
                 crm_addon=payload.crm_addon,
                 crm_addon_monthly_gbp=payload.crm_addon_monthly_gbp,
                 crm_addon_billing_notes=payload.crm_addon_billing_notes,
+                ai_document_addon=payload.ai_document_addon,
+                ai_document_addon_monthly_gbp=payload.ai_document_addon_monthly_gbp,
             )
         except LookupError as exc:
             raise HTTPException(status_code=404, detail="Tenant not found") from exc

@@ -37,6 +37,7 @@
             <div class="signup-summary-plan" id="signup-summary-hr">Compliance · HR platform</div>
             <div class="signup-summary-payroll" id="signup-summary-payroll" hidden></div>
             <div class="signup-summary-price" id="signup-summary-price">From £19 + £3/active employee · capped at £79 + VAT / month</div>
+            <p class="signup-summary-detail muted" id="signup-summary-detail" aria-live="polite"></p>
           </div>
 
           <form id="signup-form" class="signup-form">
@@ -71,6 +72,21 @@
                 <label class="signup-field" for="signup-hr-plan-select">
                   <span class="signup-field__label">Select HR plan <span class="signup-field__required">(required)</span></span>
                   <select id="signup-hr-plan-select" name="hr_plan_select" required aria-describedby="signup-summary-hr"></select>
+                </label>
+                <label class="signup-field" for="signup-active-employees">
+                  <span class="signup-field__label">Active employees</span>
+                  <input
+                    id="signup-active-employees"
+                    name="expected_active_employees"
+                    type="number"
+                    min="0"
+                    max="500"
+                    value="10"
+                    inputmode="numeric"
+                    required
+                    aria-describedby="signup-headcount-hint signup-summary-detail"
+                  />
+                  <span class="signup-field__hint" id="signup-headcount-hint">Managers and HR logins are free — billing uses active employees only.</span>
                 </label>
               </div>
             </fieldset>
@@ -221,8 +237,8 @@
       </footer>
     </div>
     <script src="./brand-config.js?v=brand-v5"></script>
-    <script src="./pricing.js?v=6"></script>
-    <script src="./signup.js?v=7"></script>
+    <script src="./pricing.js?v=7"></script>
+    <script src="./signup.js?v=8"></script>
       <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v112" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v113" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -120,7 +120,7 @@
           <p class="nav-section-label">Tools</p>
           <a class="nav-link" href="#templates" data-section="templates">
             <span class="nav-link__icon" data-nav-icon="sparkles" aria-hidden="true"></span>
-            <span class="nav-link__label">HR Templates &amp; AI</span>
+            <span class="nav-link__label">HR Templates</span>
           </a>
 
           <p class="nav-section-label">Admin</p>
@@ -220,7 +220,7 @@
             <p class="mobile-more-group">Operations</p>
             <a class="mobile-more-link" href="#time-punch">Time punch</a>
             <a class="mobile-more-link" href="#leave">Leave</a>
-            <a class="mobile-more-link" href="#templates">HR Templates &amp; AI</a>
+            <a class="mobile-more-link" href="#templates">HR Templates</a>
             <p class="mobile-more-group">Support</p>
             <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
             <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
@@ -1022,8 +1022,8 @@
         <section id="templates" class="admin-section" hidden>
           <header class="section-header">
             <div>
-              <h2>HR Templates &amp; AI</h2>
-              <p class="muted">Curated UK HR documents — customise, preview, download, or apply platform updates when employment law changes.</p>
+              <h2>HR Templates</h2>
+              <p class="muted">Curated UK HR documents — customise, preview, and download. AI drafting is available as a subscription add-on.</p>
             </div>
             <div class="section-actions">
               <a class="btn ghost" href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS templates →</a>
@@ -1031,23 +1031,10 @@
           </header>
 
           <div id="hr-template-updates-banner" class="promo-result" hidden></div>
+          <div id="templates-ai-addon-notice" class="promo-result templates-ai-addon-notice" hidden></div>
 
           <div class="templates-workspace hr-workspace-layout" id="templates-workspace">
             <div class="hr-main-pane templates-main-pane">
-              <article class="hr-surface-panel templates-ai-panel">
-                <div class="templates-ai-panel__head">
-                  <div>
-                    <h4 class="hr-section-title">AI document assistant</h4>
-                    <p class="muted templates-ai-panel__hint">Optional — adapt templates with Gemini. Set <code>GEMINI_API_KEY</code> in backend <code>.env</code>.</p>
-                  </div>
-                  <label class="edit-field edit-field--checkbox templates-ai-toggle">
-                    <input type="checkbox" id="ai-tenant-toggle" />
-                    <span class="edit-label">Enable AI for this business</span>
-                  </label>
-                </div>
-                <div id="ai-status-panel" class="promo-result"></div>
-              </article>
-
               <article class="hr-surface-panel templates-library-panel">
                 <div class="templates-library-toolbar">
                   <h4 class="hr-section-title">Process template library</h4>
@@ -2405,12 +2392,17 @@
                       <button type="button" class="hr-filter-tab" data-leave-filter="rejected">Rejected</button>
                       <button type="button" class="hr-filter-tab" data-leave-filter="">All</button>
                     </div>
+                    <button type="button" class="btn ghost btn--sm" id="leave-browse-employees-btn">Browse employees</button>
                     <label class="leave-search">
                       <span class="visually-hidden">Search leave requests</span>
                       <input type="search" id="leave-search-input" placeholder="Search employee…" maxlength="80" />
                     </label>
                   </div>
                 </header>
+                <div id="leave-employee-filter-banner" class="leave-employee-filter-banner" hidden>
+                  <span>Showing leave for <strong id="leave-employee-filter-name"></strong></span>
+                  <button type="button" class="btn ghost btn--sm" id="leave-employee-filter-clear">Show all employees</button>
+                </div>
                 <div class="hr-table-wrap leave-table-wrap">
                   <table class="data-table">
                     <thead>
@@ -2455,6 +2447,29 @@
                 Select a leave request to review dates, balance, and approve or reject.
               </div>
             </aside>
+          </div>
+
+          <div id="leave-employee-picker" class="leave-employee-picker" hidden>
+            <button type="button" class="leave-employee-picker__backdrop" id="leave-employee-picker-backdrop" aria-label="Close employee list"></button>
+            <div
+              class="leave-employee-picker__panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="leave-employee-picker-title"
+            >
+              <header class="leave-employee-picker__head">
+                <div>
+                  <h4 id="leave-employee-picker-title">Select employee</h4>
+                  <p class="muted">Choose someone to view their leave requests. No new employees are added here.</p>
+                </div>
+                <button type="button" class="btn ghost btn--sm" id="leave-employee-picker-close" aria-label="Close">Close</button>
+              </header>
+              <label class="leave-employee-picker__search">
+                <span class="visually-hidden">Search employees</span>
+                <input type="search" id="leave-employee-picker-search" placeholder="Search by name…" maxlength="80" />
+              </label>
+              <div id="leave-employee-picker-list" class="leave-employee-picker__list" role="listbox" aria-label="Employees"></div>
+            </div>
           </div>
         </section>
 
@@ -2822,9 +2837,9 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=13"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v37"></script>
-    <script src="./admin-settings.js?v=27"></script>
-    <script src="./admin-workspace.js?v=admin-v22"></script>
+    <script src="./admin-shared.js?v=admin-v39"></script>
+    <script src="./admin-settings.js?v=29"></script>
+    <script src="./admin-workspace.js?v=admin-v23"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=27"></script>
     <script src="./admin-employees.js?v=23"></script>
@@ -2837,10 +2852,10 @@
     <script src="./admin-grievance.js?v=6"></script>
     <script src="./admin-disciplinary.js?v=2"></script>
     <script src="./admin-offboarding.js?v=admin-v7"></script>
-    <script src="./admin-templates.js?v=admin-v10"></script>
+    <script src="./admin-templates.js?v=admin-v12"></script>
     <script src="./admin-time-punch.js?v=32"></script>
     <script src="./admin-rota.js?v=27"></script>
-    <script src="./admin-leave.js?v=admin-v3"></script>
+    <script src="./admin-leave.js?v=admin-v4"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>
     <script src="./employment-contracts.js?v=3"></script>

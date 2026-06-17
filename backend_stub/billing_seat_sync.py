@@ -31,6 +31,7 @@ def build_platform_subscription_items(
     plan: SubscriptionPlan,
     conn: Any,
     tenant_id: int,
+    active_employees_override: int | None = None,
 ) -> list[dict[str, object]]:
     """Stripe subscription items for platform base + per-seat billing."""
     price_id = resolve_stripe_price_id(plan)
@@ -40,7 +41,11 @@ def build_platform_subscription_items(
     items: list[dict[str, object]] = [{"price": price_id, "quantity": 1}]
     seat_price_id = resolve_stripe_seat_price_id(plan)
     if seat_price_id and plan_per_head_price(plan) > 0:
-        active = count_active_employees(tenant_id=tenant_id, conn=conn)
+        active = (
+            max(0, int(active_employees_override))
+            if active_employees_override is not None
+            else count_active_employees(tenant_id=tenant_id, conn=conn)
+        )
         billable = billable_seat_quantity(plan, active)
         items.append({"price": seat_price_id, "quantity": billable})
     return items

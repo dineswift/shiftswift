@@ -58,7 +58,12 @@ async function applyPromoCodes() {
     const res = await fetch(`${API_BASE}/billing/validate-promo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: planId, discount_code, referral_code }),
+      body: JSON.stringify({
+        plan_id: planId,
+        discount_code,
+        referral_code,
+        active_employees: window.ShiftSwiftPricing?.readSignupHeadcount?.() ?? 0,
+      }),
     });
     const data = await res.json();
     if (!res.ok || !data.valid) throw new Error(data.message || data.detail || "Invalid code");
@@ -70,7 +75,9 @@ async function applyPromoCodes() {
     }
     const priceLine = document.getElementById("signup-summary-price");
     if (priceLine && data.adjusted_price_gbp_ex_vat != null) {
-      priceLine.textContent = `£${data.adjusted_price_gbp_ex_vat} + VAT after discount · selected plan`;
+      const headcount = window.ShiftSwiftPricing?.readSignupHeadcount?.() ?? 0;
+      const suffix = headcount > 0 ? ` · ${headcount} employees` : "";
+      priceLine.textContent = `£${data.adjusted_price_gbp_ex_vat} + VAT after discount${suffix}`;
     }
     if (data.extra_trial_days && promoMessage) {
       promoMessage.textContent += ` · +${data.extra_trial_days} extra trial days`;
@@ -166,6 +173,7 @@ document.getElementById("signup-form")?.addEventListener("submit", async (event)
     billing_email: form.billing_email.value.trim(),
     admin_password: password,
     plan_id: planId,
+    expected_active_employees: Number(document.getElementById("signup-active-employees")?.value) || 0,
     vat_number: form.vat_number?.value.trim() || null,
     start_trial: form.start_trial.checked,
     discount_code,

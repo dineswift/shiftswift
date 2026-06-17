@@ -183,7 +183,7 @@ def download_template(
     template_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     variant: Literal["platform", "effective"] = Query(default="effective"),
-    format: Literal["md", "pdf", "doc"] = Query(default="md"),
+    format: Literal["md", "pdf", "doc", "docx"] = Query(default="md"),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ):
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
@@ -194,7 +194,7 @@ def download_template(
             template_id=template_id,
             variant=variant,
             conn=conn,
-            ext=format,
+            ext="docx" if format in {"doc", "docx"} else format,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -205,10 +205,10 @@ def download_template(
         title = template_id.replace("_", " ").title()
         content = build_template_pdf_bytes(body, title=title)
         media_type = "application/pdf"
-    elif format == "doc":
+    elif format in {"doc", "docx"}:
         title = template_id.replace("_", " ").title()
         content = build_template_word_bytes(body, title=title)
-        media_type = "application/msword"
+        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     else:
         content = body.encode("utf-8")
         media_type = "text/markdown; charset=utf-8"

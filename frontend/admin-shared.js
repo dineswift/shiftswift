@@ -70,6 +70,7 @@ window.Admin = (() => {
     rota_advanced_enabled: false,
     rota_multi_site_enabled: false,
     crm_addon: false,
+    ai_document_addon: false,
     time_clock_enabled: localStorage.getItem("adminTimeClockEnabled") === "true",
     plan_display_name: "Essentials",
     plan_tier: "starter",
@@ -77,6 +78,7 @@ window.Admin = (() => {
 
   const ADDON_FLAG_KEYS = {
     crm: "crm_addon",
+    "ai-document": "ai_document_addon",
   };
 
   const FEATURE_FLAG_KEYS = {
@@ -108,7 +110,9 @@ window.Admin = (() => {
   };
 
   const ADDON_UPGRADE_LABELS = {
-    crm: "Sales CRM is a paid add-on. Contact your account manager or enable it in Master Ops to unlock pipeline, companies, and contacts.",
+    crm: "Sales CRM is a paid add-on at £10/month ex VAT. Add it under Settings → Billing & plan or contact support.",
+    "ai-document":
+      "AI document assistant is a paid add-on at £10/month ex VAT. Add it under Settings → Billing & plan or contact support.",
   };
 
   function featureUpgradeMessage(feature) {
@@ -337,6 +341,9 @@ window.Admin = (() => {
         rota_advanced_enabled: Boolean(data.rota_advanced_enabled),
         rota_multi_site_enabled: Boolean(data.rota_multi_site_enabled),
         crm_addon: Boolean(data.crm_addon),
+        crm_addon_monthly_gbp: data.crm_addon_monthly_gbp,
+        ai_document_addon: Boolean(data.ai_document_addon),
+        ai_document_addon_monthly_gbp: data.ai_document_addon_monthly_gbp,
         time_clock_enabled: Boolean(data.time_clock_enabled),
         plan_display_name: data.plan_display_name || "Starter",
         plan_tier: data.plan_tier || "starter",

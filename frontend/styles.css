@@ -12190,6 +12190,128 @@ body.rota-week-readonly .rota-builder-hint {
   }
 }
 
+.leave-employee-filter-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #f0faf6;
+  font-size: 0.84rem;
+}
+
+.leave-employee-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.leave-employee-picker[hidden] {
+  display: none !important;
+}
+
+.leave-employee-picker__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.leave-employee-picker__panel {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.leave-employee-picker__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 10px;
+}
+
+.leave-employee-picker__head h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.leave-employee-picker__head p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.leave-employee-picker__search {
+  padding: 0 16px 10px;
+}
+
+.leave-employee-picker__search input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.leave-employee-picker__list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+}
+
+.leave-employee-picker__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.leave-employee-picker__item:hover,
+.leave-employee-picker__item:focus-visible {
+  background: #f0faf6;
+  outline: none;
+}
+
+.leave-employee-picker__name {
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.leave-employee-picker__meta {
+  font-size: 0.78rem;
+}
+
+.leave-employee-picker__empty {
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 0.86rem;
+}
+
 .hr-template-library {
   display: grid;
   gap: 12px;

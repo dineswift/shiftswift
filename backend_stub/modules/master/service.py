@@ -594,6 +594,20 @@ def get_tenant_detail(
         alias=None,
         null_sql="NULL AS crm_addon_billing_notes",
     )
+    ai_addon_col = column_expr(
+        conn,
+        table="tenants",
+        column="ai_document_addon",
+        alias=None,
+        null_sql="FALSE AS ai_document_addon",
+    )
+    ai_monthly_col = column_expr(
+        conn,
+        table="tenants",
+        column="ai_document_addon_monthly_gbp",
+        alias=None,
+        null_sql="NULL::numeric AS ai_document_addon_monthly_gbp",
+    )
     sql = _TENANT_LIST_SQL + " AND t.id = %s"
     with conn.cursor() as cur:
         cur.execute(sql, (master_tenant_id, tenant_id))
@@ -606,7 +620,7 @@ def get_tenant_detail(
             SELECT subscription_status, payroll_enabled, holds_sponsor_licence, trial_ends_at,
                    platform_status, deleted_at, internal_notes,
                    rota_advanced_addon, rota_multi_site_addon, rota_mode, crm_addon,
-                   {crm_monthly_col}, {crm_notes_col}
+                   {crm_monthly_col}, {crm_notes_col}, {ai_addon_col}, {ai_monthly_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -625,6 +639,8 @@ def get_tenant_detail(
         crm_addon = bool(meta[10]) if meta else False
         crm_addon_monthly_gbp = float(meta[11]) if meta and meta[11] is not None else None
         crm_addon_billing_notes = meta[12] if meta else None
+        ai_document_addon = bool(meta[13]) if meta else False
+        ai_document_addon_monthly_gbp = float(meta[14]) if meta and meta[14] is not None else None
 
         trial_access = subscription_status in TRIALING_STATUSES
         features = effective_features_for_tenant(
@@ -696,4 +712,6 @@ def get_tenant_detail(
         "crm_addon": crm_addon,
         "crm_addon_monthly_gbp": crm_addon_monthly_gbp,
         "crm_addon_billing_notes": crm_addon_billing_notes or "",
+        "ai_document_addon": ai_document_addon,
+        "ai_document_addon_monthly_gbp": ai_document_addon_monthly_gbp,
     }

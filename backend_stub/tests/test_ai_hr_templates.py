@@ -104,9 +104,8 @@ def test_build_template_pdf_bytes_starts_with_pdf_header():
     assert len(pdf) > 500
 
 
-def test_build_template_word_bytes_is_html_document():
+def test_build_template_word_bytes_is_docx_document():
     markdown = "# Test policy\n\nHello **world**."
     doc = export_mod.build_template_word_bytes(markdown, title="Test policy")
-    text = doc.decode("utf-8")
-    assert "<html" in text.lower()
-    assert "<strong>world</strong>" in text
+    assert doc[:2] == b"PK"
+    assert len(doc) > 500

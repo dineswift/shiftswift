@@ -537,6 +537,16 @@
         : null;
       const advancedAddon = Boolean(overview.rota_advanced_addon);
       const multiSiteAddon = Boolean(overview.rota_multi_site_addon);
+      const aiDocumentAddon = Boolean(overview.ai_document_addon);
+      const aiDocumentPrice =
+        overview.ai_document_addon_monthly_gbp != null && overview.ai_document_addon_monthly_gbp !== ""
+          ? Number(overview.ai_document_addon_monthly_gbp).toFixed(2)
+          : "10.00";
+      const crmAddon = Boolean(overview.crm_addon);
+      const crmAddonPrice =
+        overview.crm_addon_monthly_gbp != null && overview.crm_addon_monthly_gbp !== ""
+          ? Number(overview.crm_addon_monthly_gbp).toFixed(2)
+          : "10.00";
 
       host.innerHTML = `
         <div class="settings-billing-summary">
@@ -556,8 +566,16 @@
               <span>Multi-site rota</span>
               <span class="settings-billing-addons__pill ${multiSiteAddon ? "is-active" : "is-inactive"}">${multiSiteAddon ? "Active" : "Not enabled"}</span>
             </li>
+            <li class="settings-billing-addons__item">
+              <span>AI document assistant</span>
+              <span class="settings-billing-addons__pill ${aiDocumentAddon ? "is-active" : "is-inactive"}">${aiDocumentAddon ? `Active · £${escapeHtml(aiDocumentPrice)}/mo` : `£${escapeHtml(aiDocumentPrice)}/mo — not enabled`}</span>
+            </li>
+            <li class="settings-billing-addons__item">
+              <span>Sales CRM</span>
+              <span class="settings-billing-addons__pill ${crmAddon ? "is-active" : "is-inactive"}">${crmAddon ? `Active · £${escapeHtml(crmAddonPrice)}/mo` : `£${escapeHtml(crmAddonPrice)}/mo — not enabled`}</span>
+            </li>
           </ul>
-          <p class="muted settings-billing-addons__note">Basic manual rota is included on all plans. Add-ons are enabled by ${escapeHtml(window.ShiftSwiftBrand?.appName || "ShiftSwift HR")} support until self-service billing is live — <a href="#" data-brand-support-mailto="Rota add-on">request an add-on</a>.</p>
+          <p class="muted settings-billing-addons__note">Basic manual rota is included on all plans. Add-ons are enabled by ${escapeHtml(window.ShiftSwiftBrand?.appName || "ShiftSwift HR")} support until self-service billing is live — <a href="#" data-brand-support-mailto="Subscription add-on">request an add-on</a>.</p>
         </div>
         <div class="link-row settings-billing-actions">
           <button type="button" class="btn outline" data-settings-upgrade>Upgrade plan</button>
