@@ -9026,6 +9026,391 @@ body.rota-week-readonly .rota-builder-hint {
   font-size: 0.8rem;
 }
 
+.employee-shifts-card {
+  padding: 16px;
+}
+
+.employee-shifts-week {
+  margin: 0 0 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.employee-shifts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.employee-shifts-placeholder,
+.employee-shifts-empty {
+  margin: 0;
+}
+
+.employee-shifts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.employee-shifts-empty__text {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.employee-shifts-message {
+  margin: 12px 0 0;
+  min-height: 1.25em;
+}
+
+.employee-shift-card {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+.employee-shift-card--today {
+  border-color: rgba(21, 128, 61, 0.35);
+  background: linear-gradient(145deg, #f0fdf4 0%, #ffffff 70%);
+}
+
+.employee-shift-card__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  background: var(--green-100);
+  color: var(--green-900);
+  text-align: center;
+}
+
+.employee-shift-card--today .employee-shift-card__date {
+  background: var(--green-700);
+  color: #fff;
+}
+
+.employee-shift-card__weekday {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.employee-shift-card__day {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.employee-shift-card__today {
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.employee-shift-card--today .employee-shift-card__today {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.employee-shift-card__body {
+  min-width: 0;
+}
+
+.employee-shift-card__time {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--green-900);
+  letter-spacing: -0.01em;
+}
+
+.employee-shift-card__role {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.employee-shift-card__notes {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.employee-shift-card__cover {
+  margin-top: 4px;
+}
+
+@media (max-width: 860px) {
+  #my-shifts .section-header {
+    margin-bottom: 12px;
+  }
+
+  #my-shifts .section-header h2 {
+    font-size: 1.35rem;
+  }
+
+  .employee-shifts-card {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+  }
+}
+
+/* Employee portal — leave */
+.employee-leave-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.employee-leave-balance-panel {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid rgba(21, 128, 61, 0.18);
+}
+
+.employee-leave-balance-panel__label {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green-800);
+}
+
+.employee-leave-balance-panel__value {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--green-900);
+  font-weight: 600;
+}
+
+.employee-leave-section-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--green-900);
+  letter-spacing: -0.01em;
+}
+
+.employee-leave-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.employee-leave-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.employee-leave-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.employee-leave-field--full {
+  width: 100%;
+}
+
+.employee-leave-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+
+.employee-leave-label__optional {
+  font-weight: 500;
+  color: var(--gray-500);
+}
+
+.employee-leave-field select,
+.employee-leave-field input,
+.employee-leave-field textarea {
+  width: 100%;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--ink-900);
+  background: var(--white);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.employee-leave-field select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--green-700) 50%),
+    linear-gradient(135deg, var(--green-700) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 2px), calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+.employee-leave-field textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.employee-leave-form-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.employee-leave-submit {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.employee-leave-status {
+  margin: 0;
+  min-height: 1.25em;
+  font-size: 0.88rem;
+}
+
+.employee-leave-status--ok {
+  color: var(--green-800);
+  font-weight: 600;
+}
+
+.employee-leave-list-wrap {
+  min-height: 2rem;
+}
+
+.employee-leave-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.employee-leave-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.employee-leave-empty__text,
+.employee-leave-placeholder {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.employee-leave-card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+
+.employee-leave-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.employee-leave-card__type {
+  margin: 0 0 2px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--green-900);
+}
+
+.employee-leave-card__dates {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--gray-700);
+}
+
+.employee-leave-card__days {
+  margin: 0 0 6px;
+  font-size: 0.84rem;
+}
+
+.employee-leave-card__reason {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--gray-700);
+}
+
+.employee-leave-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.employee-leave-pill--ok {
+  background: #ecfdf5;
+  color: var(--green-800);
+}
+
+.employee-leave-pill--warn {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.employee-leave-pill--danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+@media (max-width: 860px) {
+  #leave .section-header {
+    margin-bottom: 12px;
+  }
+
+  #leave .section-header h2 {
+    font-size: 1.35rem;
+  }
+
+  .employee-leave-shell {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  .employee-leave-dates {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -11870,19 +12255,149 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employee-home-greeting {
-  margin: 0 0 6px;
-  font-size: 1.55rem;
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  opacity: 0.9;
+}
+
+.employee-home-name {
+  margin: 0 0 12px;
+  font-size: 1.65rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.12;
   letter-spacing: -0.02em;
 }
 
+.employee-home-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .employee-home-employer {
-  margin: 0 0 10px;
-  font-size: 1rem;
+  margin: 0;
+  font-size: 0.92rem;
   font-weight: 600;
   line-height: 1.3;
-  opacity: 0.96;
+  opacity: 0.94;
+}
+
+.employee-home-role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.employee-alerts-banner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(21, 128, 61, 0.18);
+  background: linear-gradient(145deg, #fff 0%, #f0fdf4 100%);
+  box-shadow: var(--shadow-card);
+}
+
+.employee-alerts-banner--active {
+  display: none;
+}
+
+.employee-alerts-banner__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--green-100);
+  color: var(--green-800);
+}
+
+.employee-alerts-banner__icon svg,
+.employee-alerts-banner__icon .admin-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.employee-alerts-banner__copy {
+  min-width: 0;
+}
+
+.employee-alerts-banner__title {
+  display: block;
+  margin: 0 0 2px;
+  font-size: 0.92rem;
+  color: var(--green-900);
+}
+
+.employee-alerts-banner__text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--gray-700);
+}
+
+.employee-alerts-banner__btn {
+  white-space: nowrap;
+}
+
+.employee-topbar-alerts-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 12px;
+  background: var(--green-100);
+  color: var(--green-800);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.employee-topbar-alerts-btn__icon svg,
+.employee-topbar-alerts-btn__icon .admin-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.employee-topbar-alerts-btn--active {
+  background: var(--green-700);
+  color: #fff;
+}
+
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) .employee-topbar-alerts-btn {
+    display: inline-flex;
+  }
+
+  body:has(#mobile-tab-bar) .topbar-actions--desktop {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) .topbar-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  body:has(#mobile-tab-bar) .app-mobile-header {
+    align-items: center;
+  }
 }
 
 .employee-home-signed-in {

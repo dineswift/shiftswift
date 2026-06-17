@@ -10,6 +10,49 @@
     return "http://localhost:3000";
   }
 
+  function resolvePasswordPortal() {
+    const portal = document.body?.dataset?.passwordPortal;
+    if (portal === "employee" || portal === "hr") return portal;
+    if (document.body?.dataset?.loginPage === "employee") return "employee";
+    const role = new URLSearchParams(window.location.search).get("role");
+    if (role === "employee") return "employee";
+    return "hr";
+  }
+
+  function loginUrlForPortal(portal) {
+    return portal === "employee" ? "./employee-login.html" : "./business-login.html";
+  }
+
+  function forgotUrlForPortal(portal) {
+    return portal === "employee" ? "./employee-forgot-password.html" : "./forgot-password.html";
+  }
+
+  function applyEmployeeResetChrome(portal) {
+    if (portal !== "employee") return;
+    document.body.classList.add("portal-login-page--employee");
+    document.body.dataset.passwordPortal = "employee";
+
+    const brandLink = document.querySelector(".portal-login-brand a");
+    const brandLogo = document.querySelector(".portal-login-brand-logo");
+    const brandCopy = document.querySelector(".portal-login-brand-copy");
+    if (brandLink) {
+      brandLink.href = "./employee-login.html";
+      brandLink.setAttribute("aria-label", "Employee sign in");
+    }
+    if (brandLogo) {
+      brandLogo.src = "./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6";
+      brandLogo.alt = "ShiftSwift Employee";
+      brandLogo.classList.add("app-mark", "app-mark--login");
+    }
+    if (brandCopy) brandCopy.textContent = "Employee portal";
+
+    const card = document.querySelector(".portal-login-card");
+    if (card) card.classList.add("portal-login-card--employee");
+
+    const expiredLink = document.getElementById("reset-expired-link");
+    if (expiredLink) expiredLink.href = forgotUrlForPortal("employee");
+  }
+
   function setStatus(el, message, isSuccess) {
     if (!el) return;
     if (message) {
@@ -56,40 +99,23 @@
     return data;
   }
 
-  let resetRole = "hr";
-
   function initForgotPage() {
     const form = document.getElementById("forgot-password-form");
     if (!form) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const backLink = document.getElementById("forgot-back-link");
-    const syncBackLink = () => {
-      if (!backLink) return;
-      backLink.href = resetRole === "employee" ? "./employee-login.html" : "./business-login.html";
-    };
+    const portal = resolvePasswordPortal();
+    const resetRole = portal === "employee" ? "employee" : "hr";
+    applyEmployeeResetChrome(portal);
 
-    if (params.get("role") === "employee") {
-      resetRole = "employee";
-      document.querySelectorAll("[data-reset-tab]").forEach((tab) => {
-        const active = tab.dataset.resetTab === "employee";
-        tab.classList.toggle("is-active", active);
-        tab.setAttribute("aria-selected", active ? "true" : "false");
-      });
-    }
-    syncBackLink();
+    const backLink = document.getElementById("forgot-back-link");
+    if (backLink) backLink.href = loginUrlForPortal(portal);
 
     document.querySelectorAll("[data-reset-tab]").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        resetRole = tab.dataset.resetTab || "hr";
-        document.querySelectorAll("[data-reset-tab]").forEach((item) => {
-          const active = item === tab;
-          item.classList.toggle("is-active", active);
-          item.setAttribute("aria-selected", active ? "true" : "false");
-        });
-        syncBackLink();
-      });
+      tab.hidden = true;
+      tab.setAttribute("aria-hidden", "true");
     });
+    const tabs = document.getElementById("reset-tabs");
+    if (tabs) tabs.hidden = true;
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -115,6 +141,7 @@
     const gdprNotice = document.getElementById("employee-gdpr-notice");
     const gdprCheckbox = form.querySelector('input[name="accept_employee_gdpr"]');
     let requiresGdprConsent = false;
+    let resetPortal = resolvePasswordPortal();
 
     if (!token) {
       setStatus(status, "Missing reset token. Request a new link from the forgot password page.", false);
@@ -123,6 +150,10 @@
 
     getJson(`/auth/reset-password/context?token=${encodeURIComponent(token)}`)
       .then((context) => {
+        if (context.role === "employee") {
+          resetPortal = "employee";
+          applyEmployeeResetChrome("employee");
+        }
         if (context.role === "employee" && context.requires_gdpr_consent) {
           requiresGdprConsent = true;
           if (gdprNotice) gdprNotice.hidden = false;
@@ -170,7 +201,7 @@
         });
         setStatus(status, result.message || "Password updated.", true);
         setTimeout(() => {
-          window.location.href = "./employee-login.html";
+          window.location.href = loginUrlForPortal(resetPortal);
         }, 1500);
       } catch (error) {
         setStatus(status, friendlyError(error.message), false);

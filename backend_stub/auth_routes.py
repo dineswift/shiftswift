@@ -691,13 +691,24 @@ def verify_auth(current_user: Annotated[AuthUser, Depends(get_current_user)]) ->
             finally:
                 conn.close()
         return result
-    from employee_portal_consent import has_employee_gdpr_consent, tenant_display_name
+    from employee_portal_consent import (
+        employee_display_name,
+        has_employee_gdpr_consent,
+        tenant_display_name,
+    )
     from modules.time_punch.service import employee_time_clock_enabled
 
     tenant_id = int(current_user.tenant_id)
     conn = _db_conn()
     try:
         result["employer_name"] = tenant_display_name(tenant_id=tenant_id, conn=conn)
+        display_name, first_name = employee_display_name(
+            tenant_id=tenant_id,
+            username=current_user.username,
+            conn=conn,
+        )
+        result["display_name"] = display_name
+        result["first_name"] = first_name
         result["time_clock_enabled"] = employee_time_clock_enabled(
             tenant_id=tenant_id,
             username=current_user.username,

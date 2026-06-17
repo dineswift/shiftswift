@@ -1,8 +1,10 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v1";
+const CACHE_NAME = "shiftswift-admin-v2";
 const SHELL = [
   "./admin.html",
   "./business-login.html",
+  "./forgot-password.html",
+  "./reset-password.html",
   "./admin-manifest.webmanifest",
   "./styles.css",
   "./theme.css",
@@ -21,7 +23,7 @@ const SHELL = [
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
 const EMPLOYEE_ONLY_PATHS =
-  /\/(employee-login|employee|punch)\.html$/i;
+  /\/(employee-login|employee-forgot-password|employee|punch)\.html$/i;
 
 function isSameOrigin(request) {
   try {

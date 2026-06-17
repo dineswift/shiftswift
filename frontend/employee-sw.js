@@ -1,8 +1,10 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v2";
+const CACHE_NAME = "shiftswift-employee-v4";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
+  "./employee-forgot-password.html",
+  "./reset-password.html",
   "./employee-manifest.webmanifest",
   "./styles.css",
   "./theme.css",
@@ -22,7 +24,12 @@ const SHELL = [
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
-const HR_ONLY_PATHS = /\/(business-login|login|admin|signup|signup-success|ops-9x7k2|master|master-tenant|tenant-login|master-login)\.html$/i;
+const HR_ONLY_PATHS =
+  /\/(business-login|login|admin|signup|signup-success|ops-9x7k2|master|master-tenant|tenant-login|master-login)\.html$/i;
+
+function employeeForgotPasswordUrl(requestUrl) {
+  return new URL("./employee-forgot-password.html", requestUrl).toString();
+}
 
 function isSameOrigin(request) {
   try {
@@ -43,6 +50,7 @@ function employeeLoginUrl(requestUrl) {
 function fallbackDocument(url) {
   const path = new URL(url).pathname;
   if (path.includes("employee-login")) return "./employee-login.html";
+  if (path.includes("employee-forgot-password")) return "./employee-forgot-password.html";
   return "./employee.html";
 }
 
@@ -75,6 +83,10 @@ self.addEventListener("fetch", (event) => {
 
   if (isNavigation(event.request)) {
     const path = new URL(event.request.url).pathname;
+    if (/\/forgot-password\.html$/i.test(path)) {
+      event.respondWith(Response.redirect(employeeForgotPasswordUrl(event.request.url), 302));
+      return;
+    }
     if (HR_ONLY_PATHS.test(path)) {
       event.respondWith(Response.redirect(employeeLoginUrl(event.request.url), 302));
       return;
@@ -151,15 +163,21 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
       const data = parsePushPayload(event);
+      const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of allClients) {
+        client.postMessage({ type: "SHIFT_ALERT", title: data.title, body: data.body });
+      }
       await self.registration.showNotification(data.title, {
         body: data.body,
         icon: "./assets/shiftswift-employee-app-icon-192.png",
         badge: "./assets/shiftswift-employee-app-icon-192.png",
         tag: data.tag || "shiftswift-employee",
         renotify: true,
+        vibrate: [180, 80, 180],
+        silent: false,
         data: { url: data.url || "./employee.html#time-clock" },
         actions: [
-          { action: "open", title: "Open app" },
+          { action: "open", title: "Clock in now" },
           { action: "dismiss", title: "Dismiss" },
         ],
       });
@@ -167,25 +185,49 @@ self.addEventListener("push", (event) => {
   );
 });
 
+function resolveNotificationTarget(rawUrl) {
+  try {
+    return new URL(rawUrl, self.location.href).href;
+  } catch {
+    return new URL("./employee.html#time-clock", self.location.href).href;
+  }
+}
+
+function hashFromTarget(targetUrl) {
+  try {
+    const url = new URL(targetUrl);
+    return url.hash || "";
+  } catch {
+    return "";
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "dismiss") return;
 
-  const targetUrl = event.notification.data?.url || "./employee.html#time-clock";
+  const targetUrl = resolveNotificationTarget(
+    event.notification.data?.url || "./employee.html#time-clock",
+  );
+  const hash = hashFromTarget(targetUrl);
   event.waitUntil(
     (async () => {
       const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of allClients) {
         if (client.url.includes("employee.html") || client.url.includes("employee-login.html")) {
           await client.focus();
+          if (hash) {
+            client.postMessage({ type: "SHIFT_NAVIGATE", hash });
+          }
           if ("navigate" in client) {
             try {
               await client.navigate(targetUrl);
+              return;
             } catch {
-              /* focus only */
+              /* fall through */
             }
           }
-          return;
+          if (hash) return;
         }
       }
       await clients.openWindow(targetUrl);

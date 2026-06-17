@@ -36,12 +36,15 @@
   }
 
   function displayFirstName() {
+    const firstName = localStorage.getItem("employeeFirstName") || "";
+    if (firstName) return firstName;
     const stored = localStorage.getItem("employeeDisplayName") || "";
-    if (stored) return stored;
+    if (stored) return stored.split(/\s+/)[0];
     const username = localStorage.getItem("employeeUsername") || "";
     if (!username) return "there";
     const local = username.split("@")[0] || username;
-    return local.charAt(0).toUpperCase() + local.slice(1);
+    const cleaned = local.replace(/\d+$/, "") || local;
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
   }
 
   function refreshGreeting() {
@@ -245,4 +248,11 @@
     refreshGreeting,
     syncClockAvailability,
   };
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type !== "SHIFT_NAVIGATE" || !event.data.hash) return;
+      window.location.hash = String(event.data.hash).replace(/^#/, "");
+    });
+  }
 })();

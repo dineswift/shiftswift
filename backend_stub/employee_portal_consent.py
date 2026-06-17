@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -16,6 +17,35 @@ def tenant_display_name(*, tenant_id: int, conn: Any) -> str:
 
     profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
     return str(profile.get("trading_name") or profile.get("name") or "Your employer")
+
+
+def username_display_fallback(username: str) -> str:
+    """Best-effort friendly label when HR has not set employee name yet."""
+    local = (username.split("@", 1)[0] if "@" in username else username).strip()
+    if not local:
+        return "Employee"
+    cleaned = re.sub(r"\d+$", "", local).strip() or local
+    return cleaned[:1].upper() + cleaned[1:]
+
+
+def employee_display_name(*, tenant_id: int, username: str, conn: Any) -> tuple[str, str]:
+    """Return (display_name, first_name) for the signed-in employee."""
+    from modules.time_punch.service import resolve_employee
+
+    employee = resolve_employee(tenant_id=tenant_id, username=username, conn=conn)
+    if not employee:
+        fallback = username_display_fallback(username)
+        return fallback, fallback.split()[0] if fallback else "there"
+
+    first = str(employee.get("first_name") or "").strip()
+    last = str(employee.get("last_name") or "").strip()
+    full = f"{first} {last}".strip()
+    if full:
+        return full, first or full.split()[0]
+    if first:
+        return first, first
+    fallback = username_display_fallback(username)
+    return fallback, fallback.split()[0] if fallback else "there"
 
 
 def has_employee_gdpr_consent(*, tenant_id: int, username: str, conn: Any) -> bool:

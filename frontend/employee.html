@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v79" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v83" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -80,6 +80,15 @@
           <div class="stack topbar-actions topbar-actions--desktop">
             <a class="btn ghost" href="./employee-login.html" data-sign-out>Sign out</a>
           </div>
+          <button
+            type="button"
+            class="employee-topbar-alerts-btn"
+            id="employee-topbar-alerts-btn"
+            aria-label="Turn on shift alerts"
+            title="Shift alerts"
+          >
+            <span class="employee-topbar-alerts-btn__icon" data-icon="bell" aria-hidden="true"></span>
+          </button>
         </div>
 
         <div id="mobile-more-panel" class="mobile-more-panel" hidden>
@@ -98,9 +107,25 @@
           <div class="employee-home employee-mobile-home-only">
             <header class="employee-home-hero">
               <p class="employee-home-greeting" id="mobile-greeting">Good afternoon</p>
-              <p class="employee-home-employer" id="mobile-employer-subtitle">Your employer</p>
-              <p class="employee-home-signed-in" id="employee-welcome-mobile">Loading your account…</p>
+              <p class="employee-home-name" id="employee-display-name">Loading…</p>
+              <div class="employee-home-meta">
+                <p class="employee-home-employer" id="mobile-employer-subtitle">Your employer</p>
+                <span class="employee-home-role-pill">Employee</span>
+              </div>
             </header>
+
+            <div class="employee-alerts-banner" id="employee-alerts-banner">
+              <span class="employee-alerts-banner__icon" data-icon="bell" aria-hidden="true"></span>
+              <div class="employee-alerts-banner__copy">
+                <strong class="employee-alerts-banner__title">Shift alerts</strong>
+                <p class="employee-alerts-banner__text" id="employee-alerts-status">
+                  Get a bell alert 10 minutes before your shift and if you forget to clock in.
+                </p>
+              </div>
+              <button type="button" class="btn primary btn-sm employee-alerts-banner__btn" id="employee-enable-alerts-btn">
+                Turn on alerts
+              </button>
+            </div>
 
             <div class="employee-home-quick">
               <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock" data-requires-clock>
@@ -192,7 +217,7 @@
             </article>
             <article class="card">
               <h3>Leave balance</h3>
-              <p class="muted" id="employee-leave-balance">Loading…</p>
+              <p class="muted" data-mirror="employee-leave-balance">Loading…</p>
               <a class="btn ghost" href="#leave">Request leave</a>
             </article>
             <article class="card">
@@ -239,11 +264,12 @@
               <p class="muted">Published rota from your manager. Request cover if you cannot work a shift.</p>
             </div>
           </header>
-          <article class="card">
-            <ul id="employee-week-shifts" class="punch-shift-list">
-              <li class="muted">Loading…</li>
-            </ul>
-            <p id="employee-shift-message" class="muted" aria-live="polite"></p>
+          <article class="card employee-shifts-card">
+            <p id="employee-shifts-week-label" class="employee-shifts-week muted" hidden></p>
+            <div id="employee-week-shifts" class="employee-shifts-list">
+              <p class="employee-shifts-placeholder muted">Loading shifts…</p>
+            </div>
+            <p id="employee-shift-message" class="employee-shifts-message muted" aria-live="polite"></p>
           </article>
         </section>
 
@@ -254,10 +280,18 @@
               <p class="muted">Request time off — HR approves in the admin console. Days are counted Mon–Fri.</p>
             </div>
           </header>
-          <article class="card">
-            <form id="employee-leave-form" class="edit-form edit-form--cols-2">
-              <label class="edit-field">
-                <span class="edit-label">Leave type</span>
+          <article class="card employee-leave-shell">
+            <div class="employee-leave-balance-panel" id="employee-leave-balance-panel">
+              <p class="employee-leave-balance-panel__label">Annual leave balance</p>
+              <p class="employee-leave-balance-panel__value" id="employee-leave-balance" data-mirror="employee-leave-balance">
+                Loading balance…
+              </p>
+            </div>
+
+            <h3 class="employee-leave-section-title">New request</h3>
+            <form id="employee-leave-form" class="employee-leave-form">
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Leave type</span>
                 <select name="leave_type" required>
                   <option value="annual">Annual leave</option>
                   <option value="sick">Sick leave</option>
@@ -265,25 +299,29 @@
                   <option value="other">Other</option>
                 </select>
               </label>
-              <label class="edit-field">
-                <span class="edit-label">From</span>
-                <input type="date" name="start_date" required />
+              <div class="employee-leave-dates">
+                <label class="employee-leave-field">
+                  <span class="employee-leave-label">From</span>
+                  <input type="date" name="start_date" required />
+                </label>
+                <label class="employee-leave-field">
+                  <span class="employee-leave-label">To</span>
+                  <input type="date" name="end_date" required />
+                </label>
+              </div>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Reason <span class="employee-leave-label__optional">(optional)</span></span>
+                <textarea name="reason" rows="3" maxlength="2000" placeholder="Brief note for HR"></textarea>
               </label>
-              <label class="edit-field">
-                <span class="edit-label">To</span>
-                <input type="date" name="end_date" required />
-              </label>
-              <label class="edit-field" data-span="2">
-                <span class="edit-label">Reason (optional)</span>
-                <textarea name="reason" rows="2" maxlength="2000" placeholder="Brief note for HR"></textarea>
-              </label>
-              <div class="edit-form-actions" data-span="2">
-                <button type="submit" class="btn primary">Submit request</button>
-                <p class="edit-form-status muted" id="employee-leave-status" aria-live="polite"></p>
+              <div class="employee-leave-form-foot">
+                <button type="submit" class="btn primary employee-leave-submit">Submit request</button>
+                <p class="employee-leave-status muted" id="employee-leave-status" aria-live="polite"></p>
               </div>
             </form>
+
+            <h3 class="employee-leave-section-title">Your requests</h3>
             <div id="employee-leave-list" class="employee-leave-list-wrap">
-              <p class="muted">Loading leave requests…</p>
+              <p class="employee-leave-placeholder muted">Loading leave requests…</p>
             </div>
           </article>
         </section>
@@ -440,25 +478,26 @@
     <script src="./brand-config.js?v=brand-v4"></script>
     <script src="./session-auth.js?v=2"></script>
     <script src="./employee-pwa.js?v=1"></script>
-    <script src="./push-notifications.js?v=1"></script>
+    <script src="./push-notifications.js?v=2"></script>
     <script
       src="./portal-pwa-install.js?v=2"
       data-portal="employee"
       data-app-name="ShiftSwift Employee"
       data-manifest="./employee-manifest.webmanifest?v=7"
-      data-sw="./employee-sw.js?v=2"
+      data-sw="./employee-sw.js?v=4"
     ></script>
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=2"></script>
-    <script src="./employee-mobile.js?v=4"></script>
-    <script src="./employee.js?v=9"></script>
+    <script src="./employee-mobile.js?v=6"></script>
+    <script src="./employee.js?v=10"></script>
+    <script src="./employee-push-alerts.js?v=1"></script>
     <script src="./employee-time-punch.js?v=6"></script>
-    <script src="./employee-rota.js?v=5"></script>
+    <script src="./employee-rota.js?v=6"></script>
     <script src="./employee-documents.js?v=5"></script>
     <script src="./employee-notes.js?v=2"></script>
     <script src="./employee-security.js?v=2"></script>
-    <script src="./employee-leave.js?v=2"></script>
+    <script src="./employee-leave.js?v=3"></script>
       <script src="./cookie-consent.js?v=1"></script>
     <script>
       (function hydrateEmployeeChrome() {

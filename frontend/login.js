@@ -323,7 +323,7 @@ function switchLoginMode(nextMode) {
   const forgotLink = document.getElementById("forgot-password-link");
   if (forgotLink) {
     forgotLink.href =
-      activeLoginMode === "employee" ? "./forgot-password.html?role=employee" : "./forgot-password.html";
+      activeLoginMode === "employee" ? "./employee-forgot-password.html" : "./forgot-password.html";
   }
   setStatus("");
 }

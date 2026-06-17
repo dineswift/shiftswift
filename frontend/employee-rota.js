@@ -6,7 +6,16 @@
   if (!session.hasSession()) return;
 
   const listEl = document.getElementById("employee-week-shifts");
+  const weekLabelEl = document.getElementById("employee-shifts-week-label");
   const messageEl = document.getElementById("employee-shift-message");
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
   async function apiFetch(path, options = {}) {
     const tenantId = localStorage.getItem("tenantId");
@@ -25,6 +34,27 @@
     });
   }
 
+  function parseApiError(data, fallback) {
+    const detail = data?.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
+  }
+
+  function formatWeekLabel(weekStart, weekEnd) {
+    if (!weekStart || !weekEnd) return "";
+    const start = new Date(`${weekStart}T12:00:00`);
+    const end = new Date(`${weekEnd}T12:00:00`);
+    const sameMonth = start.getMonth() === end.getMonth();
+    const startText = start.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const endText = end.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: sameMonth ? undefined : "short",
+      year: start.getFullYear() === end.getFullYear() ? undefined : "numeric",
+    });
+    return `Week ${startText} – ${endText}`;
+  }
+
   function formatShiftSummary(items) {
     if (!items.length) return "No shifts published this week.";
     const countLabel = items.length === 1 ? "1 shift this week" : `${items.length} shifts this week`;
@@ -36,6 +66,47 @@
     });
     const time = `${next.start_time}–${next.end_time}`;
     return `${countLabel} · next ${day} ${time}`;
+  }
+
+  function renderPlaceholder(text, { retry = false } = {}) {
+    if (!listEl) return;
+    listEl.innerHTML = `
+      <div class="employee-shifts-empty">
+        <p class="employee-shifts-empty__text muted">${escapeHtml(text)}</p>
+        ${retry ? '<button type="button" class="btn ghost btn-sm" id="employee-shifts-retry">Try again</button>' : ""}
+      </div>`;
+    if (retry) {
+      document.getElementById("employee-shifts-retry")?.addEventListener("click", loadShifts);
+    }
+  }
+
+  function renderShiftCard(shift) {
+    const date = new Date(`${shift.shift_date}T12:00:00`);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const isToday = shift.shift_date === todayIso;
+    const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
+    const dayNum = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const role = shift.role_label ? `<p class="employee-shift-card__role">${escapeHtml(shift.role_label)}</p>` : "";
+    const notes = shift.notes
+      ? `<p class="employee-shift-card__notes muted">${escapeHtml(shift.notes)}</p>`
+      : "";
+
+    return `
+      <article class="employee-shift-card${isToday ? " employee-shift-card--today" : ""}">
+        <div class="employee-shift-card__date">
+          <span class="employee-shift-card__weekday">${escapeHtml(weekday)}</span>
+          <span class="employee-shift-card__day">${escapeHtml(dayNum)}</span>
+          ${isToday ? '<span class="employee-shift-card__today">Today</span>' : ""}
+        </div>
+        <div class="employee-shift-card__body">
+          <p class="employee-shift-card__time">${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}</p>
+          ${role}
+          ${notes}
+          <button type="button" class="btn ghost btn-sm employee-shift-card__cover" data-cover-shift="${shift.id}">
+            Request cover
+          </button>
+        </div>
+      </article>`;
   }
 
   async function requestCover(shiftId) {
@@ -57,7 +128,7 @@
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setMessage(data.detail?.message || data.detail || "Request failed.");
+      setMessage(parseApiError(data, "Request failed."));
       return;
     }
     setMessage("Cover request sent to your manager.");
@@ -65,36 +136,49 @@
 
   async function loadShifts() {
     if (!listEl) return;
-    if (!localStorage.getItem("tenantId")) return;
+    if (!localStorage.getItem("tenantId")) {
+      renderPlaceholder("Loading your account…");
+      return;
+    }
+
+    renderPlaceholder("Loading shifts…");
+    setMessage("");
+    if (weekLabelEl) weekLabelEl.hidden = true;
+
     try {
       const res = await apiFetch("/rota/my-shifts", { method: "GET" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        listEl.innerHTML = "<li class=\"muted\">Could not load shifts.</li>";
+        const errorText = parseApiError(data, "Could not load shifts.");
+        renderPlaceholder(errorText, { retry: true });
         setShiftsSummary("Could not load shifts.");
         return;
       }
+
       const items = data.shifts || [];
       setShiftsSummary(formatShiftSummary(items));
+
+      if (weekLabelEl) {
+        const label = formatWeekLabel(data.week_start, data.week_end);
+        if (label) {
+          weekLabelEl.textContent = label;
+          weekLabelEl.hidden = false;
+        } else {
+          weekLabelEl.hidden = true;
+        }
+      }
+
       if (!items.length) {
-        listEl.innerHTML = "<li class=\"muted\">No published shifts this week yet.</li>";
+        renderPlaceholder("No published shifts this week yet. Check back after your manager publishes the rota.");
         return;
       }
-      listEl.innerHTML = items
-        .map((s) => {
-          const day = new Date(`${s.shift_date}T12:00:00`).toLocaleDateString("en-GB", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          });
-          return `<li class="employee-shift-item"><span><strong>${day}</strong> ${s.start_time}–${s.end_time}${s.role_label ? ` · ${s.role_label}` : ""}</span> <button type="button" class="btn ghost btn-sm" data-cover-shift="${s.id}">Request cover</button></li>`;
-        })
-        .join("");
+
+      listEl.innerHTML = items.map(renderShiftCard).join("");
       listEl.querySelectorAll("[data-cover-shift]").forEach((btn) => {
         btn.addEventListener("click", () => requestCover(Number(btn.getAttribute("data-cover-shift"))));
       });
     } catch {
-      listEl.innerHTML = "<li class=\"muted\">Could not load shifts.</li>";
+      renderPlaceholder("Could not reach the server. Check your connection.", { retry: true });
       setShiftsSummary("Could not load shifts.");
     }
   }

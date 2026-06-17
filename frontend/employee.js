@@ -70,7 +70,7 @@
 
   async function loadProfile() {
     const welcome = document.getElementById("employee-welcome");
-    const welcomeMobile = document.getElementById("employee-welcome-mobile");
+    const displayNameEl = document.getElementById("employee-display-name");
     const employerHeader = document.getElementById("topbar-employer-name");
     const employerSubtitle = document.getElementById("mobile-employer-subtitle");
     try {
@@ -95,20 +95,13 @@
         window.location.replace("./admin.html");
         return;
       }
-      if (user.username) {
-        localStorage.setItem("employeeUsername", user.username);
-        const local = user.username.split("@")[0] || user.username;
-        localStorage.setItem(
-          "employeeDisplayName",
-          local.charAt(0).toUpperCase() + local.slice(1),
-        );
-      }
+      applyEmployeeIdentity(user);
       const employerLabel = user.employer_name || "Your employer";
       if (employerHeader) employerHeader.textContent = employerLabel;
       if (employerSubtitle) employerSubtitle.textContent = employerLabel;
-      const signedInText = user.username ? `Signed in as ${user.username}` : "Signed in";
-      if (welcome) welcome.textContent = signedInText;
-      if (welcomeMobile) welcomeMobile.textContent = signedInText;
+      const displayName = localStorage.getItem("employeeDisplayName") || "Employee";
+      if (displayNameEl) displayNameEl.textContent = displayName;
+      if (welcome) welcome.textContent = `${displayName} · ${employerLabel}`;
       window.EmployeeMobile?.refreshGreeting?.();
       if (user.gdpr_consent_required) {
         showGdprModal(user.employer_name);
@@ -117,7 +110,7 @@
     } catch {
       const fallback = "Could not load your account.";
       if (welcome) welcome.textContent = fallback;
-      if (welcomeMobile) welcomeMobile.textContent = fallback;
+      if (displayNameEl) displayNameEl.textContent = fallback;
       window.dispatchEvent(
         new CustomEvent("employee:profile-loaded", {
           detail: {
@@ -130,11 +123,34 @@
     }
   }
 
+  function usernameDisplayFallback(username) {
+    const local = (username.split("@")[0] || username || "").trim();
+    if (!local) return "Employee";
+    const cleaned = local.replace(/\d+$/, "") || local;
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  function applyEmployeeIdentity(user) {
+    if (user.username) {
+      localStorage.setItem("employeeUsername", user.username);
+    }
+    const displayName =
+      (user.display_name || "").trim() ||
+      usernameDisplayFallback(user.username || "");
+    const firstName =
+      (user.first_name || "").trim() ||
+      displayName.split(/\s+/)[0] ||
+      "there";
+    localStorage.setItem("employeeDisplayName", displayName);
+    localStorage.setItem("employeeFirstName", firstName);
+  }
+
   function signOut(event) {
     event.preventDefault();
     session.clearSession();
     localStorage.removeItem("employeeUsername");
     localStorage.removeItem("employeeDisplayName");
+    localStorage.removeItem("employeeFirstName");
     window.location.href = "./employee-login.html";
   }
 

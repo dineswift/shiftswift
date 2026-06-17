@@ -1,6 +1,7 @@
 /** Web Push subscription helper for employee PWAs (Time Clock + portal). */
 (function () {
   const PROMPT_KEY = "shiftswiftPushPrompted";
+  let audioContext = null;
 
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -61,7 +62,68 @@
     return { ok: true };
   }
 
+  function playAlertSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioContext) audioContext = new AudioCtx();
+      const ctx = audioContext;
+      if (ctx.state === "suspended") {
+        void ctx.resume();
+      }
+      const now = ctx.currentTime;
+      [0, 0.22].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = offset === 0 ? 880 : 988;
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.2);
+      });
+    } catch {
+      /* ignore — device may block audio until user gesture */
+    }
+  }
+
+  async function getStatus({ apiBase, token, tenantId }) {
+    const supported =
+      "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+    if (!supported) {
+      return { supported: false, permission: "unsupported", subscribed: false, serverEnabled: false };
+    }
+
+    const permission = Notification.permission;
+    let serverEnabled = false;
+    if (token && tenantId) {
+      const config = await fetchConfig(apiBase, token, tenantId);
+      serverEnabled = Boolean(config.enabled && config.public_key);
+    }
+
+    let subscribed = false;
+    if (permission === "granted" && "serviceWorker" in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        subscribed = Boolean(await registration.pushManager.getSubscription());
+      } catch {
+        subscribed = false;
+      }
+    }
+
+    return { supported, permission, subscribed, serverEnabled };
+  }
+
   window.ShiftSwiftPush = {
+    playAlertSound,
+
+    async getStatus(opts) {
+      return getStatus(opts);
+    },
+
     /**
      * Ask for notification permission in context (after clock tab / geofence check).
      * Only prompts once per device unless force=true.
@@ -97,5 +159,27 @@
         return { ok: false, reason: error?.message || "subscribe_error" };
       }
     },
+
+    async enableAlerts({ apiBase, token, tenantId }) {
+      const result = await window.ShiftSwiftPush.promptSubscribe({
+        apiBase,
+        token,
+        tenantId,
+        reason: "Shift reminders and clock-in alerts enabled.",
+        force: true,
+      });
+      if (result.ok) {
+        playAlertSound();
+      }
+      return result;
+    },
   };
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      if (event.data?.type === "SHIFT_ALERT") {
+        playAlertSound();
+      }
+    });
+  }
 })();

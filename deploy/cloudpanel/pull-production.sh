@@ -183,6 +183,7 @@ echo "    Time Clock PWA OK"
 echo "==> verify password reset pages (App)"
 RESET_FILES=(
   forgot-password.html
+  employee-forgot-password.html
   reset-password.html
   password-reset.js
 )

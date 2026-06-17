@@ -2,13 +2,9 @@
 (function initEmployeeLeave() {
   const session = window.ShiftSwiftSession;
   const API_BASE = session.getApiBase();
-  const tenantId = localStorage.getItem("tenantId");
+  const loginUrl = session.EMPLOYEE_LOGIN_URL;
 
-  if (!session.hasSession() || !tenantId) return;
-
-  async function apiFetch(path, options = {}) {
-    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId });
-  }
+  if (!session.hasSession()) return;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -16,6 +12,18 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  async function apiFetch(path, options = {}) {
+    const tenantId = localStorage.getItem("tenantId");
+    return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId, loginUrl });
+  }
+
+  function parseApiError(data, fallback) {
+    const detail = data?.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
   }
 
   const form = document.getElementById("employee-leave-form");
@@ -26,7 +34,8 @@
   function setStatus(text, tone) {
     if (!statusEl) return;
     statusEl.textContent = text || "";
-    statusEl.className = tone === "ok" ? "edit-form-status punch-accountant-status--ok" : "edit-form-status muted";
+    statusEl.className =
+      tone === "ok" ? "employee-leave-status employee-leave-status--ok" : "employee-leave-status muted";
   }
 
   function formatDate(iso) {
@@ -46,12 +55,57 @@
     });
   }
 
+  function statusClass(status) {
+    if (status === "approved") return "ok";
+    if (status === "rejected" || status === "cancelled") return "danger";
+    return "warn";
+  }
+
+  function renderListPlaceholder(text, { retry = false } = {}) {
+    if (!listHost) return;
+    listHost.innerHTML = `
+      <div class="employee-leave-empty">
+        <p class="employee-leave-empty__text muted">${escapeHtml(text)}</p>
+        ${retry ? '<button type="button" class="btn ghost btn-sm" id="employee-leave-retry">Try again</button>' : ""}
+      </div>`;
+    if (retry) {
+      document.getElementById("employee-leave-retry")?.addEventListener("click", loadLeaveData);
+    }
+  }
+
+  function renderRequestCard(item) {
+    const status = escapeHtml(item.status);
+    const statusTone = statusClass(item.status);
+    return `
+      <article class="employee-leave-card">
+        <div class="employee-leave-card__head">
+          <div>
+            <p class="employee-leave-card__type">${escapeHtml(item.leave_type_label)}</p>
+            <p class="employee-leave-card__dates">
+              ${escapeHtml(formatDate(item.start_date))} → ${escapeHtml(formatDate(item.end_date))}
+            </p>
+          </div>
+          <span class="employee-leave-pill employee-leave-pill--${statusTone}">${status}</span>
+        </div>
+        <p class="employee-leave-card__days muted">${escapeHtml(String(item.days_requested))} working day(s)</p>
+        ${item.reason ? `<p class="employee-leave-card__reason">${escapeHtml(item.reason)}</p>` : ""}
+        ${
+          item.status === "pending"
+            ? `<button type="button" class="btn ghost btn-sm employee-leave-cancel-btn" data-id="${item.id}">Cancel request</button>`
+            : ""
+        }
+      </article>`;
+  }
+
   async function loadBalance() {
-    if (!balanceHost) return;
+    if (!localStorage.getItem("tenantId")) {
+      setSummaryText("employee-leave-balance", "Loading balance…");
+      return;
+    }
     try {
       const res = await apiFetch("/employee/me/leave/balance");
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiError(data, "Load failed"));
       const text = `${data.remaining_days} of ${data.allowance_days} working days remaining (${data.used_days} used, ${data.pending_days} pending).`;
       setSummaryText("employee-leave-balance", text);
     } catch {
@@ -61,47 +115,47 @@
 
   async function loadRequests() {
     if (!listHost) return;
-    listHost.innerHTML = `<p class="muted">Loading leave requests…</p>`;
+    if (!localStorage.getItem("tenantId")) {
+      renderListPlaceholder("Loading your account…");
+      return;
+    }
+
+    renderListPlaceholder("Loading leave requests…");
+
     try {
       const res = await apiFetch("/employee/me/leave/requests");
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
-      const items = data.items || [];
-      if (!items.length) {
-        listHost.innerHTML = `<p class="muted">No leave requests yet. Submit one below for HR approval.</p>`;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        renderListPlaceholder(parseApiError(data, "Could not load leave requests."), { retry: true });
         return;
       }
-      listHost.innerHTML = `<div class="employee-leave-list">${items
-        .map(
-          (item) => `<article class="card employee-leave-card">
-            <div class="employee-leave-card__head">
-              <strong>${escapeHtml(item.leave_type_label)}</strong>
-              <span class="status-pill status-pill--${item.status === "approved" ? "ok" : item.status === "rejected" ? "danger" : "warn"}">${escapeHtml(item.status)}</span>
-            </div>
-            <p class="muted">${escapeHtml(formatDate(item.start_date))} → ${escapeHtml(formatDate(item.end_date))} · ${escapeHtml(String(item.days_requested))} working day(s)</p>
-            ${item.reason ? `<p>${escapeHtml(item.reason)}</p>` : ""}
-            ${
-              item.status === "pending"
-                ? `<button type="button" class="btn ghost employee-leave-cancel-btn" data-id="${item.id}">Cancel request</button>`
-                : ""
-            }
-          </article>`
-        )
-        .join("")}</div>`;
+
+      const items = data.items || [];
+      if (!items.length) {
+        renderListPlaceholder("No leave requests yet. Submit one above for HR approval.");
+        return;
+      }
+
+      listHost.innerHTML = `<div class="employee-leave-list">${items.map(renderRequestCard).join("")}</div>`;
       listHost.querySelectorAll(".employee-leave-cancel-btn").forEach((btn) => {
         btn.addEventListener("click", () => cancelRequest(Number(btn.dataset.id)));
       });
     } catch {
-      listHost.innerHTML = `<p class="muted">Could not load leave requests.</p>`;
+      renderListPlaceholder("Could not reach the server. Check your connection.", { retry: true });
     }
   }
 
   async function cancelRequest(requestId) {
+    setStatus("Cancelling…");
     try {
-      const res = await apiFetch(`/employee/me/leave/requests/${requestId}/cancel`, { method: "POST", body: "{}" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Cancel failed");
-      await Promise.all([loadRequests(), loadBalance()]);
+      const res = await apiFetch(`/employee/me/leave/requests/${requestId}/cancel`, {
+        method: "POST",
+        body: "{}",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiError(data, "Cancel failed"));
+      setStatus("Request cancelled.", "ok");
+      await loadLeaveData();
     } catch (error) {
       setStatus(error.message || "Could not cancel request.");
     }
@@ -122,17 +176,21 @@
           reason: fd.get("reason") || null,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Submit failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiError(data, "Submit failed"));
       form.reset();
       setStatus("Leave request submitted for HR approval.", "ok");
-      await Promise.all([loadRequests(), loadBalance()]);
+      await loadLeaveData();
     } catch (error) {
       setStatus(error.message || "Could not submit leave request.");
     }
   }
 
+  async function loadLeaveData() {
+    await Promise.all([loadBalance(), loadRequests()]);
+  }
+
   form?.addEventListener("submit", submitForm);
-  loadBalance();
-  loadRequests();
+  loadLeaveData();
+  window.addEventListener("employee:profile-loaded", loadLeaveData);
 })();

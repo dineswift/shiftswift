@@ -107,7 +107,7 @@ def client_ip(request: Request) -> str:
 
 
 def require_tenant_subscription(
-    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> AuthUser:
     """Block workspace when trial expired or Direct Debit hold is active."""
