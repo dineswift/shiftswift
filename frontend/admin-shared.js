@@ -71,7 +71,7 @@ window.Admin = (() => {
     rota_multi_site_enabled: false,
     crm_addon: false,
     time_clock_enabled: localStorage.getItem("adminTimeClockEnabled") === "true",
-    plan_display_name: "Starter",
+    plan_display_name: "Essentials",
     plan_tier: "starter",
   };
 
@@ -99,12 +99,12 @@ window.Admin = (() => {
   };
 
   const FEATURE_UPGRADE_LABELS = {
-    "sponsor-compliance": "Sponsor licence compliance is included on Growth and Scale plans.",
-    grievance: "Grievance workflows are included on Growth and Scale plans.",
-    disciplinary: "Disciplinary workflows are included on Growth and Scale plans.",
-    "audit-export": "Home Office audit export is included on Growth and Scale plans.",
-    "multi-site": "Multi-site dashboard is included on Scale plans.",
-    "api-access": "API access is included on Scale plans.",
+    "sponsor-compliance": "Sponsor licence compliance is included on Compliance and Multi-site plans.",
+    grievance: "Grievance workflows are included on Compliance and Multi-site plans.",
+    disciplinary: "Disciplinary workflows are included on Compliance and Multi-site plans.",
+    "audit-export": "Home Office audit export is included on Compliance and Multi-site plans.",
+    "multi-site": "Multi-site dashboard is included on the Multi-site plan.",
+    "api-access": "API access is included on the Multi-site plan.",
   };
 
   function featureUpgradeMessage(feature) {
@@ -420,6 +420,10 @@ window.Admin = (() => {
         return;
       }
       if (el.matches(".mobile-more-link")) {
+        el.hidden = !enabled;
+        return;
+      }
+      if (el.matches(".mobile-tab")) {
         el.hidden = !enabled;
         return;
       }

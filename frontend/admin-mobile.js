@@ -55,11 +55,6 @@
       setTab(saved || "home", { skipHash: true });
       return;
     }
-    if (!saved && clockEnabled && hashSection !== "time-punch") {
-      window.location.hash = "time-punch";
-      setTab("home", { skipHash: true });
-      return;
-    }
 
     syncTabFromHash();
     setTab(currentTab || saved || "home", { skipHash: true });
@@ -323,10 +318,15 @@
     });
 
     document.getElementById("topbar-alerts-btn")?.addEventListener("click", () => {
-      if (!isMobile()) return;
-      setTab("home");
       window.location.hash = "overview";
-      window.setTimeout(() => window.MobileShell?.scrollToAnchor?.("overview-actions"), 120);
+      if (isMobile()) {
+        setTab("home");
+        window.setTimeout(() => window.MobileShell?.scrollToAnchor?.("overview-actions"), 120);
+        return;
+      }
+      window.setTimeout(() => {
+        document.getElementById("overview-actions-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
     });
 
     window.addEventListener("admin:section", (event) => {

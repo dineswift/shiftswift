@@ -51,7 +51,7 @@ support@shiftswifthr.co.uk · legal@datasoftwareanalytics.co.uk
 | Trust strip | GDPR · UK-hosted · RTI · audit exports · cancel anytime | trust strip | **Partial** |
 | Social proof | Early-access honesty block (no template quotes) | `index.html` | **Done** — add named case study when pilot completes |
 | Features | 6 cards (RTW, sponsor, payroll add-on, rota, lifecycle, audit export) | features section | **Review** |
-| Comparison table | Spreadsheets vs ShiftSwift HR | new section or expand FAQ | **TODO** |
+| Comparison table | Spreadsheets vs ShiftSwift HR | `index.html` + `docs/competitive_comparison.md` | **Done** — spreadsheets table + competitor matrix (Breathe, Rotacloud) |
 | FAQ | 7 questions from strategy (RTI add-on, trial no card, payroll later, sponsor, UK data, cancel, multi-site) | `index.html` / FAQ | **TODO** — fix dev-facing Stripe answer |
 | Screenshots | RTW dashboard, rota, audit export | `assets/` | **TODO** — need real UI captures |
 | Pricing page copy | “Simple, predictable pricing…” + VAT note | `pricing.js` + `index.html` | **TODO** |
@@ -142,6 +142,7 @@ Multi-site dashboard, rota (if not built), API docs for Scale tier.
 | Plans / billing | `backend_stub/billing_config.py`, `scripts/seed_billing_catalog.py` |
 | Admin product | `frontend/admin.html`, `frontend/admin-*.js` |
 | Compliance | `backend_stub/sponsor_licence_compliance.py`, `frontend/admin-compliance.js` |
+| Competitive one-pager | `docs/competitive_comparison.md` |
 | Legal templates | `backend_stub/contract_templates/`, `docs/legal_contracts.md` |
 
 ---

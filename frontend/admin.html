@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v100" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v102" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -86,13 +86,13 @@
           </a>
           <a class="nav-link" href="#contracts" data-section="contracts">
             <span class="nav-link__icon" data-nav-icon="file-certificate" aria-hidden="true"></span>
-            <span class="nav-link__label">Service agreements</span>
+            <span class="nav-link__label">Service agreements (MSA)</span>
           </a>
 
           <p class="nav-section-label">Cases</p>
           <a class="nav-link" href="#employment-contracts" data-section="employment-contracts">
             <span class="nav-link__icon" data-nav-icon="file-text" aria-hidden="true"></span>
-            <span class="nav-link__label">Employment contracts</span>
+            <span class="nav-link__label">Employment templates</span>
           </a>
           <a class="nav-link" href="#grievance" data-section="grievance" data-feature="grievance">
             <span class="nav-link__icon" data-nav-icon="scale" aria-hidden="true"></span>
@@ -239,22 +239,23 @@
               <p class="muted" id="overview-subtitle">Your HR workspace at a glance.</p>
             </div>
           </header>
-          <div id="overview-trial-note" class="admin-mobile-home-only" hidden></div>
-          <div class="hr-stats-grid overview-stats-grid admin-mobile-home-only" id="overview-metrics" aria-label="Workspace summary"></div>
+          <div id="overview-trial-note" hidden></div>
+          <div class="hr-stats-grid overview-stats-grid" id="overview-metrics" aria-label="Workspace summary"></div>
           <article class="mobile-subscription-card admin-mobile-home-only" id="mobile-subscription-card" hidden aria-label="Subscription"></article>
+          <div id="overview-setup-checklist" class="overview-setup-checklist" hidden aria-label="Workspace setup"></div>
           <div class="overview-dashboard-layout">
-            <aside class="overview-actions-panel admin-mobile-home-only" id="overview-actions-panel">
+            <div class="overview-main">
+              <h3 class="overview-section-title overview-section-title--desktop">Modules</h3>
+              <h2 class="mobile-panel-title mobile-panel-title--modules">Modules</h2>
+              <div class="overview-module-grid" id="overview-modules" aria-label="HR modules"></div>
+            </div>
+            <aside class="overview-actions-panel" id="overview-actions-panel">
               <div class="overview-actions-head">
                 <h3 class="overview-section-title">Open actions</h3>
                 <span class="overview-actions-count" id="overview-actions-count">0</span>
               </div>
               <div id="overview-actions" class="overview-actions-list" aria-label="Open actions"></div>
             </aside>
-            <div class="overview-main">
-              <h3 class="overview-section-title overview-section-title--desktop">Modules</h3>
-              <h2 class="mobile-panel-title mobile-panel-title--modules">Modules</h2>
-              <div class="overview-module-grid" id="overview-modules" aria-label="HR modules"></div>
-            </div>
           </div>
         </section>
 
@@ -2653,10 +2654,10 @@
     <script src="./mobile-shell.js?v=5"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
-    <script src="./admin-mobile.js?v=12"></script>
+    <script src="./admin-mobile.js?v=13"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v31"></script>
-    <script src="./admin-workspace.js?v=admin-v20"></script>
+    <script src="./admin-shared.js?v=admin-v32"></script>
+    <script src="./admin-workspace.js?v=admin-v21"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-settings.js?v=25"></script>
     <script src="./admin-documents.js?v=27"></script>
@@ -2671,7 +2672,7 @@
     <script src="./admin-disciplinary.js?v=1"></script>
     <script src="./admin-offboarding.js?v=admin-v5"></script>
     <script src="./admin-templates.js?v=admin-v8"></script>
-    <script src="./admin-time-punch.js?v=31"></script>
+    <script src="./admin-time-punch.js?v=32"></script>
     <script src="./admin-rota.js?v=25"></script>
     <script src="./admin-leave.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>

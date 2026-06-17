@@ -9,9 +9,9 @@ GROWTH_PLAN_IDS = frozenset({"site_medium_monthly", "site_medium_annual"})
 SCALE_PLAN_IDS = frozenset({"site_growth_monthly", "site_growth_annual"})
 
 TIER_LABELS = {
-    "starter": "Starter",
-    "growth": "Growth",
-    "scale": "Scale",
+    "starter": "Essentials",
+    "growth": "Compliance",
+    "scale": "Multi-site",
 }
 
 ROTA_MODES = ("basic", "advanced", "multi_site")
@@ -210,12 +210,12 @@ def assert_tenant_feature(
 
 UPGRADE_MESSAGES = {
     "payroll": "Staff CSV export is not available on your plan yet.",
-    "grievance": "Grievance workflows are included on Growth and Scale plans.",
-    "disciplinary": "Disciplinary workflows are included on Growth and Scale plans.",
-    "audit_export": "Home Office audit export is included on Growth and Scale plans.",
-    "sponsor_compliance": "Sponsor licence compliance is included on Growth and Scale plans.",
-    "multi_site": "Multi-site dashboard is included on Scale plans.",
-    "api_access": "API access is included on Scale plans.",
+    "grievance": "Grievance workflows are included on Compliance and Multi-site plans.",
+    "disciplinary": "Disciplinary workflows are included on Compliance and Multi-site plans.",
+    "audit_export": "Home Office audit export is included on Compliance and Multi-site plans.",
+    "sponsor_compliance": "Sponsor licence compliance is included on Compliance and Multi-site plans.",
+    "multi_site": "Multi-site dashboard is included on the Multi-site plan.",
+    "api_access": "API access is included on the Multi-site plan.",
     "rota_advanced": "Advanced rota is a paid add-on. Contact support to add it to your subscription.",
     "rota_multi_site": "Multi-site rota is a paid add-on. Contact support to add it to your subscription.",
 }

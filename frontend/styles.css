@@ -4859,6 +4859,134 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 /* ── Overview dashboard ── */
+#overview .overview-stats-grid {
+  padding: 0 20px;
+}
+
+.overview-setup-checklist {
+  margin: 0 20px 20px;
+  padding: 16px 18px;
+  border: 1px solid #c8e6d8;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #f7fcf9 0%, #ffffff 100%);
+}
+
+.overview-setup-checklist__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.overview-setup-checklist__lead {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+}
+
+.overview-setup-checklist__progress {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--green-100, #d8f3dc);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--green-800);
+}
+
+.overview-setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.overview-setup-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.overview-setup-step--done {
+  opacity: 0.72;
+  background: #f8faf8;
+}
+
+.overview-setup-step__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid var(--card-border);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--green-700);
+}
+
+.overview-setup-step--done .overview-setup-step__marker {
+  border-color: #74c69d;
+  background: #d8f3dc;
+}
+
+.overview-setup-step__link {
+  display: block;
+  font-weight: 700;
+  color: var(--green-800);
+  text-decoration: none;
+}
+
+.overview-setup-step__link:hover {
+  text-decoration: underline;
+}
+
+.overview-setup-step__detail {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.overview-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+}
+
+.overview-module-card--locked {
+  border-style: dashed;
+  opacity: 0.88;
+}
+
+.overview-module-card__head-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.overview-module-card__lock {
+  display: inline-flex;
+  color: var(--ink-400, #9ca3af);
+}
+
+.overview-module-card__lock .admin-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .overview-stats-grid {
   margin-bottom: 20px;
 }
@@ -11768,6 +11896,27 @@ body.rota-week-readonly .rota-builder-hint {
 
 .punch-geofence-viz {
   margin: 12px 0;
+}
+
+.punch-geofence-settings {
+  margin-bottom: 12px;
+}
+
+.punch-geofence-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+}
+
+.punch-geofence-form__field {
+  flex: 1 1 140px;
+  min-width: 120px;
+  margin: 0;
+}
+
+.punch-geofence-form__save {
+  flex: 0 0 auto;
 }
 
 .punch-geofence-viz__svg {

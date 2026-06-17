@@ -1413,6 +1413,67 @@ body.is-loading .page {
   font-size: var(--text-section-size);
 }
 
+.compare-section__lead {
+  text-align: center;
+  max-width: 42rem;
+  margin: 0 auto 20px;
+  line-height: 1.55;
+}
+
+.compare-section__lead strong {
+  color: var(--pine);
+  font-weight: 700;
+}
+
+.compare-footnote {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.compare-section--competitors {
+  padding-top: 32px;
+}
+
+.compare-table--matrix .compare-table__head--win {
+  background: var(--sage-50) !important;
+  color: var(--pine) !important;
+}
+
+.compare-table--matrix tbody td:last-child {
+  background: rgba(29, 158, 117, 0.07);
+  color: var(--pine);
+  font-weight: 600;
+}
+
+.compare-table--matrix tbody td:nth-child(2),
+.compare-table--matrix tbody td:nth-child(3),
+.compare-table--matrix tbody td:nth-child(4) {
+  background: rgba(15, 46, 34, 0.02);
+  color: var(--gray-700);
+  font-weight: 400;
+  padding-left: 16px;
+}
+
+.compare-table--matrix tbody td:nth-child(2)::before,
+.compare-table--matrix tbody td:nth-child(3)::before,
+.compare-table--matrix tbody td:nth-child(4)::before,
+.compare-table--matrix tbody td:last-child::before {
+  display: none;
+}
+
+.compare-table--matrix th:first-child,
+.compare-table--matrix td:first-child {
+  width: 22%;
+  white-space: normal;
+}
+
+.compare-table--matrix th:not(:first-child),
+.compare-table--matrix td:not(:first-child) {
+  width: 19.5%;
+}
+
 .compare-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--gray-200);

@@ -796,9 +796,42 @@
           <rect width="220" height="220" rx="12" fill="#f0faf6"/>
           <circle cx="110" cy="110" r="78" fill="none" stroke="#74c69d" stroke-width="2" stroke-dasharray="6 5"/>
           <circle cx="110" cy="110" r="8" fill="#1b4332"/>
-          <text x="110" y="198" text-anchor="middle" font-size="12" fill="#52796f">${escapeHtml(String(radiusMeters))}m radius</text>
+          <text id="punch-geofence-viz-label" x="110" y="198" text-anchor="middle" font-size="12" fill="#52796f">${escapeHtml(String(radiusMeters))}m radius</text>
         </svg>
       </div>`;
+  }
+
+  function geofenceSettingsMarkup(site) {
+    return `
+      <article class="card punch-geofence-settings" id="punch-geofence-settings">
+        <h4 class="hr-section-title">Geofence radius</h4>
+        <p class="muted punch-tab-intro">How close staff must be to clock in with GPS (25–2000 metres). Widen if phones struggle indoors, or use the premises QR below.</p>
+        <form id="punch-geofence-form" class="punch-geofence-form">
+          <label class="edit-field punch-geofence-form__field">
+            <span class="edit-label">Radius (metres)</span>
+            <input type="number" name="radius_meters" min="25" max="2000" value="${site.radius_meters}" required />
+          </label>
+          <button type="submit" class="btn primary punch-geofence-form__save">Save radius</button>
+        </form>
+      </article>`;
+  }
+
+  function wireGeofenceSettings(site) {
+    const form = $("punch-geofence-form");
+    const radiusInput = form?.querySelector('input[name="radius_meters"]');
+    const vizLabel = $("punch-geofence-viz-label");
+    radiusInput?.addEventListener("input", () => {
+      if (vizLabel) vizLabel.textContent = `${radiusInput.value || site.radius_meters}m radius`;
+    });
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const radius = Number(radiusInput?.value);
+      if (!Number.isFinite(radius) || radius < 25 || radius > 2000) {
+        showPunchNote("Radius must be between 25 and 2000 metres.", "error");
+        return;
+      }
+      await saveSiteFields(site.id, { radius_meters: radius }, "Geofence radius updated.");
+    });
   }
 
   function siteTodayStats(siteId) {
@@ -833,27 +866,29 @@
       <div class="hr-detail-head"><div><h3>${escapeHtml(site.name)}</h3><span class="contracts-status-pill contracts-status-pill--${site.is_active ? "signed" : "draft"}">${site.is_active ? "Active" : "Inactive"}</span></div></div>
       <dl class="hr-detail-grid">
         <div><dt>Address</dt><dd>${escapeHtml(site.address)}</dd></div>
-        <div><dt>Geofence radius</dt><dd>${escapeHtml(site.radius_meters)} metres</dd></div>
+        <div><dt>Geofence radius</dt><dd>${escapeHtml(site.radius_meters)} metres <span class="muted">(edit below)</span></dd></div>
         <div><dt>Permitted roles</dt><dd>${escapeHtml(roleLabel(site.permitted_roles))}</dd></div>
         <div><dt>Last synced</dt><dd>${escapeHtml(formatSyncShort(site.updated_at || lastSyncIso()))}</dd></div>
         <div><dt>Today's punches</dt><dd>${stats.total} punch${stats.total === 1 ? "" : "es"}${stats.outside ? ` · <span class="punch-outside-count">${stats.outside} outside geofence</span>` : ""}</dd></div>
       </dl>
+      ${geofenceSettingsMarkup(site)}
+      ${geofenceVizSvg(site.radius_meters)}
       <article class="card punch-clock-qr-card" id="punch-clock-qr-card">
         <h4 class="hr-section-title">Premises QR clock-in</h4>
         <p class="muted punch-tab-intro">Print this QR indoors where GPS is weak. Staff scan it in the Time Clock app, then clock in or out without GPS for 10 minutes.</p>
         <div id="punch-clock-qr-body" class="punch-clock-qr-body muted">Loading QR…</div>
       </article>
-      ${geofenceVizSvg(site.radius_meters)}
       ${alertsHtml}
       <div id="punch-edit-form-wrap" hidden></div>
       <div class="hr-detail-foot">
         <button type="button" class="btn outline" id="punch-test-geofence-btn"><span aria-hidden="true">◎</span> Test geofence</button>
-        <button type="button" class="btn ghost" id="punch-edit-site-btn"><span aria-hidden="true">✎</span> Edit site</button>
+        <button type="button" class="btn outline" id="punch-edit-site-btn"><span aria-hidden="true">✎</span> Edit name &amp; roles</button>
       </div>
       <p id="punch-geofence-test-result" class="muted punch-geofence-result" aria-live="polite"></p>`;
 
     content.querySelector("#punch-test-geofence-btn")?.addEventListener("click", () => testGeofence(site));
     content.querySelector("#punch-edit-site-btn")?.addEventListener("click", () => showEditSiteForm(site));
+    wireGeofenceSettings(site);
     loadSiteClockQr(site.id);
     updateSetupUi();
   }
@@ -1117,8 +1152,8 @@
     wrap.hidden = false;
     wrap.innerHTML = `
       <form id="punch-edit-form" class="punch-inline-form punch-edit-form">
+        <h4 class="hr-section-title">Site details</h4>
         <label class="edit-field"><span class="edit-label">Site name</span><input type="text" name="name" value="${escapeHtml(site.name)}" required /></label>
-        <label class="edit-field"><span class="edit-label">Radius (metres)</span><input type="number" name="radius_meters" min="25" max="2000" value="${site.radius_meters}" required /></label>
         <label class="edit-field"><span class="edit-label">Permitted roles</span>
           <select name="permitted_roles">
             <option value="all" ${site.permitted_roles === "all" ? "selected" : ""}>All staff</option>
@@ -1139,16 +1174,20 @@
     });
     wrap.querySelector("#punch-edit-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      await saveSiteEdit(site.id, event.currentTarget);
+      const form = event.currentTarget;
+      await saveSiteFields(
+        site.id,
+        {
+          name: form.name.value.trim(),
+          permitted_roles: form.permitted_roles.value,
+        },
+        "Site details updated.",
+      );
     });
+    wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  async function saveSiteEdit(siteId, form) {
-    const payload = {
-      name: form.name.value.trim(),
-      radius_meters: Number(form.radius_meters.value),
-      permitted_roles: form.permitted_roles.value,
-    };
+  async function saveSiteFields(siteId, payload, successMessage = "Site updated.") {
     try {
       const res = await apiFetch(`/admin/time-punch/sites/${siteId}`, {
         method: "PATCH",
@@ -1160,7 +1199,7 @@
         showPunchNote(data.detail || "Could not save site.", "error");
         return;
       }
-      showPunchNote("Site updated.", "ok");
+      showPunchNote(successMessage, "ok");
       await loadSites();
       selectedSiteId = siteId;
       renderSiteDetail(sites.find((s) => s.id === siteId));

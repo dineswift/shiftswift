@@ -1229,6 +1229,17 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     severity_rank = {"critical": 0, "warn": 1, "info": 2}
     open_actions.sort(key=lambda item: severity_rank.get(item["severity"], 9))
 
+    registered_address = (profile.get("registered_address") or "").strip()
+    has_coords = profile.get("registered_latitude") is not None and profile.get("registered_longitude") is not None
+    setup_checklist = {
+        "business_address": bool(registered_address and has_coords),
+        "first_employee": (active_employees + onboarding_employees) > 0,
+        "rtw_started": rtw_total > 0,
+        "punch_site": punch_sites > 0,
+        "rota_published": rota_status == "published",
+        "accountant_email": bool((profile.get("payroll_accountant_email") or "").strip()),
+    }
+
     return {
         "tenant_name": profile["name"],
         "trading_name": profile.get("trading_name"),
@@ -1247,6 +1258,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         "sponsor_licence_acknowledged": bool(profile.get("sponsor_licence_acknowledged")),
         "open_actions_count": len(open_actions),
         "open_actions": open_actions[:8],
+        "setup_checklist": setup_checklist,
+        "setup_complete": all(setup_checklist.values()),
         "time_clock_enabled": punch_sites > 0,
         "modules": {
             "employees": {

@@ -130,19 +130,29 @@
     }
   }
 
-  function moduleCard({ icon, title, value, sub, href, tone, requiresClock }) {
+  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub }) {
     const toneClass = tone ? ` overview-module-card--${tone}` : "";
     const iconSvg = window.AdminIcons?.svg?.(icon) || "";
-    const clockAttr = requiresClock ? ' data-requires-clock' : "";
+    const clockAttr = requiresClock ? " data-requires-clock" : "";
+    const enabled = !feature || isFeatureEnabled(feature);
+    const lockedClass = enabled ? "" : " overview-module-card--locked";
+    const cardHref = enabled ? href : "#settings/billing";
+    const cardSub = enabled ? sub : lockedSub || "Upgrade to unlock";
+    const lockBadge = enabled
+      ? ""
+      : `<span class="overview-module-card__lock">${window.AdminIcons?.svg?.("lock") || "🔒"}</span>`;
     return `
-      <a class="overview-module-card${toneClass}" href="${escapeHtml(href)}"${clockAttr}>
+      <a class="overview-module-card${toneClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
         <span class="overview-module-card__head">
           <span class="overview-module-card__icon" aria-hidden="true">${iconSvg}</span>
-          <span class="overview-module-card__chevron" aria-hidden="true">${window.AdminIcons?.svg?.("chevron") || "›"}</span>
+          <span class="overview-module-card__head-meta">
+            ${lockBadge}
+            <span class="overview-module-card__chevron" aria-hidden="true">${window.AdminIcons?.svg?.("chevron") || "›"}</span>
+          </span>
         </span>
         <span class="overview-module-card__title">${escapeHtml(title)}</span>
         <span class="overview-module-card__value">${escapeHtml(value)}</span>
-        <span class="overview-module-card__sub">${escapeHtml(sub)}</span>
+        <span class="overview-module-card__sub">${escapeHtml(cardSub)}</span>
       </a>`;
   }
 
@@ -226,6 +236,86 @@
         </span>
         <span class="overview-action__chevron" aria-hidden="true">›</span>
       </a>`;
+  }
+
+  function renderSetupChecklist(data) {
+    const host = document.getElementById("overview-setup-checklist");
+    if (!host) return;
+    const checklist = data.setup_checklist;
+    if (!checklist || data.setup_complete) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    const steps = [
+      {
+        key: "business_address",
+        label: "Sync business address",
+        href: "#settings/business",
+        detail: "Pins your premises for geofenced clock-in",
+      },
+      {
+        key: "first_employee",
+        label: "Add your first employee",
+        href: "#employees",
+        detail: "Name and email — details come later",
+      },
+      {
+        key: "rtw_started",
+        label: "Record a right-to-work check",
+        href: "#compliance-rtw",
+        detail: "Upload evidence for audit trail",
+      },
+      {
+        key: "punch_site",
+        label: "Set up time punch site",
+        href: "#time-punch",
+        detail: "Geofence radius + premises QR",
+      },
+      {
+        key: "rota_published",
+        label: "Publish this week's rota",
+        href: "#rota",
+        detail: "Staff see shifts in the portal",
+      },
+      {
+        key: "accountant_email",
+        label: "Add accountant email",
+        href: "#time-punch",
+        detail: "Optional auto-send of monthly hours PDF",
+      },
+    ];
+    const visibleSteps = steps;
+    const doneCount = visibleSteps.filter((step) => checklist[step.key]).length;
+    if (doneCount >= visibleSteps.length) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = `
+      <div class="overview-setup-checklist__head">
+        <div>
+          <h3 class="overview-section-title">Get your workspace ready</h3>
+          <p class="muted overview-setup-checklist__lead">${doneCount} of ${visibleSteps.length} complete — follow these steps before your first payroll week.</p>
+        </div>
+        <span class="overview-setup-checklist__progress" aria-hidden="true">${doneCount}/${visibleSteps.length}</span>
+      </div>
+      <ol class="overview-setup-steps">
+        ${visibleSteps
+          .map((step) => {
+            const complete = Boolean(checklist[step.key]);
+            return `
+          <li class="overview-setup-step${complete ? " overview-setup-step--done" : ""}">
+            <span class="overview-setup-step__marker" aria-hidden="true">${complete ? "✓" : ""}</span>
+            <div class="overview-setup-step__body">
+              <a class="overview-setup-step__link" href="${escapeHtml(step.href)}">${escapeHtml(step.label)}</a>
+              <span class="muted overview-setup-step__detail">${escapeHtml(step.detail)}</span>
+            </div>
+          </li>`;
+          })
+          .join("")}
+      </ol>`;
   }
 
   async function loadOverview() {
@@ -399,6 +489,8 @@
                 : `${absence.active_this_month ?? 0} absence days this month`,
             href: "#compliance",
             tone: (absence.day9_alerts ?? 0) > 0 ? "danger" : "",
+            feature: "sponsor-compliance",
+            lockedSub: "Compliance plan — day-9 alerts",
           }),
           moduleCard({
             icon: "map-pin",
@@ -428,6 +520,8 @@
             sub: grievance.open_cases ? "Open cases" : "No open cases",
             href: "#grievance",
             tone: (grievance.open_cases ?? 0) > 0 ? "warn" : "",
+            feature: "grievance",
+            lockedSub: "Compliance plan",
           }),
           moduleCard({
             icon: "clipboard",
@@ -436,12 +530,14 @@
             sub: disciplinary.open_cases ? "Open cases" : "No open cases",
             href: "#disciplinary",
             tone: (disciplinary.open_cases ?? 0) > 0 ? "warn" : "",
+            feature: "disciplinary",
+            lockedSub: "Compliance plan",
           }),
           moduleCard({
             icon: "file-text",
-            title: "Employment contracts",
+            title: "Employment templates",
             value: String(contracts.pending_signature ?? 0),
-            sub: contracts.pending_signature ? "Awaiting signature" : "Up to date",
+            sub: contracts.pending_signature ? "Awaiting signature" : "Offer letters & contracts",
             href: "#employment-contracts",
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
@@ -469,9 +565,9 @@
           }),
           moduleCard({
             icon: "file-certificate",
-            title: "Service agreements",
+            title: "Service agreements (MSA)",
             value: "Contracts",
-            sub: "Templates & e-signing",
+            sub: "Your ShiftSwift subscription pack",
             href: "#contracts",
           }),
           moduleCard({
@@ -502,13 +598,17 @@
           : `<p class="overview-actions-empty muted">No open actions — your workspace looks good.</p>`;
       }
 
+      renderSetupChecklist(data);
+
       window.dispatchEvent(new CustomEvent("admin:overview-loaded", { detail: { data } }));
       window.AdminMobile?.renderMobileCompliance?.(data);
     } catch (error) {
       const message = escapeHtml(error.message || "Could not load overview.");
-      grid.innerHTML = `<p class="muted">${message}</p>`;
-      if (modulesHost) modulesHost.innerHTML = `<p class="muted">${message}</p>`;
+      grid.innerHTML = `<div class="overview-error"><p class="muted">${message}</p><button type="button" class="btn outline btn-sm" id="overview-retry-btn">Retry</button></div>`;
+      document.getElementById("overview-retry-btn")?.addEventListener("click", () => loadOverview());
+      if (modulesHost) modulesHost.innerHTML = "";
       if (actionsHost) actionsHost.innerHTML = "";
+      document.getElementById("overview-setup-checklist")?.setAttribute("hidden", "");
       window.dispatchEvent(
         new CustomEvent("admin:overview-loaded", {
           detail: {
