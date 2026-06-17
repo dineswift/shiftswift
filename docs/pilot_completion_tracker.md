@@ -28,6 +28,8 @@ Track progress toward **9/10 pilot-ready**. Update after each deploy and manual 
 
 ## Phase 2 — Deploy & verify (you)
 
+**Single-session runbook:** [pilot_phase2_runbook.md](./pilot_phase2_runbook.md) (deploy + all manual checks, copy-paste)
+
 | # | Task | Done |
 |---|------|------|
 | 1 | Run `bash deploy/cloudpanel/pull-production.sh` on server | ☐ |

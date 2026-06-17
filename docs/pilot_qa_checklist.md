@@ -6,6 +6,8 @@ Use this after deploy to verify the pilot-ready UX polish (Sprints 1–4).
 
 **Progress tracker:** [pilot_completion_tracker.md](./pilot_completion_tracker.md)
 
+**One-sitting deploy + verify:** [pilot_phase2_runbook.md](./pilot_phase2_runbook.md)
+
 ---
 
 ## Automated (CI / local)

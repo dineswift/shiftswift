@@ -1192,8 +1192,6 @@
 
   async function maybeLoadCrm() {
     if (!isAddonEnabled("crm")) return;
-    const section = document.getElementById("crm");
-    if (section) section.hidden = false;
     if (loaded) return;
     if (els.pipelineBoard) els.pipelineBoard.innerHTML = '<p class="muted">Loading pipeline…</p>';
     try {

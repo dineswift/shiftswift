@@ -107,10 +107,19 @@ window.Admin = (() => {
     "api-access": "API access is included on the Multi-site plan.",
   };
 
+  const ADDON_UPGRADE_LABELS = {
+    crm: "Sales CRM is a paid add-on. Contact your account manager or enable it in Master Ops to unlock pipeline, companies, and contacts.",
+  };
+
   function featureUpgradeMessage(feature) {
     const apiKey = FEATURE_TO_UPGRADE_KEY[feature];
     const fromApi = apiKey && tenantFeatures.upgrade_messages?.[apiKey];
     return fromApi || FEATURE_UPGRADE_LABELS[feature] || "Upgrade your plan to unlock this feature.";
+  }
+
+  function addonUpgradeMessage(addon) {
+    const fromApi = tenantFeatures.upgrade_messages?.[addon];
+    return fromApi || ADDON_UPGRADE_LABELS[addon] || "This add-on is not enabled on your workspace.";
   }
 
   function authHeaders(json = true) {
@@ -354,6 +363,24 @@ window.Admin = (() => {
     return false;
   }
 
+  function ensureAddonUpgradeNotice(section, addon, enabled) {
+    let notice = section.querySelector(".addon-upgrade-notice");
+    if (enabled) {
+      if (notice) notice.hidden = true;
+      section.dataset.addonDisabled = "false";
+      return;
+    }
+    section.dataset.addonDisabled = "true";
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.className = "addon-upgrade-notice promo-result";
+      notice.innerHTML = `<p><strong>${escapeHtml(addonUpgradeMessage(addon))}</strong> <a href="#settings/billing">View billing</a></p>`;
+      const header = section.querySelector(".section-header");
+      section.insertBefore(notice, header ? header.nextSibling : section.firstChild);
+    }
+    notice.hidden = false;
+  }
+
   function applyAddonGates() {
     document.querySelectorAll("[data-addon]").forEach((el) => {
       const addon = el.dataset.addon;
@@ -362,8 +389,12 @@ window.Admin = (() => {
         el.hidden = !enabled;
         return;
       }
-      if (el.matches(".admin-section") && !enabled) {
-        el.hidden = true;
+      if (el.matches(".admin-section")) {
+        ensureAddonUpgradeNotice(el, addon, enabled);
+        el.querySelectorAll(":scope > *").forEach((child) => {
+          if (child.matches(".section-header") || child.matches(".addon-upgrade-notice")) return;
+          child.hidden = !enabled;
+        });
       }
     });
   }
@@ -456,6 +487,7 @@ window.Admin = (() => {
     applyPlatformOnlyGates();
     window.AdminMobile?.syncClockAvailability?.(Boolean(tenantFeatures.time_clock_enabled));
     window.dispatchEvent(new CustomEvent("admin:features", { detail: tenantFeatures }));
+    window.Admin.routeFromHash?.();
   }
 
   function applyPlatformOnlyGates() {
@@ -485,7 +517,6 @@ window.Admin = (() => {
     if (baseSection === "overview-actions") return "overview";
     if (baseSection.startsWith("compliance")) return "compliance";
     if (baseSection === "time-punch" && !tenantFeatures.time_clock_enabled) return "overview";
-    if (baseSection === "crm" && !isAddonEnabled("crm")) return "overview";
     if (baseSection === "promotions" && !isPlatformAdmin()) return "overview";
     return baseSection || "overview";
   }
@@ -818,10 +849,8 @@ window.Admin = (() => {
           return;
         }
       } else if (!isDeepLink && path !== targetSection) {
-        if (!document.getElementById(path)) {
-          window.location.hash = targetSection;
-          return;
-        }
+        window.location.hash = targetSection;
+        return;
       }
 
       showSection(targetSection);
@@ -832,7 +861,12 @@ window.Admin = (() => {
       link.addEventListener("click", (event) => {
         event.preventDefault();
         const target = link.dataset.section;
-        window.location.hash = target;
+        const current = parseHashPath(window.location.hash).baseSection;
+        if (current === target) {
+          routeFromHash();
+        } else {
+          window.location.hash = target;
+        }
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
@@ -840,6 +874,7 @@ window.Admin = (() => {
     });
 
     window.addEventListener("hashchange", routeFromHash);
+    window.Admin.routeFromHash = routeFromHash;
     routeFromHash();
   }
 
@@ -1122,5 +1157,6 @@ window.Admin = (() => {
     parseHashPath,
     parseHashBaseSection,
     resolveSectionFromHash,
+    routeFromHash: () => window.Admin.routeFromHash?.(),
   };
 })();
