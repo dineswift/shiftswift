@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v110" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v111" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -1023,96 +1023,139 @@
           <header class="section-header">
             <div>
               <h2>HR Templates &amp; AI</h2>
-              <p class="muted">Platform templates update automatically when UK law changes. Download the latest version or keep your custom copy. Version labels show which is which.</p>
+              <p class="muted">Curated UK HR documents — customise, preview, download, or apply platform updates when employment law changes.</p>
+            </div>
+            <div class="section-actions">
+              <a class="btn ghost" href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS templates →</a>
             </div>
           </header>
 
           <div id="hr-template-updates-banner" class="promo-result" hidden></div>
 
-          <div class="hr-status-workflow" aria-label="Template workflow">
-            <span class="hr-workflow-step">Browse</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Customise</span>
-            <span class="hr-workflow-arrow" aria-hidden="true">→</span>
-            <span class="hr-workflow-step">Download</span>
-          </div>
-
-          <div class="hr-workspace-layout">
-            <div class="hr-main-pane">
-              <div class="hr-surface-panel hr-log-panel" style="margin-bottom:14px;">
-                <div class="section-header section-header--compact" style="margin:0;">
+          <div class="templates-workspace hr-workspace-layout" id="templates-workspace">
+            <div class="hr-main-pane templates-main-pane">
+              <article class="hr-surface-panel templates-ai-panel">
+                <div class="templates-ai-panel__head">
                   <div>
                     <h4 class="hr-section-title">AI document assistant</h4>
-                    <p class="muted">Powered by Google Gemini 2.0 Flash. Set <code>GEMINI_API_KEY</code> in backend .env.</p>
+                    <p class="muted templates-ai-panel__hint">Optional — adapt templates with Gemini. Set <code>GEMINI_API_KEY</code> in backend <code>.env</code>.</p>
                   </div>
-                  <label class="edit-field edit-field--checkbox" style="margin:0;">
+                  <label class="edit-field edit-field--checkbox templates-ai-toggle">
                     <input type="checkbox" id="ai-tenant-toggle" />
                     <span class="edit-label">Enable AI for this business</span>
                   </label>
                 </div>
                 <div id="ai-status-panel" class="promo-result"></div>
-              </div>
-              <h4 class="hr-section-title">Process template library</h4>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Template</th>
-                      <th>Category</th>
-                      <th>Version</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="hr-templates-body">
-                    <tr><td colspan="4" class="muted">Open this section to load templates…</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <article class="card hr-workspace" id="template-editor-panel" hidden style="margin-top:16px;">
-            <header class="section-header section-header--compact">
-              <div>
-                <h3 id="template-editor-title">Edit template</h3>
-                <p class="muted" id="template-editor-meta"></p>
-              </div>
-              <div class="link-row">
-                <button type="button" class="btn ghost" id="template-editor-close">Close</button>
-                <button type="button" class="btn secondary" id="template-apply-update-btn" hidden>Apply platform update</button>
-                <button type="button" class="btn secondary" id="template-reset-btn">Reset to default</button>
-                <button type="button" class="btn secondary" id="template-download-platform-btn">Download platform latest</button>
-                <button type="button" class="btn secondary" id="template-download-btn">Download my copy</button>
-                <button type="button" class="btn" id="template-save-btn">Save changes</button>
-              </div>
-            </header>
-            <div id="template-update-notice" class="promo-result" hidden></div>
-            <div id="template-legal-meta" class="muted" style="margin-bottom:0.75rem;"></div>
-            <details id="template-revisions-panel" class="edit-panel" style="margin-bottom:0.75rem;padding:0.75rem;" hidden>
-              <summary style="cursor:pointer;font-weight:600;">Version history</summary>
-              <ul id="template-revisions-list" class="muted" style="margin:0.5rem 0 0;padding-left:1.25rem;"></ul>
-            </details>
-            <label class="edit-field"><span class="edit-label">Title</span><input id="template-title-input" type="text" /></label>
-            <label class="edit-field" style="display:block;margin-top:0.75rem;">
-              <span class="edit-label">Content (Markdown)</span>
-              <textarea id="template-body-input" rows="16" style="width:100%;font-family:monospace;font-size:0.9rem;"></textarea>
-            </label>
-            <p class="muted" id="template-save-status"></p>
+              </article>
 
-            <div id="ai-assist-panel" class="edit-panel" style="margin-top:1rem;padding:1rem;" hidden>
-              <h4>AI assist</h4>
-              <input type="hidden" id="ai-template-id" value="" />
-              <label class="edit-field"><span class="edit-label">Brief for AI</span>
-                <textarea id="ai-prompt-input" rows="3" placeholder="e.g. Adapt this onboarding checklist for a 40-seat restaurant with sponsored kitchen staff…"></textarea>
-              </label>
-              <label class="edit-field"><span class="edit-label">Business context (optional)</span>
-                <textarea id="ai-context-input" rows="2" placeholder="Sites, brand name, typical roles…"></textarea>
-              </label>
-              <button type="button" class="btn" id="ai-draft-btn">Generate with AI</button>
-              <p class="muted" id="ai-draft-status"></p>
+              <article class="hr-surface-panel templates-library-panel">
+                <div class="templates-library-toolbar">
+                  <h4 class="hr-section-title">Process template library</h4>
+                  <div class="templates-library-filters">
+                    <label class="templates-filter">
+                      <span class="edit-label">Category</span>
+                      <select id="hr-templates-category-filter">
+                        <option value="">All categories</option>
+                      </select>
+                    </label>
+                    <label class="templates-filter templates-filter--search">
+                      <span class="edit-label">Search</span>
+                      <input type="search" id="hr-templates-search" placeholder="Search templates…" maxlength="80" />
+                    </label>
+                  </div>
+                </div>
+                <div class="hr-table-wrap templates-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Template</th>
+                        <th>Category</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="hr-templates-body">
+                      <tr><td colspan="4" class="muted">Open this section to load templates…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="muted templates-library-foot">Double-click a row to edit · Single-click for summary</p>
+              </article>
+
+              <article class="hr-surface-panel template-editor-panel" id="template-editor-panel" hidden>
+                <header class="template-editor__head">
+                  <div class="template-editor__intro">
+                    <h3 id="template-editor-title">Edit template</h3>
+                    <p class="muted" id="template-editor-meta"></p>
+                    <div id="template-editor-badges" class="template-editor__badges"></div>
+                  </div>
+                  <div class="template-editor__actions">
+                    <button type="button" class="btn" id="template-save-btn">Save changes</button>
+                    <button type="button" class="btn ghost" id="template-editor-close">Close</button>
+                    <button type="button" class="btn ghost" id="template-apply-update-btn" hidden>Apply platform update</button>
+                    <button type="button" class="btn ghost" id="template-reset-btn">Reset to default</button>
+                    <button type="button" class="btn ghost btn--sm" id="template-download-platform-btn">Download platform</button>
+                    <button type="button" class="btn ghost btn--sm" id="template-download-btn">Download my copy</button>
+                  </div>
+                </header>
+
+                <div id="template-update-notice" class="promo-result template-editor__notice" hidden></div>
+
+                <div class="template-editor__meta">
+                  <div id="template-legal-meta" class="template-editor__legal muted"></div>
+                  <details id="template-revisions-panel" class="template-editor__revisions" hidden>
+                    <summary>Version history</summary>
+                    <ul id="template-revisions-list" class="muted"></ul>
+                  </details>
+                </div>
+
+                <label class="edit-field template-editor__title-field">
+                  <span class="edit-label">Document title</span>
+                  <input id="template-title-input" type="text" />
+                </label>
+
+                <div class="template-editor__split">
+                  <div class="template-editor__edit">
+                    <div class="template-editor__pane-head">
+                      <span class="template-editor__pane-label">Markdown source</span>
+                      <span class="muted template-editor__word-count" id="template-word-count"></span>
+                    </div>
+                    <textarea id="template-body-input" class="template-editor__textarea" spellcheck="true" rows="18"></textarea>
+                  </div>
+                  <div class="template-editor__preview-pane">
+                    <div class="template-editor__pane-head">
+                      <span class="template-editor__pane-label">Live preview</span>
+                      <span class="muted">How employees and HR will read this document</span>
+                    </div>
+                    <div id="template-preview-output" class="template-doc-preview" aria-live="polite"></div>
+                  </div>
+                </div>
+
+                <p class="template-editor__status muted" id="template-save-status" aria-live="polite"></p>
+
+                <details class="template-editor__ai" id="ai-assist-panel" hidden>
+                  <summary class="template-editor__ai-summary">AI assist — adapt this document</summary>
+                  <div class="template-editor__ai-body">
+                    <input type="hidden" id="ai-template-id" value="" />
+                    <label class="edit-field">
+                      <span class="edit-label">Brief for AI</span>
+                      <textarea id="ai-prompt-input" rows="3" placeholder="e.g. Adapt this onboarding checklist for a 40-seat restaurant with sponsored kitchen staff…"></textarea>
+                    </label>
+                    <label class="edit-field">
+                      <span class="edit-label">Business context (optional)</span>
+                      <textarea id="ai-context-input" rows="2" placeholder="Sites, brand name, typical roles…"></textarea>
+                    </label>
+                    <button type="button" class="btn" id="ai-draft-btn">Generate with AI</button>
+                    <p class="muted" id="ai-draft-status"></p>
+                    <p class="muted template-editor__ai-note">AI output is a draft only — review before saving. Not legal advice.</p>
+                  </div>
+                </details>
+              </article>
             </div>
-          </article>
-            </div>
-            <aside class="hr-detail-panel" id="templates-side-panel">
+
+            <aside class="hr-detail-panel templates-side-panel" id="templates-side-panel">
               <div id="templates-side-empty" class="hr-detail-empty muted">
-                <p>Select a template to preview version status. Click <strong>Edit template</strong> — the Markdown editor opens below the table (page scrolls automatically). Double-click a row to edit.</p>
+                <p>Select a template to see version and download options. Double-click a row to open the document editor with live preview.</p>
               </div>
               <div id="templates-side-content" hidden></div>
             </aside>
@@ -2722,7 +2765,7 @@
     <script src="./admin-grievance.js?v=6"></script>
     <script src="./admin-disciplinary.js?v=2"></script>
     <script src="./admin-offboarding.js?v=admin-v7"></script>
-    <script src="./admin-templates.js?v=admin-v8"></script>
+    <script src="./admin-templates.js?v=admin-v9"></script>
     <script src="./admin-time-punch.js?v=32"></script>
     <script src="./admin-rota.js?v=27"></script>
     <script src="./admin-leave.js?v=2"></script>

@@ -6,6 +6,20 @@
   let selectedId = null;
   let aiStatus = null;
   let listCache = [];
+  let categoryFilter = "";
+  let searchFilter = "";
+  let previewTimer = null;
+
+  const CATEGORY_ORDER = [
+    "onboarding",
+    "probation",
+    "recruitment",
+    "contracts",
+    "policy",
+    "compliance",
+    "disciplinary",
+    "offboarding",
+  ];
 
   function categoryLabel(cat) {
     return String(cat || "")
@@ -18,9 +32,150 @@
       return `<span class="status-pill status-warning">Update v${escapeHtml(item.platform_version)}</span>`;
     }
     if (item.is_customised) {
-      return `<span class="status-pill status-ok">Custom</span>`;
+      return `<span class="status-pill status-ok">Custom copy</span>`;
     }
-    return `<span class="status-pill status-ok">Latest</span>`;
+    return `<span class="status-pill status-ok">Platform latest</span>`;
+  }
+
+  function markdownToPreviewHtml(markdown) {
+    const lines = String(markdown || "").split("\n");
+    const out = [];
+    let inUl = false;
+    for (const line of lines) {
+      const stripped = line.trim();
+      if (stripped.startsWith("### ")) {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+        out.push(`<h3>${escapeHtml(stripped.slice(4))}</h3>`);
+      } else if (stripped.startsWith("## ")) {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+        out.push(`<h2>${escapeHtml(stripped.slice(3))}</h2>`);
+      } else if (stripped.startsWith("# ")) {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+        out.push(`<h1>${escapeHtml(stripped.slice(2))}</h1>`);
+      } else if (stripped.startsWith("- [ ] ") || stripped.startsWith("- [x] ")) {
+        if (!inUl) {
+          out.push("<ul class=\"template-doc-preview__checklist\">");
+          inUl = true;
+        }
+        const checked = stripped.startsWith("- [x] ");
+        const text = stripped.slice(6);
+        out.push(
+          `<li class="template-doc-preview__check${checked ? " template-doc-preview__check--done" : ""}">${escapeHtml(text)}</li>`
+        );
+      } else if (stripped.startsWith("- ")) {
+        if (!inUl) {
+          out.push("<ul>");
+          inUl = true;
+        }
+        out.push(`<li>${escapeHtml(stripped.slice(2))}</li>`);
+      } else if (stripped.startsWith("|") && stripped.includes("---")) {
+        continue;
+      } else if (stripped.startsWith("|")) {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+        const cells = stripped
+          .trim()
+          .replace(/^\|/, "")
+          .replace(/\|$/, "")
+          .split("|")
+          .map((c) => escapeHtml(c.trim()));
+        out.push(`<p class="template-doc-preview__table-row">${cells.join(" · ")}</p>`);
+      } else if (stripped === "---") {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+        out.push("<hr />");
+      } else if (!stripped) {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+      } else {
+        if (inUl) {
+          out.push("</ul>");
+          inUl = false;
+        }
+        let text = escapeHtml(stripped);
+        text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+        text = text.replace(/_(.+?)_/g, "<em>$1</em>");
+        out.push(`<p>${text}</p>`);
+      }
+    }
+    if (inUl) out.push("</ul>");
+    return out.join("\n") || "<p class=\"muted\">Nothing to preview yet.</p>";
+  }
+
+  function syncLivePreview() {
+    const body = document.getElementById("template-body-input");
+    const preview = document.getElementById("template-preview-output");
+    const countEl = document.getElementById("template-word-count");
+    if (!preview) return;
+    const text = body?.value || "";
+    preview.innerHTML = markdownToPreviewHtml(text);
+    if (countEl) {
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      countEl.textContent = `${words} words`;
+    }
+  }
+
+  function schedulePreview() {
+    window.clearTimeout(previewTimer);
+    previewTimer = window.setTimeout(syncLivePreview, 120);
+  }
+
+  function filteredTemplates() {
+    const q = searchFilter.trim().toLowerCase();
+    return listCache.filter((row) => {
+      if (categoryFilter && row.category !== categoryFilter) return false;
+      if (!q) return true;
+      const hay = `${row.display_title || ""} ${row.description || ""} ${row.category || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  function populateCategoryFilter() {
+    const select = document.getElementById("hr-templates-category-filter");
+    if (!select) return;
+    const categories = [...new Set(listCache.map((t) => t.category).filter(Boolean))];
+    categories.sort((a, b) => {
+      const ai = CATEGORY_ORDER.indexOf(a);
+      const bi = CATEGORY_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    select.innerHTML =
+      `<option value="">All categories</option>` +
+      categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(categoryLabel(c))}</option>`).join("");
+    select.value = categoryFilter;
+  }
+
+  function setEditorOpen(open) {
+    const workspace = document.getElementById("templates-workspace");
+    const side = document.getElementById("templates-side-panel");
+    workspace?.classList.toggle("templates-workspace--editor-open", open);
+    if (side) side.hidden = open;
+  }
+
+  function closeEditor() {
+    const panel = document.getElementById("template-editor-panel");
+    if (panel) panel.hidden = true;
+    setEditorOpen(false);
+    const status = document.getElementById("template-save-status");
+    if (status) status.textContent = "";
   }
 
   function renderUpdatesBanner(data) {
@@ -36,7 +191,7 @@
     banner.className = "promo-result promo-result-message";
     banner.innerHTML = `
       <p><strong>${pending} template${pending === 1 ? "" : "s"}</strong> have a newer platform version (UK law / guidance update).
-      Open the template and choose <strong>Apply platform update</strong>, or download <strong>platform latest</strong> without changing your saved copy.</p>`;
+      Open a template and choose <strong>Apply platform update</strong>, or download platform latest without changing your saved copy.</p>`;
   }
 
   async function loadAiStatus() {
@@ -51,10 +206,10 @@
       panel.innerHTML = `
         <p class="promo-result-message ${aiStatus.available ? "promo-result-message--ok" : ""}">
           Provider: <strong>${escapeHtml(aiStatus.provider || "not configured")}</strong>
-          · Recommended: Gemini 2.0 Flash
-          · ${aiStatus.available ? "Ready" : aiStatus.provider_configured ? "Enable for this business below" : "Add GEMINI_API_KEY to backend .env"}
+          · ${aiStatus.available ? "Ready when enabled above" : aiStatus.provider_configured ? "Enable for this business" : "Add GEMINI_API_KEY to backend .env"}
         </p>`;
-      document.getElementById("ai-assist-panel")?.toggleAttribute("hidden", !aiStatus.available);
+      const aiPanel = document.getElementById("ai-assist-panel");
+      if (aiPanel && !aiStatus.available) aiPanel.setAttribute("hidden", "");
     } catch {
       panel.innerHTML = `<p class="muted">Could not load AI status.</p>`;
     }
@@ -93,10 +248,11 @@
       <dl class="hr-detail-grid">
         <div><dt>Category</dt><dd>${escapeHtml(categoryLabel(item.category))}</dd></div>
         <div><dt>Version</dt><dd>${versionLine}</dd></div>
-        ${item.change_summary && item.update_available ? `<div><dt>Update note</dt><dd>${escapeHtml(item.change_summary)}</dd></div>` : ""}
+        ${item.legal_basis ? `<div><dt>Legal basis</dt><dd>${escapeHtml(item.legal_basis)}</dd></div>` : ""}
+        ${item.change_summary && item.update_available ? `<div><dt>Update</dt><dd>${escapeHtml(item.change_summary)}</dd></div>` : ""}
       </dl>
       <div class="hr-detail-foot">
-        <button type="button" class="btn" id="templates-side-edit-btn">Edit template</button>
+        <button type="button" class="btn" id="templates-side-edit-btn">Edit document</button>
         <button type="button" class="btn ghost" id="templates-side-dl-platform-btn">Download latest</button>
         ${item.is_customised ? `<button type="button" class="btn ghost" id="templates-side-dl-copy-btn">Download my copy</button>` : ""}
       </div>`;
@@ -116,25 +272,31 @@
   function selectTemplate(templateId) {
     selectedId = templateId;
     renderTemplateTable();
+    if (!document.getElementById("template-editor-panel")?.hidden) return;
     renderTemplateSidePanel(listCache.find((t) => t.id === templateId));
   }
 
   function renderTemplateTable() {
     const tbody = document.getElementById("hr-templates-body");
     if (!tbody) return;
+    const rows = filteredTemplates();
     if (!listCache.length) {
       tbody.innerHTML =
         '<tr><td colspan="4" class="muted">No HR templates seeded. Run scripts/seed_hr_templates.py.</td></tr>';
       renderTemplateSidePanel(null);
       return;
     }
-    tbody.innerHTML = listCache
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="muted">No templates match your filter.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows
       .map((row) => {
         const selected = selectedId === row.id ? " hr-register-row--selected" : "";
         return `<tr class="hr-register-row${selected}" data-template-id="${escapeHtml(row.id)}">
-          <td><strong>${escapeHtml(row.display_title)}</strong><div class="muted">${escapeHtml(row.description)}</div></td>
+          <td><strong>${escapeHtml(row.display_title)}</strong><div class="muted">${escapeHtml(row.description || "")}</div></td>
           <td>${escapeHtml(categoryLabel(row.category))}</td>
-          <td>Platform v${escapeHtml(row.platform_version)}</td>
+          <td>v${escapeHtml(row.platform_version)}</td>
           <td>${syncStatusPill(row)}</td>
         </tr>`;
       })
@@ -143,6 +305,7 @@
       row.addEventListener("click", () => selectTemplate(row.dataset.templateId));
       row.addEventListener("dblclick", () => openEditor(row.dataset.templateId));
     });
+    if (selectedId && !document.getElementById("template-editor-panel")?.hidden) return;
     if (selectedId) {
       renderTemplateSidePanel(listCache.find((t) => t.id === selectedId));
     }
@@ -157,6 +320,7 @@
       const data = await res.json();
       listCache = data.items || [];
       renderUpdatesBanner(data);
+      populateCategoryFilter();
       renderTemplateTable();
     } catch {
       listCache = [];
@@ -172,12 +336,17 @@
     const applyBtn = document.getElementById("template-apply-update-btn");
     const dlMy = document.getElementById("template-download-btn");
     const dlPlatform = document.getElementById("template-download-platform-btn");
+    const badges = document.getElementById("template-editor-badges");
+
+    if (badges) {
+      badges.innerHTML = `${syncStatusPill(tpl)} <span class="status-pill">${escapeHtml(categoryLabel(tpl.category))}</span>`;
+    }
 
     if (meta) {
       if (tpl.is_customised) {
-        meta.textContent = `Your copy · based on platform v${tpl.based_on_platform_version || "?"} · platform latest is v${tpl.platform_version}`;
+        meta.textContent = `Your customised copy · based on platform v${tpl.based_on_platform_version || "?"} · platform latest is v${tpl.platform_version}`;
       } else {
-        meta.textContent = `Using platform latest v${tpl.platform_version}${tpl.published_at ? ` · published ${tpl.published_at.slice(0, 10)}` : ""}`;
+        meta.textContent = `Platform latest v${tpl.platform_version}${tpl.published_at ? ` · published ${tpl.published_at.slice(0, 10)}` : ""}`;
       }
     }
 
@@ -185,15 +354,15 @@
       const parts = [];
       if (tpl.legal_basis) parts.push(`<strong>Legal / guidance:</strong> ${escapeHtml(tpl.legal_basis)}`);
       if (tpl.change_summary) parts.push(`<strong>Latest change:</strong> ${escapeHtml(tpl.change_summary)}`);
-      legal.innerHTML = parts.join("<br />");
+      legal.innerHTML = parts.join("<br />") || "";
+      legal.hidden = !parts.length;
     }
 
     if (notice && applyBtn) {
       if (tpl.update_available) {
         notice.hidden = false;
-        notice.className = "promo-result promo-result-message";
-        notice.innerHTML = `<p>Platform update <strong>v${escapeHtml(tpl.platform_version)}</strong> is available.
-          ${escapeHtml(tpl.change_summary || "Review the platform latest before applying.")}</p>`;
+        notice.className = "promo-result promo-result-message template-editor__notice";
+        notice.innerHTML = `<p>Platform update <strong>v${escapeHtml(tpl.platform_version)}</strong> is available. ${escapeHtml(tpl.change_summary || "Review platform latest before applying.")}</p>`;
         applyBtn.hidden = false;
       } else {
         notice.hidden = true;
@@ -214,8 +383,7 @@
         revList.innerHTML = revisions
           .map(
             (rev) =>
-              `<li><strong>v${escapeHtml(rev.version)}</strong>${rev.published_at ? ` · ${escapeHtml(rev.published_at.slice(0, 10))}` : ""}
-              ${rev.change_summary ? `: ${escapeHtml(rev.change_summary)}` : ""}</li>`
+              `<li><strong>v${escapeHtml(rev.version)}</strong>${rev.published_at ? ` · ${escapeHtml(rev.published_at.slice(0, 10))}` : ""}${rev.change_summary ? ` — ${escapeHtml(rev.change_summary)}` : ""}</li>`
           )
           .join("");
       } else {
@@ -227,34 +395,34 @@
 
   async function openEditor(templateId) {
     selectedId = templateId;
+    renderTemplateTable();
     const panel = document.getElementById("template-editor-panel");
     if (!panel) return;
 
     panel.hidden = false;
-    panel.removeAttribute("hidden");
+    setEditorOpen(true);
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 
     const titleEl = document.getElementById("template-editor-title");
     const status = document.getElementById("template-save-status");
-    if (titleEl) titleEl.textContent = "Loading template…";
+    if (titleEl) titleEl.textContent = "Loading document…";
     if (status) status.textContent = "Loading…";
 
     try {
       const res = await apiFetch(`/hr-templates/${templateId}`);
       const tpl = await res.json();
-      if (!res.ok) {
-        throw new Error(tpl.detail || "Could not load template");
-      }
+      if (!res.ok) throw new Error(tpl.detail || "Could not load template");
       document.getElementById("template-editor-title").textContent = tpl.title;
       document.getElementById("template-title-input").value = tpl.title;
-      document.getElementById("template-body-input").value = tpl.content_markdown;
+      document.getElementById("template-body-input").value = tpl.content_markdown || "";
       document.getElementById("ai-template-id").value = templateId;
       renderEditorMeta(tpl);
-      document.getElementById("ai-assist-panel")?.removeAttribute("hidden");
-      if (status) status.textContent = "Edit the Markdown below, then click Save changes.";
+      const aiPanel = document.getElementById("ai-assist-panel");
+      if (aiPanel && aiStatus?.available) aiPanel.removeAttribute("hidden");
+      syncLivePreview();
+      if (status) status.textContent = "Changes are saved to your business copy only — platform templates update on deploy.";
     } catch (error) {
       if (status) status.textContent = error.message || "Could not load template";
-      alert(error.message || "Could not load template");
     }
   }
 
@@ -273,7 +441,7 @@
       if (status) status.textContent = data.detail || "Save failed";
       return;
     }
-    if (status) status.textContent = "Saved.";
+    if (status) status.textContent = "Saved — your customised copy is active.";
     await loadTemplateList();
     await openEditor(selectedId);
   }
@@ -334,32 +502,46 @@
       return;
     }
     document.getElementById("template-body-input").value = data.content_markdown;
-    if (status) status.textContent = `${data.disclaimer} (${data.provider}/${data.model})`;
+    syncLivePreview();
+    if (status) status.textContent = `${data.disclaimer} (${data.provider}/${data.model}) — review before saving.`;
   }
 
   function bindControls() {
     if (controlsBound) return;
     controlsBound = true;
+
     document.getElementById("ai-tenant-toggle")?.addEventListener("change", (e) => {
       saveAiToggle(e.target.checked).catch((err) => alert(err.message));
     });
+
+    document.getElementById("hr-templates-category-filter")?.addEventListener("change", (e) => {
+      categoryFilter = e.target.value;
+      renderTemplateTable();
+    });
+
+    document.getElementById("hr-templates-search")?.addEventListener("input", (e) => {
+      searchFilter = e.target.value;
+      renderTemplateTable();
+    });
+
+    document.getElementById("template-body-input")?.addEventListener("input", schedulePreview);
+    document.getElementById("template-title-input")?.addEventListener("input", () => {
+      const title = document.getElementById("template-title-input")?.value;
+      const head = document.getElementById("template-editor-title");
+      if (head && title) head.textContent = title;
+    });
+
     document.getElementById("template-save-btn")?.addEventListener("click", () => saveTemplate());
     document.getElementById("template-reset-btn")?.addEventListener("click", () => resetTemplate());
     document.getElementById("template-apply-update-btn")?.addEventListener("click", () => applyPlatformUpdate());
     document.getElementById("template-download-btn")?.addEventListener("click", () => {
-      if (selectedId) {
-        downloadAuthenticated(`/hr-templates/${selectedId}/download?variant=effective`, `${selectedId}.md`);
-      }
+      if (selectedId) downloadAuthenticated(`/hr-templates/${selectedId}/download?variant=effective`, `${selectedId}.md`);
     });
     document.getElementById("template-download-platform-btn")?.addEventListener("click", () => {
-      if (selectedId) {
-        downloadAuthenticated(`/hr-templates/${selectedId}/download?variant=platform`, `${selectedId}.md`);
-      }
+      if (selectedId) downloadAuthenticated(`/hr-templates/${selectedId}/download?variant=platform`, `${selectedId}.md`);
     });
     document.getElementById("ai-draft-btn")?.addEventListener("click", () => runAiDraft());
-    document.getElementById("template-editor-close")?.addEventListener("click", () => {
-      document.getElementById("template-editor-panel").hidden = true;
-    });
+    document.getElementById("template-editor-close")?.addEventListener("click", () => closeEditor());
   }
 
   async function initTemplatesSection() {
