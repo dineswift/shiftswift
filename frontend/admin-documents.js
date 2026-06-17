@@ -70,7 +70,7 @@
       if (apiBase.startsWith("http://") && window.location.protocol === "https:") {
         return "Secure connection blocked the API (mixed content). Hard refresh the page or sign in again.";
       }
-      return "Could not reach the API. Hard refresh (Cmd+Shift+R), check your connection, then try again.";
+      return "Could not reach the API. Run deploy/migrations on the server, wait a minute, then hard refresh (Cmd+Shift+R).";
     }
     return message || fallback;
   }
@@ -212,14 +212,29 @@
   }
 
   async function uploadMultipart(path, formData) {
+    const tenantId = window.Admin?.TENANT_ID;
+    if (!tenantId) {
+      throw new Error("Business not set. Sign in again.");
+    }
     const apiBase = window.Admin.getApiBase?.() || API_BASE;
-    const res = await window.ShiftSwiftSession.fetchWithAuth(
-      path,
-      { method: "POST", body: formData },
-      { apiBase, tenantId: window.Admin.TENANT_ID }
-    );
+    if (!apiBase) {
+      throw new Error("API URL not configured. Hard refresh and sign in again.");
+    }
+    let res;
+    try {
+      res = await window.ShiftSwiftSession.fetchWithAuth(
+        path,
+        { method: "POST", body: formData },
+        { apiBase, tenantId }
+      );
+    } catch (error) {
+      console.warn("ShiftSwift multipart upload failed", { apiBase, path, error });
+      throw error;
+    }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
+    if (!res.ok) {
+      throw new Error(parseApiDetail(data, "Upload failed"));
+    }
     return data;
   }
 

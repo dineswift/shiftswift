@@ -712,9 +712,12 @@ async def distribute_document_route(
     send_email: bool = Form(default=True),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
+    import logging
+
     from modules.documents.distribute import distribute_document
     from modules.documents.storage import read_validated_upload
 
+    logger = logging.getLogger(__name__)
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
     conn = _db_conn()
@@ -748,6 +751,12 @@ async def distribute_document_route(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Document distribute failed for tenant %s", tenant_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Document upload is unavailable. Run database migrations and try again.",
+        ) from exc
     finally:
         conn.close()
     return result

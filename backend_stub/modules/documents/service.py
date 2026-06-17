@@ -262,7 +262,57 @@ def _iso(value: Any) -> str | None:
     return str(value)
 
 
-def _row_to_employee_document(row: tuple[Any, ...]) -> dict[str, Any]:
+def _table_has_columns(conn: Any, table: str, *columns: str) -> bool:
+    if not columns:
+        return True
+    available = _table_columns(conn, table)
+    return all(column in available for column in columns)
+
+
+def _table_columns(conn: Any, table: str) -> frozenset[str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+            """,
+            (table,),
+        )
+        return frozenset(row[0] for row in cur.fetchall())
+
+
+def _employee_document_select_columns(conn: Any) -> list[str]:
+    available = _table_columns(conn, "employee_documents")
+    return [column for column in EMPLOYEE_DOCUMENT_SELECT.replace("\n", " ").split(",") if column.strip() in available]
+
+
+def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None = None) -> dict[str, Any]:
+    if columns:
+        data = dict(zip(columns, row, strict=False))
+        return {
+            "id": data.get("id"),
+            "title": data.get("title"),
+            "category": data.get("category"),
+            "lifecycle_stage": data.get("lifecycle_stage"),
+            "document_url": data.get("document_url"),
+            "notes": data.get("notes"),
+            "uploaded_by": data.get("uploaded_by"),
+            "expires_at": _iso(data.get("expires_at")),
+            "original_filename": data.get("original_filename"),
+            "created_at": _iso(data.get("created_at")),
+            "updated_at": _iso(data.get("updated_at")),
+            "employee_id": data.get("employee_id"),
+            "storage_path": data.get("storage_path"),
+            "content_sha256": data.get("content_sha256"),
+            "content_type": data.get("content_type"),
+            "file_size_bytes": data.get("file_size_bytes"),
+            "pay_period": data.get("pay_period"),
+            "expiry_alert_days": data.get("expiry_alert_days", 30),
+            "employee_visible": data.get("employee_visible", True),
+            "has_file": bool(data.get("storage_path")),
+        }
     return {
         "id": row[0],
         "title": row[1],
@@ -354,41 +404,58 @@ def create_employee_document(
     conn: Any,
 ) -> dict[str, Any]:
     payload = validate_employee_document_data(data)
+    available = _table_columns(conn, "employee_documents")
+    values = {
+        "tenant_id": tenant_id,
+        "employee_id": employee_id,
+        "title": payload["title"],
+        "category": payload["category"],
+        "lifecycle_stage": payload["lifecycle_stage"],
+        "document_url": payload["document_url"],
+        "notes": payload["notes"],
+        "uploaded_by": uploaded_by,
+        "expires_at": payload.get("expires_at"),
+        "original_filename": payload.get("original_filename"),
+        "storage_path": payload.get("storage_path"),
+        "content_sha256": payload.get("content_sha256"),
+        "content_type": payload.get("content_type"),
+        "file_size_bytes": payload.get("file_size_bytes"),
+        "pay_period": payload.get("pay_period"),
+        "expiry_alert_days": payload["expiry_alert_days"],
+        "employee_visible": payload["employee_visible"],
+    }
+    insert_cols = [key for key in values if key in available]
+    required = {"tenant_id", "employee_id", "title", "category"}
+    missing = required - set(insert_cols)
+    if missing:
+        raise RuntimeError(
+            f"employee_documents table missing required columns: {', '.join(sorted(missing))}"
+        )
+
+    col_sql = ", ".join(insert_cols)
+    placeholders = ", ".join(["%s"] * len(insert_cols))
     with conn.cursor() as cur:
         cur.execute(
-            """
-            INSERT INTO employee_documents (
-              tenant_id, employee_id, title, category, lifecycle_stage,
-              document_url, notes, uploaded_by, expires_at, original_filename,
-              storage_path, content_sha256, content_type, file_size_bytes, pay_period,
-              expiry_alert_days, employee_visible
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING """
-            + EMPLOYEE_DOCUMENT_SELECT,
-            (
-                tenant_id,
-                employee_id,
-                payload["title"],
-                payload["category"],
-                payload["lifecycle_stage"],
-                payload["document_url"],
-                payload["notes"],
-                uploaded_by,
-                payload.get("expires_at"),
-                payload.get("original_filename"),
-                payload.get("storage_path"),
-                payload.get("content_sha256"),
-                payload.get("content_type"),
-                payload.get("file_size_bytes"),
-                payload.get("pay_period"),
-                payload["expiry_alert_days"],
-                payload["employee_visible"],
-            ),
+            f"INSERT INTO employee_documents ({col_sql}) VALUES ({placeholders}) RETURNING id",
+            tuple(values[key] for key in insert_cols),
+        )
+        document_id = int(cur.fetchone()[0])
+        conn.commit()
+
+    select_cols = _employee_document_select_columns(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT {", ".join(select_cols)}
+            FROM employee_documents
+            WHERE tenant_id = %s AND employee_id = %s AND id = %s
+            """,
+            (tenant_id, employee_id, document_id),
         )
         row = cur.fetchone()
-        conn.commit()
-    doc = _row_to_employee_document(row)
+    if not row:
+        raise RuntimeError("Document insert succeeded but could not be loaded")
+    doc = _row_to_employee_document(row, columns=select_cols)
     doc["employee_id"] = employee_id
     return doc
 
@@ -816,24 +883,6 @@ def _expiring_document_item(
         "days_until_expiry": days_until_expiry,
         "employee_visible": doc.get("employee_visible"),
     }
-
-
-def _table_has_columns(conn: Any, table: str, *columns: str) -> bool:
-    if not columns:
-        return True
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_schema = 'public'
-              AND table_name = %s
-              AND column_name = ANY(%s)
-            """,
-            (table, list(columns)),
-        )
-        found = {row[0] for row in cur.fetchall()}
-    return all(column in found for column in columns)
 
 
 def _expiring_document_from_row(row: tuple[Any, ...], *, full: bool) -> dict[str, Any]:
