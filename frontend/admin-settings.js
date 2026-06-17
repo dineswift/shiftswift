@@ -202,25 +202,32 @@
     const subtitleEl = document.getElementById("settings-panel-subtitle");
     const isHub = !panelId;
 
-    workspace?.classList.toggle("settings-workspace--hub", isHub);
-    workspace?.classList.toggle("settings-workspace--detail", !isHub);
-    if (hub) hub.hidden = !isHub;
-    if (backBtn) backBtn.hidden = isHub;
+    window.MobileShell?.preserveScroll?.(() => {
+      workspace?.classList.toggle("settings-workspace--hub", isHub);
+      workspace?.classList.toggle("settings-workspace--detail", !isHub);
+      if (hub) hub.hidden = !isHub;
+      if (backBtn) backBtn.hidden = isHub;
 
-    document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
-      panel.hidden = isHub || panel.dataset.settingsPanel !== panelId;
+      document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+        panel.hidden = isHub || panel.dataset.settingsPanel !== panelId;
+      });
+
+      if (isHub) {
+        if (titleEl) titleEl.textContent = "Settings";
+        if (subtitleEl) subtitleEl.textContent = "Choose a section to manage.";
+        return;
+      }
+
+      const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
+      if (titleEl) titleEl.textContent = copy.title;
+      if (subtitleEl) subtitleEl.textContent = copy.subtitle;
     });
 
     if (isHub) {
-      if (titleEl) titleEl.textContent = "Settings";
-      if (subtitleEl) subtitleEl.textContent = "Choose a section to manage.";
       window.MobileShell?.resetPortalScroll?.();
       return;
     }
 
-    const copy = PANEL_COPY[panelId] || PANEL_COPY.business;
-    if (titleEl) titleEl.textContent = copy.title;
-    if (subtitleEl) subtitleEl.textContent = copy.subtitle;
     loadPanelContent(panelId);
   }
 

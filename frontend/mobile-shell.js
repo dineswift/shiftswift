@@ -57,6 +57,48 @@
     return window.matchMedia("(max-width: 860px)").matches;
   }
 
+  function getScrollRoot() {
+    if (isMobileViewport()) {
+      const content = document.querySelector("main.content");
+      if (content) return content;
+    }
+    return document.documentElement;
+  }
+
+  function readScrollTop(root) {
+    return root === document.documentElement ? window.scrollY : root.scrollTop;
+  }
+
+  function writeScrollTop(root, top) {
+    if (root === document.documentElement) {
+      window.scrollTo({ top, left: 0, behavior: "auto" });
+      return;
+    }
+    root.scrollTop = top;
+  }
+
+  function restoreScrollTop(root, top) {
+    writeScrollTop(root, top);
+    requestAnimationFrame(() => writeScrollTop(root, top));
+    requestAnimationFrame(() => requestAnimationFrame(() => writeScrollTop(root, top)));
+  }
+
+  function preserveScroll(update) {
+    const root = getScrollRoot();
+    const top = readScrollTop(root);
+    const result = update();
+    restoreScrollTop(root, top);
+    return result;
+  }
+
+  async function preserveScrollAsync(update) {
+    const root = getScrollRoot();
+    const top = readScrollTop(root);
+    const result = await update();
+    restoreScrollTop(root, top);
+    return result;
+  }
+
   function resetPortalScroll() {
     const content = document.querySelector("main.content");
     if (content) content.scrollTop = 0;
@@ -65,16 +107,17 @@
     window.scrollTo(0, 0);
   }
 
-  function scrollToAnchor(anchorId) {
+  function scrollToAnchor(anchorId, options = {}) {
     if (!anchorId) return;
     const el = document.getElementById(anchorId);
     if (!el) return;
+    const block = options.block || "nearest";
     if (isMobileViewport() && el.classList.contains("admin-section")) {
       resetPortalScroll();
       return;
     }
     requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: options.behavior || "auto", block });
     });
   }
 
@@ -142,10 +185,13 @@
 
     const sections = [...document.querySelectorAll(sectionSelector)];
     const links = [...document.querySelectorAll(linkSelector)];
+    let activeSectionId = null;
 
     function showSection(sectionId) {
       const exists = sections.some((section) => section.id === sectionId);
       const target = exists ? sectionId : defaultSection;
+      const sectionChanged = activeSectionId !== target;
+      activeSectionId = target;
 
       sections.forEach((section) => {
         const active = section.id === target;
@@ -160,7 +206,7 @@
 
       if (sidebar?.isOpen?.()) sidebar.closeSidebar();
 
-      if (isMobileViewport()) {
+      if (sectionChanged && isMobileViewport()) {
         resetPortalScroll();
       }
 
@@ -204,6 +250,9 @@
     parseHashSection,
     scrollToAnchor,
     resetPortalScroll,
+    preserveScroll,
+    preserveScrollAsync,
+    getScrollRoot,
     isMobileViewport,
   };
 })();

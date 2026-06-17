@@ -65,7 +65,12 @@
   function friendlyError(error, fallback) {
     const message = error?.message || "";
     if (message === "Load failed" || message === "Failed to fetch") {
-      return "Could not reach the server. Check your connection and try again.";
+      const apiBase = window.Admin?.getApiBase?.() || window.ShiftSwiftBrand?.resolveApiBase?.() || "";
+      console.warn("ShiftSwift document API request failed", { apiBase, error });
+      if (apiBase.startsWith("http://") && window.location.protocol === "https:") {
+        return "Secure connection blocked the API (mixed content). Hard refresh the page or sign in again.";
+      }
+      return "Could not reach the API. Hard refresh (Cmd+Shift+R), check your connection, then try again.";
     }
     return message || fallback;
   }
@@ -111,24 +116,51 @@
     host.querySelector("[data-doc-alert-retry]")?.addEventListener("click", onRetry);
   }
 
-  function renderExpiryStats(summary = {}) {
+  function renderExpiryStats(summary, state = "ok") {
     const statsHost = document.getElementById("documents-expiring-stats");
     const section = document.getElementById("documents-expiring-section");
-    const expired = Number(summary.expired) || 0;
-    const expiringSoon = Number(summary.expiring_soon) || 0;
-    const valid = Number(summary.valid) || 0;
 
     if (statsHost) {
-      statsHost.innerHTML = `
-        <span class="doc-expiry-stat doc-expiry-stat--danger">${expired} expired</span>
-        <span class="doc-expiry-stat doc-expiry-stat--warn">${expiringSoon} expiring soon</span>
-        <span class="doc-expiry-stat doc-expiry-stat--ok">${valid} valid</span>`;
+      statsHost.setAttribute("aria-busy", state === "loading" ? "true" : "false");
+      if (state === "loading") {
+        statsHost.innerHTML = `
+          <span class="doc-expiry-stat doc-expiry-stat--skeleton" aria-hidden="true"></span>
+          <span class="doc-expiry-stat doc-expiry-stat--skeleton" aria-hidden="true"></span>
+          <span class="doc-expiry-stat doc-expiry-stat--skeleton" aria-hidden="true"></span>
+          <span class="visually-hidden">Loading expiry summary</span>`;
+      } else if (state === "error") {
+        statsHost.innerHTML = `<span class="doc-expiry-stat doc-expiry-stat--unknown">Summary unavailable</span>`;
+      } else {
+        const expired = Number(summary?.expired) || 0;
+        const expiringSoon = Number(summary?.expiring_soon) || 0;
+        const valid = Number(summary?.valid) || 0;
+        statsHost.innerHTML = `
+          <span class="doc-expiry-stat doc-expiry-stat--danger">${expired} expired</span>
+          <span class="doc-expiry-stat doc-expiry-stat--warn">${expiringSoon} expiring soon</span>
+          <span class="doc-expiry-stat doc-expiry-stat--ok">${valid} valid</span>`;
+      }
     }
 
     if (section) {
-      section.classList.toggle("settings-doc-expiring--urgent", expired > 0);
-      section.classList.toggle("settings-doc-expiring--warn", expired === 0 && expiringSoon > 0);
+      section.classList.toggle("settings-doc-expiring--error", state === "error");
+      if (state === "ok") {
+        const expired = Number(summary?.expired) || 0;
+        const expiringSoon = Number(summary?.expiring_soon) || 0;
+        section.classList.toggle("settings-doc-expiring--urgent", expired > 0);
+        section.classList.toggle("settings-doc-expiring--warn", expired === 0 && expiringSoon > 0);
+      } else {
+        section.classList.remove("settings-doc-expiring--urgent", "settings-doc-expiring--warn");
+      }
     }
+  }
+
+  function renderExpiryTableSkeleton(tbody) {
+    if (!tbody) return;
+    const cell = () =>
+      `<td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td>`;
+    tbody.innerHTML = Array.from({ length: 3 }, () => `<tr class="settings-doc-skeleton-row">${cell()}${cell()}${cell()}${cell()}${cell()}</tr>`).join(
+      ""
+    );
   }
 
   function renderDocumentsTableState(tbody, colSpan, { variant = "empty", title, message, actionHtml = "" }) {
@@ -144,7 +176,29 @@
     </td></tr>`;
   }
 
-  function parseApiDetail(data, fallback) {
+  function guardFormSubmit(form, handler) {
+    let inFlight = false;
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (inFlight) return;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      inFlight = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.dataset.busyLabel = submitBtn.dataset.busyLabel || submitBtn.textContent;
+        submitBtn.textContent = "Working…";
+      }
+      try {
+        await handler(event);
+      } finally {
+        inFlight = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = submitBtn.dataset.busyLabel || submitBtn.textContent;
+        }
+      }
+    });
+  }
     if (!data || typeof data !== "object") return fallback;
     const detail = data.detail;
     if (typeof detail === "string") return detail;
@@ -156,10 +210,11 @@
   }
 
   async function uploadMultipart(path, formData) {
+    const apiBase = window.Admin.getApiBase?.() || API_BASE;
     const res = await window.ShiftSwiftSession.fetchWithAuth(
       path,
       { method: "POST", body: formData },
-      { apiBase: API_BASE, tenantId: window.Admin.TENANT_ID }
+      { apiBase, tenantId: window.Admin.TENANT_ID }
     );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
@@ -222,6 +277,12 @@
   }
 
   function syncUploadAudience(form) {
+    window.Admin?.preserveScroll?.(() => {
+      syncUploadAudienceInner(form);
+    });
+  }
+
+  function syncUploadAudienceInner(form) {
     const audience = form?.querySelector('input[name="doc_audience"]:checked')?.value || "company";
     const employeeField = document.getElementById("document-upload-employee-field");
     const visibleField = document.getElementById("document-upload-visible-field");
@@ -272,34 +333,65 @@
         visibleHint.textContent = "";
       }
     }
+
+    const notifyTitle = document.getElementById("document-upload-notify-title");
+    if (notifyTitle) {
+      notifyTitle.textContent =
+        audience === "employee" ? "Notify employee when published" : "Notify employees when published";
+    }
+
     syncUploadNotify(form);
   }
 
+  function formatEmployeeNotifyLabel(label) {
+    const text = String(label || "").trim();
+    if (!text) return "Employee";
+    const comma = text.indexOf(",");
+    if (comma > 0) {
+      return `${text.slice(0, comma).trim()} · ${text.slice(comma + 1).trim()}`;
+    }
+    return text;
+  }
+
   function mountNotifyEmployeeSelect() {
-    const select = document.getElementById("document-upload-notify-employees");
-    if (!select || select.dataset.ready === "true") return;
+    const host = document.getElementById("document-upload-notify-employees");
+    if (!host || host.dataset.ready === "true") return;
     const employees = activeEmployeeSelectOptions();
-    select.innerHTML = employees
+    host.innerHTML = employees
       .map(
-        (item) =>
-          `<option value="${escapeHtml(String(item.id))}">${escapeHtml(item.label)}</option>`
+        (item) => `
+        <label class="settings-doc-notify-employee">
+          <input type="checkbox" value="${escapeHtml(String(item.id))}" />
+          <span>${escapeHtml(formatEmployeeNotifyLabel(item.label))}</span>
+        </label>`
       )
       .join("");
-    select.dataset.ready = "true";
+    host.dataset.ready = "true";
   }
 
   function syncUploadNotify(form) {
+    window.Admin?.preserveScroll?.(() => {
+      syncUploadNotifyInner(form);
+    });
+  }
+
+  function syncUploadNotifyInner(form) {
     const audience = form?.querySelector('input[name="doc_audience"]:checked')?.value || "company";
     const visibleCheck = document.getElementById("document-upload-visible");
-    const notifySection = document.getElementById("document-upload-notify-section");
+    const visibilitySection = document.getElementById("document-upload-visibility-section");
+    const notifyRow = document.getElementById("document-upload-notify-row");
     const notifyCheck = document.getElementById("document-upload-notify");
     const notifyTargets = document.getElementById("document-upload-notify-targets");
     const scopeField = document.getElementById("document-upload-notify-scope-field");
     const selectField = document.getElementById("document-upload-notify-select-field");
     const portalVisible = audience !== "hr" && (visibleCheck?.checked ?? false);
 
-    if (notifySection) notifySection.hidden = !portalVisible;
-    if (!portalVisible) return;
+    if (visibilitySection) visibilitySection.hidden = audience === "hr";
+    if (notifyRow) notifyRow.hidden = !portalVisible;
+    if (!portalVisible) {
+      if (notifyTargets) notifyTargets.hidden = true;
+      return;
+    }
 
     mountNotifyEmployeeSelect();
 
@@ -324,11 +416,23 @@
     return `ShiftSwift will alert HR ${windowDays} days before this document expires.`;
   }
 
-  function syncExpiryHint(daysInputId, hintId) {
-    const daysEl = document.getElementById(daysInputId);
-    const hintEl = document.getElementById(hintId);
-    if (!hintEl) return;
-    hintEl.textContent = expiryHintText(daysEl?.value || 30);
+  function syncExpiryFields() {
+    window.Admin?.preserveScroll?.(() => {
+      syncExpiryFieldsInner();
+    });
+  }
+
+  function syncExpiryFieldsInner() {
+    const expiryEl = document.getElementById("document-upload-expires-at");
+    const alertField = document.getElementById("document-upload-alert-field");
+    const alertHint = document.getElementById("document-upload-alert-hint");
+    const daysEl = document.getElementById("document-upload-alert-days");
+    const hasDate = Boolean(expiryEl?.value);
+
+    if (alertField) alertField.hidden = !hasDate;
+    if (alertHint && hasDate) {
+      alertHint.textContent = expiryHintText(daysEl?.value || 30);
+    }
   }
 
   function activeEmployeeSelectOptions() {
@@ -628,14 +732,19 @@
     syncUploadAudience(form);
 
     document.getElementById("document-upload-alert-days")?.addEventListener("change", () => {
-      syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
+      syncExpiryFields();
     });
-    syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
+    document.getElementById("document-upload-expires-at")?.addEventListener("change", () => {
+      syncExpiryFields();
+    });
+    document.getElementById("document-upload-expires-at")?.addEventListener("input", () => {
+      syncExpiryFields();
+    });
+    syncExpiryFields();
 
     bindUploadDropzone();
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
+    guardFormSubmit(form, async () => {
       const status = form.querySelector("[data-status]");
       const audience = form.querySelector('input[name="doc_audience"]:checked')?.value || "company";
       const employeeSearch = document.getElementById("document-upload-employee-search");
@@ -661,6 +770,10 @@
       const visible = audience === "hr" ? false : form.querySelector("#document-upload-visible")?.checked ?? false;
       fd.set("employee_visible", visible ? "true" : "false");
       if (audience !== "employee" || !fd.get("employee_id")) fd.delete("employee_id");
+      if (!fd.get("expires_at")) {
+        fd.delete("expires_at");
+        fd.delete("expiry_alert_days");
+      }
 
       const notify = visible && (form.querySelector("#document-upload-notify")?.checked ?? false);
       fd.set("notify_employees", notify ? "true" : "false");
@@ -672,9 +785,9 @@
         if (audience === "company") {
           const notifyScope = form.querySelector('input[name="notify_scope"]:checked')?.value || "all";
           if (notifyScope === "selected") {
-            const selectedIds = [...form.querySelectorAll("#document-upload-notify-employees option:checked")].map(
-              (option) => option.value
-            );
+            const selectedIds = [
+              ...form.querySelectorAll("#document-upload-notify-employees input[type='checkbox']:checked"),
+            ].map((input) => input.value);
             if (!selectedIds.length) {
               if (status) setFormStatus(status, "Select at least one employee to notify.", "error");
               return;
@@ -689,7 +802,7 @@
         form.reset();
         document.getElementById("document-upload-employee-id").value = "";
         document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
-        syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
+        syncExpiryFields();
         syncUploadAudience(form);
         const notified = data?.notifications?.notified_count;
         const successText =
@@ -774,8 +887,7 @@
       dropzone.dataset.ready = "true";
     }
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
+    guardFormSubmit(form, async () => {
       const status = form.querySelector("[data-status]");
       const fd = new FormData(form);
       const file = fd.get("file");
@@ -838,6 +950,10 @@
     if (!tbody) return;
 
     refreshExpiringDocuments = async () => {
+      window.Admin?.preserveScroll?.(() => {
+        renderExpiryStats(null, "loading");
+        renderExpiryTableSkeleton(tbody);
+      });
       try {
         const res = await apiFetch("/admin/documents/expiring");
         if (!res.ok) {
@@ -846,7 +962,9 @@
         }
         const data = await res.json();
         const summary = data.summary || {};
-        renderExpiryStats(summary);
+        window.Admin?.preserveScroll?.(() => {
+          renderExpiryStats(summary, "ok");
+        });
 
         const rows = data.items || [];
         if (!rows.length) {
@@ -876,12 +994,14 @@
           rows,
         });
       } catch (error) {
-        renderExpiryStats({});
-        renderDocumentsTableState(tbody, 5, {
-          variant: "error",
-          title: "Could not load expiry overview",
-          message: friendlyError(error, "The expiry list is unavailable right now."),
-          actionHtml: `<button type="button" class="btn outline" data-doc-retry-expiring>Try again</button>`,
+        window.Admin?.preserveScroll?.(() => {
+          renderExpiryStats(null, "error");
+          renderDocumentsTableState(tbody, 5, {
+            variant: "error",
+            title: "Could not load expiry overview",
+            message: friendlyError(error, "The expiry list is unavailable right now."),
+            actionHtml: `<button type="button" class="btn outline" data-doc-retry-expiring>Try again</button>`,
+          });
         });
         tbody.querySelector("[data-doc-retry-expiring]")?.addEventListener("click", () => {
           void refreshExpiringDocuments();
@@ -982,7 +1102,7 @@
           });
           tbody.querySelector("[data-doc-focus-upload]")?.addEventListener("click", () => {
             activateDocumentTab("upload");
-            document.getElementById("document-upload-dropzone")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            document.getElementById("document-upload-dropzone")?.scrollIntoView({ behavior: "auto", block: "nearest" });
           });
           setDocumentsPanelAlert({});
           return;
@@ -1058,8 +1178,10 @@
             if (!row) return;
             const host = document.getElementById("document-edit-panel");
             if (!host) return;
-            host.hidden = false;
-            host.innerHTML = `<h4>Edit document</h4><div id="document-edit-form"></div>`;
+            window.Admin?.preserveScroll?.(() => {
+              host.hidden = false;
+              host.innerHTML = `<h4>Edit document</h4><div id="document-edit-form"></div>`;
+            });
             mountEditForm(host.querySelector("#document-edit-form"), editFormSchema(row), {
               values: {
                 title: row.title,

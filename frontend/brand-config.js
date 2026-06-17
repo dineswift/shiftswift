@@ -69,20 +69,37 @@ window.ShiftSwiftBrand.deriveApiBaseFromHost = function deriveApiBaseFromHost() 
   return this.urls.api;
 };
 
+window.ShiftSwiftBrand.normalizeApiBase = function normalizeApiBase(url) {
+  if (!url) return "";
+  let base = String(url).trim().replace(/\/$/, "");
+  if (window.location.protocol === "https:" && base.startsWith("http://")) {
+    base = `https://${base.slice("http://".length)}`;
+  }
+  return base;
+};
+
 window.ShiftSwiftBrand.resolveApiBase = function resolveApiBase() {
   if (this.isLocalDevHost()) {
     return this.urls.localApi;
   }
 
+  const derived = this.normalizeApiBase(this.deriveApiBaseFromHost());
   const stored = localStorage.getItem("apiBaseUrl");
   if (stored && !/localhost|127\.0\.0\.1/.test(stored)) {
-    return stored.replace(/\/$/, "");
-  }
-  if (stored) {
+    const normalized = this.normalizeApiBase(stored);
+    try {
+      if (new URL(normalized).host === new URL(derived).host) {
+        return normalized;
+      }
+    } catch {
+      /* invalid stored URL */
+    }
+    localStorage.removeItem("apiBaseUrl");
+  } else if (stored) {
     localStorage.removeItem("apiBaseUrl");
   }
 
-  return this.deriveApiBaseFromHost().replace(/\/$/, "");
+  return derived;
 };
 
 window.ShiftSwiftBrand.getApiBase = function getApiBase() {

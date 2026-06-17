@@ -604,6 +604,20 @@ window.Admin = (() => {
    * Mount a schema-driven edit form into container.
    * schema: { id, fields, submitLabel, columns }
    */
+  function preserveScroll(update) {
+    if (typeof window.MobileShell?.preserveScroll === "function") {
+      return window.MobileShell.preserveScroll(update);
+    }
+    return update();
+  }
+
+  async function preserveScrollAsync(update) {
+    if (typeof window.MobileShell?.preserveScrollAsync === "function") {
+      return window.MobileShell.preserveScrollAsync(update);
+    }
+    return update();
+  }
+
   function mountEditForm(container, schema, { values = {}, onSubmit, statusEl } = {}) {
     if (!container) return null;
     const columns = schema.columns || 2;
@@ -620,7 +634,7 @@ window.Admin = (() => {
     } else {
       fieldsHtml = schema.fields.map((field) => renderField(field, values, formOptions)).join("");
     }
-    container.innerHTML = `
+    const formMarkup = `
       <form class="edit-form edit-form--cols-${columns}" data-form-id="${escapeHtml(schema.id)}">
         ${fieldsHtml}
         <div class="edit-form-actions" data-span="2">
@@ -629,6 +643,10 @@ window.Admin = (() => {
           <p class="edit-form-status muted" ${statusEl ? "" : 'data-status'}></p>
         </div>
       </form>`;
+
+    preserveScroll(() => {
+      container.innerHTML = formMarkup;
+    });
 
     const form = container.querySelector("form");
     const status = statusEl || container.querySelector("[data-status]");
@@ -695,21 +713,27 @@ window.Admin = (() => {
     const links = [...document.querySelectorAll(".nav-link[data-section]")];
     const sidebarCtl =
       typeof window.MobileShell?.initSidebar === "function" ? window.MobileShell.initSidebar() : null;
+    let activeSectionId = null;
 
     function scrollToHashAnchor() {
-      const anchor = window.location.hash.replace("#", "").split("/")[0];
-      const sectionId = resolveSectionFromHash(window.location.hash);
-      if (!anchor || anchor === "overview" || anchor === sectionId) {
-        window.MobileShell?.resetPortalScroll?.();
-        return;
-      }
-      const el = document.getElementById(anchor);
-      if (el && !el.closest(".admin-section[hidden]")) {
-        window.MobileShell?.scrollToAnchor?.(anchor);
+      const raw = window.location.hash.replace("#", "");
+      if (!raw) return;
+      const parts = raw.split("/").filter(Boolean);
+      if (parts.length <= 1) return;
+
+      const candidates = [parts[parts.length - 1], parts.join("-"), raw.replace(/\//g, "-")];
+      for (const id of candidates) {
+        const el = document.getElementById(id);
+        if (el && !el.closest(".admin-section[hidden]")) {
+          window.MobileShell?.scrollToAnchor?.(id, { block: "nearest", behavior: "auto" });
+          return;
+        }
       }
     }
 
     function showSection(sectionId) {
+      const sectionChanged = activeSectionId !== sectionId;
+      activeSectionId = sectionId;
       sections.forEach((section) => {
         const active = section.id === sectionId;
         section.hidden = !active;
@@ -725,7 +749,7 @@ window.Admin = (() => {
       if (sidebarCtl?.isOpen?.()) {
         sidebarCtl.closeSidebar();
       }
-      if (window.MobileShell?.isMobileViewport?.()) {
+      if (sectionChanged && window.MobileShell?.isMobileViewport?.()) {
         window.MobileShell.resetPortalScroll();
       }
       scrollToHashAnchor();
@@ -1003,6 +1027,7 @@ window.Admin = (() => {
 
   return {
     API_BASE,
+    getApiBase,
     get TOKEN() {
       return window.ShiftSwiftSession?.getToken?.() || localStorage.getItem("token") || "";
     },
@@ -1017,6 +1042,8 @@ window.Admin = (() => {
     FORM_SCHEMAS,
     authHeaders,
     apiFetch,
+    preserveScroll,
+    preserveScrollAsync,
     prefetchTenantProfile,
     saveTenantRegisteredAddress,
     rememberTenantRegisteredAddress,

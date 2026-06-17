@@ -453,12 +453,21 @@ def read_expiring_documents(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
+    import logging
+
     from modules.documents.service import list_expiring_documents
 
+    logger = logging.getLogger(__name__)
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
         return list_expiring_documents(tenant_id=tenant_id, conn=conn)
+    except Exception as exc:
+        logger.exception("Failed to load expiring documents for tenant %s", tenant_id)
+        raise HTTPException(
+            status_code=503,
+            detail="Document expiry list is unavailable. Run database migrations and try again.",
+        ) from exc
     finally:
         conn.close()
 
