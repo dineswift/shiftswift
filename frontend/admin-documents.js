@@ -176,6 +176,17 @@
     </td></tr>`;
   }
 
+  function parseApiDetail(data, fallback) {
+    if (!data || typeof data !== "object") return fallback;
+    const detail = data.detail;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail.message === "string") return detail.message;
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item.msg || item.message || String(item)).join("; ");
+    }
+    return fallback;
+  }
+
   function guardFormSubmit(form, handler) {
     let inFlight = false;
     form.addEventListener("submit", async (event) => {
@@ -198,15 +209,6 @@
         }
       }
     });
-  }
-    if (!data || typeof data !== "object") return fallback;
-    const detail = data.detail;
-    if (typeof detail === "string") return detail;
-    if (detail && typeof detail.message === "string") return detail.message;
-    if (Array.isArray(detail)) {
-      return detail.map((item) => item.msg || item.message || String(item)).join("; ");
-    }
-    return fallback;
   }
 
   async function uploadMultipart(path, formData) {

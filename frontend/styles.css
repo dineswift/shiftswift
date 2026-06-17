@@ -6247,8 +6247,14 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .settings-doc-upload-form {
+  grid-template-columns: 1fr;
   gap: 0;
   overflow-anchor: auto;
+}
+
+.edit-field[hidden],
+.settings-doc-upload-section[hidden] {
+  display: none !important;
 }
 
 .settings-workspace {

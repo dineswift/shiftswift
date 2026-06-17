@@ -37,7 +37,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v86" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v87" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2296,7 +2296,7 @@
                     <button type="button" class="settings-doc-tab" data-doc-tab="distribute" role="tab" aria-selected="false">Send to employees</button>
                     <button type="button" class="settings-doc-tab" data-doc-tab="link" role="tab" aria-selected="false">Link external document</button>
                   </div>
-                  <p class="settings-doc-tab-desc muted" id="document-tab-desc">Store a file in secure tenant storage and tag it by employee, category, and expiry.</p>
+                  <p class="settings-doc-tab-desc muted" id="document-tab-desc">Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.</p>
 
                   <div id="document-upload-panel" class="settings-doc-tab-panel" data-doc-panel="upload">
                     <form id="document-upload-form" class="edit-form edit-form--cols-2 settings-doc-form settings-doc-upload-form" enctype="multipart/form-data">
@@ -2336,7 +2336,7 @@
                           </div>
                           <p class="settings-doc-audience-caption muted" id="document-upload-audience-caption">Company handbooks and policies for every staff member.</p>
                         </fieldset>
-                        <label class="edit-field" id="document-upload-employee-field" hidden>
+                        <label class="edit-field" id="document-upload-employee-field" data-span="2" hidden>
                           <span class="edit-label">Employee</span>
                           <input type="text" id="document-upload-employee-search" placeholder="Search by name…" list="document-upload-employees" autocomplete="off" />
                           <datalist id="document-upload-employees"></datalist>
@@ -2605,7 +2605,7 @@
     <script src="./admin-workspace.js?v=admin-v20"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-settings.js?v=25"></script>
-    <script src="./admin-documents.js?v=19"></script>
+    <script src="./admin-documents.js?v=20"></script>
     <script src="./admin-employees.js?v=21"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v5"></script>
