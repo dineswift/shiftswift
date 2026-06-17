@@ -9,10 +9,16 @@
     leave: "leave",
   };
 
+  const SECTION_TABS = Object.fromEntries(
+    Object.entries(TAB_SECTIONS).map(([tab, section]) => [section, tab]),
+  );
+
   const DETAIL_EXEMPT = new Set(["overview", "my-shifts", "time-clock", "leave"]);
 
-  let currentTab = localStorage.getItem("employeeMobileTab") || "clock";
+  let clockEnabled = localStorage.getItem("employeeTimeClockEnabled") === "true";
+  let currentTab = "home";
   let previousTab = "home";
+  let startupResolved = false;
 
   function isMobile() {
     return window.matchMedia("(max-width: 860px)").matches;
@@ -44,6 +50,35 @@
     greetingEl.textContent = `${timeGreeting()}, ${displayFirstName()}`;
   }
 
+  function syncClockAvailability(enabled) {
+    clockEnabled = Boolean(enabled);
+    localStorage.setItem("employeeTimeClockEnabled", clockEnabled ? "true" : "false");
+    document.body.classList.toggle("employee-clock-disabled", !clockEnabled);
+  }
+
+  function normalizeTab(tab) {
+    if (tab === "clock" && !clockEnabled) return "home";
+    if (tab && TAB_SECTIONS[tab]) return tab;
+    return "home";
+  }
+
+  function tabFromHash() {
+    const section = window.location.hash.replace("#", "").split("/")[0];
+    if (!section) return null;
+    const tab = SECTION_TABS[section];
+    return tab ? normalizeTab(tab) : null;
+  }
+
+  function resolveStartupTab() {
+    const fromHash = tabFromHash();
+    if (fromHash) return fromHash;
+
+    const saved = localStorage.getItem("employeeMobileTab");
+    if (saved) return normalizeTab(saved);
+
+    return clockEnabled ? "clock" : "home";
+  }
+
   function syncTabUi(tab) {
     document.body.dataset.mobileTab = tab;
     document.querySelectorAll("#mobile-tab-bar [data-mobile-tab]").forEach((el) => {
@@ -65,24 +100,38 @@
   }
 
   function setTab(tab, options = {}) {
-    const { skipHash = false } = options;
-    currentTab = tab;
-    localStorage.setItem("employeeMobileTab", tab);
-    syncTabUi(tab);
+    const { skipHash = false, persist = true } = options;
+    currentTab = normalizeTab(tab);
+    if (persist) {
+      localStorage.setItem("employeeMobileTab", currentTab);
+    }
+    syncTabUi(currentTab);
 
     if (skipHash || !isMobile()) return;
 
-    if (tab === "more") {
+    if (currentTab === "more") {
       document.querySelectorAll(".admin-section").forEach((section) => {
         section.hidden = true;
       });
       return;
     }
 
-    const section = TAB_SECTIONS[tab] || "overview";
+    const section = TAB_SECTIONS[currentTab] || "overview";
     if (window.location.hash.replace("#", "").split("/")[0] !== section) {
       window.location.hash = section;
     }
+  }
+
+  function finishStartup(enabled) {
+    syncClockAvailability(enabled);
+    if (startupResolved) return;
+    const tab = resolveStartupTab();
+    startupResolved = true;
+    if (isMobile()) {
+      setTab(tab);
+      return;
+    }
+    syncTabUi(tab);
   }
 
   function enterDetailView(sectionId) {
@@ -115,6 +164,8 @@
     const bar = document.getElementById("mobile-tab-bar");
     if (!bar) return;
 
+    syncClockAvailability(clockEnabled);
+
     bar.querySelectorAll("[data-mobile-tab]").forEach((tab) => {
       tab.addEventListener("click", (event) => {
         event.preventDefault();
@@ -142,12 +193,20 @@
         currentTab = "shifts";
         syncTabUi("shifts");
       } else if (section === "time-clock" && currentTab !== "clock") {
+        if (!clockEnabled) {
+          setTab("home");
+          return;
+        }
         currentTab = "clock";
         syncTabUi("clock");
       } else if (section === "leave" && currentTab !== "leave") {
         currentTab = "leave";
         syncTabUi("leave");
       }
+    });
+
+    window.addEventListener("employee:profile-loaded", (event) => {
+      finishStartup(Boolean(event.detail?.user?.time_clock_enabled));
     });
 
     window.addEventListener("resize", () => {
@@ -165,19 +224,14 @@
     });
 
     refreshGreeting();
+
+    if (startupResolved) return;
+
     if (isMobile()) {
-      if (currentTab === "more") {
-        setTab("more", { skipHash: true });
-      } else if (TAB_SECTIONS[currentTab]) {
-        if (!window.location.hash || window.location.hash === "#") {
-          window.location.hash = TAB_SECTIONS[currentTab];
-        }
-        setTab(currentTab, { skipHash: true });
-      } else {
-        setTab("home", { skipHash: true });
-      }
+      const interimTab = tabFromHash() || "home";
+      setTab(interimTab, { skipHash: true, persist: false });
     } else {
-      syncTabUi(currentTab);
+      syncTabUi("home");
     }
   }
 
@@ -186,5 +240,6 @@
     setTab,
     isMobile,
     refreshGreeting,
+    syncClockAvailability,
   };
 })();

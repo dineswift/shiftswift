@@ -683,18 +683,23 @@ def verify_auth(current_user: Annotated[AuthUser, Depends(get_current_user)]) ->
     if current_user.role != "employee" or not settings.use_db or not settings.database_url:
         return result
     from employee_portal_consent import has_employee_gdpr_consent, tenant_display_name
+    from modules.time_punch.service import employee_time_clock_enabled
 
     tenant_id = int(current_user.tenant_id)
     conn = _db_conn()
     try:
+        result["employer_name"] = tenant_display_name(tenant_id=tenant_id, conn=conn)
+        result["time_clock_enabled"] = employee_time_clock_enabled(
+            tenant_id=tenant_id,
+            username=current_user.username,
+            conn=conn,
+        )
         requires = not has_employee_gdpr_consent(
             tenant_id=tenant_id,
             username=current_user.username,
             conn=conn,
         )
         result["gdpr_consent_required"] = requires
-        if requires:
-            result["employer_name"] = tenant_display_name(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
     return result

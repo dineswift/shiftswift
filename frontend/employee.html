@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v78" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v79" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -103,7 +103,7 @@
             </header>
 
             <div class="employee-home-quick">
-              <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock">
+              <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock" data-requires-clock>
                 <span class="employee-quick-btn__icon" aria-hidden="true"></span>
                 <span class="employee-quick-btn__label">Clock in / out</span>
               </a>
@@ -115,7 +115,7 @@
 
             <h2 class="employee-home-section-title">Your workplace</h2>
             <div class="employee-home-grid" id="employee-home-grid">
-              <a class="employee-home-card employee-home-card--clock" href="#time-clock">
+              <a class="employee-home-card employee-home-card--clock" href="#time-clock" data-requires-clock>
                 <span class="employee-home-card__icon" data-icon="clock" aria-hidden="true"></span>
                 <span class="employee-home-card__body">
                   <span class="employee-home-card__title">Time clock</span>
@@ -378,7 +378,7 @@
         <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">Shifts</span>
       </button>
-      <button type="button" class="mobile-tab" data-mobile-tab="clock" data-tab-icon="clock">
+      <button type="button" class="mobile-tab" data-mobile-tab="clock" data-tab-icon="clock" data-requires-clock>
         <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
         <span class="mobile-tab__label">Clock</span>
       </button>
@@ -451,8 +451,8 @@
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=2"></script>
-    <script src="./employee-mobile.js?v=2"></script>
-    <script src="./employee.js?v=8"></script>
+    <script src="./employee-mobile.js?v=3"></script>
+    <script src="./employee.js?v=9"></script>
     <script src="./employee-time-punch.js?v=6"></script>
     <script src="./employee-rota.js?v=5"></script>
     <script src="./employee-documents.js?v=5"></script>

@@ -75,7 +75,18 @@
     const employerSubtitle = document.getElementById("mobile-employer-subtitle");
     try {
       const response = await session.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE, loginUrl });
-      if (!response.ok) return;
+      if (!response.ok) {
+        window.dispatchEvent(
+          new CustomEvent("employee:profile-loaded", {
+            detail: {
+              user: {
+                time_clock_enabled: localStorage.getItem("employeeTimeClockEnabled") === "true",
+              },
+            },
+          }),
+        );
+        return;
+      }
       const user = await response.json();
       if (user.tenant_id != null) {
         localStorage.setItem("tenantId", String(user.tenant_id));
@@ -107,6 +118,15 @@
       const fallback = "Could not load your account.";
       if (welcome) welcome.textContent = fallback;
       if (welcomeMobile) welcomeMobile.textContent = fallback;
+      window.dispatchEvent(
+        new CustomEvent("employee:profile-loaded", {
+          detail: {
+            user: {
+              time_clock_enabled: localStorage.getItem("employeeTimeClockEnabled") === "true",
+            },
+          },
+        }),
+      );
     }
   }
 

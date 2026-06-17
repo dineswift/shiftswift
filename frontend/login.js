@@ -21,7 +21,7 @@ const LOGIN_MODES = {
   },
   employee: {
     endpoint: "/auth/employee-login",
-    redirect: "./employee.html#time-clock",
+    redirect: "./employee.html",
     lead: "Sign in to view payslips, documents, and your shift schedule.",
     submit: "Open employee portal",
     usernamePlaceholder: "employee@shiftswifthr.co.uk",
@@ -209,7 +209,7 @@ function storeSession(data) {
 }
 
 function redirectForRole(data, fallback) {
-  if (data.role === "employee") return "./employee.html#time-clock";
+  if (data.role === "employee") return "./employee.html";
   return fallback;
 }
 
@@ -361,7 +361,7 @@ function redirectIfEmployeeSession() {
   if (document.body.dataset.loginPage !== "employee") return;
   const role = localStorage.getItem("userRole");
   if (window.ShiftSwiftSession?.hasSession?.() && role === "employee") {
-    window.location.replace("./employee.html#time-clock");
+    window.location.replace("./employee.html");
     return true;
   }
   if (role && role !== "employee") {

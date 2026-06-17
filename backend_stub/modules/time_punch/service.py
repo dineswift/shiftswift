@@ -652,6 +652,14 @@ def last_punch(*, tenant_id: int, employee_id: int, conn: Any) -> dict[str, Any]
     }
 
 
+def employee_time_clock_enabled(*, tenant_id: int, username: str, conn: Any) -> bool:
+    """True when the employee can use geofenced clock in/out (active punch sites)."""
+    employee = resolve_employee(tenant_id=tenant_id, username=username, conn=conn)
+    if not employee:
+        return False
+    return bool(eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee["id"], conn=conn))
+
+
 def employee_punch_status(*, tenant_id: int, employee_id: int, conn: Any) -> dict[str, Any]:
     from datetime import date
 

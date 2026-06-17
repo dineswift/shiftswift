@@ -12075,6 +12075,14 @@ body.employee-portal[data-mobile-tab="home"] .topbar.app-mobile-header {
   margin-bottom: 4px;
 }
 
+body.employee-portal.employee-clock-disabled [data-requires-clock] {
+  display: none !important;
+}
+
+body.employee-portal.employee-clock-disabled .employee-home-quick {
+  grid-template-columns: 1fr;
+}
+
 @media (min-width: 861px) {
   .employee-home {
     display: none !important;
