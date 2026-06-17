@@ -20,9 +20,26 @@ WHERE lifecycle_stage IS NULL
 ALTER TABLE employee_documents ADD CONSTRAINT employee_documents_lifecycle_stage_check
   CHECK (lifecycle_stage IN ('recruitment', 'onboarding', 'induction', 'document_store', 'compliance', 'offboarding', 'general', 'active'));
 
+UPDATE employee_documents
+SET category = lower(btrim(category))
+WHERE category IS NOT NULL
+  AND category <> lower(btrim(category));
+
+UPDATE employee_documents
+SET category = 'other'
+WHERE category IS NULL
+   OR btrim(category) = ''
+   OR lower(btrim(category)) NOT IN (
+     'general', 'contract', 'id', 'rtw', 'qualification', 'disciplinary', 'policy', 'other',
+     'payslip', 'visa_brp', 'dbs', 'training'
+   );
+
 ALTER TABLE employee_documents DROP CONSTRAINT IF EXISTS employee_documents_category_check;
 ALTER TABLE employee_documents ADD CONSTRAINT employee_documents_category_check
-  CHECK (category IN ('general', 'contract', 'id', 'rtw', 'qualification', 'disciplinary', 'policy', 'other'));
+  CHECK (category IN (
+    'general', 'contract', 'id', 'rtw', 'qualification', 'disciplinary', 'policy', 'other',
+    'payslip', 'visa_brp', 'dbs', 'training'
+  ));
 
 CREATE INDEX IF NOT EXISTS idx_employee_documents_category
   ON employee_documents (tenant_id, employee_id, category);
