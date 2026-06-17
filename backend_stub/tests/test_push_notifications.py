@@ -88,6 +88,6 @@ def test_payslip_share_sends_push(get_profile, send_email, send_push) -> None:
     assert sent is True
     send_email.assert_called_once()
     send_push.assert_called_once()
-    assert send_push.call_args.kwargs["notification_key"] == "document_shared:99"
+    assert send_push.call_args.kwargs["notification_key"] == "document_shared:employee:99"
     assert "June 2026" in send_push.call_args.kwargs["body"]
     assert "payslips" in send_push.call_args.kwargs["url"]

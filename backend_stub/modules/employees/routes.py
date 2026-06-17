@@ -291,13 +291,22 @@ async def upload_employee_document(
     lifecycle_stage: str = Form(default="document_store"),
     notes: str | None = Form(default=None),
     expires_at: date | None = Form(default=None),
+    pay_period: str | None = Form(default=None),
+    notify_employee: bool = Form(default=True),
+    send_email: bool = Form(default=True),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
+    from modules.documents.notifications import load_document_notification_targets, notify_document_recipients
     from modules.documents.storage import read_validated_upload, write_document_file
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
+    normalized_pay_period = (pay_period or "").strip() or None
+    if category == "payslip" and not normalized_pay_period:
+        raise HTTPException(status_code=400, detail="Pay period is required for payslip uploads (e.g. 2026-04 or April 2026)")
     conn = get_connection()
+    notifications: dict[str, int] | None = None
+    doc: dict[str, object] | None = None
     try:
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
             raise HTTPException(status_code=404, detail="employee not found")
@@ -311,6 +320,7 @@ async def upload_employee_document(
                 "notes": notes or "File stored on ShiftSwift HR",
                 "expires_at": expires_at,
                 "original_filename": file.filename,
+                "pay_period": normalized_pay_period,
             },
             uploaded_by=current_user.username,
             conn=conn,
@@ -351,10 +361,32 @@ async def upload_employee_document(
             user_agent=request.headers.get("User-Agent"),
             conn=conn,
         )
+        if notify_employee:
+            targets = load_document_notification_targets(
+                tenant_id=tenant_id,
+                employee_id=employee_id,
+                conn=conn,
+            )
+            if targets:
+                notifications = notify_document_recipients(
+                    tenant_id=tenant_id,
+                    employees=targets,
+                    document_id=int(doc["id"]),
+                    document_scope="employee",
+                    document_title=title.strip(),
+                    category=category,
+                    pay_period=normalized_pay_period,
+                    send_email=send_email,
+                    conn=conn,
+                    commit=False,
+                )
+        conn.commit()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
+    if notifications is not None:
+        return {**doc, "notifications": notifications}
     return doc
 
 

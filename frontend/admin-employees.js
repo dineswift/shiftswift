@@ -2,6 +2,43 @@
 (function () {
   const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
 
+  const DEFAULT_DOCUMENT_UPLOAD = {
+    accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+    extensions: [".pdf", ".jpg", ".jpeg", ".png"],
+    mime_types: ["application/pdf", "image/jpeg", "image/png"],
+    max_bytes: 10 * 1024 * 1024,
+    max_size_label: "10 MB",
+    hint: "PDF, JPEG or PNG · max 10 MB per file",
+  };
+
+  function documentUploadPolicy() {
+    return window.Admin.formOptions?.document_upload || DEFAULT_DOCUMENT_UPLOAD;
+  }
+
+  function fileExtension(name) {
+    const base = String(name || "").trim().toLowerCase();
+    const idx = base.lastIndexOf(".");
+    return idx >= 0 ? base.slice(idx) : "";
+  }
+
+  function validateDocumentUploadFile(file, policy = documentUploadPolicy()) {
+    if (!file || !file.size) return "Choose a file to upload.";
+    const ext = fileExtension(file.name);
+    const mime = String(file.type || "").toLowerCase();
+    const extensions = policy.extensions || DEFAULT_DOCUMENT_UPLOAD.extensions;
+    const mimeTypes = policy.mime_types || DEFAULT_DOCUMENT_UPLOAD.mime_types;
+    const extOk = extensions.includes(ext);
+    const mimeOk = !mime || mimeTypes.includes(mime);
+    if (!extOk && !mimeOk) {
+      return `Use PDF, JPEG or PNG only. ${policy.hint || DEFAULT_DOCUMENT_UPLOAD.hint}`;
+    }
+    const maxBytes = Number(policy.max_bytes) || DEFAULT_DOCUMENT_UPLOAD.max_bytes;
+    if (file.size > maxBytes) {
+      return `File is too large. Maximum size is ${policy.max_size_label || DEFAULT_DOCUMENT_UPLOAD.max_size_label}.`;
+    }
+    return null;
+  }
+
   const SECTION_SCHEMAS = {
     recruitment: {
       id: "employee-recruitment",
@@ -1325,10 +1362,27 @@
       </div>
       <div id="employee-document-form"></div>
       <form id="employee-document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data" style="margin-bottom:1rem;">
-        <label class="edit-field"><span class="edit-label">Upload title</span><input name="title" required placeholder="e.g. Signed contract" /></label>
-        <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,application/pdf,image/*" required /></label>
-        <label class="edit-field"><span class="edit-label">Category</span><select name="category"><option value="contract">Employment contract</option><option value="id">ID / passport</option><option value="rtw">Right to work</option><option value="qualification">Qualification / training cert</option><option value="policy">Signed policy / handbook</option><option value="general">General</option><option value="other">Other</option></select></label>
+        <label class="edit-field"><span class="edit-label">Upload title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
+        <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /><span class="muted edit-hint" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</span></label>
+        <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
+        <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
         <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint">Set for food hygiene, first aid, and other renewable certificates.</span></label>
+        <label class="ss-check-row" data-span="2">
+          <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
+          <span class="ss-check-row__box" aria-hidden="true"></span>
+          <span class="ss-check-row__content">
+            <span class="ss-check-row__title">Notify employee when published</span>
+            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
+          </span>
+        </label>
+        <label class="ss-check-row" data-span="2">
+          <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
+          <span class="ss-check-row__box" aria-hidden="true"></span>
+          <span class="ss-check-row__content">
+            <span class="ss-check-row__title">Email employee when notified</span>
+            <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
+          </span>
+        </label>
         <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
       </form>
       <div class="table-wrap">
@@ -1429,11 +1483,50 @@
     });
 
     const uploadForm = container.querySelector("#employee-document-upload-form");
+    const uploadCategory = container.querySelector("#employee-document-upload-category");
+    const payPeriodField = container.querySelector("#employee-document-upload-pay-period-field");
+    const payPeriodInput = container.querySelector("#employee-document-upload-pay-period");
+    const uploadFileInput = container.querySelector("#employee-document-upload-file");
+    const uploadHint = container.querySelector("#employee-document-upload-hint");
+    const uploadPolicy = documentUploadPolicy();
+    if (uploadFileInput) uploadFileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
+    if (uploadHint) uploadHint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    if (uploadCategory) {
+      const categories = window.Admin.formOptions?.employee_document_categories || [];
+      uploadCategory.innerHTML = categories
+        .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
+        .join("");
+      if (!uploadCategory.dataset.ready) {
+        const syncPayPeriod = () => {
+          const isPayslip = uploadCategory.value === "payslip";
+          if (payPeriodField) payPeriodField.hidden = !isPayslip;
+          if (payPeriodInput) payPeriodInput.required = isPayslip;
+        };
+        uploadCategory.addEventListener("change", syncPayPeriod);
+        syncPayPeriod();
+        uploadCategory.dataset.ready = "true";
+      }
+    }
     uploadForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const status = uploadForm.querySelector("[data-upload-status]");
+      if (uploadCategory?.value === "payslip" && !payPeriodInput?.value.trim()) {
+        if (status) status.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      const uploadFile = uploadForm.querySelector('input[name="file"]')?.files?.[0];
+      const fileError = validateDocumentUploadFile(uploadFile);
+      if (fileError) {
+        if (status) status.textContent = fileError;
+        return;
+      }
       if (status) status.textContent = "Uploading…";
       const fd = new FormData(uploadForm);
+      const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
+      const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
+      fd.set("notify_employee", notify ? "true" : "false");
+      fd.set("send_email", sendEmail ? "true" : "false");
+      if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
       try {
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",
@@ -1443,7 +1536,13 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         uploadForm.reset();
-        if (status) status.textContent = "Uploaded.";
+        if (uploadCategory) {
+          uploadCategory.dispatchEvent(new Event("change"));
+        }
+        const notified = data?.notifications?.notified_count;
+        if (status) {
+          status.textContent = notified != null ? `Uploaded. Employee notified.` : "Uploaded.";
+        }
         await openEmployee(activeEmployeeId, "document_store");
       } catch (error) {
         if (status) status.textContent = error.message;

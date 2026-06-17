@@ -13,7 +13,54 @@
     link: "Register an external URL (SharePoint, Google Drive, etc.) without uploading the file to ShiftSwift.",
   };
 
+  const DEFAULT_DOCUMENT_UPLOAD = {
+    accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
+    extensions: [".pdf", ".jpg", ".jpeg", ".png"],
+    mime_types: ["application/pdf", "image/jpeg", "image/png"],
+    max_bytes: 10 * 1024 * 1024,
+    max_size_label: "10 MB",
+    hint: "PDF, JPEG or PNG · max 10 MB per file",
+  };
+
   let employeeLookup = [];
+
+  function documentUploadPolicy() {
+    return window.Admin.formOptions?.document_upload || DEFAULT_DOCUMENT_UPLOAD;
+  }
+
+  function fileExtension(name) {
+    const base = String(name || "").trim().toLowerCase();
+    const idx = base.lastIndexOf(".");
+    return idx >= 0 ? base.slice(idx) : "";
+  }
+
+  function validateDocumentUploadFile(file, policy = documentUploadPolicy()) {
+    if (!file || !file.size) return "Choose a file to upload.";
+    const ext = fileExtension(file.name);
+    const mime = String(file.type || "").toLowerCase();
+    const extensions = policy.extensions || DEFAULT_DOCUMENT_UPLOAD.extensions;
+    const mimeTypes = policy.mime_types || DEFAULT_DOCUMENT_UPLOAD.mime_types;
+    const extOk = extensions.includes(ext);
+    const mimeOk = !mime || mimeTypes.includes(mime);
+    if (!extOk && !mimeOk) {
+      return `Use PDF, JPEG or PNG only. ${policy.hint || DEFAULT_DOCUMENT_UPLOAD.hint}`;
+    }
+    const maxBytes = Number(policy.max_bytes) || DEFAULT_DOCUMENT_UPLOAD.max_bytes;
+    if (file.size > maxBytes) {
+      return `File is too large. Maximum size is ${policy.max_size_label || DEFAULT_DOCUMENT_UPLOAD.max_size_label}.`;
+    }
+    return null;
+  }
+
+  function applyDocumentUploadPolicy() {
+    const policy = documentUploadPolicy();
+    document.querySelectorAll("#document-upload-file, #document-distribute-file").forEach((input) => {
+      input.accept = policy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
+    });
+    document.querySelectorAll("[data-document-upload-hint]").forEach((el) => {
+      el.textContent = policy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    });
+  }
 
   function friendlyError(error, fallback) {
     const message = error?.message || "";
@@ -224,6 +271,45 @@
       } else {
         visibleHint.textContent = "";
       }
+    }
+    syncUploadNotify(form);
+  }
+
+  function mountNotifyEmployeeSelect() {
+    const select = document.getElementById("document-upload-notify-employees");
+    if (!select || select.dataset.ready === "true") return;
+    const employees = (window.Admin.formOptions?.employees || []).filter(
+      (item) => item.status === "active" || item.status === "onboarding"
+    );
+    select.innerHTML = employees
+      .map(
+        (item) =>
+          `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label || `${item.first_name} ${item.last_name}`)}</option>`
+      )
+      .join("");
+    select.dataset.ready = "true";
+  }
+
+  function syncUploadNotify(form) {
+    const audience = form?.querySelector('input[name="doc_audience"]:checked')?.value || "company";
+    const visibleCheck = document.getElementById("document-upload-visible");
+    const notifySection = document.getElementById("document-upload-notify-section");
+    const notifyCheck = document.getElementById("document-upload-notify");
+    const notifyTargets = document.getElementById("document-upload-notify-targets");
+    const scopeField = document.getElementById("document-upload-notify-scope-field");
+    const selectField = document.getElementById("document-upload-notify-select-field");
+    const portalVisible = audience !== "hr" && (visibleCheck?.checked ?? false);
+
+    if (notifySection) notifySection.hidden = !portalVisible;
+    if (!portalVisible) return;
+
+    mountNotifyEmployeeSelect();
+
+    if (notifyTargets) notifyTargets.hidden = !(notifyCheck?.checked ?? false);
+    if (scopeField) scopeField.hidden = audience === "employee";
+    if (selectField) {
+      const selectedScope = form.querySelector('input[name="notify_scope"]:checked')?.value || "all";
+      selectField.hidden = audience === "employee" || selectedScope !== "selected";
     }
   }
 
@@ -505,6 +591,11 @@
     form.querySelectorAll('input[name="doc_audience"]').forEach((input) => {
       input.addEventListener("change", () => syncUploadAudience(form));
     });
+    document.getElementById("document-upload-visible")?.addEventListener("change", () => syncUploadNotify(form));
+    document.getElementById("document-upload-notify")?.addEventListener("change", () => syncUploadNotify(form));
+    form.querySelectorAll('input[name="notify_scope"]').forEach((input) => {
+      input.addEventListener("change", () => syncUploadNotify(form));
+    });
     syncUploadAudience(form);
 
     document.getElementById("document-upload-alert-days")?.addEventListener("change", () => {
@@ -532,18 +623,52 @@
         if (status) setFormStatus(status, "Choose a file to upload.", "error");
         return;
       }
+      const fileError = file instanceof File ? validateDocumentUploadFile(file) : null;
+      if (fileError) {
+        if (status) setFormStatus(status, fileError, "error");
+        return;
+      }
       if (status) setFormStatus(status, "Uploading…");
       const visible = audience === "hr" ? false : form.querySelector("#document-upload-visible")?.checked ?? false;
       fd.set("employee_visible", visible ? "true" : "false");
       if (audience !== "employee" || !fd.get("employee_id")) fd.delete("employee_id");
+
+      const notify = visible && (form.querySelector("#document-upload-notify")?.checked ?? false);
+      fd.set("notify_employees", notify ? "true" : "false");
+      fd.delete("notify_employee_ids");
+      fd.delete("send_email");
+      if (notify) {
+        const sendEmail = form.querySelector("#document-upload-notify-email")?.checked ?? true;
+        fd.set("send_email", sendEmail ? "true" : "false");
+        if (audience === "company") {
+          const notifyScope = form.querySelector('input[name="notify_scope"]:checked')?.value || "all";
+          if (notifyScope === "selected") {
+            const selectedIds = [...form.querySelectorAll("#document-upload-notify-employees option:checked")].map(
+              (option) => option.value
+            );
+            if (!selectedIds.length) {
+              if (status) setFormStatus(status, "Select at least one employee to notify.", "error");
+              return;
+            }
+            fd.set("notify_employee_ids", selectedIds.join(","));
+          }
+        }
+      }
+
       try {
-        await uploadMultipart("/admin/documents/upload", fd);
+        const data = await uploadMultipart("/admin/documents/upload", fd);
         form.reset();
         document.getElementById("document-upload-employee-id").value = "";
         document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
         syncExpiryHint("document-upload-alert-days", "document-upload-expiry-hint");
-        if (status) setFormStatus(status, "Uploaded ✓", "success");
-        window.AdminSettings?.showSettingsToast?.("Document uploaded ✓");
+        syncUploadAudience(form);
+        const notified = data?.notifications?.notified_count;
+        const successText =
+          notified != null
+            ? `Uploaded ✓ ${notified} employee${notified === 1 ? "" : "s"} notified`
+            : "Uploaded ✓";
+        if (status) setFormStatus(status, successText, "success");
+        window.AdminSettings?.showSettingsToast?.(successText);
         await refreshDocumentViews(status);
       } catch (error) {
         if (status) setFormStatus(status, friendlyError(error, "Upload failed"), "error");
@@ -633,8 +758,18 @@
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const status = form.querySelector("[data-status]");
-      if (status) setFormStatus(status, "Uploading…");
       const fd = new FormData(form);
+      const file = fd.get("file");
+      if (!file || (file instanceof File && !file.size)) {
+        if (status) setFormStatus(status, "Choose a file to upload.", "error");
+        return;
+      }
+      const fileError = file instanceof File ? validateDocumentUploadFile(file) : null;
+      if (fileError) {
+        if (status) setFormStatus(status, fileError, "error");
+        return;
+      }
+      if (status) setFormStatus(status, "Uploading…");
       const sendEmail = form.querySelector('[name="send_email"]')?.checked ?? false;
       fd.set("send_email", sendEmail ? "true" : "false");
       if (!fd.get("employee_id")) fd.delete("employee_id");
@@ -742,6 +877,7 @@
     }
 
     bindDocumentTabs();
+    applyDocumentUploadPolicy();
     mountUploadForm();
     mountDistributeForm();
     await loadExpiringDocuments();

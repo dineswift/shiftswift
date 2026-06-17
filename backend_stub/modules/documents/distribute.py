@@ -128,39 +128,24 @@ def distribute_document(
             }
         )
 
-        if send_email:
-            from modules.documents.notifications import notify_employee_document_shared
+        from modules.documents.notifications import notify_employee_document_shared
 
-            if notify_employee_document_shared(
-                tenant_id=tenant_id,
-                employee=employee,
-                document_id=int(doc["id"]),
-                document_title=title.strip(),
-                category=category,
-                category_label=EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(category, category),
-                pay_period=pay_period,
-                conn=conn,
-                commit=False,
-                send_email=True,
-            ):
-                emails_sent += 1
-            else:
-                emails_skipped += 1
-        else:
-            from modules.documents.notifications import notify_employee_document_shared
-
-            notify_employee_document_shared(
-                tenant_id=tenant_id,
-                employee=employee,
-                document_id=int(doc["id"]),
-                document_title=title.strip(),
-                category=category,
-                category_label=EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(category, category),
-                pay_period=pay_period,
-                conn=conn,
-                commit=False,
-                send_email=False,
-            )
+        if notify_employee_document_shared(
+            tenant_id=tenant_id,
+            employee=employee,
+            document_id=int(doc["id"]),
+            document_title=title.strip(),
+            category=category,
+            category_label=EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(category, category),
+            pay_period=pay_period,
+            conn=conn,
+            commit=False,
+            send_email=send_email,
+            document_scope="employee",
+        ):
+            emails_sent += 1
+        elif send_email:
+            emails_skipped += 1
 
     conn.commit()
     return {

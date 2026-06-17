@@ -199,11 +199,13 @@ def admin_metadata() -> dict[str, object]:
     ]
     templates.append({"value": "pack", "label": "Full pack (MSA + DPA + Order)"})
     from plan_features import ROTA_MODE_LABELS, ROTA_MODES, UPGRADE_MESSAGES
+    from modules.documents.storage import document_upload_policy
 
     return {
         "brand": brand_payload(),
         "advert_platforms": ADVERT_PLATFORMS,
         "document_categories": DOCUMENT_CATEGORIES,
+        "document_upload": document_upload_policy(max_bytes=settings.max_upload_bytes),
         "document_lifecycle_stages": DOCUMENT_LIFECYCLE_STAGES,
         "document_form_lifecycle_stages": DOCUMENT_FORM_LIFECYCLE_STAGES,
         "document_expiry_alert_days": EXPIRY_ALERT_DAY_OPTIONS,
@@ -586,14 +588,25 @@ async def upload_tenant_document(
     expiry_alert_days: int = Form(default=30),
     employee_id: int | None = Form(default=None),
     employee_visible: bool = Form(default=False),
+    notify_employees: bool = Form(default=False),
+    notify_employee_ids: str | None = Form(default=None),
+    send_email: bool = Form(default=True),
+    pay_period: str | None = Form(default=None),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
+    from modules.documents.notifications import (
+        load_document_notification_targets,
+        notify_document_recipients,
+        parse_employee_id_list,
+    )
     from modules.documents.service import create_tenant_document, update_tenant_document
     from modules.documents.storage import read_validated_upload, write_document_file
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
     conn = _db_conn()
+    notifications: dict[str, int] | None = None
+    doc: dict[str, object] | None = None
     try:
         doc = create_tenant_document(
             tenant_id=tenant_id,
@@ -645,10 +658,35 @@ async def upload_tenant_document(
             user_agent=request.headers.get("User-Agent"),
             conn=conn,
         )
+        if employee_visible and notify_employees:
+            selected_ids = parse_employee_id_list(notify_employee_ids)
+            targets = load_document_notification_targets(
+                tenant_id=tenant_id,
+                employee_id=employee_id if selected_ids is None and employee_id is not None else None,
+                employee_ids=selected_ids,
+                conn=conn,
+            )
+            if not targets:
+                raise ValueError("No employees selected to notify")
+            notifications = notify_document_recipients(
+                tenant_id=tenant_id,
+                employees=targets,
+                document_id=int(doc["id"]),
+                document_scope="tenant",
+                document_title=title.strip(),
+                category=category,
+                pay_period=(pay_period or "").strip() or None,
+                send_email=send_email,
+                conn=conn,
+                commit=False,
+            )
+        conn.commit()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         conn.close()
+    if notifications is not None:
+        return {**doc, "notifications": notifications}
     return doc
 
 

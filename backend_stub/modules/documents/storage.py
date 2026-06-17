@@ -12,16 +12,40 @@ from fastapi import HTTPException, UploadFile
 
 DOCUMENTS_STORAGE_DIR = Path(os.getenv("DOCUMENTS_STORAGE_DIR", "uploads/documents"))
 
-ALLOWED_UPLOAD_TYPES: dict[str, str] = {
+DOCUMENT_ALLOWED_UPLOAD_TYPES: dict[str, str] = {
     "application/pdf": ".pdf",
     "image/jpeg": ".jpg",
     "image/png": ".png",
-    "image/webp": ".webp",
-    "application/msword": ".doc",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
 }
 
+DOCUMENT_UPLOAD_EXTENSIONS = frozenset({".pdf", ".jpg", ".jpeg", ".png"})
+DOCUMENT_UPLOAD_MIME_TYPES = frozenset(DOCUMENT_ALLOWED_UPLOAD_TYPES.keys())
+DOCUMENT_UPLOAD_ACCEPT = ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+
 _FALLBACK_OCTET = "application/octet-stream"
+
+
+def format_upload_size_limit(max_bytes: int) -> str:
+    if max_bytes >= 1024 * 1024:
+        mb = max_bytes / (1024 * 1024)
+        if mb == int(mb):
+            return f"{int(mb)} MB"
+        return f"{mb:.1f} MB"
+    if max_bytes >= 1024:
+        return f"{max_bytes // 1024} KB"
+    return f"{max_bytes} bytes"
+
+
+def document_upload_policy(*, max_bytes: int) -> dict[str, Any]:
+    max_label = format_upload_size_limit(max_bytes)
+    return {
+        "accept": DOCUMENT_UPLOAD_ACCEPT,
+        "extensions": sorted(DOCUMENT_UPLOAD_EXTENSIONS),
+        "mime_types": sorted(DOCUMENT_UPLOAD_MIME_TYPES),
+        "max_bytes": max_bytes,
+        "max_size_label": max_label,
+        "hint": f"PDF, JPEG or PNG · max {max_label} per file",
+    }
 
 
 def _sha256_bytes(data: bytes) -> str:
@@ -33,37 +57,52 @@ def _safe_slug(value: str, *, max_len: int = 60) -> str:
     return (slug or "document")[:max_len]
 
 
+def _detect_document_type(data: bytes) -> tuple[str, str] | None:
+    if data.startswith(b"%PDF"):
+        return "application/pdf", ".pdf"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg", ".jpg"
+    if data.startswith(b"\x89PNG"):
+        return "image/png", ".png"
+    return None
+
+
 async def read_validated_upload(upload: UploadFile, *, max_bytes: int) -> tuple[bytes, str, str]:
     """Return file bytes, normalised content type, and file extension."""
+    max_label = format_upload_size_limit(max_bytes)
     raw_type = (upload.content_type or _FALLBACK_OCTET).split(";")[0].strip().lower()
-    if raw_type not in ALLOWED_UPLOAD_TYPES and raw_type != _FALLBACK_OCTET:
+    filename = (upload.filename or "").strip().lower()
+    ext_from_name = Path(filename).suffix if filename else ""
+    if ext_from_name and ext_from_name not in DOCUMENT_UPLOAD_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file type. Upload PDF, JPEG, PNG, WebP, DOC, or DOCX.",
+            detail=f"Unsupported file type. Upload PDF, JPEG, or PNG only (max {max_label}).",
         )
+    if raw_type not in DOCUMENT_UPLOAD_MIME_TYPES and raw_type != _FALLBACK_OCTET:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Upload PDF, JPEG, or PNG only (max {max_label}).",
+        )
+
     data = await upload.read()
     if not data:
         raise HTTPException(status_code=400, detail="Empty upload")
     if len(data) > max_bytes:
-        raise HTTPException(status_code=413, detail="File exceeds maximum upload size")
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds maximum upload size ({max_label}). Choose a smaller PDF or image.",
+        )
 
     content_type = raw_type
-    ext = ALLOWED_UPLOAD_TYPES.get(content_type)
+    ext = DOCUMENT_ALLOWED_UPLOAD_TYPES.get(content_type)
     if ext is None:
-        if data.startswith(b"%PDF"):
-            content_type = "application/pdf"
-            ext = ".pdf"
-        elif data.startswith(b"\xff\xd8\xff"):
-            content_type = "image/jpeg"
-            ext = ".jpg"
-        elif data.startswith(b"\x89PNG"):
-            content_type = "image/png"
-            ext = ".png"
-        elif data[:4] == b"RIFF" and len(data) > 12 and data[8:12] == b"WEBP":
-            content_type = "image/webp"
-            ext = ".webp"
-        else:
-            raise HTTPException(status_code=400, detail="Could not determine a supported file type")
+        detected = _detect_document_type(data)
+        if detected is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type. Upload PDF, JPEG, or PNG only (max {max_label}).",
+            )
+        content_type, ext = detected
     return data, content_type, ext
 
 

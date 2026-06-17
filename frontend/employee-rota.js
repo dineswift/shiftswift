@@ -99,11 +99,13 @@
           ${isToday ? '<span class="employee-shift-card__today">Today</span>' : ""}
         </div>
         <div class="employee-shift-card__body">
-          <p class="employee-shift-card__time">${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}</p>
-          ${role}
-          ${notes}
+          <div class="employee-shift-card__main">
+            <p class="employee-shift-card__time">${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}</p>
+            ${role}
+            ${notes}
+          </div>
           <button type="button" class="btn ghost btn-sm employee-shift-card__cover" data-cover-shift="${shift.id}">
-            Request cover
+            Cover
           </button>
         </div>
       </article>`;

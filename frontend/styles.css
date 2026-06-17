@@ -6173,6 +6173,46 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   line-height: 1.4;
 }
 
+.settings-doc-notify-block {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--gray-50, #fafafa);
+}
+
+.settings-doc-notify-targets {
+  display: grid;
+  gap: 10px;
+  padding-left: 2px;
+}
+
+.settings-doc-notify-scope {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-doc-notify-scope__legend {
+  font-size: 0.78rem;
+  margin-bottom: 2px;
+}
+
+.settings-doc-notify-scope__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+
+.settings-doc-notify-select {
+  width: 100%;
+  min-height: 7rem;
+}
+
 .settings-doc-form {
   gap: 10px;
 }
@@ -9027,19 +9067,19 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employee-shifts-card {
-  padding: 16px;
+  padding: 12px;
 }
 
 .employee-shifts-week {
-  margin: 0 0 12px;
-  font-size: 0.88rem;
+  margin: 0 0 8px;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .employee-shifts-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .employee-shifts-placeholder,
@@ -9067,10 +9107,10 @@ body.rota-week-readonly .rota-builder-hint {
 
 .employee-shift-card {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px;
-  border-radius: 14px;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
   border: 1px solid var(--card-border);
   background: var(--card);
   box-shadow: var(--shadow-card);
@@ -9086,9 +9126,9 @@ body.rota-week-readonly .rota-builder-hint {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 8px 6px;
-  border-radius: 12px;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 10px;
   background: var(--green-100);
   color: var(--green-900);
   text-align: center;
@@ -9100,24 +9140,24 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employee-shift-card__weekday {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .employee-shift-card__day {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .employee-shift-card__today {
-  margin-top: 4px;
-  padding: 2px 6px;
+  margin-top: 2px;
+  padding: 1px 5px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -9128,42 +9168,63 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employee-shift-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   min-width: 0;
 }
 
+.employee-shift-card__main {
+  min-width: 0;
+  flex: 1;
+}
+
 .employee-shift-card__time {
-  margin: 0 0 4px;
-  font-size: 1.15rem;
+  margin: 0;
+  font-size: 0.98rem;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
   color: var(--green-900);
   letter-spacing: -0.01em;
 }
 
 .employee-shift-card__role {
-  margin: 0 0 6px;
-  font-size: 0.9rem;
+  margin: 2px 0 0;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--gray-700);
+  line-height: 1.25;
 }
 
 .employee-shift-card__notes {
-  margin: 0 0 8px;
-  font-size: 0.82rem;
-  line-height: 1.4;
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.35;
 }
 
 .employee-shift-card__cover {
-  margin-top: 4px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 @media (max-width: 860px) {
   #my-shifts .section-header {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   #my-shifts .section-header h2 {
-    font-size: 1.35rem;
+    margin: 0 0 2px;
+    font-size: 1.25rem;
+  }
+
+  #my-shifts .section-header .muted {
+    font-size: 0.78rem;
+    line-height: 1.35;
   }
 
   .employee-shifts-card {
