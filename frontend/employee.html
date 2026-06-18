@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v121" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v123" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -106,7 +106,7 @@
         </div>
 
         <section id="overview" class="admin-section">
-          <div class="employee-home employee-mobile-home-only">
+          <div class="employee-home">
             <header class="employee-home-hero">
               <p class="employee-home-greeting" id="mobile-greeting">Good afternoon</p>
               <p class="employee-home-name" id="employee-display-name">Loading…</p>
@@ -114,30 +114,33 @@
                 <p class="employee-home-employer" id="mobile-employer-subtitle">Your employer</p>
                 <span class="employee-home-role-pill">Employee</span>
               </div>
+              <p class="sr-only" id="employee-welcome">Loading your account…</p>
             </header>
 
-            <div class="employee-alerts-banner" id="employee-alerts-banner">
-              <span class="employee-alerts-banner__icon" data-icon="bell" aria-hidden="true"></span>
-              <div class="employee-alerts-banner__copy">
-                <strong class="employee-alerts-banner__title">Shift alerts</strong>
-                <p class="employee-alerts-banner__text" id="employee-alerts-status">
-                  Get a bell alert 10 minutes before your shift and if you forget to clock in.
-                </p>
+            <div class="employee-desktop-top">
+              <div class="employee-alerts-banner" id="employee-alerts-banner">
+                <span class="employee-alerts-banner__icon" data-icon="bell" aria-hidden="true"></span>
+                <div class="employee-alerts-banner__copy">
+                  <strong class="employee-alerts-banner__title">Shift alerts</strong>
+                  <p class="employee-alerts-banner__text" id="employee-alerts-status">
+                    Get a bell alert 10 minutes before your shift and if you forget to clock in.
+                  </p>
+                </div>
+                <button type="button" class="btn primary btn-sm employee-alerts-banner__btn" id="employee-enable-alerts-btn">
+                  Turn on alerts
+                </button>
               </div>
-              <button type="button" class="btn primary btn-sm employee-alerts-banner__btn" id="employee-enable-alerts-btn">
-                Turn on alerts
-              </button>
-            </div>
 
-            <div class="employee-home-quick">
-              <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock" data-requires-clock>
-                <span class="employee-quick-btn__icon" aria-hidden="true"></span>
-                <span class="employee-quick-btn__label">Clock in / out</span>
-              </a>
-              <a class="employee-quick-btn" href="#my-shifts">
-                <span class="employee-quick-btn__icon" aria-hidden="true"></span>
-                <span class="employee-quick-btn__label">My shifts</span>
-              </a>
+              <div class="employee-home-quick">
+                <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock" data-requires-clock>
+                  <span class="employee-quick-btn__icon" aria-hidden="true"></span>
+                  <span class="employee-quick-btn__label">Clock in / out</span>
+                </a>
+                <a class="employee-quick-btn" href="#my-shifts">
+                  <span class="employee-quick-btn__icon" aria-hidden="true"></span>
+                  <span class="employee-quick-btn__label">My shifts</span>
+                </a>
+              </div>
             </div>
 
             <h2 class="employee-home-section-title">Your workplace</h2>
@@ -146,7 +149,7 @@
                 <span class="employee-home-card__icon" data-icon="clock" aria-hidden="true"></span>
                 <span class="employee-home-card__body">
                   <span class="employee-home-card__title">Time clock</span>
-                  <span class="employee-home-card__value" data-mirror="employee-punch-summary">Loading…</span>
+                  <span class="employee-home-card__value" id="employee-punch-summary">Loading…</span>
                 </span>
                 <span class="employee-home-card__chevron" aria-hidden="true"></span>
               </a>
@@ -154,7 +157,7 @@
                 <span class="employee-home-card__icon" data-icon="calendar" aria-hidden="true"></span>
                 <span class="employee-home-card__body">
                   <span class="employee-home-card__title">My shifts</span>
-                  <span class="employee-home-card__value" id="employee-shifts-summary" data-mirror="employee-shifts-summary">View this week&apos;s rota</span>
+                  <span class="employee-home-card__value" id="employee-shifts-summary">View this week&apos;s rota</span>
                 </span>
                 <span class="employee-home-card__chevron" aria-hidden="true"></span>
               </a>
@@ -162,7 +165,7 @@
                 <span class="employee-home-card__icon" data-icon="file" aria-hidden="true"></span>
                 <span class="employee-home-card__body">
                   <span class="employee-home-card__title">My documents</span>
-                  <span class="employee-home-card__value" data-mirror="employee-docs-summary">Loading…</span>
+                  <span class="employee-home-card__value" id="employee-docs-summary">Loading…</span>
                 </span>
                 <span class="employee-home-card__chevron" aria-hidden="true"></span>
               </a>
@@ -170,7 +173,7 @@
                 <span class="employee-home-card__icon" data-icon="card" aria-hidden="true"></span>
                 <span class="employee-home-card__body">
                   <span class="employee-home-card__title">Payslips</span>
-                  <span class="employee-home-card__value" data-mirror="employee-payslips-summary">Loading…</span>
+                  <span class="employee-home-card__value" id="employee-payslips-summary">Loading…</span>
                 </span>
                 <span class="employee-home-card__chevron" aria-hidden="true"></span>
               </a>
@@ -178,7 +181,7 @@
                 <span class="employee-home-card__icon" data-icon="bell" aria-hidden="true"></span>
                 <span class="employee-home-card__body">
                   <span class="employee-home-card__title">Notes from HR</span>
-                  <span class="employee-home-card__value" data-mirror="employee-notes-summary">Loading…</span>
+                  <span class="employee-home-card__value" id="employee-notes-summary">Loading…</span>
                 </span>
                 <span class="employee-home-card__chevron" aria-hidden="true"></span>
               </a>
@@ -191,42 +194,6 @@
                 <span class="employee-home-card__chevron" aria-hidden="true"></span>
               </a>
             </div>
-          </div>
-          <header class="section-header section-header--desktop">
-            <div>
-              <h2>Welcome</h2>
-              <p class="muted" id="employee-welcome">Loading your account…</p>
-            </div>
-          </header>
-          <div class="overview-module-grid employee-mobile-home-only employee-home-grid--legacy" id="employee-home-grid-legacy" hidden aria-hidden="true"></div>
-          <div class="metric-grid employee-desktop-only">
-            <article class="card">
-              <h3>My documents</h3>
-              <p class="muted">Signed contracts, policies, and HR letters shared with you.</p>
-              <p class="muted" id="employee-docs-summary">Loading…</p>
-              <a class="btn ghost" href="#documents">View my documents</a>
-            </article>
-            <article class="card">
-              <h3>Notes from HR</h3>
-              <p class="muted">Messages your employer has shared with you in the portal.</p>
-              <p class="muted" id="employee-notes-summary">Loading…</p>
-              <a class="btn ghost" href="#notes">View notes</a>
-            </article>
-            <article class="card" data-requires-clock>
-              <h3>Time clock</h3>
-              <p class="muted" id="employee-punch-summary">Loading…</p>
-              <a class="btn ghost" href="#time-clock">Clock in or out</a>
-            </article>
-            <article class="card">
-              <h3>Leave balance</h3>
-              <p class="muted" data-mirror="employee-leave-balance">Loading…</p>
-              <a class="btn ghost" href="#leave">Request leave</a>
-            </article>
-            <article class="card">
-              <h3>Payslips</h3>
-              <p class="muted" id="employee-payslips-summary">Loading…</p>
-              <a class="btn ghost" href="#payslips">View payslips</a>
-            </article>
           </div>
         </section>
 
