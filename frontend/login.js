@@ -371,10 +371,6 @@ function redirectIfEmployeeSession() {
     window.location.replace("./employee.html");
     return true;
   }
-  if (role && role !== "employee") {
-    window.location.replace("./business-login.html");
-    return true;
-  }
   return false;
 }
 

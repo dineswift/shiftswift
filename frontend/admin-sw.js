@@ -1,5 +1,5 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v3";
+const CACHE_NAME = "shiftswift-admin-v5";
 const SHELL = [
   "./admin.html",
   "./business-login.html",
@@ -22,8 +22,7 @@ const SHELL = [
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
-const EMPLOYEE_ONLY_PATHS =
-  /\/(employee-login|employee-forgot-password|employee|punch)\.html$/i;
+const ADMIN_SHELL_PATHS = /\/(admin|business-login|forgot-password|reset-password)\.html$/i;
 
 function isSameOrigin(request) {
   try {
@@ -76,12 +75,7 @@ self.addEventListener("fetch", (event) => {
 
   if (isNavigation(event.request)) {
     const path = new URL(event.request.url).pathname;
-    if (path === "/" || /\/index\.html$/i.test(path)) {
-      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
-      return;
-    }
-    if (EMPLOYEE_ONLY_PATHS.test(path)) {
-      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
+    if (!ADMIN_SHELL_PATHS.test(path)) {
       return;
     }
 
@@ -99,7 +93,7 @@ self.addEventListener("fetch", (event) => {
           if (cached) return cached;
           const fallback = await caches.match(fallbackDocument(event.request.url));
           return fallback || Response.error();
-        })
+        }),
     );
     return;
   }
@@ -124,7 +118,7 @@ self.addEventListener("fetch", (event) => {
         return cached;
       }
       return networkFetch.then((response) => response || caches.match(fallbackDocument(event.request.url)));
-    })
+    }),
   );
 });
 
@@ -163,7 +157,7 @@ self.addEventListener("push", (event) => {
           { action: "dismiss", title: "Dismiss" },
         ],
       });
-    })()
+    })(),
   );
 });
 
@@ -189,6 +183,6 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
       await clients.openWindow(targetUrl);
-    })()
+    })(),
   );
 });

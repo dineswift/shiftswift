@@ -1,5 +1,5 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v7";
+const CACHE_NAME = "shiftswift-employee-v8";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
@@ -24,9 +24,7 @@ const SHELL = [
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
-const HR_AUTH_PAGES = /\/(business-login|forgot-password|reset-password)\.html$/i;
-const HR_ONLY_PATHS =
-  /\/(login|admin|signup|signup-success|ops-9x7k2|master|master-tenant|tenant-login|master-login)\.html$/i;
+const EMPLOYEE_SHELL_PATHS = /\/(employee|employee-login|employee-forgot-password)\.html$/i;
 
 function isSameOrigin(request) {
   try {
@@ -42,10 +40,6 @@ function isNavigation(request) {
 
 function employeeLoginUrl(requestUrl) {
   return new URL("./employee-login.html", requestUrl).toString();
-}
-
-function businessLoginUrl(requestUrl) {
-  return new URL("./business-login.html", requestUrl).toString();
 }
 
 function fallbackDocument(url) {
@@ -84,24 +78,7 @@ self.addEventListener("fetch", (event) => {
 
   if (isNavigation(event.request)) {
     const path = new URL(event.request.url).pathname;
-
-    if (HR_AUTH_PAGES.test(path)) {
-      event.respondWith(
-        fetch(event.request).catch(async () => {
-          const cached = await caches.match(event.request);
-          return cached || Response.error();
-        }),
-      );
-      return;
-    }
-
-    if (HR_ONLY_PATHS.test(path)) {
-      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
-      return;
-    }
-
-    if (path.endsWith("/") || path.endsWith("/index.html")) {
-      event.respondWith(Response.redirect(businessLoginUrl(event.request.url), 302));
+    if (!EMPLOYEE_SHELL_PATHS.test(path)) {
       return;
     }
 
