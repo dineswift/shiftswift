@@ -790,22 +790,83 @@
   }
 
   function geofenceVizSvg(radiusMeters) {
+    const r = Math.min(78, Math.max(40, Number(radiusMeters) / 4));
     return `
       <div class="punch-geofence-viz" aria-hidden="true">
         <svg viewBox="0 0 220 220" class="punch-geofence-viz__svg">
-          <rect width="220" height="220" rx="12" fill="#f0faf6"/>
-          <circle cx="110" cy="110" r="78" fill="none" stroke="#74c69d" stroke-width="2" stroke-dasharray="6 5"/>
-          <circle cx="110" cy="110" r="8" fill="#1b4332"/>
-          <text id="punch-geofence-viz-label" x="110" y="198" text-anchor="middle" font-size="12" fill="#52796f">${escapeHtml(String(radiusMeters))}m radius</text>
+          <defs>
+            <radialGradient id="punch-geofence-fill" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#d8f3dc"/>
+              <stop offset="70%" stop-color="#b7e4c7"/>
+              <stop offset="100%" stop-color="#95d5b2"/>
+            </radialGradient>
+          </defs>
+          <rect width="220" height="220" rx="16" fill="#f8fafc"/>
+          <circle cx="110" cy="100" r="${r}" fill="url(#punch-geofence-fill)" opacity="0.85"/>
+          <circle cx="110" cy="100" r="${r}" fill="none" stroke="#2d6a4f" stroke-width="2" stroke-dasharray="7 5" opacity="0.55"/>
+          <circle cx="110" cy="100" r="9" fill="#1b4332"/>
+          <circle cx="110" cy="100" r="22" fill="none" stroke="#40916c" stroke-width="1.5" opacity="0.35"/>
+          <text id="punch-geofence-viz-label" x="110" y="196" text-anchor="middle" font-size="11" font-weight="600" fill="#2d6a4f">${escapeHtml(String(radiusMeters))}m radius</text>
         </svg>
+      </div>`;
+  }
+
+  function siteMapsUrl(site) {
+    const lat = Number(site.latitude);
+    const lng = Number(site.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return `https://www.google.com/maps?q=${lat},${lng}`;
+    }
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(site.address || "")}`;
+  }
+
+  function siteRoleChipsHtml(permittedRoles) {
+    if (!permittedRoles || permittedRoles === "all") {
+      return `<span class="punch-site-chip">All staff</span>`;
+    }
+    return String(permittedRoles)
+      .split(",")
+      .map((role) => role.trim())
+      .filter(Boolean)
+      .map((role) => `<span class="punch-site-chip">${escapeHtml(roleLabel(role))}</span>`)
+      .join("");
+  }
+
+  function siteDetailMetricsHtml(site, stats) {
+    const punchTone = stats.outside > 0 ? "warn" : stats.total > 0 ? "ok" : "";
+    const punchSub = stats.outside
+      ? `${stats.outside} outside geofence`
+      : stats.total
+        ? "Logged today"
+        : "No punches yet";
+    return `
+      <div class="punch-site-metrics" aria-label="Site activity">
+        <div class="punch-site-metric punch-site-metric--${punchTone || "default"}">
+          <span class="punch-site-metric__icon" aria-hidden="true">🕐</span>
+          <span class="punch-site-metric__label">Today&apos;s punches</span>
+          <span class="punch-site-metric__value">${stats.total}</span>
+          <span class="punch-site-metric__sub">${escapeHtml(punchSub)}</span>
+        </div>
+        <div class="punch-site-metric">
+          <span class="punch-site-metric__icon" aria-hidden="true">⭕</span>
+          <span class="punch-site-metric__label">Geofence</span>
+          <span class="punch-site-metric__value">${escapeHtml(String(site.radius_meters))}m</span>
+          <span class="punch-site-metric__sub">GPS clock-in range</span>
+        </div>
+        <div class="punch-site-metric">
+          <span class="punch-site-metric__icon" aria-hidden="true">↻</span>
+          <span class="punch-site-metric__label">Last synced</span>
+          <span class="punch-site-metric__value punch-site-metric__value--text">${escapeHtml(formatSyncShort(site.updated_at || lastSyncIso()))}</span>
+          <span class="punch-site-metric__sub">Address &amp; coordinates</span>
+        </div>
       </div>`;
   }
 
   function geofenceSettingsMarkup(site) {
     return `
-      <article class="card punch-geofence-settings" id="punch-geofence-settings">
-        <h4 class="hr-section-title">Geofence radius</h4>
-        <p class="muted punch-tab-intro">How close staff must be to clock in with GPS (25–2000 metres). Widen if phones struggle indoors, or use the premises QR below.</p>
+      <div class="punch-geofence-settings" id="punch-geofence-settings">
+        <h4 class="punch-site-section-title">Adjust geofence</h4>
+        <p class="muted punch-tab-intro punch-site-section-lead">How close staff must be to clock in with GPS (25–2000 metres). Widen if phones struggle indoors, or use the premises QR below.</p>
         <form id="punch-geofence-form" class="punch-geofence-form">
           <label class="edit-field punch-geofence-form__field">
             <span class="edit-label">Radius (metres)</span>
@@ -813,7 +874,7 @@
           </label>
           <button type="submit" class="btn primary punch-geofence-form__save">Save radius</button>
         </form>
-      </article>`;
+      </div>`;
   }
 
   function wireGeofenceSettings(site) {
@@ -863,28 +924,61 @@
       .join("");
 
     content.innerHTML = `
-      <div class="hr-detail-head"><div><h3>${escapeHtml(site.name)}</h3><span class="contracts-status-pill contracts-status-pill--${site.is_active ? "signed" : "draft"}">${site.is_active ? "Active" : "Inactive"}</span></div></div>
-      <dl class="hr-detail-grid">
-        <div><dt>Address</dt><dd>${escapeHtml(site.address)}</dd></div>
-        <div><dt>Geofence radius</dt><dd>${escapeHtml(site.radius_meters)} metres <span class="muted">(edit below)</span></dd></div>
-        <div><dt>Permitted roles</dt><dd>${escapeHtml(roleLabel(site.permitted_roles))}</dd></div>
-        <div><dt>Last synced</dt><dd>${escapeHtml(formatSyncShort(site.updated_at || lastSyncIso()))}</dd></div>
-        <div><dt>Today's punches</dt><dd>${stats.total} punch${stats.total === 1 ? "" : "es"}${stats.outside ? ` · <span class="punch-outside-count">${stats.outside} outside geofence</span>` : ""}</dd></div>
-      </dl>
-      ${geofenceSettingsMarkup(site)}
-      ${geofenceVizSvg(site.radius_meters)}
-      <article class="card punch-clock-qr-card" id="punch-clock-qr-card">
-        <h4 class="hr-section-title">Premises QR clock-in</h4>
-        <p class="muted punch-tab-intro">Print this QR indoors where GPS is weak. Staff scan it in the Time Clock app, then clock in or out without GPS for 10 minutes.</p>
-        <div id="punch-clock-qr-body" class="punch-clock-qr-body muted">Loading QR…</div>
-      </article>
-      ${alertsHtml}
-      <div id="punch-edit-form-wrap" hidden></div>
-      <div class="hr-detail-foot">
-        <button type="button" class="btn outline" id="punch-test-geofence-btn"><span aria-hidden="true">◎</span> Test geofence</button>
-        <button type="button" class="btn outline" id="punch-edit-site-btn"><span aria-hidden="true">✎</span> Edit name &amp; roles</button>
-      </div>
-      <p id="punch-geofence-test-result" class="muted punch-geofence-result" aria-live="polite"></p>`;
+      <div class="punch-site-detail">
+        <header class="punch-site-hero">
+          <div class="punch-site-hero__badge" aria-hidden="true">📍</div>
+          <div class="punch-site-hero__body">
+            <h3 class="punch-site-hero__title">${escapeHtml(site.name)}</h3>
+            <div class="punch-site-hero__meta">
+              <span class="contracts-status-pill contracts-status-pill--${site.is_active ? "signed" : "draft"}">${site.is_active ? "Active" : "Inactive"}</span>
+              ${site.is_primary ? `<span class="punch-site-chip punch-site-chip--primary">Primary site</span>` : ""}
+            </div>
+          </div>
+        </header>
+
+        ${siteDetailMetricsHtml(site, stats)}
+
+        <article class="punch-site-info-card">
+          <div class="punch-site-info-row">
+            <span class="punch-site-info-row__icon" aria-hidden="true">🏠</span>
+            <div class="punch-site-info-row__body">
+              <span class="punch-site-info-row__label">Premises address</span>
+              <p class="punch-site-info-row__value">${escapeHtml(site.address)}</p>
+              <a class="punch-site-link" href="${escapeHtml(siteMapsUrl(site))}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="punch-site-info-card">
+          <span class="punch-site-info-row__label">Permitted roles</span>
+          <div class="punch-site-chips">${siteRoleChipsHtml(site.permitted_roles)}</div>
+        </article>
+
+        <article class="punch-site-geofence-card">
+          <div class="punch-site-geofence-card__viz">
+            ${geofenceVizSvg(site.radius_meters)}
+          </div>
+          <div class="punch-site-geofence-card__settings">
+            ${geofenceSettingsMarkup(site)}
+          </div>
+        </article>
+
+        <article class="card punch-clock-qr-card" id="punch-clock-qr-card">
+          <h4 class="punch-site-section-title">Premises QR clock-in</h4>
+          <p class="muted punch-tab-intro punch-site-section-lead">Print this QR indoors where GPS is weak. Staff scan it in the Time Clock app, then clock in or out without GPS for 10 minutes.</p>
+          <div id="punch-clock-qr-body" class="punch-clock-qr-body muted">Loading QR…</div>
+        </article>
+
+        ${alertsHtml}
+
+        <div id="punch-edit-form-wrap" hidden></div>
+
+        <div class="hr-detail-foot punch-site-detail-foot">
+          <button type="button" class="btn outline" id="punch-test-geofence-btn"><span aria-hidden="true">◎</span> Test geofence</button>
+          <button type="button" class="btn outline" id="punch-edit-site-btn"><span aria-hidden="true">✎</span> Edit name &amp; roles</button>
+        </div>
+        <p id="punch-geofence-test-result" class="muted punch-geofence-result" aria-live="polite"></p>
+      </div>`;
 
     content.querySelector("#punch-test-geofence-btn")?.addEventListener("click", () => testGeofence(site));
     content.querySelector("#punch-edit-site-btn")?.addEventListener("click", () => showEditSiteForm(site));
