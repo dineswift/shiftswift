@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v124" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v125" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -215,7 +215,7 @@
             </div>
             <p id="punch-site-scan-status" class="punch-site-scan-status muted" hidden aria-live="polite"></p>
 
-            <div class="punch-clock-actions">
+            <div class="punch-clock-actions" id="punch-clock-actions">
               <div class="punch-clock-actions__primary">
                 <button type="button" class="btn primary punch-clock-primary" id="punch-in-btn">Clock in</button>
                 <button type="button" class="btn outline punch-clock-secondary punch-clock-secondary--cooldown" id="punch-reclock-btn" hidden>
@@ -223,12 +223,14 @@
                 </button>
               </div>
               <p id="punch-cooldown-note" class="punch-cooldown-note muted" hidden></p>
-              <div class="punch-clock-actions__secondary">
-                <button type="button" class="btn outline punch-clock-secondary" id="punch-break-start-btn" disabled>Start break</button>
-                <button type="button" class="btn outline punch-clock-secondary" id="punch-break-end-btn" hidden disabled>End break</button>
-                <button type="button" class="btn outline punch-clock-secondary punch-clock-secondary--out" id="punch-out-btn" disabled>Clock out</button>
+              <div class="punch-clock-actions__phase punch-clock-actions__phase--main">
+                <button type="button" class="btn outline punch-clock-primary punch-clock-primary--out" id="punch-out-btn" disabled>Clock out</button>
+                <button type="button" class="btn primary punch-clock-primary" id="punch-break-end-btn" hidden disabled>End break</button>
               </div>
-              <button type="button" class="btn link punch-clock-link" id="punch-out-during-break-btn" hidden>Clock out instead</button>
+              <div class="punch-clock-actions__phase punch-clock-actions__phase--secondary" id="punch-phase-secondary" hidden>
+                <button type="button" class="btn outline punch-clock-secondary" id="punch-break-start-btn" hidden disabled>Start break</button>
+                <button type="button" class="btn outline punch-clock-secondary punch-clock-secondary--out" id="punch-out-during-break-btn" hidden disabled>Clock out</button>
+              </div>
             </div>
 
             <p id="punch-message" class="punch-message" aria-live="polite"></p>
@@ -503,7 +505,7 @@
     <script src="./employee-mobile.js?v=6"></script>
     <script src="./employee.js?v=10"></script>
     <script src="./employee-push-alerts.js?v=1"></script>
-    <script src="./employee-time-punch.js?v=9"></script>
+    <script src="./employee-time-punch.js?v=10"></script>
     <script src="./employee-timesheet.js?v=2"></script>
     <script src="./employee-rota.js?v=7"></script>
     <script src="./employee-documents.js?v=6"></script>

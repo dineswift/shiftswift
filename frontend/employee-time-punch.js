@@ -16,6 +16,7 @@
   const breakStartBtn = document.getElementById("punch-break-start-btn");
   const breakEndBtn = document.getElementById("punch-break-end-btn");
   const outDuringBreakBtn = document.getElementById("punch-out-during-break-btn");
+  const phaseSecondaryEl = document.getElementById("punch-phase-secondary");
   const reclockDialog = document.getElementById("punch-reclock-dialog");
   const reclockDialogCopy = document.getElementById("punch-reclock-dialog-copy");
   const reclockCancelBtn = document.getElementById("punch-reclock-cancel");
@@ -133,6 +134,8 @@
     const readyIn = clockInReady();
     const cooldown = inCooldownWindow();
     const canClockIn = workState === "off" && !cooldown;
+    const working = workState === "clocked_in";
+    const onBreak = workState === "on_break";
     const geofenceRow = document.querySelector(".punch-geofence-row");
     if (geofenceRow) geofenceRow.hidden = workState !== "off";
 
@@ -141,8 +144,8 @@
       clockInBtn.disabled =
         !canClockIn || punchInFlight || !online || !readyIn || geofenceCheckInFlight;
       clockInBtn.classList.toggle("is-ready", canClockIn && readyIn && online && !punchInFlight);
-      clockInBtn.classList.toggle("is-idle", workState === "clocked_in" || workState === "on_break");
-      clockInBtn.setAttribute("aria-pressed", workState === "clocked_in" || workState === "on_break" ? "true" : "false");
+      clockInBtn.classList.toggle("is-idle", working || onBreak);
+      clockInBtn.setAttribute("aria-pressed", working || onBreak ? "true" : "false");
     }
 
     if (reclockBtn) {
@@ -161,24 +164,29 @@
     }
 
     if (clockOutBtn) {
-      clockOutBtn.hidden = workState === "on_break";
-      clockOutBtn.disabled = punchInFlight || !online || workState !== "clocked_in";
-      clockOutBtn.classList.toggle("is-active", workState === "clocked_in" && online && !punchInFlight);
-    }
-
-    if (breakStartBtn) {
-      breakStartBtn.hidden = workState !== "clocked_in";
-      breakStartBtn.disabled = punchInFlight || !online || workState !== "clocked_in";
+      clockOutBtn.hidden = onBreak;
+      clockOutBtn.disabled = punchInFlight || !online || !working;
+      clockOutBtn.classList.toggle("is-active-out", working && online && !punchInFlight);
+      clockOutBtn.classList.toggle("is-idle-out", !working);
     }
 
     if (breakEndBtn) {
-      breakEndBtn.hidden = workState !== "on_break";
-      breakEndBtn.disabled = punchInFlight || !online || workState !== "on_break";
+      breakEndBtn.hidden = !onBreak;
+      breakEndBtn.disabled = punchInFlight || !online || !onBreak;
+    }
+
+    if (breakStartBtn) {
+      breakStartBtn.hidden = !working;
+      breakStartBtn.disabled = punchInFlight || !online || !working;
     }
 
     if (outDuringBreakBtn) {
-      outDuringBreakBtn.hidden = workState !== "on_break";
-      outDuringBreakBtn.disabled = punchInFlight || !online || workState !== "on_break";
+      outDuringBreakBtn.hidden = !onBreak;
+      outDuringBreakBtn.disabled = punchInFlight || !online || !onBreak;
+    }
+
+    if (phaseSecondaryEl) {
+      phaseSecondaryEl.hidden = !working && !onBreak;
     }
   }
 
