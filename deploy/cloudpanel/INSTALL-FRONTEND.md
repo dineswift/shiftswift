@@ -9,7 +9,7 @@ Login, admin, employee portal, signup, time clock, platform OPS.
 1. Create **Static HTML Site** in CloudPanel for `app.shiftswifthr.co.uk`
 2. Extract zip into site root (`index.html`, `business-login.html`, `admin.html`, …)
 3. Enable SSL
-4. **Sign in:** `https://app.shiftswifthr.co.uk/business-login.html`
+4. **Sign in:** `https://app.shiftswifthr.co.uk/` (portal picker) or `https://app.shiftswifthr.co.uk/business-login.html`
 5. **Platform OPS:** `https://app.shiftswifthr.co.uk/ops-9x7k2.html`
 
 ## www.shiftswifthr.co.uk (marketing only)

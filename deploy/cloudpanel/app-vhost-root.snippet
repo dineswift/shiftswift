@@ -1,0 +1,15 @@
+# CloudPanel — app.shiftswifthr.co.uk vhost (Vhost → Advanced → Nginx config)
+# Replace any index/redirect that sends "/" to business-login.html with this portal picker.
+
+index login.html;
+
+location = / {
+  return 302 /login.html;
+}
+
+location = /index.html {
+  return 302 /login.html;
+}
+
+# If you have a catch-all fallback to business-login.html, change it to login.html:
+# try_files $uri $uri/ /login.html;

@@ -67,6 +67,8 @@ fi
 
 echo "==> sync frontend"
 rsync -a --delete "${API_ROOT}/frontend/" "${APP_ROOT}/"
+echo "==> app root portal picker (index.html → login.html on app only)"
+cp "${API_ROOT}/frontend/app-root-index.html" "${APP_ROOT}/index.html"
 
 # WWW: marketing + legal only — HR app (login, admin, OPS) lives on app.shiftswifthr.co.uk
 echo "==> sync marketing frontend to WWW (excluding HR app pages)"
