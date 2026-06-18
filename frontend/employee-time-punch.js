@@ -6,9 +6,6 @@
   if (!session.hasSession() || !tenantId) return;
 
   const statusEl = document.getElementById("punch-work-state-label");
-  const stateOffEl = document.getElementById("punch-state-off");
-  const stateWorkingEl = document.getElementById("punch-state-working");
-  const stateBreakEl = document.getElementById("punch-state-break");
   const sitesEl = document.getElementById("punch-sites");
   const messageEl = document.getElementById("punch-message");
   const geofenceEl = document.getElementById("punch-geofence-status");
@@ -135,19 +132,17 @@
     const online = navigator.onLine;
     const readyIn = clockInReady();
     const cooldown = inCooldownWindow();
+    const canClockIn = workState === "off" && !cooldown;
     const geofenceRow = document.querySelector(".punch-geofence-row");
     if (geofenceRow) geofenceRow.hidden = workState !== "off";
 
-    if (stateOffEl) stateOffEl.hidden = workState !== "off";
-    if (stateWorkingEl) stateWorkingEl.hidden = workState !== "clocked_in";
-    if (stateBreakEl) stateBreakEl.hidden = workState !== "on_break";
-
     if (clockInBtn) {
-      const showPrimaryIn = workState === "off" && !cooldown;
-      clockInBtn.hidden = !showPrimaryIn;
+      clockInBtn.hidden = cooldown;
       clockInBtn.disabled =
-        punchInFlight || !online || !readyIn || geofenceCheckInFlight || workState !== "off" || cooldown;
-      clockInBtn.classList.toggle("is-ready", showPrimaryIn && readyIn && online && !punchInFlight);
+        !canClockIn || punchInFlight || !online || !readyIn || geofenceCheckInFlight;
+      clockInBtn.classList.toggle("is-ready", canClockIn && readyIn && online && !punchInFlight);
+      clockInBtn.classList.toggle("is-idle", workState === "clocked_in" || workState === "on_break");
+      clockInBtn.setAttribute("aria-pressed", workState === "clocked_in" || workState === "on_break" ? "true" : "false");
     }
 
     if (reclockBtn) {
@@ -166,17 +161,21 @@
     }
 
     if (clockOutBtn) {
-      clockOutBtn.hidden = workState !== "clocked_in";
+      clockOutBtn.hidden = workState === "on_break";
       clockOutBtn.disabled = punchInFlight || !online || workState !== "clocked_in";
+      clockOutBtn.classList.toggle("is-active", workState === "clocked_in" && online && !punchInFlight);
     }
+
     if (breakStartBtn) {
       breakStartBtn.hidden = workState !== "clocked_in";
       breakStartBtn.disabled = punchInFlight || !online || workState !== "clocked_in";
     }
+
     if (breakEndBtn) {
       breakEndBtn.hidden = workState !== "on_break";
       breakEndBtn.disabled = punchInFlight || !online || workState !== "on_break";
     }
+
     if (outDuringBreakBtn) {
       outDuringBreakBtn.hidden = workState !== "on_break";
       outDuringBreakBtn.disabled = punchInFlight || !online || workState !== "on_break";

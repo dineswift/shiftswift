@@ -9595,15 +9595,71 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   gap: 10px;
 }
 
+.punch-clock-actions {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 4px;
+}
+
+.punch-clock-actions__primary,
+.punch-clock-actions__secondary {
+  display: grid;
+  gap: 10px;
+}
+
+.punch-clock-actions__secondary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.punch-clock-actions__secondary .punch-clock-secondary--out {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+  .punch-clock-actions__secondary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .punch-clock-actions__secondary .punch-clock-secondary--out {
+    grid-column: auto;
+  }
+}
+
 .punch-clock-primary {
   width: 100%;
   min-height: 48px;
   font-size: 1rem;
 }
 
+.punch-clock-primary.is-ready:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(15, 110, 86, 0.22);
+}
+
+.punch-clock-primary:disabled,
+.punch-clock-primary.is-idle {
+  opacity: 1;
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #6b7280;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
 .punch-clock-secondary {
   width: 100%;
   min-height: 44px;
+}
+
+.punch-clock-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.punch-clock-secondary--out.is-active:not(:disabled) {
+  border-color: var(--green-700);
+  color: var(--green-800);
+  background: #ecfdf5;
+  font-weight: 700;
 }
 
 .punch-clock-secondary--cooldown {
