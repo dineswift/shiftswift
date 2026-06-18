@@ -217,6 +217,17 @@ for root in "${APP_ROOT}" "${WWW_ROOT}"; do
 done
 echo "    payroll export guide OK"
 
+echo "==> verify app portal root"
+if command -v curl >/dev/null 2>&1; then
+  root_headers="$(curl -sSI "https://app.shiftswifthr.co.uk/" 2>/dev/null | tr -d '\r' || true)"
+  if echo "${root_headers}" | grep -qi 'location:.*business-login'; then
+    echo "WARNING: app.shiftswifthr.co.uk/ still redirects to business-login."
+    echo "         Update CloudPanel vhost using deploy/cloudpanel/app-vhost-root.snippet"
+  elif echo "${root_headers}" | grep -qi 'location:.*login\.html'; then
+    echo "    app root → login portal picker OK"
+  fi
+fi
+
 echo "==> health check"
 if command -v curl >/dev/null 2>&1; then
   health_ok=0
