@@ -2794,6 +2794,414 @@ textarea:focus {
   margin-bottom: 14px;
 }
 
+.employment-page-header {
+  margin-bottom: 4px;
+}
+
+.employment-status-workflow {
+  margin-bottom: 12px;
+}
+
+.employment-stats-grid {
+  margin-bottom: 12px;
+}
+
+.employment-sync-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid #b7e4c7;
+  background: linear-gradient(135deg, #f0faf6 0%, #ffffff 100%);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.employment-sync-banner__icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #b7e4c7;
+  color: var(--green-800);
+  font-size: 0.95rem;
+}
+
+.employment-sync-banner p {
+  margin: 0;
+}
+
+.employment-workflow-pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+}
+
+.employment-workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid var(--card-border);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-600);
+}
+
+.employment-workflow-step__num {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.employment-workflow-step--done {
+  background: #eef6f2;
+  border-color: #b7e4c7;
+  color: var(--green-800);
+}
+
+.employment-workflow-step--done .employment-workflow-step__num {
+  background: var(--green-800);
+  color: #fff;
+}
+
+.employment-workflow-step--active {
+  background: var(--green-700, #0b5345);
+  border-color: var(--green-700, #0b5345);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(11, 83, 69, 0.22);
+}
+
+.employment-workflow-step--active .employment-workflow-step__num {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.employment-workflow-connector {
+  width: 18px;
+  height: 2px;
+  margin: 0 4px;
+  background: linear-gradient(90deg, #cbd5e1, #94a3b8);
+  border-radius: 1px;
+}
+
+.employment-generate-hero {
+  padding: 16px 16px 14px;
+  border: 1px solid #c8e6c9;
+  background: linear-gradient(135deg, #f8fdf9 0%, #ffffff 62%, #f8fafc 100%);
+  box-shadow: var(--shadow-card);
+}
+
+.employment-generate-hero__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.employment-generate-hero__badge {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #b7e4c7;
+}
+
+.employment-generate-hero__title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink-800);
+}
+
+.employment-panel-head {
+  margin-bottom: 10px;
+}
+
+.employment-panel-head .hr-section-title {
+  margin-bottom: 4px;
+}
+
+.employment-register-sub {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.employment-generate-status {
+  margin: 8px 0 0;
+  font-size: 0.84rem;
+}
+
+.employment-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.employment-template-tile {
+  padding: 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.employment-template-tile:hover {
+  border-color: #95d5b2;
+  box-shadow: var(--shadow-card);
+}
+
+.employment-template-tile--precontract {
+  border-style: dashed;
+  background: #fafafa;
+}
+
+.employment-template-tile__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.employment-template-tile__icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f0faf6;
+  font-size: 0.95rem;
+}
+
+.employment-template-tile__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.employment-template-tile__title {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: var(--ink-800);
+}
+
+.employment-template-tile__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--ink-500);
+}
+
+.employment-template-tile__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.employment-template-tile__desc {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.employment-template-tile__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.employment-foot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.employment-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.employment-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.employment-steps__num {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--green-800);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.employment-legal-copy {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.employment-detail-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.employment-detail-hero__badge {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f0faf6;
+  border: 1px solid #b7e4c7;
+  font-size: 1.1rem;
+}
+
+.employment-detail-hero__title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.employment-detail-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.employment-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.employment-detail-metric {
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  display: grid;
+  gap: 2px;
+}
+
+.employment-detail-metric__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.employment-detail-metric__value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-800);
+  line-height: 1.3;
+}
+
+.employment-detail-grid {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.employment-detail-grid div {
+  display: grid;
+  gap: 2px;
+}
+
+.employment-detail-grid dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.employment-detail-grid dd {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.employment-detail-source {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+}
+
+.employment-detail-preview {
+  margin-bottom: 12px;
+}
+
+.employment-detail-preview__title {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.employment-detail-foot {
+  margin-top: 0;
+}
+
+.employment-detail-alert {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 0.82rem;
+}
+
+.employment-action-status {
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
 .employment-contract-generate-row {
   display: flex;
   flex-wrap: wrap;
@@ -2895,6 +3303,23 @@ textarea:focus {
 }
 
 @media (max-width: 960px) {
+  .employment-template-grid,
+  .employment-foot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employment-detail-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .employment-workflow-pipeline {
+    gap: 6px;
+  }
+
+  .employment-workflow-connector {
+    display: none;
+  }
+
   .employment-contracts-workspace.employment-contracts-workspace--detail-open {
     flex-direction: column;
   }

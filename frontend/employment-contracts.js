@@ -116,15 +116,71 @@
     const host = $("employment-contracts-status-workflow");
     if (!host) return;
     const states = computeStepStates(row);
-    host.innerHTML = states
+    host.innerHTML = `<div class="employment-workflow-pipeline">${states
       .map((step, index) => {
         const stepClass =
-          step.state === "pending" ? "contracts-workflow-step" : `contracts-workflow-step contracts-workflow-step--${step.state}`;
-        const arrow =
-          index < states.length - 1 ? '<span class="contracts-workflow-arrow" aria-hidden="true">→</span>' : "";
-        return `<span class="${stepClass}">${escapeHtml(step.label)}</span>${arrow}`;
+          step.state === "pending"
+            ? "employment-workflow-step"
+            : `employment-workflow-step employment-workflow-step--${step.state}`;
+        const connector =
+          index < states.length - 1 ? '<span class="employment-workflow-connector" aria-hidden="true"></span>' : "";
+        return `<div class="${stepClass}">
+          <span class="employment-workflow-step__num">${index + 1}</span>
+          <span class="employment-workflow-step__label">${escapeHtml(step.label)}</span>
+        </div>${connector}`;
       })
-      .join("");
+      .join("")}</div>`;
+  }
+
+  function contractStats() {
+    const draft = contracts.filter((c) => c.status === "draft" || c.status === "generated").length;
+    const sent = contracts.filter((c) => c.status === "sent").length;
+    const signed = contracts.filter((c) => c.status === "signed").length;
+    const staleAwaiting = contracts.filter((c) => c.status === "sent" && daysSince(c.sent_at) > 7).length;
+    return { total: contracts.length, draft, sent, signed, staleAwaiting };
+  }
+
+  function renderStats() {
+    const grid = $("employment-stats-grid");
+    if (!grid) return;
+    const stats = contractStats();
+    grid.hidden = false;
+    const totalEl = $("employment-stat-total");
+    const draftEl = $("employment-stat-draft");
+    const sentEl = $("employment-stat-sent");
+    const signedEl = $("employment-stat-signed");
+    if (totalEl) totalEl.textContent = String(stats.total);
+    if (draftEl) draftEl.textContent = String(stats.draft);
+    if (sentEl) sentEl.textContent = String(stats.sent);
+    if (signedEl) signedEl.textContent = String(stats.signed);
+    const draftSub = $("employment-stat-draft-sub");
+    if (draftSub) {
+      draftSub.textContent = stats.draft ? "Ready to send" : "No drafts";
+    }
+    const sentSub = $("employment-stat-sent-sub");
+    if (sentSub) {
+      sentSub.textContent = stats.staleAwaiting
+        ? `${stats.staleAwaiting} overdue · chase signature`
+        : stats.sent
+          ? "Sent to employees"
+          : "None out for signature";
+    }
+    const signedSub = $("employment-stat-signed-sub");
+    if (signedSub) {
+      signedSub.textContent = stats.signed ? "Stored on file" : "None signed yet";
+    }
+    $("employment-stat-sent-card")?.classList.toggle("hr-stat-card--warn", stats.staleAwaiting > 0);
+  }
+
+  function updateRegisterSub() {
+    const sub = $("employment-register-sub");
+    if (!sub) return;
+    if (!contracts.length) {
+      sub.textContent = "No contracts yet — generate one above.";
+      return;
+    }
+    const stats = contractStats();
+    sub.textContent = `${contracts.length} contract${contracts.length === 1 ? "" : "s"} · ${stats.signed} signed · ${stats.sent} awaiting`;
   }
 
   function syncDetailLayout() {
@@ -184,20 +240,25 @@
     list.innerHTML = templates
       .map((tpl) => {
         const preContract = PRE_CONTRACT_TEMPLATE_IDS.has(tpl.id);
-        return `<div class="hr-template-card${preContract ? " hr-template-card--precontract" : ""}">
-          <div class="hr-template-card__head">
-            <strong>${escapeHtml(tpl.title)}</strong>
-            ${tpl.update_available ? '<span class="status-pill status-warning">Update available</span>' : ""}
-            ${preContract ? '<span class="status-pill">Pre-employment</span>' : ""}
-          </div>
-          <p class="muted">${escapeHtml(tpl.description || "")}</p>
-          <p class="muted" style="font-size:0.85rem;">Platform v${escapeHtml(tpl.platform_version)} · ${sourceBadge({ template_source: tpl.source })}</p>
-          ${tpl.source_url ? `<p class="muted" style="font-size:0.85rem;"><a href="${escapeHtml(tpl.source_url)}" target="_blank" rel="noopener">ACAS source →</a></p>` : ""}
-          <p style="margin-top:8px;">
-            <a class="btn ghost" href="#templates" data-template-edit="${escapeHtml(tpl.id)}">Customise in HR Templates</a>
-            ${preContract ? '<a class="btn ghost" href="#recruitment">Use in Recruitment</a>' : ""}
-          </p>
-        </div>`;
+        return `<article class="employment-template-tile${preContract ? " employment-template-tile--precontract" : ""}">
+          <header class="employment-template-tile__head">
+            <span class="employment-template-tile__icon" aria-hidden="true">${preContract ? "📨" : "📄"}</span>
+            <div class="employment-template-tile__titles">
+              <strong class="employment-template-tile__title">${escapeHtml(tpl.title)}</strong>
+              <span class="employment-template-tile__meta">Platform v${escapeHtml(tpl.platform_version)} · ${tpl.source === "acas" ? "ACAS-aligned" : "ShiftSwift"}</span>
+            </div>
+            <div class="employment-template-tile__badges">
+              ${tpl.update_available ? '<span class="status-pill status-warning">Update</span>' : ""}
+              ${preContract ? '<span class="status-pill">Pre-employment</span>' : ""}
+            </div>
+          </header>
+          <p class="employment-template-tile__desc muted">${escapeHtml(tpl.description || "")}</p>
+          <footer class="employment-template-tile__foot">
+            <a class="btn ghost btn-sm" href="#templates" data-template-edit="${escapeHtml(tpl.id)}">Customise</a>
+            ${tpl.source_url ? `<a class="btn ghost btn-sm" href="${escapeHtml(tpl.source_url)}" target="_blank" rel="noopener">ACAS source</a>` : ""}
+            ${preContract ? '<a class="btn ghost btn-sm" href="#recruitment">Recruitment</a>' : ""}
+          </footer>
+        </article>`;
       })
       .join("");
   }
@@ -249,6 +310,8 @@
         selectedContractId = null;
       }
       renderContractsTable();
+      renderStats();
+      updateRegisterSub();
       if (selectedContractId) {
         await selectContract(selectedContractId, { scroll: false });
       } else {
@@ -260,6 +323,8 @@
       if (tbody) {
         tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load employment contracts.</td></tr>';
       }
+      renderStats();
+      updateRegisterSub();
       syncDetailLayout();
     }
   }
@@ -272,27 +337,46 @@
       ? `<div class="contracts-preview-wrap"><div class="contracts-preview">${data.html}</div></div>`
       : '<p class="muted">No preview available.</p>';
     content.innerHTML = `
-      <div class="hr-detail-head">
-        <div>
-          <h3>${escapeHtml(data.contract_number)}</h3>
-          ${statusBadge(data.status)}
+      <header class="employment-detail-hero">
+        <div class="employment-detail-hero__badge" aria-hidden="true">📄</div>
+        <div class="employment-detail-hero__body">
+          <h3 class="employment-detail-hero__title">${escapeHtml(data.contract_number)}</h3>
+          <div class="employment-detail-hero__meta">${statusBadge(data.status)}</div>
+        </div>
+      </header>
+      <div class="employment-detail-metrics">
+        <div class="employment-detail-metric">
+          <span class="employment-detail-metric__label">Employee</span>
+          <span class="employment-detail-metric__value">${escapeHtml(data.employee_name)}</span>
+        </div>
+        <div class="employment-detail-metric">
+          <span class="employment-detail-metric__label">Template</span>
+          <span class="employment-detail-metric__value">v${escapeHtml(data.platform_template_version)}</span>
+        </div>
+        <div class="employment-detail-metric">
+          <span class="employment-detail-metric__label">Source</span>
+          <span class="employment-detail-metric__value">${data.template_source === "acas" ? "ACAS" : "ShiftSwift"}</span>
         </div>
       </div>
-      <dl class="hr-detail-grid">
-        <div><dt>Employee</dt><dd>${escapeHtml(data.employee_name)}</dd></div>
+      <dl class="employment-detail-grid">
         <div><dt>Email</dt><dd>${escapeHtml(data.employee_email || "Not set")}</dd></div>
-        <div><dt>Template</dt><dd>${escapeHtml(data.title)} (v${escapeHtml(data.platform_template_version)})</dd></div>
-        <div><dt>Source</dt><dd>${data.template_source === "acas" ? "ACAS-aligned" : "ShiftSwift"}${data.template_source_url ? ` · <a href="${escapeHtml(data.template_source_url)}" target="_blank" rel="noopener">View guidance</a>` : ""}</dd></div>
-        ${data.employee_document_id ? `<div><dt>Employee file</dt><dd>Saved to document store (#${escapeHtml(data.employee_document_id)})</dd></div>` : ""}
+        <div><dt>Contract title</dt><dd>${escapeHtml(data.title)}</dd></div>
+        ${data.signed_at ? `<div><dt>Signed</dt><dd>${escapeHtml(formatDate(data.signed_at))}</dd></div>` : ""}
+        ${data.sent_at && !data.signed_at ? `<div><dt>Sent</dt><dd>${escapeHtml(formatDate(data.sent_at))}</dd></div>` : ""}
+        ${data.employee_document_id ? `<div><dt>Employee file</dt><dd>#${escapeHtml(data.employee_document_id)}</dd></div>` : ""}
       </dl>
-      ${preview}
-      <div class="hr-detail-foot">
-        ${data.status !== "signed" && data.employee_email ? `<button type="button" class="btn" id="employment-contract-send-btn">Send for e-signature</button>` : ""}
-        <a class="btn ghost" href="#employees/${escapeHtml(data.employee_id)}/document_store">Open employee documents</a>
+      ${data.template_source_url ? `<p class="muted employment-detail-source"><a href="${escapeHtml(data.template_source_url)}" target="_blank" rel="noopener">View ACAS guidance →</a></p>` : ""}
+      <div class="employment-detail-preview">
+        <h5 class="employment-detail-preview__title">Preview</h5>
+        ${preview}
       </div>
-      ${!data.employee_email ? `<p class="promo-result promo-result-message promo-result--error" style="margin-top:10px;">Add an email on the employee profile before sending.</p>` : ""}
+      <div class="hr-detail-foot employment-detail-foot">
+        ${data.status !== "signed" && data.employee_email ? `<button type="button" class="btn primary" id="employment-contract-send-btn">Send for e-signature</button>` : ""}
+        <a class="btn ghost" href="#employees/${escapeHtml(data.employee_id)}/document_store">Employee documents</a>
+      </div>
+      ${!data.employee_email ? `<p class="employment-detail-alert">Add an email on the employee profile before sending.</p>` : ""}
       <div id="employment-signing-link-box" class="signing-link-box" hidden></div>
-      <p class="muted" id="employment-contract-action-status"></p>`;
+      <p class="muted employment-action-status" id="employment-contract-action-status"></p>`;
     content.querySelector("#employment-contract-send-btn")?.addEventListener("click", () => sendContract(data.id));
     syncDetailLayout();
   }
