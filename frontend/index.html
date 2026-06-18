@@ -2,6 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () {
+        var host = location.hostname.toLowerCase();
+        var path = location.pathname || "/";
+        if (host === "app.shiftswifthr.co.uk" && (path === "/" || /\/index\.html$/i.test(path))) {
+          location.replace("./login.html");
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ShiftSwift HR | Right to Work, Day-9 Alerts &amp; Sponsor Licence Tools</title>
     <meta
