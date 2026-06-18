@@ -39,7 +39,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v118" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v119" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2195,6 +2195,7 @@
                 <button type="button" class="btn ghost" id="rota-next-week" aria-label="Next week">→</button>
                 <button type="button" class="btn ghost rota-this-week-btn" id="rota-this-week">This week</button>
               </div>
+              <button type="button" class="btn ghost" id="rota-export-csv-btn">Export CSV</button>
               <button type="button" class="btn ghost" id="rota-export-pdf-btn">Export PDF</button>
               <button type="button" class="btn ghost" id="rota-copy-prev-btn">Copy prev week</button>
               <button type="button" class="btn ghost" id="rota-reload-btn">Reload</button>
@@ -2209,7 +2210,7 @@
           <div id="rota-admin-message" class="rota-admin-message" aria-live="polite" hidden></div>
           <div id="rota-readonly-notice" class="rota-readonly-notice" hidden role="status"></div>
 
-          <div class="hr-stats-grid rota-stats-grid rota-desktop-only" id="rota-stats-grid" aria-label="Rota week summary" hidden>
+          <div class="hr-stats-grid rota-stats-grid" id="rota-stats-grid" aria-label="Rota week summary" hidden>
             <div class="hr-stat-card" id="rota-stat-shifts-card">
               <span class="hr-stat-card__icon" aria-hidden="true">📅</span>
               <span class="hr-stat-card__label">Shifts</span>
@@ -2273,6 +2274,7 @@
             <p id="rota-mobile-day-status" class="rota-mobile-day-status" role="status" aria-live="polite"></p>
             <div id="rota-mobile-staff-list" class="rota-mobile-staff-list" aria-label="Staff for selected day"></div>
             <div class="rota-mobile-secondary" aria-label="More rota actions">
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-csv">Export CSV</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-export-pdf">Export PDF</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
@@ -2981,7 +2983,7 @@
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v12"></script>
     <script src="./admin-time-punch.js?v=34"></script>
-    <script src="./admin-rota.js?v=28"></script>
+    <script src="./admin-rota.js?v=29"></script>
     <script src="./admin-leave.js?v=admin-v4"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>

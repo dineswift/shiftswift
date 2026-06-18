@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import io
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -286,3 +287,93 @@ def rota_week_pdf_bytes(*, tenant_id: int, week_start: str, conn: Any) -> bytes:
         staff=staff,
         shifts=shifts,
     )
+
+
+ROTA_CSV_HEADERS = [
+    "Week start",
+    "Week end",
+    "Rota status",
+    "Day",
+    "Employee",
+    "Start",
+    "End",
+    "Role",
+    "Notes",
+    "Attendance",
+]
+
+
+def build_rota_week_csv(
+    *,
+    week_start: date,
+    week_end: date,
+    week_status: str | None,
+    shifts: list[dict[str, Any]],
+    attendance_by_shift_id: dict[int, dict[str, Any]] | None = None,
+) -> str:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(ROTA_CSV_HEADERS)
+    week_start_iso = week_start.isoformat()
+    week_end_iso = week_end.isoformat()
+    status_label = (week_status or "draft").replace("_", " ").title()
+    attendance_by_shift_id = attendance_by_shift_id or {}
+
+    for shift in sorted(
+        shifts,
+        key=lambda row: (
+            str(row.get("shift_date") or ""),
+            str(row.get("start_time") or ""),
+            str(row.get("employee_name") or "").lower(),
+        ),
+    ):
+        day_label = date.fromisoformat(str(shift["shift_date"])[:10]).strftime("%a %d %b %Y")
+        att = attendance_by_shift_id.get(int(shift["id"])) if shift.get("id") is not None else None
+        attendance_label = ""
+        if att:
+            status = att.get("attendance_status") or ""
+            attendance_label = status.replace("_", " ").title()
+        writer.writerow(
+            [
+                week_start_iso,
+                week_end_iso,
+                status_label,
+                day_label,
+                str(shift.get("employee_name") or "").strip(),
+                str(shift.get("start_time") or "")[:5],
+                str(shift.get("end_time") or "")[:5],
+                str(shift.get("role_label") or "").strip(),
+                str(shift.get("notes") or "").strip(),
+                attendance_label,
+            ]
+        )
+    return buffer.getvalue()
+
+
+def rota_week_csv_bytes(*, tenant_id: int, week_start: str, conn: Any) -> bytes:
+    week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    parsed = parse_week_start(week_start, week_start_day=week_start_day)
+    week, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=parsed, conn=conn)
+    attendance_by_shift_id: dict[int, dict[str, Any]] = {}
+    if week and week.get("status") == "published" and shifts:
+        from modules.rota.attendance import build_week_attendance
+
+        payload = build_week_attendance(
+            tenant_id=tenant_id,
+            week_start=parsed,
+            shifts=shifts,
+            conn=conn,
+        )
+        for item in payload.get("items") or []:
+            shift_id = item.get("shift_id")
+            if shift_id is not None:
+                attendance_by_shift_id[int(shift_id)] = item
+
+    csv_text = build_rota_week_csv(
+        week_start=parsed,
+        week_end=week_end_date(parsed),
+        week_status=(week or {}).get("status"),
+        shifts=shifts,
+        attendance_by_shift_id=attendance_by_shift_id,
+    )
+    return csv_text.encode("utf-8-sig")

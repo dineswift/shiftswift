@@ -2177,23 +2177,32 @@
     }
   }
 
-  async function exportRotaPdf() {
+  async function exportRotaFile(ext) {
     if (dirty) {
       const proceed = window.confirm(
-        "You have unsaved changes on screen. The PDF uses the last saved rota in ShiftSwift. Continue?"
+        "You have unsaved changes on screen. The export uses the last saved rota in ShiftSwift. Continue?"
       );
       if (!proceed) return;
     }
-    setMessage("Preparing PDF…", "info");
+    const label = ext === "csv" ? "CSV" : "PDF";
+    setMessage(`Preparing ${label}…`, "info");
     try {
       await downloadAuthenticated(
-        `/admin/rota/weeks/${currentWeekStart}/export.pdf`,
-        `shiftswift-rota-${currentWeekStart}.pdf`
+        `/admin/rota/weeks/${currentWeekStart}/export.${ext}`,
+        `shiftswift-rota-${currentWeekStart}.${ext}`
       );
-      setMessage("Rota PDF downloaded.", "success");
+      setMessage(`Rota ${label} downloaded.`, "success");
     } catch (error) {
-      setMessage(error?.message || "Could not export rota PDF.", "error");
+      setMessage(error?.message || `Could not export rota ${label}.`, "error");
     }
+  }
+
+  async function exportRotaPdf() {
+    return exportRotaFile("pdf");
+  }
+
+  async function exportRotaCsv() {
+    return exportRotaFile("csv");
   }
 
   async function exportShiftsAttendance(format) {
@@ -2413,6 +2422,7 @@
     document.getElementById("rota-add-btn")?.addEventListener("click", addShiftFromForm);
     document.getElementById("rota-shift-head-save")?.addEventListener("click", addShiftFromForm);
     document.getElementById("rota-save-btn")?.addEventListener("click", saveRota);
+    document.getElementById("rota-export-csv-btn")?.addEventListener("click", exportRotaCsv);
     document.getElementById("rota-export-pdf-btn")?.addEventListener("click", exportRotaPdf);
     document.getElementById("rota-shifts-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv"));
     document.getElementById("rota-shifts-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf"));
@@ -2439,6 +2449,7 @@
       currentWeekStart = rotaWeekStartIso(new Date());
       loadWeek();
     });
+    document.getElementById("rota-mobile-export-csv")?.addEventListener("click", exportRotaCsv);
     document.getElementById("rota-mobile-export-pdf")?.addEventListener("click", exportRotaPdf);
     document.getElementById("rota-mobile-copy-prev")?.addEventListener("click", copyPreviousWeek);
     document.getElementById("rota-mobile-reload")?.addEventListener("click", () => {

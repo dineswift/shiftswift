@@ -9,7 +9,7 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from modules.rota.export_pdf import build_rota_week_pdf
+from modules.rota.export_pdf import build_rota_week_csv, build_rota_week_pdf
 
 
 def test_build_rota_week_pdf_starts_with_pdf_header() -> None:
@@ -43,3 +43,32 @@ def test_build_rota_week_pdf_starts_with_pdf_header() -> None:
         ],
     )
     assert pdf.startswith(b"%PDF")
+
+
+def test_build_rota_week_csv_includes_shift_rows() -> None:
+    week_start = date(2026, 6, 15)
+    week_end = date(2026, 6, 21)
+    csv_text = build_rota_week_csv(
+        week_start=week_start,
+        week_end=week_end,
+        week_status="published",
+        shifts=[
+            {
+                "id": 10,
+                "employee_id": 1,
+                "shift_date": "2026-06-16",
+                "start_time": "17:00",
+                "end_time": "22:00",
+                "role_label": "Kitchen",
+                "notes": "",
+                "employee_name": "Govind Chhetri",
+            },
+        ],
+        attendance_by_shift_id={
+            10: {"attendance_status": "no_show", "attendance_detail": "No clock-in"},
+        },
+    )
+    assert "Week start" in csv_text
+    assert "Govind Chhetri" in csv_text
+    assert "17:00" in csv_text
+    assert "No Show" in csv_text
