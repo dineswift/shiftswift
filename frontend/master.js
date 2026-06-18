@@ -642,7 +642,10 @@
         stripe.tax_enabled
           ? ""
           : `<p class="master-panel-note master-panel-note--warn">Stripe Tax is off — enable <code>STRIPE_TAX_ENABLED=1</code> in server <code>.env</code> before charging UK VAT on SaaS subscriptions.</p>`
-      }<p class="muted master-panel-note">Update Stripe keys in server <code>.env</code> and restart the API. This panel is for platform operators only.</p>`;
+      }<p class="muted master-panel-note">Update Stripe keys in server <code>.env</code> and restart the API. This panel is for platform operators only.</p>
+      <p class="master-panel-actions">
+        <a class="master-btn master-btn--ghost" href="./admin.html#promotions">Discount &amp; referral codes</a>
+      </p>`;
     } catch (error) {
       host.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
     }

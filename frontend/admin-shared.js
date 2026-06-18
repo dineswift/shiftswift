@@ -869,6 +869,10 @@ window.Admin = (() => {
       link.addEventListener("click", (event) => {
         event.preventDefault();
         const target = link.dataset.section;
+        if (target === "promotions" && !isPlatformAdmin()) {
+          window.location.hash = "overview";
+          return;
+        }
         const current = parseHashPath(window.location.hash).baseSection;
         if (current === target) {
           routeFromHash();

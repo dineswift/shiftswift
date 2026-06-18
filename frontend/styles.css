@@ -1157,6 +1157,11 @@ textarea:focus {
   -webkit-tap-highlight-color: transparent;
 }
 
+.nav-link[hidden],
+.mobile-more-link[hidden] {
+  display: none !important;
+}
+
 .nav-link__icon {
   display: inline-flex;
   align-items: center;

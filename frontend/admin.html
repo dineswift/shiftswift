@@ -27,6 +27,8 @@
             tenantId = masterId;
           }
           if (tenantId === masterId) {
+            var hash = (location.hash || "").replace(/^#/, "");
+            if (hash === "promotions" || hash.startsWith("promotions/")) return;
             window.location.replace("./master.html");
           }
         } catch (e) {
@@ -37,7 +39,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v114" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v115" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2837,7 +2839,7 @@
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=13"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v39"></script>
+    <script src="./admin-shared.js?v=admin-v40"></script>
     <script src="./admin-settings.js?v=29"></script>
     <script src="./admin-workspace.js?v=admin-v23"></script>
     <script src="./admin-address-picker.js?v=4"></script>
