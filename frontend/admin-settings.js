@@ -286,6 +286,7 @@
         host.innerHTML = "";
         return;
       }
+      const clockEnabled = Boolean(data.time_clock_enabled);
       const steps = [
         { key: "business_address", label: "Business address", href: "#settings/business" },
         { key: "first_employee", label: "First employee", href: "#employees" },
@@ -293,7 +294,10 @@
         { key: "punch_site", label: "Time punch site", href: "#time-punch" },
         { key: "rota_published", label: "Published rota", href: "#rota" },
         { key: "accountant_email", label: "Accountant email", href: "#time-punch" },
-      ];
+      ].filter((step) => {
+        if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
+        return true;
+      });
       const done = steps.filter((step) => checklist[step.key]).length;
       host.hidden = false;
       host.innerHTML = `

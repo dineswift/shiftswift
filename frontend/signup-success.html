@@ -26,8 +26,21 @@
       const tenant = params.get("tenant");
       const plan = params.get("plan");
       const msg = document.getElementById("success-message");
+      const PLAN_LABELS = {
+        site_starter_monthly: "Essentials",
+        site_starter_annual: "Essentials",
+        site_medium_monthly: "Compliance",
+        site_medium_annual: "Compliance",
+        site_growth_monthly: "Multi-site",
+        site_growth_annual: "Multi-site",
+      };
+      function humanPlanName(planId) {
+        if (!planId) return "";
+        return PLAN_LABELS[planId] || planId.replace(/^site_/, "").replace(/_monthly$|_annual$/g, "").replace(/_/g, " ");
+      }
       if (msg && tenant) {
-        msg.textContent = `Workspace #${tenant} is ready${plan ? ` on plan ${plan.replace(/_/g, " ")}` : ""}. Your trial has started.`;
+        const planLabel = humanPlanName(plan);
+        msg.textContent = `Workspace #${tenant} is ready${planLabel ? ` on the ${planLabel} plan` : ""}. Your trial has started.`;
       }
     </script>
       <script src="./cookie-consent.js?v=1"></script>

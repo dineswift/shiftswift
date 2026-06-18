@@ -9,7 +9,7 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from modules.rota.export_pdf import build_rota_week_csv, build_rota_week_pdf
+from modules.rota.export_pdf import build_rota_week_csv, build_rota_week_pdf, _resolve_cell_tone
 
 
 def test_build_rota_week_pdf_starts_with_pdf_header() -> None:
@@ -72,3 +72,52 @@ def test_build_rota_week_csv_includes_shift_rows() -> None:
     assert "Govind Chhetri" in csv_text
     assert "17:00" in csv_text
     assert "No Show" in csv_text
+
+
+def test_resolve_cell_tone_prefers_attendance_over_role() -> None:
+    shifts = [
+        {
+            "id": 1,
+            "employee_id": 1,
+            "shift_date": "2026-06-16",
+            "start_time": "17:00",
+            "end_time": "22:00",
+            "role_label": "Kitchen",
+        },
+    ]
+    assert _resolve_cell_tone(
+        shifts,
+        fallback_role="Kitchen",
+        attendance_by_shift_id={1: {"attendance_status": "no_show"}},
+    ) == "no_show"
+    assert _resolve_cell_tone(
+        shifts,
+        fallback_role="Kitchen",
+        attendance_by_shift_id={1: {"attendance_status": "attended"}},
+    ) == "attended"
+    assert _resolve_cell_tone(shifts, fallback_role="Kitchen", attendance_by_shift_id={}) == "kitchen"
+
+
+def test_build_rota_week_pdf_with_attendance_legend() -> None:
+    week_start = date(2026, 6, 15)
+    pdf = build_rota_week_pdf(
+        tenant_name="Himalayan Inn",
+        week_start=week_start,
+        week_end=date(2026, 6, 21),
+        week_start_day_name="Monday",
+        week_status="published",
+        week_days=[week_start + timedelta(days=offset) for offset in range(7)],
+        staff=[{"id": 1, "short_name": "G. Kharel", "role_label": "Director"}],
+        shifts=[
+            {
+                "id": 5,
+                "employee_id": 1,
+                "shift_date": "2026-06-16",
+                "start_time": "09:00",
+                "end_time": "17:00",
+                "role_label": "Director",
+            },
+        ],
+        attendance_by_shift_id={5: {"attendance_status": "no_show"}},
+    )
+    assert pdf.startswith(b"%PDF")

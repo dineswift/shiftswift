@@ -247,6 +247,7 @@
       host.innerHTML = "";
       return;
     }
+    const clockEnabled = Boolean(data.time_clock_enabled);
     const steps = [
       {
         key: "business_address",
@@ -284,7 +285,10 @@
         href: "#time-punch",
         detail: "Optional auto-send of monthly hours PDF",
       },
-    ];
+    ].filter((step) => {
+      if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
+      return true;
+    });
     const visibleSteps = steps;
     const doneCount = visibleSteps.filter((step) => checklist[step.key]).length;
     if (doneCount >= visibleSteps.length) {
@@ -537,7 +541,7 @@
             icon: "file-text",
             title: "Employment templates",
             value: String(contracts.pending_signature ?? 0),
-            sub: contracts.pending_signature ? "Awaiting signature" : "Offer letters & contracts",
+            sub: contracts.pending_signature ? "Awaiting signature" : "Offer letters for new hires",
             href: "#employment-contracts",
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
@@ -560,7 +564,7 @@
             icon: "file-certificate",
             title: "Service agreements",
             value: String(contracts.pending_signature ?? 0),
-            sub: contracts.pending_signature ? "Awaiting signature" : "MSA pack",
+            sub: contracts.pending_signature ? "Awaiting signature" : "ShiftSwift MSA — not employee contracts",
             href: "#contracts",
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
@@ -623,10 +627,23 @@
     /* Settings documents load via admin-settings.js */
   }
 
+  function bindOverviewModuleLocks() {
+    document.getElementById("overview-modules")?.addEventListener("click", (event) => {
+      const card = event.target.closest(".overview-module-card--locked");
+      if (!card) return;
+      event.preventDefault();
+      const feature = card.dataset.feature;
+      if (feature && window.Admin?.featureUpgradeMessage) {
+        window.Admin.showAdminToast?.(window.Admin.featureUpgradeMessage(feature));
+      }
+    });
+  }
+
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "overview") loadOverview();
   });
 
   loadOverview();
   loadTrialBanner();
+  bindOverviewModuleLocks();
 })();

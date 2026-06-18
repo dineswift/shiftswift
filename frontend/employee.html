@@ -14,7 +14,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v100" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v121" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -35,6 +35,7 @@
           <a class="nav-link" href="#notes" data-section="notes">Notes from HR</a>
           <a class="nav-link" href="#payslips" data-section="payslips">Payslips</a>
           <a class="nav-link" href="#security" data-section="security">Security</a>
+          <button type="button" class="nav-link nav-link--signout" data-sign-out>Sign out</button>
         </nav>
         <div class="badge pill">Employee portal</div>
       </aside>
@@ -80,6 +81,7 @@
           <div class="stack topbar-actions topbar-actions--desktop">
             <a class="btn ghost" href="./employee-login.html" data-sign-out>Sign out</a>
           </div>
+          <button type="button" class="btn ghost btn-sm topbar-signout-btn topbar-signout-btn--mobile" data-sign-out>Sign out</button>
           <button
             type="button"
             class="employee-topbar-alerts-btn"

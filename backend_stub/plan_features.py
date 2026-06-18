@@ -118,7 +118,7 @@ def plan_tier(plan_id: str | None) -> str:
 
 
 def plan_display_name(plan_id: str | None) -> str:
-    return TIER_LABELS.get(plan_tier(plan_id), "Starter")
+    return TIER_LABELS.get(plan_tier(plan_id), "Essentials")
 
 
 def features_for_plan(

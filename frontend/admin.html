@@ -39,7 +39,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v120" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v122" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -94,7 +94,7 @@
           <p class="nav-section-label">Cases</p>
           <a class="nav-link" href="#employment-contracts" data-section="employment-contracts">
             <span class="nav-link__icon" data-nav-icon="file-text" aria-hidden="true"></span>
-            <span class="nav-link__label">Employment templates</span>
+            <span class="nav-link__label">Employment contract templates</span>
           </a>
           <a class="nav-link" href="#grievance" data-section="grievance" data-feature="grievance">
             <span class="nav-link__icon" data-nav-icon="scale" aria-hidden="true"></span>
@@ -106,9 +106,13 @@
           </a>
 
           <p class="nav-section-label">Operations</p>
-          <a class="nav-link" href="#time-punch" data-section="time-punch">
+          <a class="nav-link" href="#time-punch" data-section="time-punch" data-requires-clock>
             <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
             <span class="nav-link__label">Time punch</span>
+          </a>
+          <a class="nav-link nav-link--clock-stub" href="#settings/time-punch" data-section="settings" aria-label="Time punch — enable in Settings">
+            <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
+            <span class="nav-link__label">Time punch (enable in Settings)</span>
           </a>
           <a class="nav-link" href="#rota" data-section="rota">
             <span class="nav-link__icon" data-nav-icon="calendar" aria-hidden="true"></span>
@@ -130,6 +134,10 @@
             <span class="nav-link__icon" data-nav-icon="settings" aria-hidden="true"></span>
             <span class="nav-link__label">Settings</span>
           </a>
+          <button type="button" class="nav-link nav-link--signout" data-sign-out>
+            <span class="nav-link__icon" data-nav-icon="door" aria-hidden="true"></span>
+            <span class="nav-link__label">Sign out</span>
+          </button>
         </nav>
         <a
           class="badge pill sidebar-brand-link"
@@ -188,6 +196,7 @@
               <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 3 6v3l2 2H5l2-2v-3a7 7 0 0 1 3-6"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
               <span class="topbar-icon-btn__badge" id="topbar-alerts-badge" hidden>0</span>
             </button>
+            <button type="button" class="btn ghost btn-sm topbar-signout-btn topbar-signout-btn--mobile" data-sign-out>Sign out</button>
             <details class="topbar-user-menu topbar-user-menu--desktop">
               <summary class="topbar-user-menu__trigger" aria-label="Account menu">
                 <span class="topbar-user-menu__avatar" aria-hidden="true">HR</span>
@@ -215,12 +224,13 @@
             <a class="mobile-more-link" href="#promotions" data-platform-only hidden>Promotions</a>
             <a class="mobile-more-link" href="#crm" data-addon="crm" hidden>CRM</a>
             <p class="mobile-more-group">Cases &amp; contracts</p>
-            <a class="mobile-more-link" href="#employment-contracts">Employment contracts</a>
+            <a class="mobile-more-link" href="#employment-contracts">Employment contract templates</a>
             <a class="mobile-more-link" href="#grievance" data-feature="grievance">Grievance</a>
             <a class="mobile-more-link" href="#disciplinary" data-feature="disciplinary">Disciplinary</a>
             <a class="mobile-more-link" href="#contracts">Service agreements</a>
             <p class="mobile-more-group">Operations</p>
-            <a class="mobile-more-link" href="#time-punch">Time punch</a>
+            <a class="mobile-more-link" href="#time-punch" data-requires-clock>Time punch</a>
+            <a class="mobile-more-link mobile-more-link--clock-stub" href="#settings/time-punch">Time punch (enable in Settings)</a>
             <a class="mobile-more-link" href="#leave">Leave</a>
             <a class="mobile-more-link" href="#templates">HR Templates</a>
             <p class="mobile-more-group">Support</p>
@@ -2965,11 +2975,11 @@
     <script src="./mobile-shell.js?v=5"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
-    <script src="./admin-mobile.js?v=13"></script>
+    <script src="./admin-mobile.js?v=14"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v40"></script>
-    <script src="./admin-settings.js?v=29"></script>
-    <script src="./admin-workspace.js?v=admin-v23"></script>
+    <script src="./admin-shared.js?v=admin-v41"></script>
+    <script src="./admin-settings.js?v=30"></script>
+    <script src="./admin-workspace.js?v=admin-v24"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=27"></script>
     <script src="./admin-employees.js?v=23"></script>

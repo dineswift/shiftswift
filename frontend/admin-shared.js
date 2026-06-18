@@ -121,6 +121,30 @@ window.Admin = (() => {
     return fromApi || FEATURE_UPGRADE_LABELS[feature] || "Upgrade your plan to unlock this feature.";
   }
 
+  function showAdminToast(message, { variant = "info", durationMs = 4200 } = {}) {
+    let toast = document.getElementById("admin-upgrade-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "admin-upgrade-toast";
+      toast.className = "admin-upgrade-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.hidden = false;
+    toast.classList.remove("admin-upgrade-toast--error", "admin-upgrade-toast--visible");
+    if (variant === "error") toast.classList.add("admin-upgrade-toast--error");
+    window.clearTimeout(showAdminToast._timer);
+    window.requestAnimationFrame(() => toast.classList.add("admin-upgrade-toast--visible"));
+    showAdminToast._timer = window.setTimeout(() => {
+      toast.classList.remove("admin-upgrade-toast--visible");
+      window.setTimeout(() => {
+        toast.hidden = true;
+      }, 220);
+    }, durationMs);
+  }
+
   function addonUpgradeMessage(addon) {
     const fromApi = tenantFeatures.upgrade_messages?.[addon];
     return fromApi || ADDON_UPGRADE_LABELS[addon] || "This add-on is not enabled on your workspace.";
@@ -345,7 +369,7 @@ window.Admin = (() => {
         ai_document_addon: Boolean(data.ai_document_addon),
         ai_document_addon_monthly_gbp: data.ai_document_addon_monthly_gbp,
         time_clock_enabled: Boolean(data.time_clock_enabled),
-        plan_display_name: data.plan_display_name || "Starter",
+        plan_display_name: data.plan_display_name || "Essentials",
         plan_tier: data.plan_tier || "starter",
         sponsored_employees: Number(data.sponsored_employees || 0),
         rota_mode_labels: data.rota_mode_labels || {},
@@ -525,6 +549,9 @@ window.Admin = (() => {
     if (baseSection.startsWith("compliance")) return "compliance";
     if (baseSection === "time-punch" && !tenantFeatures.time_clock_enabled) return "overview";
     if (baseSection === "promotions" && !isPlatformAdmin()) return "overview";
+    const sectionEl = document.getElementById(baseSection);
+    const feature = sectionEl?.dataset?.feature;
+    if (feature && !isFeatureEnabled(feature)) return "overview";
     return baseSection || "overview";
   }
 
@@ -868,6 +895,11 @@ window.Admin = (() => {
     links.forEach((link) => {
       link.addEventListener("click", (event) => {
         event.preventDefault();
+        if (link.getAttribute("aria-disabled") === "true") {
+          const feature = link.dataset.feature;
+          if (feature) showAdminToast(featureUpgradeMessage(feature));
+          return;
+        }
         const target = link.dataset.section;
         if (target === "promotions" && !isPlatformAdmin()) {
           window.location.hash = "overview";
@@ -1165,6 +1197,8 @@ window.Admin = (() => {
     readFormPayload,
     renderTableBody,
     emptyStateHtml,
+    showAdminToast,
+    featureUpgradeMessage,
     initNavigation,
     parseHashPath,
     parseHashBaseSection,

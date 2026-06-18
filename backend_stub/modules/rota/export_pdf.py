@@ -81,7 +81,34 @@ TONE_COLORS = {
     "off": (colors.HexColor("#F2F4F7"), colors.HexColor("#475467")),
     "default": (colors.HexColor("#F4F4F5"), colors.HexColor("#1E293B")),
     "empty": (colors.white, colors.HexColor("#94A3B8")),
+    "attended": (colors.HexColor("#D8F3DC"), colors.HexColor("#0B5345")),
+    "late": (colors.HexColor("#FFF4E5"), colors.HexColor("#8A4B00")),
+    "no_show": (colors.HexColor("#FDECEA"), colors.HexColor("#B42318")),
 }
+
+ATTENDANCE_TONE_PRIORITY = ("no_show", "late", "attended")
+
+
+def _resolve_cell_tone(
+    day_shifts: list[dict[str, Any]],
+    *,
+    fallback_role: str,
+    attendance_by_shift_id: dict[int, dict[str, Any]],
+) -> str:
+    tones: list[str] = []
+    for shift in day_shifts:
+        shift_id = shift.get("id")
+        attendance_status = None
+        if shift_id is not None:
+            attendance_status = (attendance_by_shift_id.get(int(shift_id)) or {}).get("attendance_status")
+        if attendance_status in ATTENDANCE_TONE_PRIORITY:
+            tones.append(str(attendance_status))
+        else:
+            tones.append(_shift_tone(shift, fallback_role=fallback_role))
+    for priority in ATTENDANCE_TONE_PRIORITY:
+        if priority in tones:
+            return priority
+    return tones[-1] if tones else "default"
 
 
 def _load_rota_staff(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
@@ -119,6 +146,7 @@ def build_rota_week_pdf(
     week_days: list[date],
     staff: list[dict[str, Any]],
     shifts: list[dict[str, Any]],
+    attendance_by_shift_id: dict[int, dict[str, Any]] | None = None,
 ) -> bytes:
     buffer = io.BytesIO()
     page_size = landscape(A4)
@@ -189,6 +217,9 @@ def build_rota_week_pdf(
         doc.build(body)
         return buffer.getvalue()
 
+    attendance_by_shift_id = attendance_by_shift_id or {}
+    show_attendance_legend = (week_status or "") == "published" and bool(attendance_by_shift_id)
+
     shifts_by_employee_day: dict[tuple[int, str], list[dict[str, Any]]] = {}
     for shift in shifts:
         key = (int(shift["employee_id"]), str(shift["shift_date"])[:10])
@@ -217,13 +248,15 @@ def build_rota_week_pdf(
                 cell_tone_map[(row_idx, col_idx + 1)] = "empty"
                 continue
             lines: list[str] = []
-            tone = "default"
             for index, shift in enumerate(day_shifts):
                 if index:
                     lines.append("")
-                shift_lines = _shift_cell_lines(shift, fallback_role=role_label)
-                lines.extend(shift_lines)
-                tone = _shift_tone(shift, fallback_role=role_label)
+                lines.extend(_shift_cell_lines(shift, fallback_role=role_label))
+            tone = _resolve_cell_tone(
+                day_shifts,
+                fallback_role=role_label,
+                attendance_by_shift_id=attendance_by_shift_id,
+            )
             row_cells.append(Paragraph("<br/>".join(lines), cell_style))
             cell_tone_map[(row_idx, col_idx + 1)] = tone
         table_data.append(row_cells)
@@ -255,6 +288,22 @@ def build_rota_week_pdf(
         table_style.add("BACKGROUND", (col, row), (col, row), bg)
     table.setStyle(table_style)
     body.append(table)
+    if show_attendance_legend:
+        legend_style = ParagraphStyle(
+            "RotaLegend",
+            parent=meta_style,
+            fontSize=8,
+            leading=10,
+            spaceBefore=6,
+            textColor=colors.HexColor("#64748B"),
+        )
+        body.append(
+            Paragraph(
+                "<b>Attendance colours</b> (published week): "
+                "light green = scheduled · dark green = attended · amber = late · red = no show",
+                legend_style,
+            )
+        )
     doc.build(body)
     return buffer.getvalue()
 
@@ -276,16 +325,32 @@ def rota_week_pdf_bytes(*, tenant_id: int, week_start: str, conn: Any) -> bytes:
     _, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=parsed, conn=conn)
     staff = _load_rota_staff(tenant_id=tenant_id, conn=conn)
     days = week_dates(parsed)
+    week = week_payload.get("week") or {}
+    attendance_by_shift_id: dict[int, dict[str, Any]] = {}
+    if week.get("status") == "published" and shifts:
+        from modules.rota.attendance import build_week_attendance
+
+        attendance_payload = build_week_attendance(
+            tenant_id=tenant_id,
+            week_start=parsed,
+            shifts=shifts,
+            conn=conn,
+        )
+        for item in attendance_payload.get("items") or []:
+            shift_id = item.get("shift_id")
+            if shift_id is not None:
+                attendance_by_shift_id[int(shift_id)] = item
 
     return build_rota_week_pdf(
         tenant_name=str(tenant_name),
         week_start=parsed,
         week_end=week_end_date(parsed),
         week_start_day_name=str(week_payload.get("week_start_day_name") or WEEKDAY_NAMES[week_start_day]),
-        week_status=(week_payload.get("week") or {}).get("status"),
+        week_status=week.get("status"),
         week_days=days,
         staff=staff,
         shifts=shifts,
+        attendance_by_shift_id=attendance_by_shift_id,
     )
 
 

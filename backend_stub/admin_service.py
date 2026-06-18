@@ -1267,6 +1267,14 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         "rota_published": rota_status == "published",
         "accountant_email": bool((profile.get("payroll_accountant_email") or "").strip()),
     }
+    required_setup = [
+        setup_checklist["business_address"],
+        setup_checklist["first_employee"],
+        setup_checklist["rtw_started"],
+        setup_checklist["rota_published"],
+    ]
+    if punch_sites > 0:
+        required_setup.append(setup_checklist["punch_site"])
 
     return {
         "tenant_name": profile["name"],
@@ -1287,7 +1295,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         "open_actions_count": len(open_actions),
         "open_actions": open_actions[:8],
         "setup_checklist": setup_checklist,
-        "setup_complete": all(setup_checklist.values()),
+        "setup_complete": all(required_setup),
         "time_clock_enabled": punch_sites > 0,
         "modules": {
             "employees": {
