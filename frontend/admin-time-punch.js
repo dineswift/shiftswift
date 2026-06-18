@@ -1475,10 +1475,42 @@
     const path = window.location.hash.replace("#", "");
     if (path === "time-punch/today" || path === "time-punch/records") {
       setActiveTab("records");
+      if (applyRotaPunchPrefill()) return true;
       scrollToTodayPreview();
       return true;
     }
     return false;
+  }
+
+  function openPunchDayView(employeeId, shiftDate) {
+    if (!shiftDate) return;
+    setActiveTab("records");
+    if (employeeId) {
+      dailyFilters.employee_id = String(employeeId);
+      const empEl = $("punch-day-filter-employee");
+      if (empEl) empEl.value = String(employeeId);
+    } else {
+      dailyFilters.employee_id = "";
+      const empEl = $("punch-day-filter-employee");
+      if (empEl) empEl.value = "";
+    }
+    const picker = $("punch-day-picker");
+    if (picker) picker.value = shiftDate;
+    void loadDailyPunches(shiftDate);
+    scrollToTodayPreview();
+  }
+
+  function applyRotaPunchPrefill() {
+    try {
+      const raw = sessionStorage.getItem("sshr_punch_day_prefill");
+      if (!raw) return false;
+      sessionStorage.removeItem("sshr_punch_day_prefill");
+      const data = JSON.parse(raw);
+      openPunchDayView(data.employee_id, data.shift_date);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function acceptPunchRecord(punchId) {
@@ -2448,6 +2480,8 @@
       } else {
         startPunchAutoRefresh();
         void refreshPunchFeed({ quiet: true });
+        if (applyTimePunchRoute()) return;
+        applyRotaPunchPrefill();
       }
       return;
     }
@@ -2472,6 +2506,11 @@
       return;
     }
     void loadTenantProfile().then(updateSetupUi);
+  });
+
+  window.addEventListener("admin:open-punch-day", (event) => {
+    const { employee_id, shift_date } = event.detail || {};
+    if (shift_date) openPunchDayView(employee_id, shift_date);
   });
 
   window.addEventListener("hashchange", () => {

@@ -1,6 +1,6 @@
 /** Admin — weekly rota: grid, attendance, copy week, shift requests. */
 (async function initAdminRota() {
-  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated } = window.Admin;
+  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated, emptyStateHtml } = window.Admin;
 
   let sectionReady = false;
   let rotaDataLoadPromise = null;
@@ -10,6 +10,8 @@
   let rotaPolicy = null;
   let shifts = [];
   let attendanceByShiftId = new Map();
+  let attendanceSummary = null;
+  let pendingRequestCount = 0;
   let employees = [];
   let dirty = false;
   let activeView = "grid";
@@ -44,8 +46,10 @@
     const status = attendance.attendance_status;
     const label = ATTENDANCE_LABELS[status] || status;
     let cls = "status-ok";
-    if (status === "late" || status === "missing_clock_out") cls = "status-warning";
-    if (status === "no_show") cls = "status-critical";
+    if (status === "scheduled") cls = "status-neutral";
+    else if (status === "awaiting") cls = "status-info";
+    else if (status === "late" || status === "missing_clock_out") cls = "status-warning";
+    else if (status === "no_show") cls = "status-critical";
     const clockIn =
       (status === "attended" || status === "late") && attendance.clock_in_at
         ? formatClockInUkTime(attendance.clock_in_at)
@@ -54,6 +58,101 @@
     const tipAttr = clockIn ? ` data-tip="Clocked in ${escapeHtml(clockIn)}"` : "";
     const ariaAttr = clockIn ? ` aria-label="${escapeHtml(label)}. Clocked in ${escapeHtml(clockIn)}"` : "";
     return `<span class="status-pill ${cls}${tipClass}"${tipAttr}${ariaAttr}${clockIn ? ' tabindex="0"' : ""}>${escapeHtml(label)}</span>`;
+  }
+
+  function formatRoleLabel(role) {
+    const trimmed = (role || "").trim();
+    if (!trimmed) return `<span class="rota-role-unassigned muted">Unassigned</span>`;
+    return escapeHtml(trimmed);
+  }
+
+  function openPunchRecordsForShift(employeeId, shiftDate) {
+    if (!shiftDate) return;
+    try {
+      sessionStorage.setItem(
+        "sshr_punch_day_prefill",
+        JSON.stringify({ employee_id: employeeId || null, shift_date: shiftDate })
+      );
+    } catch {
+      /* ignore */
+    }
+    window.location.hash = "time-punch/records";
+    window.dispatchEvent(
+      new CustomEvent("admin:open-punch-day", {
+        detail: { employee_id: employeeId || null, shift_date: shiftDate },
+      })
+    );
+  }
+
+  function rotaWeekStats() {
+    const staffScheduled = new Set(shifts.map((s) => s.employee_id)).size;
+    const summary = attendanceSummary || {};
+    const noShows = Number(summary.no_show || 0);
+    const attended = Number(summary.attended || 0) + Number(summary.late || 0);
+    const awaiting = Number(summary.awaiting || 0);
+    const flags = noShows + Number(summary.late || 0) + Number(summary.missing_clock_out || 0);
+    return {
+      shifts: shifts.length,
+      staffScheduled,
+      noShows,
+      attended,
+      awaiting,
+      flags,
+      pendingRequests: pendingRequestCount,
+      published: weekMeta?.status === "published",
+    };
+  }
+
+  function renderRotaStats() {
+    const grid = document.getElementById("rota-stats-grid");
+    if (!grid) return;
+    const stats = rotaWeekStats();
+    const hasStaff = hasActiveEmployees();
+    grid.hidden = !hasStaff;
+    if (!hasStaff) return;
+
+    const set = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    set("rota-stat-shifts", String(stats.shifts));
+    set("rota-stat-staff", String(stats.staffScheduled));
+    set("rota-stat-attended", String(stats.attended));
+    set("rota-stat-noshow", String(stats.noShows));
+    set("rota-stat-requests", String(stats.pendingRequests));
+
+    const shiftsSub = document.getElementById("rota-stat-shifts-sub");
+    if (shiftsSub) {
+      shiftsSub.textContent = stats.shifts
+        ? stats.published
+          ? "Published this week"
+          : "Draft — publish when ready"
+        : "None scheduled yet";
+    }
+    const staffSub = document.getElementById("rota-stat-staff-sub");
+    if (staffSub) {
+      const total = activeEmployees().length;
+      staffSub.textContent = total ? `${total} active employees` : "No active staff";
+    }
+    const attendedSub = document.getElementById("rota-stat-attended-sub");
+    if (attendedSub) {
+      attendedSub.textContent = stats.published
+        ? stats.attended
+          ? "Clock-in matched"
+          : "No attended shifts yet"
+        : "Publish to track";
+    }
+    const noshowSub = document.getElementById("rota-stat-noshow-sub");
+    if (noshowSub) {
+      noshowSub.textContent = stats.noShows ? "Needs follow-up" : stats.awaiting ? `${stats.awaiting} awaiting clock-in` : "All clear";
+    }
+    const requestsSub = document.getElementById("rota-stat-requests-sub");
+    if (requestsSub) {
+      requestsSub.textContent = stats.pendingRequests ? "Awaiting your review" : "No pending cover or swap";
+    }
+
+    document.getElementById("rota-stat-noshow-card")?.classList.toggle("hr-stat-card--warn", stats.noShows > 0);
+    document.getElementById("rota-stat-requests-card")?.classList.toggle("hr-stat-card--warn", stats.pendingRequests > 0);
   }
 
   const DEFAULT_ROLE_SUGGESTIONS = ["Floor", "Bar", "Kitchen", "Front of house", "Management", "Day off"];
@@ -1246,14 +1345,23 @@
   function renderAttendanceTable(items) {
     const panel = document.getElementById("rota-attendance-panel");
     const tbody = document.getElementById("rota-attendance-body");
+    const sub = document.getElementById("rota-attendance-sub");
     if (!panel || !tbody) return;
-    if (!items?.length) {
+    if (!items?.length || weekMeta?.status !== "published") {
+      panel.hidden = true;
+      return;
+    }
+    const flagged = items.filter((row) => row.attendance_status !== "scheduled");
+    if (!flagged.length) {
       panel.hidden = true;
       return;
     }
     panel.hidden = false;
+    if (sub) {
+      sub.textContent = `${flagged.length} shift${flagged.length === 1 ? "" : "s"} with attendance activity — upcoming scheduled shifts stay in the list above.`;
+    }
     renderTableBody(tbody, {
-      emptyMessage: "No shifts to compare.",
+      emptyMessage: "No attendance flags this week.",
       columns: [
         {
           key: "shift_date",
@@ -1272,9 +1380,41 @@
           key: "attendance_status",
           render: (r) => attendanceStatusPill(r),
         },
-        { key: "attendance_detail", render: (r) => escapeHtml(r.attendance_detail || "") },
+        {
+          key: "attendance_detail",
+          render: (r) => {
+            const detail = escapeHtml(r.attendance_detail || "");
+            const canOpen = r.shift_date && (r.employee_id || r.employee_name);
+            if (!canOpen) return detail;
+            return `${detail} <button type="button" class="btn link rota-punch-link" data-rota-punch-employee="${r.employee_id || ""}" data-rota-punch-date="${escapeHtml(r.shift_date)}">View punches</button>`;
+          },
+        },
       ],
-      rows: items,
+      rows: flagged,
+    });
+    tbody.querySelectorAll("tr").forEach((row, index) => {
+      const item = flagged[index];
+      if (!item?.shift_date) return;
+      row.classList.add("rota-attendance-row");
+      row.addEventListener("click", (event) => {
+        if (event.target.closest(".rota-punch-link")) return;
+        openPunchRecordsForShift(item.employee_id, item.shift_date);
+      });
+      row.setAttribute("tabindex", "0");
+      row.setAttribute("role", "button");
+      row.setAttribute(
+        "aria-label",
+        `View punch records for ${item.employee_name || "employee"} on ${item.shift_date}`
+      );
+    });
+    tbody.querySelectorAll(".rota-punch-link").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openPunchRecordsForShift(
+          Number(btn.getAttribute("data-rota-punch-employee")) || null,
+          btn.getAttribute("data-rota-punch-date")
+        );
+      });
     });
   }
 
@@ -1327,7 +1467,7 @@
                 readonly
                   ? ""
                   : `<button type="button" class="btn ghost btn-sm" data-rota-edit="${index}">Edit</button>
-              <button type="button" class="btn ghost btn-sm" data-rota-remove="${index}">Remove</button>`
+              <button type="button" class="btn btn--ghost btn--danger btn-sm" data-rota-remove="${index}">Remove</button>`
               }
             </div>
           </article>`;
@@ -1366,7 +1506,7 @@
       { key: "employee_name", render: (r) => escapeHtml(r.employee_name || employeeName(r.employee_id)) },
       { key: "start_time", render: (r) => escapeHtml(r.start_time) },
       { key: "end_time", render: (r) => escapeHtml(r.end_time) },
-      { key: "role_label", render: (r) => escapeHtml(r.role_label || "—") },
+      { key: "role_label", render: (r) => formatRoleLabel(r.role_label) },
       {
         key: "punch",
         render: (r) => {
@@ -1378,8 +1518,10 @@
     if (!readonly) {
       columns.push({
         key: "actions",
-        render: (r, index) =>
-          `<button type="button" class="btn ghost btn-sm" data-rota-edit="${index}">Edit</button> <button type="button" class="btn ghost btn-sm" data-rota-remove="${index}">Remove</button>`,
+        render: (r) => {
+          const index = shifts.indexOf(r);
+          return `<button type="button" class="btn ghost btn-sm" data-rota-edit="${index}">Edit</button> <button type="button" class="btn btn--ghost btn--danger btn-sm" data-rota-remove="${index}">Remove</button>`;
+        },
       });
     }
     renderTableBody(tbody, {
@@ -1564,6 +1706,7 @@
 
   function renderAll() {
     renderWeekSummary();
+    renderRotaStats();
     if (shouldUseMobileRotaBuilder()) {
       renderMobileRota();
     } else {
@@ -1688,12 +1831,29 @@
 
   async function loadShiftRequests() {
     const tbody = document.getElementById("rota-requests-body");
+    const sub = document.getElementById("rota-requests-sub");
     if (!tbody) return;
     try {
       const res = await apiFetch("/admin/rota/shift-requests?status=pending");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error("load failed");
       const rows = data.items || [];
+      pendingRequestCount = rows.length;
+      renderRotaStats();
+      if (sub) {
+        sub.textContent = rows.length
+          ? `${rows.length} pending request${rows.length === 1 ? "" : "s"}`
+          : "No pending cover or swap requests";
+      }
+      if (!rows.length) {
+        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="5">${emptyStateHtml({
+          icon: "clipboard",
+          title: "No pending requests",
+          message: "When staff request cover or a swap in the employee app, they appear here for approval.",
+          compact: true,
+        })}</td></tr>`;
+        return;
+      }
       renderTableBody(tbody, {
         emptyMessage: "No pending cover or swap requests.",
         columns: [
@@ -1720,6 +1880,9 @@
         btn.addEventListener("click", () => reviewRequest(Number(btn.getAttribute("data-reject-request")), false));
       });
     } catch {
+      pendingRequestCount = 0;
+      renderRotaStats();
+      if (sub) sub.textContent = "Could not load requests";
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],
         rows: [],
@@ -1837,6 +2000,7 @@
       (data.attendance?.items || []).forEach((item) => {
         if (item.shift_id != null) attendanceByShiftId.set(String(item.shift_id), item);
       });
+      attendanceSummary = data.attendance?.summary || null;
       markClean();
       rotaTemplates = data.templates || [];
       rotaInsights = data.insights || null;

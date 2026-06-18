@@ -39,7 +39,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v116" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v118" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -520,7 +520,7 @@
         </section>
 
         <section id="disciplinary" class="admin-section" data-feature="disciplinary" hidden>
-          <header class="section-header cases-page-header">
+          <header class="section-header cases-page-header disciplinary-page-header">
             <div>
               <h2>Disciplinary</h2>
               <p class="muted">Investigation register with encrypted notes and hearing outcomes — ACAS code aligned.</p>
@@ -530,40 +530,85 @@
             </div>
           </header>
 
-          <div class="grievance-status-workflow" id="disciplinary-status-workflow" aria-label="Case status workflow"></div>
+          <div class="hr-status-workflow disciplinary-status-workflow" id="disciplinary-status-workflow" aria-label="Case status workflow"></div>
 
-          <div class="grievance-workspace-layout">
-            <div class="grievance-main-pane">
-              <article class="hr-surface-panel hr-log-panel">
-                <h4 class="hr-section-title">Open disciplinary case</h4>
-                <p class="muted grievance-next-ref" id="disciplinary-next-ref"></p>
+          <div class="hr-stats-grid disciplinary-stats-grid" id="disciplinary-stats-grid" aria-label="Disciplinary summary" hidden>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📋</span>
+              <span class="hr-stat-card__label">Open cases</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-open">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-open-sub">Active register</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--warn" id="disciplinary-stat-investigation-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">🔍</span>
+              <span class="hr-stat-card__label">Investigation</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-investigation">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-investigation-sub">Gathering evidence</span>
+            </div>
+            <div class="hr-stat-card" id="disciplinary-stat-hearing-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">⚖</span>
+              <span class="hr-stat-card__label">At hearing</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-hearing">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-hearing-sub">Formal stage</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok" id="disciplinary-stat-closed-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Closed</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-closed">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-closed-sub">Outcome recorded</span>
+            </div>
+          </div>
+
+          <div class="disciplinary-sync-banner">
+            <span class="disciplinary-sync-banner__icon" aria-hidden="true">🔒</span>
+            <p><strong>Encrypted records</strong> — investigation notes are HR-only. Opening a case creates an audit trail aligned to ACAS disciplinary procedure.</p>
+          </div>
+
+          <div class="grievance-workspace-layout disciplinary-workspace-layout" id="disciplinary-workspace">
+            <div class="grievance-main-pane disciplinary-main-pane">
+              <article class="hr-surface-panel disciplinary-open-hero" id="disciplinary-open-panel">
+                <div class="disciplinary-open-hero__head">
+                  <div class="disciplinary-open-hero__badge" aria-hidden="true">⚖</div>
+                  <div>
+                    <h4 class="disciplinary-open-hero__title">Open disciplinary case</h4>
+                    <p class="muted disciplinary-next-ref" id="disciplinary-next-ref"></p>
+                  </div>
+                </div>
                 <div id="disciplinary-case-form"></div>
               </article>
 
-              <h4 class="hr-section-title">Case register</h4>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Employee</th>
-                      <th>Misconduct</th>
-                      <th>Severity</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="disciplinary-cases-body">
-                    <tr><td colspan="5" class="muted">Open this section to load cases…</td></tr>
-                  </tbody>
-                </table>
-              </div>
+              <article class="hr-surface-panel disciplinary-register-panel">
+                <header class="hr-surface-panel__head disciplinary-panel-head">
+                  <div>
+                    <h4 class="hr-section-title">Case register</h4>
+                    <p class="muted disciplinary-register-sub" id="disciplinary-register-sub">Loading…</p>
+                  </div>
+                </header>
+                <div class="hr-table-wrap disciplinary-table-wrap">
+                  <table class="data-table data-table--register">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Employee</th>
+                        <th>Misconduct</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="disciplinary-cases-body">
+                      <tr><td colspan="5" class="muted">Open this section to load cases…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
             </div>
 
-            <aside class="grievance-detail-panel" id="disciplinary-case-detail">
-              <div id="disciplinary-case-detail-empty" class="grievance-detail-empty muted">
-                <p>Select a case from the register to view investigation details and encrypted notes.</p>
-              </div>
-              <div id="disciplinary-case-detail-content" hidden></div>
+            <aside class="grievance-detail-panel disciplinary-detail-panel" id="disciplinary-case-detail">
+              <header class="disciplinary-detail-panel__head">
+                <h4 class="disciplinary-detail-panel__title">Case detail</h4>
+              </header>
+              <div id="disciplinary-case-detail-empty" class="grievance-detail-empty disciplinary-detail-empty"></div>
+              <div id="disciplinary-case-detail-content" class="disciplinary-detail-body" hidden></div>
             </aside>
           </div>
         </section>
@@ -2163,6 +2208,40 @@
           </header>
           <div id="rota-admin-message" class="rota-admin-message" aria-live="polite" hidden></div>
           <div id="rota-readonly-notice" class="rota-readonly-notice" hidden role="status"></div>
+
+          <div class="hr-stats-grid rota-stats-grid rota-desktop-only" id="rota-stats-grid" aria-label="Rota week summary" hidden>
+            <div class="hr-stat-card" id="rota-stat-shifts-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📅</span>
+              <span class="hr-stat-card__label">Shifts</span>
+              <span class="hr-stat-card__value" id="rota-stat-shifts">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-shifts-sub">This week</span>
+            </div>
+            <div class="hr-stat-card" id="rota-stat-staff-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">👥</span>
+              <span class="hr-stat-card__label">Staff scheduled</span>
+              <span class="hr-stat-card__value" id="rota-stat-staff">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-staff-sub">Active employees</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok" id="rota-stat-attended-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Attended</span>
+              <span class="hr-stat-card__value" id="rota-stat-attended">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-attended-sub">Clock-in matched</span>
+            </div>
+            <div class="hr-stat-card" id="rota-stat-noshow-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">⚠</span>
+              <span class="hr-stat-card__label">No shows</span>
+              <span class="hr-stat-card__value" id="rota-stat-noshow">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-noshow-sub">All clear</span>
+            </div>
+            <div class="hr-stat-card" id="rota-stat-requests-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">🔄</span>
+              <span class="hr-stat-card__label">Requests</span>
+              <span class="hr-stat-card__value" id="rota-stat-requests">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-requests-sub">Cover &amp; swap</span>
+            </div>
+          </div>
+
           <div id="rota-advanced-panel" class="rota-advanced-panel" hidden>
             <div class="rota-advanced-toolbar">
               <label class="rota-advanced-template">
@@ -2211,6 +2290,7 @@
               <p id="rota-week-summary" class="rota-week-summary"></p>
             </div>
             <p class="rota-builder-hint muted">Drag to move · Alt+drag to copy · Right-click for options · Click empty cell to add</p>
+            <button type="button" class="btn btn--ghost btn--danger btn-sm rota-clear-inline" id="rota-clear-btn">Clear rota</button>
             <ul class="rota-attendance-legend" aria-label="Shift colour key">
               <li><span class="rota-shift-block rota-shift-block--kitchen rota-attendance-legend__chip">Shift</span> Scheduled</li>
               <li><span class="rota-shift-block rota-shift-block--late rota-attendance-legend__chip">Shift</span> Late clock-in</li>
@@ -2267,8 +2347,9 @@
           <article class="card" id="rota-attendance-panel" hidden>
             <div class="rota-list-panel__head">
               <div class="rota-list-panel__head-main">
-                <h3>Shift attendance (rota only)</h3>
-                <p class="muted rota-list-panel__lead">Compares published shifts to clock-ins — late and no-show flags. For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
+                <h3>Attendance flags</h3>
+                <p class="muted rota-list-panel__lead" id="rota-attendance-sub">Exceptions and clock-in status for published shifts. Upcoming scheduled shifts appear in the list above.</p>
+                <p class="muted rota-list-panel__lead">For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
               </div>
               <div class="rota-list-panel__exports">
                 <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-csv">Export CSV</button>
@@ -2292,9 +2373,14 @@
               </table>
             </div>
           </article>
-          <article class="card rota-desktop-only" id="rota-requests-panel">
-            <h3>Cover &amp; swap requests</h3>
-            <div class="table-wrap">
+          <article class="card rota-desktop-only rota-requests-panel" id="rota-requests-panel">
+            <header class="rota-list-panel__head rota-requests-panel__head">
+              <div class="rota-list-panel__head-main">
+                <h3>Cover &amp; swap requests</h3>
+                <p class="muted rota-requests-sub" id="rota-requests-sub">Loading…</p>
+              </div>
+            </header>
+            <div class="table-wrap rota-requests-table-wrap">
               <table class="data-table">
                 <thead>
                   <tr>
@@ -2311,9 +2397,6 @@
               </table>
             </div>
           </article>
-          <div class="rota-builder-footer rota-desktop-only">
-            <button type="button" class="btn ghost" id="rota-clear-btn">Clear rota</button>
-          </div>
           </article>
           <div class="rota-mobile-footer rota-mobile-only" id="rota-mobile-footer">
             <div class="rota-mobile-footer__inner">
@@ -2894,11 +2977,11 @@
     <script src="./admin-absence.js?v=2"></script>
     <script src="./admin-rtw.js?v=3"></script>
     <script src="./admin-grievance.js?v=6"></script>
-    <script src="./admin-disciplinary.js?v=2"></script>
+    <script src="./admin-disciplinary.js?v=3"></script>
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v12"></script>
-    <script src="./admin-time-punch.js?v=33"></script>
-    <script src="./admin-rota.js?v=27"></script>
+    <script src="./admin-time-punch.js?v=34"></script>
+    <script src="./admin-rota.js?v=28"></script>
     <script src="./admin-leave.js?v=admin-v4"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>

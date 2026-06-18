@@ -37,7 +37,7 @@
     return `<span class="grievance-status-pill ${cls}">${escapeHtml(text)}</span>`;
   }
 
-  function renderStatusWorkflow() {
+  function renderStatusWorkflow(caseData) {
     const host = $("disciplinary-status-workflow");
     if (!host) return;
     const steps = window.Admin.formOptions?.disciplinary_status_workflow || [
@@ -46,12 +46,77 @@
       { label: "Appeal" },
       { label: "Closed" },
     ];
-    host.innerHTML = steps
-      .map(
-        (step, index) =>
-          `<span class="grievance-workflow-step">${escapeHtml(step.label)}</span>${index < steps.length - 1 ? '<span class="grievance-workflow-arrow" aria-hidden="true">→</span>' : ""}`
-      )
-      .join("");
+    const timeline = caseData?.timeline || [];
+    host.innerHTML = `<div class="disciplinary-workflow-pipeline">${steps
+      .map((step, index) => {
+        const tl = timeline[index];
+        const state =
+          tl?.state === "done" ? "done" : tl?.state === "current" ? "active" : "pending";
+        const stepClass =
+          state === "pending"
+            ? "disciplinary-workflow-step"
+            : `disciplinary-workflow-step disciplinary-workflow-step--${state}`;
+        const connector =
+          index < steps.length - 1 ? '<span class="disciplinary-workflow-connector" aria-hidden="true"></span>' : "";
+        return `<div class="${stepClass}">
+          <span class="disciplinary-workflow-step__num">${index + 1}</span>
+          <span class="disciplinary-workflow-step__label">${escapeHtml(step.label)}</span>
+        </div>${connector}`;
+      })
+      .join("")}</div>`;
+  }
+
+  function caseStats() {
+    const open = cases.filter((c) => c.status !== "closed").length;
+    const investigation = cases.filter((c) => c.status === "investigation").length;
+    const hearing = cases.filter((c) => c.status === "hearing" || c.status === "appeal").length;
+    const closed = cases.filter((c) => c.status === "closed").length;
+    const critical = cases.filter((c) => c.severity === "critical" && c.status !== "closed").length;
+    return { open, investigation, hearing, closed, critical, total: cases.length };
+  }
+
+  function renderStats() {
+    const grid = $("disciplinary-stats-grid");
+    if (!grid) return;
+    const stats = caseStats();
+    grid.hidden = false;
+    $("disciplinary-stat-open").textContent = String(stats.open);
+    $("disciplinary-stat-investigation").textContent = String(stats.investigation);
+    $("disciplinary-stat-hearing").textContent = String(stats.hearing);
+    $("disciplinary-stat-closed").textContent = String(stats.closed);
+    const openSub = $("disciplinary-stat-open-sub");
+    if (openSub) {
+      openSub.textContent = stats.open ? "Need attention or closure" : "No open cases";
+    }
+    const invSub = $("disciplinary-stat-investigation-sub");
+    if (invSub) {
+      invSub.textContent = stats.investigation ? "Gathering evidence" : "None in investigation";
+    }
+    const hearSub = $("disciplinary-stat-hearing-sub");
+    if (hearSub) {
+      hearSub.textContent = stats.hearing ? "Hearing or appeal stage" : "None at hearing";
+    }
+    const closedSub = $("disciplinary-stat-closed-sub");
+    if (closedSub) {
+      closedSub.textContent = stats.closed ? "Outcome recorded" : "None closed yet";
+    }
+    $("disciplinary-stat-investigation-card")?.classList.toggle("hr-stat-card--warn", stats.critical > 0);
+    if (stats.critical > 0 && invSub) {
+      invSub.textContent = stats.investigation
+        ? `${stats.investigation} in investigation · ${stats.critical} critical`
+        : `${stats.critical} critical severity open`;
+    }
+  }
+
+  function updateRegisterSub() {
+    const sub = $("disciplinary-register-sub");
+    if (!sub) return;
+    if (!cases.length) {
+      sub.textContent = "No cases yet — open one using the form above.";
+      return;
+    }
+    const stats = caseStats();
+    sub.textContent = `${stats.total} case${stats.total === 1 ? "" : "s"} · ${stats.open} open · ${stats.closed} closed`;
   }
 
   function renderCasesTable() {
@@ -67,7 +132,7 @@
         compact: true,
       })}</td></tr>`;
       document.getElementById("disciplinary-scroll-form-btn")?.addEventListener("click", () => {
-        $("disciplinary-case-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        $("disciplinary-open-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
         $("disciplinary-case-form")?.querySelector("input, select, textarea")?.focus();
       });
       return;
@@ -97,10 +162,14 @@
       const data = await res.json();
       cases = data.items || [];
       renderCasesTable();
+      renderStats();
+      updateRegisterSub();
       updateNextReferencePreview();
     } catch {
       cases = [];
       renderCasesTable();
+      renderStats();
+      updateRegisterSub();
     }
   }
 
@@ -131,43 +200,63 @@
     content.hidden = false;
 
     content.innerHTML = `
-      <div class="grievance-detail-head">
-        <div>
-          <h3>${escapeHtml(caseData.case_reference)}</h3>
-          ${statusBadge(caseData.status, caseData.status_label)}
+      <header class="disciplinary-detail-hero">
+        <div class="disciplinary-detail-hero__badge" aria-hidden="true">⚖</div>
+        <div class="disciplinary-detail-hero__body">
+          <h3 class="disciplinary-detail-hero__title">${escapeHtml(caseData.case_reference)}</h3>
+          <div class="disciplinary-detail-hero__meta">
+            ${statusBadge(caseData.status, caseData.status_label)}
+            ${severityBadge(caseData.severity)}
+          </div>
+        </div>
+      </header>
+      <div class="disciplinary-detail-metrics">
+        <div class="disciplinary-detail-metric">
+          <span class="disciplinary-detail-metric__label">Employee</span>
+          <span class="disciplinary-detail-metric__value">${escapeHtml(caseData.employee_name || String(caseData.employee_id))}</span>
+        </div>
+        <div class="disciplinary-detail-metric">
+          <span class="disciplinary-detail-metric__label">Reported</span>
+          <span class="disciplinary-detail-metric__value">${escapeHtml((caseData.date_reported || "").slice(0, 10) || "—")}</span>
+        </div>
+        <div class="disciplinary-detail-metric">
+          <span class="disciplinary-detail-metric__label">Investigator</span>
+          <span class="disciplinary-detail-metric__value">${escapeHtml(caseData.assigned_investigator || "Not set")}</span>
         </div>
       </div>
-      <dl class="grievance-detail-grid">
-        <div><dt>Employee</dt><dd>${escapeHtml(caseData.employee_name || caseData.employee_id)} · ${escapeHtml(caseData.employee_department || "Not set")}</dd></div>
+      <dl class="disciplinary-detail-grid">
+        <div><dt>Department</dt><dd>${escapeHtml(caseData.employee_department || "Not set")}</dd></div>
         <div><dt>Misconduct</dt><dd>${escapeHtml(misconductLabel(caseData))}</dd></div>
-        <div><dt>Severity</dt><dd>${severityBadge(caseData.severity)}</dd></div>
-        <div><dt>Date reported</dt><dd>${escapeHtml(caseData.date_reported || "Not set")}</dd></div>
-        <div><dt>Investigator</dt><dd>${escapeHtml(caseData.assigned_investigator || "Not assigned")}</dd></div>
       </dl>
-      <ol class="grievance-timeline">
-        ${(caseData.timeline || [])
-          .map(
-            (item) => `<li class="grievance-timeline__item grievance-timeline__item--${escapeHtml(item.state || "todo")}">
-              <span class="grievance-timeline__dot">${item.state === "done" ? "✓" : item.state === "current" ? "●" : "○"}</span>
-              <span><strong>${escapeHtml(item.label)}</strong>${item.date ? `<span class="muted"> · ${escapeHtml(item.date)}</span>` : ""}${item.detail ? `<span class="muted"> · ${escapeHtml(item.detail)}</span>` : ""}</span>
-            </li>`
-          )
-          .join("")}
-      </ol>
-      <div class="hr-surface-panel">
+      <div class="disciplinary-timeline-wrap">
+        <h5 class="disciplinary-section-label">Procedure timeline</h5>
+        <ol class="grievance-timeline">
+          ${(caseData.timeline || [])
+            .map(
+              (item) => `<li class="grievance-timeline__item grievance-timeline__item--${escapeHtml(item.state || "todo")}">
+                <span class="grievance-timeline__dot">${item.state === "done" ? "✓" : item.state === "current" ? "●" : "○"}</span>
+                <span><strong>${escapeHtml(item.label)}</strong>${item.date ? `<span class="muted"> · ${escapeHtml(item.date)}</span>` : ""}${item.detail ? `<span class="muted"> · ${escapeHtml(item.detail)}</span>` : ""}</span>
+              </li>`
+            )
+            .join("")}
+        </ol>
+      </div>
+      <div class="hr-surface-panel disciplinary-notes-panel">
         <h4 class="hr-section-title">Encrypted notes</h4>
         <div id="disciplinary-note-form"></div>
         <div class="hr-table-wrap">
-          <table class="data-table">
+          <table class="data-table data-table--compact">
             <thead><tr><th>Type</th><th>Author</th><th>When</th><th>Note</th></tr></thead>
             <tbody id="disciplinary-notes-body"></tbody>
           </table>
         </div>
       </div>
-      <div class="grievance-detail-foot">
+      <div class="grievance-detail-foot disciplinary-detail-foot">
         <button type="button" class="btn ghost" id="disciplinary-add-note-btn">Add note</button>
-        <button type="button" class="btn" id="disciplinary-close-btn" ${caseData.status === "closed" ? "disabled" : ""}>Close case</button>
+        <button type="button" class="btn primary" id="disciplinary-close-btn" ${caseData.status === "closed" ? "disabled" : ""}>Close case</button>
       </div>`;
+
+    renderStatusWorkflow(caseData);
 
     renderTableBody(content.querySelector("#disciplinary-notes-body"), {
       emptyMessage: "No encrypted notes yet.",
@@ -191,7 +280,12 @@
     selectedCaseId = caseId;
     renderCasesTable();
     const content = $("disciplinary-case-detail-content");
-    if (content) content.innerHTML = `<p class="muted">Loading case…</p>`;
+    const empty = $("disciplinary-case-detail-empty");
+    if (empty) empty.setAttribute("hidden", "");
+    if (content) {
+      content.hidden = false;
+      content.innerHTML = `<p class="muted">Loading case…</p>`;
+    }
     try {
       const [caseRes, notesRes] = await Promise.all([
         apiFetch(`/disciplinary/cases/${caseId}`),
@@ -289,10 +383,10 @@
         <label class="edit-field" data-span="2"><span class="edit-label">Context (optional)</span><textarea name="linked_absence_context" rows="2" placeholder="Optional. Links to attendance or sponsor absence monitoring."></textarea></label>
         <label class="edit-field" data-span="2"><span class="edit-label">Initial investigation note (encrypted)</span><textarea name="initial_note" rows="4" placeholder="Capture the first account while details are fresh."></textarea></label>
         <div class="edit-field" data-span="2">
-          <p class="employee-section-hint employee-section-hint--warn">Opening a case creates an encrypted record and audit trail.</p>
+          <p class="disciplinary-form-hint">Opening a case creates an encrypted record and audit trail.</p>
         </div>
         <div class="edit-form-actions" data-span="2">
-          <button type="submit" class="btn">Open disciplinary case</button>
+          <button type="submit" class="btn primary">Open disciplinary case</button>
           <p class="edit-form-status muted" data-status></p>
         </div>
       </form>`;
@@ -345,18 +439,21 @@
 
   function renderDetailEmptyState() {
     const empty = $("disciplinary-case-detail-empty");
+    const content = $("disciplinary-case-detail-content");
+    if (content) content.hidden = true;
     if (!empty) return;
     empty.removeAttribute("hidden");
+    renderStatusWorkflow(null);
     empty.innerHTML = emptyStateHtml({
       icon: "clipboard",
       title: "No case selected",
-      message: "Select a case from the register to view hearing details and encrypted notes.",
+      message: "Select a case from the register to view investigation details and encrypted notes.",
       actionLabel: "Open case form",
       actionId: "disciplinary-detail-scroll-form",
       compact: true,
     });
     document.getElementById("disciplinary-detail-scroll-form")?.addEventListener("click", () => {
-      $("disciplinary-case-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("disciplinary-open-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
       $("disciplinary-case-form")?.querySelector("input, select, textarea")?.focus();
     });
   }
