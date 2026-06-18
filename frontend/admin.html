@@ -39,7 +39,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v119" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v120" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2195,8 +2195,8 @@
                 <button type="button" class="btn ghost" id="rota-next-week" aria-label="Next week">→</button>
                 <button type="button" class="btn ghost rota-this-week-btn" id="rota-this-week">This week</button>
               </div>
-              <button type="button" class="btn ghost" id="rota-export-csv-btn">Export CSV</button>
-              <button type="button" class="btn ghost" id="rota-export-pdf-btn">Export PDF</button>
+              <button type="button" class="btn ghost" id="rota-export-csv-btn">Grid CSV</button>
+              <button type="button" class="btn ghost" id="rota-export-pdf-btn">Grid PDF</button>
               <button type="button" class="btn ghost" id="rota-copy-prev-btn">Copy prev week</button>
               <button type="button" class="btn ghost" id="rota-reload-btn">Reload</button>
               <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
@@ -2274,8 +2274,8 @@
             <p id="rota-mobile-day-status" class="rota-mobile-day-status" role="status" aria-live="polite"></p>
             <div id="rota-mobile-staff-list" class="rota-mobile-staff-list" aria-label="Staff for selected day"></div>
             <div class="rota-mobile-secondary" aria-label="More rota actions">
-              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-csv">Export CSV</button>
-              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-pdf">Export PDF</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-csv">Grid CSV</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-pdf">Grid PDF</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-clear">Clear rota</button>
@@ -2295,6 +2295,7 @@
             <button type="button" class="btn btn--ghost btn--danger btn-sm rota-clear-inline" id="rota-clear-btn">Clear rota</button>
             <ul class="rota-attendance-legend" aria-label="Shift colour key">
               <li><span class="rota-shift-block rota-shift-block--kitchen rota-attendance-legend__chip">Shift</span> Scheduled</li>
+              <li><span class="rota-shift-block rota-shift-block--attended rota-attendance-legend__chip">Shift</span> Attended</li>
               <li><span class="rota-shift-block rota-shift-block--late rota-attendance-legend__chip">Shift</span> Late clock-in</li>
               <li><span class="rota-shift-block rota-shift-block--no_show rota-attendance-legend__chip">Shift</span> No show</li>
             </ul>
@@ -2322,8 +2323,8 @@
                 <p class="muted rota-list-panel__lead">Scheduled shifts with attendance status — not the raw punch log.</p>
               </div>
               <div class="rota-list-panel__exports">
-                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-csv">Export CSV</button>
-                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-pdf">Export PDF</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-csv">Shift list CSV</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-pdf">Shift list PDF</button>
               </div>
             </div>
             <div id="rota-shifts-cards" class="rota-shift-cards" hidden aria-label="Shifts this week"></div>
@@ -2354,8 +2355,8 @@
                 <p class="muted rota-list-panel__lead">For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
               </div>
               <div class="rota-list-panel__exports">
-                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-csv">Export CSV</button>
-                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-pdf">Export PDF</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-csv">Flags CSV</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-pdf">Flags PDF</button>
               </div>
             </div>
             <div class="table-wrap rota-attendance-table-wrap">
@@ -2983,7 +2984,7 @@
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v12"></script>
     <script src="./admin-time-punch.js?v=34"></script>
-    <script src="./admin-rota.js?v=29"></script>
+    <script src="./admin-rota.js?v=30"></script>
     <script src="./admin-leave.js?v=admin-v4"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>

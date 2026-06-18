@@ -1599,7 +1599,9 @@
         cellShifts.forEach(({ s, index }) => {
           const a = attendanceForShift(s);
           const attendClass =
-            a?.attendance_status === "no_show" || a?.attendance_status === "late"
+            a?.attendance_status === "no_show" ||
+            a?.attendance_status === "late" ||
+            a?.attendance_status === "attended"
               ? ` rota-shift-block--${a.attendance_status}`
               : "";
           const blockClass = shiftBlockClass(s, emp);
@@ -1829,6 +1831,18 @@
     context.textContent = `${employeeName(empId)} · ${new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`;
   }
 
+  function requestTypePill(type) {
+    const raw = String(type || "").trim().toLowerCase();
+    const label = raw === "cover" ? "Cover" : raw === "swap" ? "Swap" : type ? String(type) : "—";
+    const cls =
+      raw === "cover"
+        ? "rota-request-type-pill rota-request-type-pill--cover"
+        : raw === "swap"
+          ? "rota-request-type-pill rota-request-type-pill--swap"
+          : "rota-request-type-pill";
+    return `<span class="${cls}">${escapeHtml(label)}</span>`;
+  }
+
   async function loadShiftRequests() {
     const tbody = document.getElementById("rota-requests-body");
     const sub = document.getElementById("rota-requests-sub");
@@ -1863,12 +1877,12 @@
               `${escapeHtml(r.shift_date || "")} ${escapeHtml(r.start_time || "")}–${escapeHtml(r.end_time || "")}`,
           },
           { key: "requester_name", render: (r) => escapeHtml(r.requester_name) },
-          { key: "request_type", render: (r) => escapeHtml(r.request_type) },
+          { key: "request_type", render: (r) => requestTypePill(r.request_type) },
           { key: "note", render: (r) => escapeHtml(r.note || "—") },
           {
             key: "actions",
             render: (r) =>
-              `<button type="button" class="btn btn-sm" data-approve-request="${r.id}">Approve</button> <button type="button" class="btn ghost btn-sm" data-reject-request="${r.id}">Reject</button>`,
+              `<div class="rota-request-actions"><button type="button" class="btn primary btn-sm" data-approve-request="${r.id}">Approve</button><button type="button" class="btn btn--ghost btn--danger btn-sm" data-reject-request="${r.id}">Reject</button></div>`,
           },
         ],
         rows,
@@ -2185,13 +2199,13 @@
       if (!proceed) return;
     }
     const label = ext === "csv" ? "CSV" : "PDF";
-    setMessage(`Preparing ${label}…`, "info");
+    setMessage(`Preparing grid ${label}…`, "info");
     try {
       await downloadAuthenticated(
         `/admin/rota/weeks/${currentWeekStart}/export.${ext}`,
         `shiftswift-rota-${currentWeekStart}.${ext}`
       );
-      setMessage(`Rota ${label} downloaded.`, "success");
+      setMessage(`Grid ${label} downloaded.`, "success");
     } catch (error) {
       setMessage(error?.message || `Could not export rota ${label}.`, "error");
     }
@@ -2205,7 +2219,7 @@
     return exportRotaFile("csv");
   }
 
-  async function exportShiftsAttendance(format) {
+  async function exportShiftsAttendance(format, labelPrefix = "Shift list") {
     if (dirty) {
       const proceed = window.confirm(
         "You have unsaved changes on screen. The export uses the last saved rota in ShiftSwift. Continue?"
@@ -2213,13 +2227,14 @@
       if (!proceed) return;
     }
     const ext = format === "csv" ? "csv" : "pdf";
-    setMessage(`Preparing ${ext.toUpperCase()}…`, "info");
+    const exportLabel = `${labelPrefix} ${ext.toUpperCase()}`;
+    setMessage(`Preparing ${exportLabel}…`, "info");
     try {
       await downloadAuthenticated(
         `/admin/rota/weeks/${currentWeekStart}/attendance/export.${ext}`,
         `shiftswift-shifts-attendance-${currentWeekStart}.${ext}`
       );
-      setMessage(`Shifts & attendance ${ext.toUpperCase()} downloaded.`, "success");
+      setMessage(`${exportLabel} downloaded.`, "success");
     } catch (error) {
       setMessage(error?.message || `Could not export ${ext.toUpperCase()}.`, "error");
     }
@@ -2424,10 +2439,10 @@
     document.getElementById("rota-save-btn")?.addEventListener("click", saveRota);
     document.getElementById("rota-export-csv-btn")?.addEventListener("click", exportRotaCsv);
     document.getElementById("rota-export-pdf-btn")?.addEventListener("click", exportRotaPdf);
-    document.getElementById("rota-shifts-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv"));
-    document.getElementById("rota-shifts-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf"));
-    document.getElementById("rota-attendance-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv"));
-    document.getElementById("rota-attendance-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf"));
+    document.getElementById("rota-shifts-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv", "Shift list"));
+    document.getElementById("rota-shifts-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf", "Shift list"));
+    document.getElementById("rota-attendance-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv", "Flags"));
+    document.getElementById("rota-attendance-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf", "Flags"));
     document.getElementById("rota-copy-prev-btn")?.addEventListener("click", copyPreviousWeek);
     document.getElementById("rota-clear-btn")?.addEventListener("click", clearRota);
     document.getElementById("rota-publish-btn")?.addEventListener("click", publishRota);

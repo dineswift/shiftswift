@@ -10899,6 +10899,13 @@ body.rota-week-readonly .rota-builder-hint {
   color: #8a4b00;
 }
 
+.rota-shift-block--attended {
+  background: #d8f3dc;
+  border-left-color: #1b7f5c;
+  color: #0b5345;
+  box-shadow: inset 0 0 0 1px rgba(11, 83, 69, 0.12);
+}
+
 .rota-shift-block--no_show {
   background: #fdecea;
   border-left-color: #f5a8a0;
@@ -14006,6 +14013,39 @@ body.rota-week-readonly .rota-builder-hint {
   font-size: 0.68rem;
   pointer-events: none;
   cursor: default;
+}
+
+.rota-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.rota-request-type-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: #f1f5f9;
+  color: var(--ink-600);
+  border: 1px solid var(--card-border);
+}
+
+.rota-request-type-pill--cover {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+.rota-request-type-pill--swap {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
 }
 
 .punch-manual-form,
