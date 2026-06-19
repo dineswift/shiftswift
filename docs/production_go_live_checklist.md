@@ -53,6 +53,9 @@ Add:
 
 # Sponsor compliance alerts — daily 08:00 UK (before 09:00 inbox)
 0 8 * * * cd /home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk && bash scripts/run_sponsor_compliance_jobs.sh >> /var/log/shiftswifthr/compliance-jobs.log 2>&1
+
+# Shift push reminders + platform jobs — every 15 min (required for 10-min-before-shift alerts)
+*/15 * * * * cd /home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk && source scripts/load_env.sh && load_env_file backend_stub/.env && backend_stub/.venv/bin/python scripts/run_platform_jobs.py >> /var/log/shiftswifthr/platform-jobs.log 2>&1
 ```
 
 - [ ] First manual backup succeeds (`/var/backups/shiftswifthr/YYYY-MM-DD/`)
