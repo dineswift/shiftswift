@@ -1,6 +1,6 @@
 /** Keep HR admin pages on the admin service worker — not the employee shell. */
 (function () {
-  const SW_URL = "./admin-sw.js?v=6";
+  const SW_URL = "./admin-sw.js?v=7";
   const BLOCKED_SW = ["employee-sw.js", "punch-sw.js", "app-sw.js"];
 
   function registerAdminSw() {

@@ -424,15 +424,21 @@ def employee_portal_invite_email(
     setup_url: str,
     login_url: str,
     reset_hours: int,
+    install_app_url: str | None = None,
 ) -> EmailContent:
     subject = f"{APP_NAME} — Set up your employee portal"
     intro = f"{notification_from_name} has invited you to ShiftSwift HR's employee portal."
     privacy_url = f"{APP_URL}/privacy-policy.html"
+    install_url = (install_app_url or f"{APP_URL}/install-employee.html").rstrip("/")
     gdpr_note = (
         f"{employer_legal_name} is your employer and is responsible for managing your personal data, "
         f"workplace privacy notices, and UK GDPR obligations for your employment records. "
         f"ShiftSwift HR provides the software platform only. When you choose your password, "
         f"you will be asked to confirm you understand this and agree to the privacy notice."
+    )
+    iphone_install_note = (
+        f"On iPhone, install the Employee app on your home screen for quick clock-in, shifts, and alerts. "
+        f"Open this link in Safari, then tap Share → Add to Home Screen: {install_url}"
     )
     text = (
         f"Hello {employee_name},\n\n"
@@ -443,6 +449,7 @@ def employee_portal_invite_email(
         f"After that, sign in as an employee at:\n{login_url}\n"
         f"Use the same work email address this invite was sent to.\n"
         f"If you do not see this email, check your junk or spam folder.\n\n"
+        f"{iphone_install_note}\n\n"
         f"Privacy policy: {privacy_url}\n\n"
         f"— {APP_NAME}\n"
     )
@@ -455,6 +462,7 @@ def employee_portal_invite_email(
             f"This link expires in {reset_hours} hours. Choose a password, then sign in using your work email at {login_url}.",
             "If you do not see this email, check your junk or spam folder.",
             f"Portal sign-in: {login_url}",
+            iphone_install_note,
             f'Privacy policy: <a href="{privacy_url}">{privacy_url}</a>',
         ],
         cta_url=setup_url,

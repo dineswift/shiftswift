@@ -2,11 +2,39 @@
 (function () {
   const EMPLOYEE_LOGIN_URL = "./employee-login.html";
   const BUSINESS_LOGIN_URL = "./business-login.html";
+  const NATIVE_UNIFIED_LOGIN_URL = "./native-app-login.html?source=native";
 
   let refreshInFlight = null;
 
+  function isCapacitorUnifiedApp() {
+    try {
+      return Boolean(
+        window.ShiftSwiftNativeApp?.isUnifiedNativeApp?.() ||
+          (window.Capacitor?.isNativePlatform?.() &&
+            window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"),
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function unifiedNativeLoginUrl() {
+    if (window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl) {
+      return window.ShiftSwiftNativeApp.unifiedNativeLoginUrl();
+    }
+    try {
+      const scheme = window.Capacitor?.config?.ios?.scheme || "App";
+      return `${scheme}://localhost/index.html`;
+    } catch {
+      return NATIVE_UNIFIED_LOGIN_URL;
+    }
+  }
+
   function resolveLoginUrl(explicit) {
     if (explicit) return explicit;
+    if (isCapacitorUnifiedApp()) return unifiedNativeLoginUrl();
+    const nativeLogin = window.ShiftSwiftNativeApp?.resolveNativeLoginUrl?.();
+    if (nativeLogin) return nativeLogin;
     const role = localStorage.getItem("userRole");
     if (role === "employee") return EMPLOYEE_LOGIN_URL;
     if (document.body?.classList?.contains("employee-portal")) return EMPLOYEE_LOGIN_URL;
@@ -133,6 +161,8 @@
   window.ShiftSwiftSession = {
     EMPLOYEE_LOGIN_URL,
     BUSINESS_LOGIN_URL,
+    NATIVE_UNIFIED_LOGIN_URL,
+    unifiedNativeLoginUrl,
     resolveLoginUrl,
     getApiBase,
     getToken,

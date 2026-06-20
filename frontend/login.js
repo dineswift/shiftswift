@@ -374,6 +374,99 @@ function redirectIfEmployeeSession() {
   return false;
 }
 
+const PORTAL_MISMATCH_HINTS = [
+  "employee sign-in page",
+  "HR admin account",
+  "business sign-in page",
+  "Invalid credentials for this login type",
+];
+
+function isPortalMismatch(message) {
+  const text = String(message || "");
+  return PORTAL_MISMATCH_HINTS.some((hint) => text.includes(hint));
+}
+
+async function loginWithAutoPortal(payload) {
+  const modes = [
+    { endpoint: "/auth/employee-login", redirect: "./employee.html" },
+    { endpoint: "/auth/business-login", redirect: "./admin.html" },
+  ];
+  let lastError = null;
+  for (const mode of modes) {
+    try {
+      const data = await postJson(mode.endpoint, payload);
+      return { data, redirect: redirectForRole(data, mode.redirect), endpoint: mode.endpoint };
+    } catch (error) {
+      lastError = error;
+      if (!isPortalMismatch(error.message)) {
+        throw error;
+      }
+    }
+  }
+  throw lastError || new Error("Login failed");
+}
+
+function redirectIfUnifiedSession() {
+  if (document.body.dataset.loginPage !== "unified") return false;
+  const role = localStorage.getItem("userRole");
+  const hasSession = window.ShiftSwiftSession?.hasSession?.();
+  if (!hasSession) return false;
+  if (role === "employee") {
+    window.location.replace("./employee.html");
+    return true;
+  }
+  if (role && role !== "employee") {
+    window.location.replace("./admin.html");
+    return true;
+  }
+  return false;
+}
+
+function bindUnifiedLogin() {
+  const form = document.getElementById("portal-login-form");
+  if (!form || form.dataset.boundUnified) return;
+  form.dataset.boundUnified = "1";
+
+  bindMfaForm();
+  bindMfaEnrollmentSubmit();
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setStatus("Signing in…");
+    const payload = loginPayload(form);
+    try {
+      const result = await loginWithAutoPortal(payload);
+      const { data, redirect } = result;
+      pendingRedirect = redirect;
+      if (data.mfa_required && data.challenge_token) {
+        pendingChallenge = data.challenge_token;
+        setStatus("");
+        showMfaStep(data.username || payload.username);
+        return;
+      }
+      if (data.mfa_enrollment_required && data.enrollment_token) {
+        setStatus("");
+        await startMfaEnrollment(data, redirect);
+        return;
+      }
+      storeSession(data);
+      window.location.href = redirect;
+    } catch (error) {
+      setStatus(
+        friendlyLoginError(
+          error.message,
+          "/auth/employee-login",
+          payload.username,
+        ),
+      );
+    }
+  });
+}
+
+function initUnifiedNativeLogin() {
+  bindUnifiedLogin();
+}
+
 function redirectIfBusinessSession() {
   if (document.body.dataset.loginPage !== "business") return false;
   const role = localStorage.getItem("userRole");
@@ -396,6 +489,11 @@ function redirectIfBusinessSession() {
 }
 
 function initLoginPage() {
+  if (window.ShiftSwiftNativeApp?.isUnifiedNativeApp?.()) {
+    window.location.replace(window.ShiftSwiftNativeApp.unifiedNativeLoginUrl());
+    return;
+  }
+  if (redirectIfUnifiedSession()) return;
   if (redirectIfEmployeeSession()) return;
   if (redirectIfBusinessSession()) return;
 
@@ -406,6 +504,10 @@ function initLoginPage() {
   }
 
   const pageMode = document.body.dataset.loginPage;
+  if (pageMode === "unified") {
+    initUnifiedNativeLogin();
+    return;
+  }
   if (pageMode && LOGIN_MODES[pageMode]) {
     initDedicatedLogin(pageMode);
     return;

@@ -1,0 +1,83 @@
+/* Native shell chrome — employee + admin portals inside Capacitor */
+html.native-app {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+html.native-app body {
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html.native-app .portal-pwa-install-banner,
+html.native-app .pwa-ios-sheet,
+html.native-app .pwa-ios-sheet-backdrop,
+html.native-app #cookie-consent-banner {
+  display: none !important;
+}
+
+html.native-app .employee-app,
+html.native-app .admin-portal .app,
+html.native-app .app {
+  min-height: 100dvh;
+}
+
+html.native-app .topbar,
+html.native-app .app-mobile-header,
+html.native-app .employee-app .topbar {
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+html.native-app .mobile-more-sheet,
+html.native-app .mobile-more-panel {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+html.native-app .sidebar {
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+html.native-app .btn,
+html.native-app .nav-link,
+html.native-app .portal-login-submit {
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+html.native-app .employee-portal .content,
+html.native-app .admin-portal .content {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-app--unified .employee-portal .topbar-brand__app,
+html.native-app--unified .admin-portal .topbar-brand__app {
+  opacity: 0.92;
+}
+
+html.native-app .native-app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15, 110, 86, 0.12);
+  color: #0f6e56;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+html.native-app.ios-device .portal-login-page--unified {
+  background: #f9f8f4;
+}
+
+@media (display-mode: standalone), (max-width: 860px) {
+  html.native-app .employee-app .content,
+  html.native-app .admin-portal .content {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}

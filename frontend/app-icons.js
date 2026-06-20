@@ -1,6 +1,6 @@
 /** Standard PWA / favicon links — Hastings-style app icons (brandkit-v5). */
 (function () {
-  const VERSION = "brandkit-v6";
+  const VERSION = "brandkit-v7";
   const ICONS = {
     hr: {
       favicon32: `./assets/shiftswift-hr-app-icon-192.png?v=${VERSION}`,

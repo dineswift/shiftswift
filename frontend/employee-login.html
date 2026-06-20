@@ -1,19 +1,32 @@
 <!doctype html>
-<html lang="en" data-app-icon="employee">
+<html lang="en" data-app-icon="employee" data-pwa-portal="employee">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="canonical" href="https://app.shiftswifthr.co.uk/employee-login.html" />
-    <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
+    <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
     <meta name="theme-color" content="#0f6e56" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Employee" />
     <script src="./portal-sw-guard.js?v=2"></script>
+    <script>
+      (function () {
+        try {
+          var cap = window.Capacitor;
+          if (!cap?.isNativePlatform?.()) return;
+          if (cap.config?.appId !== "co.uk.shiftswifthr.app") return;
+          var scheme = cap.config?.ios?.scheme || "App";
+          window.location.replace(scheme + "://localhost/index.html");
+        } catch (e) {}
+      })();
+    </script>
     <script src="./brand-config.js?v=brand-v7"></script>
     <script src="./app-host-guard.js?v=2"></script>
-    <script src="./app-icons.js?v=brandkit-v6"></script>
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script src="./native-app.js?v=4"></script>
+    <script src="./pwa-ios.js?v=1"></script>
     <title>ShiftSwift Employee | Sign in</title>
     <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
   </head>
@@ -26,7 +39,18 @@
         <p class="portal-login-brand-copy">Employee portal &amp; time clock</p>
       </header>
 
-      <section class="portal-login-card portal-login-card--employee" id="portal-login-card">
+      <section class="portal-login-card portal-login-card--employee portal-login-card--has-install" id="portal-login-card">
+        <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
+          <div class="portal-pwa-install-banner__copy">
+            <strong id="portal-pwa-install-title">Get Employee app</strong>
+            <p id="portal-pwa-install-copy">Add ShiftSwift Employee to your iPhone home screen for a full-screen app experience.</p>
+          </div>
+          <div class="portal-pwa-install-banner__actions">
+            <button type="button" class="btn primary" id="portal-pwa-install-btn">Add to Home Screen</button>
+            <button type="button" class="btn ghost portal-pwa-install-dismiss" id="portal-pwa-install-dismiss">Not now</button>
+          </div>
+        </div>
+
         <div class="portal-login-role-banner" id="login-role-banner" role="status" aria-live="polite">
           <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Employee</span>
           <p class="portal-login-role-banner__copy" id="login-role-banner-copy">
@@ -119,14 +143,23 @@
       <p class="portal-login-footnote muted">
         Need help signing in? Email
         <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>.
+        · <a class="portal-login-inline-link" href="./install-employee.html">Install iPhone app</a>
       </p>
     </div>
-    <script src="./session-auth.js?v=2"></script>
-    <script src="./employee-pwa.js?v=3"></script>
+    <script src="./session-auth.js?v=3"></script>
+    <script src="./employee-pwa.js?v=4"></script>
     <script src="./login.js?v=brandkit-v17"></script>
     <script>
       window.ShiftSwiftEmployeePwa?.registerEmployeeSw?.();
     </script>
+    <script
+      src="./portal-pwa-install.js?v=3"
+      data-portal="employee"
+      data-app-name="ShiftSwift Employee"
+      data-manifest="./employee-manifest.webmanifest?v=8"
+      data-sw="./employee-sw.js?v=9"
+      data-layout="login-card"
+    ></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

@@ -1,10 +1,10 @@
 (function () {
   const session = window.ShiftSwiftSession;
   const API_BASE = session.getApiBase();
-  const loginUrl = session.EMPLOYEE_LOGIN_URL;
+  const loginUrl = session.resolveLoginUrl();
 
   if (!session.hasSession()) {
-    window.location.replace("./employee-login.html");
+    window.location.replace(loginUrl);
     return;
   }
 
@@ -151,7 +151,7 @@
     localStorage.removeItem("employeeUsername");
     localStorage.removeItem("employeeDisplayName");
     localStorage.removeItem("employeeFirstName");
-    window.location.href = "./employee-login.html";
+    window.location.href = session.resolveLoginUrl();
   }
 
   document.querySelectorAll("[data-sign-out]").forEach((el) => {

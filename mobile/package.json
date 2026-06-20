@@ -1,0 +1,33 @@
+{
+  "name": "shiftswifthr-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Native iOS app for ShiftSwift HR (employee + business unified)",
+  "scripts": {
+    "assets": "node scripts/generate-native-assets.mjs",
+    "brand:ios": "node scripts/apply-ios-branding-simple.mjs",
+    "brand:ios:all": "SSHR_APP=app npm run brand:ios && SSHR_APP=employee npm run brand:ios && SSHR_APP=business npm run brand:ios",
+    "ios:add": "SSHR_APP=app npx cap add ios",
+    "ios:sync": "node scripts/copy-www-app.mjs && SSHR_APP=app npx cap sync ios && SSHR_APP=app npm run brand:ios",
+    "ios:open": "SSHR_APP=app npx cap open ios",
+    "ios:run": "SSHR_APP=app npx cap run ios",
+    "ios:setup": "npm run assets && npm run ios:add && npm run ios:sync && npm run brand:ios",
+    "ios:employee:sync": "SSHR_APP=employee npx cap sync ios",
+    "ios:employee:open": "SSHR_APP=employee npx cap open ios",
+    "ios:business:sync": "SSHR_APP=business npx cap sync ios",
+    "ios:business:open": "SSHR_APP=business npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.7",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/ios": "^7.6.7",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.6.7",
+    "typescript": "^5.7.0"
+  }
+}

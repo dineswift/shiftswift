@@ -28,6 +28,15 @@ bash scripts/start_local.sh
 
 Contact: support@shiftswifthr.co.uk · legal@shiftswifthr.co.uk
 
+## Native iOS apps (App Store)
+
+Capacitor shells — same UI as the PWAs. See [docs/native_ios_apps.md](docs/native_ios_apps.md) and [mobile/README.md](mobile/README.md).
+
+```bash
+cd mobile && npm install && npm run ios:setup
+npm run ios:employee:open   # or ios:business:open
+```
+
 ## Production
 
 - [Production readiness checklist](docs/production_readiness.md)

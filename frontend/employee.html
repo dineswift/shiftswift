@@ -1,19 +1,22 @@
 <!doctype html>
-<html lang="en" data-app-icon="employee">
+<html lang="en" data-app-icon="employee" data-pwa-portal="employee">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script src="./native-app-bootstrap.js?v=1"></script>
     <script src="./brand-config.js?v=brand-v5"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="theme-color" content="#0f6e56" />
-    <script src="./app-icons.js?v=brandkit-v6"></script>
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script src="./native-app.js?v=4"></script>
+    <script src="./pwa-ios.js?v=1"></script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Employee" />
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
-    <link rel="manifest" href="./employee-manifest.webmanifest?v=7" />
+    <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
     <link rel="stylesheet" href="./styles.css?v=admin-v125" />
   </head>
   <body class="employee-portal">
@@ -489,15 +492,15 @@
     </dialog>
 
     <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./session-auth.js?v=2"></script>
-    <script src="./employee-pwa.js?v=3"></script>
+    <script src="./session-auth.js?v=3"></script>
+    <script src="./employee-pwa.js?v=4"></script>
     <script src="./push-notifications.js?v=2"></script>
     <script
-      src="./portal-pwa-install.js?v=2"
+      src="./portal-pwa-install.js?v=3"
       data-portal="employee"
       data-app-name="ShiftSwift Employee"
-      data-manifest="./employee-manifest.webmanifest?v=7"
-      data-sw="./employee-sw.js?v=4"
+      data-manifest="./employee-manifest.webmanifest?v=8"
+      data-sw="./employee-sw.js?v=9"
     ></script>
     <script src="./mobile-shell.js?v=4"></script>
     <script src="./mobile-tables.js?v=1"></script>

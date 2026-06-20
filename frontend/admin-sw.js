@@ -1,9 +1,10 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v5";
+const CACHE_NAME = "shiftswift-admin-v6";
 const SHELL = [
   "./admin.html",
   "./business-login.html",
   "./forgot-password.html",
+  "./install-business.html",
   "./reset-password.html",
   "./admin-manifest.webmanifest",
   "./styles.css",
@@ -14,15 +15,20 @@ const SHELL = [
   "./login.js",
   "./auth-guard.js",
   "./portal-pwa-install.js",
+  "./pwa-ios.js",
+  "./native-app.js",
+  "./pwa-install-qr.js",
   "./push-notifications.js",
   "./mobile-shell.js",
   "./admin-mobile.js",
   "./assets/shiftswift-hr-app-icon-192.png",
   "./assets/shiftswift-hr-app-icon.png",
+  "./assets/shiftswift-hr-app-icon-180.png",
+  "./assets/shiftswift-hr-splash-1170x2532.png",
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
-const ADMIN_SHELL_PATHS = /\/(admin|business-login|forgot-password|reset-password)\.html$/i;
+const ADMIN_SHELL_PATHS = /\/(admin|business-login|forgot-password|reset-password|install-business)\.html$/i;
 
 function isSameOrigin(request) {
   try {

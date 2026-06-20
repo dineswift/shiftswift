@@ -1,0 +1,11 @@
+node_modules/
+.DS_Store
+dist/
+*.xcuserdata
+**/xcuserdata/
+DerivedData/
+ios-employee/App/Pods/
+ios-business/App/Pods/
+ios-app/App/Pods/
+ios-employee/App/public/
+ios-business/App/public/

@@ -1,6 +1,6 @@
 (function () {
   if (!window.ShiftSwiftSession?.hasSession?.()) {
-    window.location.replace("./business-login.html");
+    window.location.replace(window.ShiftSwiftSession?.resolveLoginUrl?.() || "./business-login.html");
   }
 })();
 
@@ -10,7 +10,7 @@ function signOut() {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("tenantId");
   localStorage.removeItem("userRole");
-  window.location.href = "./business-login.html";
+  window.location.href = window.ShiftSwiftSession?.resolveLoginUrl?.() || "./business-login.html";
 }
 
 document.querySelectorAll("[data-sign-out]").forEach((el) => {

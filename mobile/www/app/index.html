@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr" data-pwa-portal="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <base href="https://app.shiftswifthr.co.uk/" />
+    <meta name="theme-color" content="#0f6e56" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ShiftSwift HR" />
+    <script src="/brand-config.js?v=brand-v8"></script>
+    <script src="/native-app.js?v=4"></script>
+    <title>ShiftSwift HR | Sign in</title>
+    <link rel="stylesheet" href="https://app.shiftswifthr.co.uk/styles.css?v=brandkit-v9" />
+    <link rel="stylesheet" href="/native-app-login.css?v=2" />
+  </head>
+  <body class="portal-login-page portal-login-page--native-app portal-login-page--unified" data-login-page="unified">
+    <div class="portal-login-shell">
+      <header class="native-login-hero">
+        <div class="native-login-hero__logo-wrap">
+          <img
+            class="native-login-hero__logo app-mark app-mark--login"
+            src="https://app.shiftswifthr.co.uk/assets/shiftswift-hr-app-icon-192.png?v=brandkit-v7"
+            alt=""
+          />
+        </div>
+        <h1 class="native-login-hero__title">ShiftSwift HR</h1>
+        <p class="native-login-hero__tagline">One sign-in for your whole team</p>
+      </header>
+
+      <main class="native-login-sheet">
+        <section class="portal-login-card portal-login-card--business" id="portal-login-card">
+          <div class="portal-login-role-banner" id="login-role-banner" hidden aria-hidden="true">
+            <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Sign in</span>
+            <p class="portal-login-role-banner__copy" id="login-role-banner-copy"></p>
+          </div>
+
+          <div id="login-shell" class="portal-login-card-body">
+            <div class="native-login-roles" aria-label="Supported account types">
+              <div class="native-login-role-chip native-login-role-chip--employee">
+                <span class="native-login-role-chip__label">Staff</span>
+                Employee portal
+              </div>
+              <div class="native-login-role-chip native-login-role-chip--admin">
+                <span class="native-login-role-chip__label">Managers</span>
+                HR admin
+              </div>
+            </div>
+
+            <div class="portal-login-card-head">
+              <h1>Sign in</h1>
+              <p class="portal-login-card-lead" id="login-lead">
+                Use your work email — we open the right portal for you.
+              </p>
+            </div>
+
+            <form id="portal-login-form" class="portal-login-form">
+              <label>
+                Work email
+                <input name="username" required autocomplete="username" placeholder="you@company.co.uk" />
+              </label>
+              <label class="portal-login-password-field">
+                <span class="portal-login-password-label">
+                  <span id="password-label">Password</span>
+                  <a class="portal-login-inline-link portal-login-forgot" id="forgot-password-link" href="./employee-forgot-password.html">Forgot?</a>
+                </span>
+                <input
+                  name="password"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+                  placeholder="Enter password"
+                  aria-labelledby="password-label"
+                />
+              </label>
+
+              <p id="login-status" class="form-error-message" hidden></p>
+
+              <button class="btn portal-login-submit" type="submit" id="login-submit">Sign in</button>
+
+              <p class="portal-login-secure-note">
+                Secured · <span data-secure-host>shiftswifthr.co.uk</span>
+              </p>
+            </form>
+          </div>
+
+          <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
+            <div class="portal-login-card-head">
+              <h1>Set up authenticator</h1>
+              <p class="portal-login-card-lead">Scan the QR code, then enter a 6-digit code.</p>
+            </div>
+            <div class="portal-login-form">
+              <p id="mfa-enrollment-user" class="muted"></p>
+              <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
+                <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
+              </div>
+              <p class="mfa-enrollment-secret-label">Manual key</p>
+              <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
+              <label>
+                Verification code
+                <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
+              </label>
+              <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
+              <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+            </div>
+          </div>
+
+          <div id="mfa-panel" class="portal-login-card-body" hidden>
+            <div class="portal-login-card-head">
+              <h1>Two-factor authentication</h1>
+              <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+            </div>
+            <form id="mfa-form" class="portal-login-form">
+              <label>
+                Authenticator code
+                <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+              </label>
+              <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="https://app.shiftswifthr.co.uk/session-auth.js?v=3"></script>
+    <script src="/native-unified-login.js?v=2"></script>
+  </body>
+</html>

@@ -1,9 +1,10 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v8";
+const CACHE_NAME = "shiftswift-employee-v9";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
   "./employee-forgot-password.html",
+  "./install-employee.html",
   "./reset-password.html",
   "./employee-manifest.webmanifest",
   "./styles.css",
@@ -13,6 +14,9 @@ const SHELL = [
   "./employee-pwa.js",
   "./login.js",
   "./portal-pwa-install.js",
+  "./pwa-ios.js",
+  "./native-app.js",
+  "./pwa-install-qr.js",
   "./push-notifications.js",
   "./mobile-shell.js",
   "./employee-mobile.js",
@@ -21,10 +25,12 @@ const SHELL = [
   "./employee-rota.js",
   "./assets/shiftswift-employee-app-icon-192.png",
   "./assets/shiftswift-employee-app-icon.png",
+  "./assets/shiftswift-employee-app-icon-180.png",
+  "./assets/shiftswift-employee-splash-1170x2532.png",
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
-const EMPLOYEE_SHELL_PATHS = /\/(employee|employee-login|employee-forgot-password)\.html$/i;
+const EMPLOYEE_SHELL_PATHS = /\/(employee|employee-login|employee-forgot-password|install-employee)\.html$/i;
 
 function isSameOrigin(request) {
   try {

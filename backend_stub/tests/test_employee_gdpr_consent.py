@@ -30,3 +30,5 @@ def test_employee_portal_invite_email_mentions_employer_gdpr() -> None:
     assert "privacy notice" in content.text.lower()
     assert "privacy-policy.html" in content.text
     assert "responsible for managing your personal data" in content.html
+    assert "install-employee.html" in content.text
+    assert "Add to Home Screen" in content.text

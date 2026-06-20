@@ -452,6 +452,7 @@ def invite_employee_to_portal(
             employer_legal_name=legal_name,
             setup_url=reset_url,
             login_url=f"{app_url}/employee-login.html",
+            install_app_url=f"{app_url}/install-employee.html",
             reset_hours=RESET_HOURS,
         ),
         ip_address=ip_address,

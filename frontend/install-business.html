@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr" data-pwa-portal="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="canonical" href="https://app.shiftswifthr.co.uk/install-business.html" />
+    <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
+    <meta name="theme-color" content="#0f6e56" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HR Admin" />
+    <meta name="description" content="Install the ShiftSwift HR Admin app on your iPhone — manage employees, rotas, and compliance on the go." />
+    <script src="./portal-sw-guard.js?v=2"></script>
+    <script src="./brand-config.js?v=brand-v7"></script>
+    <script src="./app-host-guard.js?v=2"></script>
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script src="./native-app.js?v=1"></script>
+    <script src="./pwa-ios.js?v=1"></script>
+    <title>Install ShiftSwift HR Admin | iPhone app</title>
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v8" />
+  </head>
+  <body class="pwa-install-page pwa-install-page--business">
+    <main class="pwa-install-shell">
+      <div class="pwa-install-hero">
+        <img
+          class="pwa-install-hero__icon"
+          src="./assets/shiftswift-hr-app-icon-180.png?v=brandkit-v7"
+          alt="ShiftSwift HR Admin app icon"
+          width="96"
+          height="96"
+        />
+        <p class="pwa-install-hero__eyebrow">iPhone app</p>
+        <h1>ShiftSwift HR Admin</h1>
+        <p class="pwa-install-hero__lead">
+          Install on your home screen for a full-screen HR dashboard — approve leave, check rotas, and manage your team from your phone.
+        </p>
+      </div>
+
+      <section class="pwa-install-features card">
+        <h2>What you get</h2>
+        <ul class="pwa-install-feature-list">
+          <li>HR dashboard with live team overview</li>
+          <li>Rota builder and time punch approvals</li>
+          <li>Leave requests and compliance checklists</li>
+          <li>Employee records and documents on mobile</li>
+        </ul>
+      </section>
+
+      <section class="pwa-install-qr-card card">
+        <h2>Scan to install</h2>
+        <p class="muted pwa-install-qr-lead">Share this QR with HR managers or print it for your office — opens the HR Admin iPhone app install page.</p>
+        <div class="pwa-install-qr-wrap">
+          <img id="pwa-install-qr" width="220" height="220" alt="QR code to install ShiftSwift HR Admin on iPhone" loading="lazy" />
+        </div>
+        <p class="pwa-install-qr-url-wrap muted">
+          <a id="pwa-install-qr-url" href="https://app.shiftswifthr.co.uk/install-business.html" target="_blank" rel="noopener"></a>
+        </p>
+        <div class="pwa-install-qr-actions">
+          <button type="button" class="btn outline" id="pwa-install-copy-link">Copy install link</button>
+          <p id="pwa-install-copy-status" class="pwa-install-copy-status muted" hidden aria-live="polite">Link copied</p>
+        </div>
+      </section>
+
+      <section class="pwa-install-steps-card card" id="pwa-install-steps-card">
+        <h2>Install on iPhone</h2>
+        <ol class="pwa-install-steps pwa-install-steps--visual">
+          <li>
+            <span class="pwa-install-steps__badge">1</span>
+            <div>
+              <strong>Open in Safari</strong>
+              <p class="muted">This page must be opened in Safari — not Chrome or in-app browsers.</p>
+            </div>
+          </li>
+          <li>
+            <span class="pwa-install-steps__badge">2</span>
+            <div>
+              <strong>Tap Share → Add to Home Screen</strong>
+              <p class="muted">Use the Share button at the bottom of Safari, then scroll to Add to Home Screen.</p>
+            </div>
+          </li>
+          <li>
+            <span class="pwa-install-steps__badge">3</span>
+            <div>
+              <strong>Open from your home screen</strong>
+              <p class="muted">Launch HR Admin like any other app — no browser bar, full screen.</p>
+            </div>
+          </li>
+        </ol>
+        <button type="button" class="btn primary pwa-install-steps__cta" id="pwa-install-open-sheet">
+          Show install steps
+        </button>
+      </section>
+
+      <div class="pwa-install-actions">
+        <a class="btn primary" href="./business-login.html?source=install">Sign in to HR Admin</a>
+        <a class="btn ghost" href="./login.html">Choose a different portal</a>
+      </div>
+
+      <p class="pwa-install-footnote muted">
+        Already installed? <a href="./business-login.html">Open sign in</a>
+      </p>
+    </main>
+
+    <script src="./admin-pwa.js?v=5"></script>
+    <script>
+      window.ShiftSwiftAdminPwa?.registerAdminSw?.();
+    </script>
+    <script
+      src="./portal-pwa-install.js?v=3"
+      data-portal="admin"
+      data-app-name="ShiftSwift HR Admin"
+      data-manifest="./admin-manifest.webmanifest?v=8"
+      data-sw="./admin-sw.js?v=7"
+      data-layout="landing"
+    ></script>
+    <script>
+      (function () {
+        const openSheet = document.getElementById("pwa-install-open-sheet");
+        openSheet?.addEventListener("click", () => {
+          window.ShiftSwiftPortalPwaInstall?.openIosInstallSheet?.();
+        });
+        if (window.ShiftSwiftPwaIos?.isStandalone?.()) {
+          window.location.replace("./business-login.html?source=pwa");
+        }
+      })();
+    </script>
+    <script
+      src="./pwa-install-qr.js?v=1"
+      data-install-path="./install-business.html"
+    ></script>
+    <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

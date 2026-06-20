@@ -1,12 +1,15 @@
 <!doctype html>
-<html lang="en" data-app-icon="hr">
+<html lang="en" data-app-icon="hr" data-pwa-portal="hr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script src="./native-app-bootstrap.js?v=1"></script>
     <script src="./brand-config.js?v=brand-v8"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="theme-color" content="#0f6e56" />
-    <script src="./app-icons.js?v=brandkit-v6"></script>
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script src="./native-app.js?v=4"></script>
+    <script src="./pwa-ios.js?v=1"></script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -36,7 +39,7 @@
         }
       })();
     </script>
-    <link rel="manifest" href="./admin-manifest.webmanifest?v=7" />
+    <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="./styles.css?v=admin-v122" />
@@ -2959,18 +2962,18 @@
       </button>
     </nav>
 
-    <script src="./session-auth.js?v=2"></script>
+    <script src="./session-auth.js?v=3"></script>
     <script src="./auth-guard.js?v=security-v2"></script>
-    <script src="./admin-pwa.js?v=4"></script>
+    <script src="./admin-pwa.js?v=5"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>
     <script
-      src="./portal-pwa-install.js?v=2"
+      src="./portal-pwa-install.js?v=3"
       data-portal="admin"
       data-app-name="ShiftSwift HR Admin"
-      data-manifest="./admin-manifest.webmanifest?v=7"
-      data-sw="./admin-sw.js?v=6"
+      data-manifest="./admin-manifest.webmanifest?v=8"
+      data-sw="./admin-sw.js?v=7"
     ></script>
     <script src="./mobile-shell.js?v=5"></script>
     <script src="./mobile-tables.js?v=1"></script>
