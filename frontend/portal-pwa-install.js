@@ -254,7 +254,16 @@
   if (layout === "landing" && isIos() && !isStandalone()) {
     openIosInstallSheet();
   } else {
-    maybeShowInstallBanner();
+    scheduleInstallBanner();
+  }
+
+  function scheduleInstallBanner() {
+    const run = () => maybeShowInstallBanner();
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(run, { timeout: 2000 });
+      return;
+    }
+    window.setTimeout(run, 700);
   }
 
   window.ShiftSwiftPortalPwaInstall = {

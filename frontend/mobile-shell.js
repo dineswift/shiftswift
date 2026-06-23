@@ -24,6 +24,7 @@
     function closeSidebar() {
       sidebar?.classList.remove("sidebar--open");
       overlay?.classList.remove("sidebar-overlay--visible");
+      window.ShiftSwiftPortalStability?.lockBodyScroll?.(false);
       document.body.classList.remove("no-scroll");
       setExpanded(false);
     }
@@ -31,6 +32,7 @@
     function openSidebar() {
       sidebar?.classList.add("sidebar--open");
       overlay?.classList.add("sidebar-overlay--visible");
+      window.ShiftSwiftPortalStability?.lockBodyScroll?.(true);
       document.body.classList.add("no-scroll");
       setExpanded(true);
     }
@@ -80,7 +82,6 @@
   function restoreScrollTop(root, top) {
     writeScrollTop(root, top);
     requestAnimationFrame(() => writeScrollTop(root, top));
-    requestAnimationFrame(() => requestAnimationFrame(() => writeScrollTop(root, top)));
   }
 
   function preserveScroll(update) {
@@ -100,6 +101,10 @@
   }
 
   function resetPortalScroll() {
+    if (window.ShiftSwiftPortalStability?.resetPortalScrollDebounced) {
+      window.ShiftSwiftPortalStability.resetPortalScrollDebounced();
+      return;
+    }
     const content = document.querySelector("main.content");
     if (content) content.scrollTop = 0;
     document.documentElement.scrollTop = 0;
@@ -112,10 +117,6 @@
     const el = document.getElementById(anchorId);
     if (!el) return;
     const block = options.block || "nearest";
-    if (isMobileViewport() && el.classList.contains("admin-section")) {
-      resetPortalScroll();
-      return;
-    }
     requestAnimationFrame(() => {
       el.scrollIntoView({ behavior: options.behavior || "auto", block });
     });

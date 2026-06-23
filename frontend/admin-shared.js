@@ -899,23 +899,22 @@ window.Admin = (() => {
       const exists = sections.some((s) => s.id === sectionId);
       const targetSection = exists ? sectionId : "overview";
       const isDeepLink = path.includes("/");
+      let normalizeTo = null;
 
       if (!exists) {
-        if (!isDeepLink && path !== targetSection) {
-          window.location.hash = targetSection;
-          return;
-        }
-        if (isDeepLink) {
-          window.location.hash = "overview";
-          return;
-        }
+        if (!isDeepLink && path !== targetSection) normalizeTo = targetSection;
+        else if (isDeepLink) normalizeTo = "overview";
       } else if (!isDeepLink && path !== targetSection) {
-        window.location.hash = targetSection;
-        return;
+        normalizeTo = targetSection;
       }
 
-      showSection(targetSection);
-      window.dispatchEvent(new CustomEvent("admin:section", { detail: { section: targetSection } }));
+      if (normalizeTo) {
+        history.replaceState(null, "", `#${normalizeTo}`);
+      }
+
+      const finalSection = normalizeTo || targetSection;
+      showSection(finalSection);
+      window.dispatchEvent(new CustomEvent("admin:section", { detail: { section: finalSection } }));
     }
 
     links.forEach((link) => {

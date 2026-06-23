@@ -8,6 +8,7 @@
   let currentTab = "home";
   let previousTab = "home";
   let startupResolved = false;
+  let lastSyncedTab = null;
 
   function isMobile() {
     return window.matchMedia("(max-width: 860px)").matches;
@@ -47,6 +48,8 @@
     }
     if (startupResolved) return;
     startupResolved = true;
+    document.body.classList.remove("portal-startup-pending");
+    document.body.classList.add("portal-startup-ready");
 
     if (!isMobile()) return;
 
@@ -96,6 +99,8 @@
   }
 
   function syncTabUi(tab) {
+    const tabChanged = lastSyncedTab !== tab;
+    lastSyncedTab = tab;
     document.body.dataset.mobileTab = tab;
     document.querySelectorAll("[data-mobile-tab]").forEach((el) => {
       if (el.tagName === "BUTTON" || el.tagName === "A") {
@@ -135,7 +140,7 @@
 
     document.body.classList.toggle("admin-mobile-more-open", tab === "more");
 
-    if (isMobile()) {
+    if (isMobile() && tabChanged) {
       window.MobileShell?.resetPortalScroll?.();
     }
     syncComplianceDrill();
@@ -165,9 +170,7 @@
       return;
     }
     if (tab === "more") {
-      document.querySelectorAll(".admin-section").forEach((section) => {
-        section.hidden = true;
-      });
+      return;
     }
   }
 
@@ -195,9 +198,6 @@
       currentTab = "more";
       localStorage.setItem("adminMobileTab", "more");
       syncTabUi("more");
-      document.querySelectorAll(".admin-section").forEach((section) => {
-        section.hidden = true;
-      });
       window.location.hash = "overview";
       return;
     }
@@ -382,12 +382,10 @@
     if (startupResolved) return;
 
     if (isMobile()) {
-      const hashSection = window.location.hash.replace("#", "").split("/")[0];
-      if (hashSection === "time-punch" && clockEnabled) {
-        setTab(localStorage.getItem("adminMobileTab") || "home", { skipHash: true, persist: false });
-      } else {
-        setTab("home", { skipHash: true, persist: false });
-      }
+      document.body.classList.add("portal-startup-pending");
+      window.setTimeout(() => {
+        if (!startupResolved) finishStartup(clockEnabled);
+      }, 4000);
       syncComplianceDrill();
     } else {
       delete document.body.dataset.mobileTab;

@@ -1,10 +1,11 @@
 /** Keep HR admin pages on the admin service worker — not the employee shell. */
 (function () {
-  const SW_URL = "./admin-sw.js?v=9";
+  const SW_URL = "./admin-sw.js?v=10";
   const BLOCKED_SW = ["employee-sw.js", "punch-sw.js", "app-sw.js"];
 
   function registerAdminSw() {
     if (!("serviceWorker" in navigator)) return Promise.resolve(null);
+    window.ShiftSwiftPortalStability?.initServiceWorkerReload?.("adminSwReloaded");
     return navigator.serviceWorker
       .getRegistrations()
       .then((regs) =>

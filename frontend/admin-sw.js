@@ -1,5 +1,5 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v8";
+const CACHE_NAME = "shiftswift-admin-v9";
 const SHELL = [
   "./admin.html",
   "./business-login.html",
@@ -15,6 +15,7 @@ const SHELL = [
   "./login.js",
   "./auth-guard.js",
   "./portal-pwa-install.js",
+  "./portal-pwa-stability.js",
   "./pwa-ios.js",
   "./native-app.js",
   "./pwa-install-qr.js",
@@ -31,6 +32,38 @@ const SHELL = [
 ];
 
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
+const MUTABLE_EXTENSIONS = /\.(css|js)$/i;
+const CACHE_FIRST_EXTENSIONS = /\.(png|svg|woff2?)$/i;
+
+function networkFirst(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      }
+      return response;
+    })
+    .catch(() => caches.match(request));
+}
+
+function staleWhileRevalidate(event, request, cached) {
+  const networkFetch = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    event.waitUntil(networkFetch);
+    return cached;
+  }
+  return networkFetch.then((response) => response || caches.match(fallbackDocument(request.url)));
+}
 const ADMIN_SHELL_PATHS = /\/(admin|business-login|forgot-password|reset-password|install-business)\.html$/i;
 
 function isSameOrigin(request) {
@@ -110,23 +143,17 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (!STATIC_EXTENSIONS.test(url.pathname)) return;
 
+  if (MUTABLE_EXTENSIONS.test(url.pathname)) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => null);
-
-      if (cached) {
-        event.waitUntil(networkFetch);
-        return cached;
+      if (CACHE_FIRST_EXTENSIONS.test(url.pathname)) {
+        return staleWhileRevalidate(event, event.request, cached);
       }
-      return networkFetch.then((response) => response || caches.match(fallbackDocument(event.request.url)));
+      return networkFirst(event.request);
     }),
   );
 });

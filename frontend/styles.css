@@ -16,6 +16,40 @@ body {
 }
 
 body.no-scroll { overflow: hidden; }
+body.no-scroll main.content {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+html.portal-pwa-shell {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.portal-pwa-shell.portal-mobile-shell,
+html.pwa-standalone.portal-mobile-shell {
+  overscroll-behavior: none;
+}
+
+body.portal-startup-pending .app > main.content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.portal-startup-pending #mobile-tab-bar {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+body.portal-startup-ready .app > main.content {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+body.portal-startup-ready #mobile-tab-bar {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
 
 a { color: inherit; }
 
@@ -1600,11 +1634,18 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   align-items: stretch;
   justify-content: space-around;
   gap: 2px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   padding: 4px max(6px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
     max(6px, env(safe-area-inset-left));
   border-top: 1px solid var(--card-border);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(8px);
+}
+
+html.pwa-standalone .mobile-tab-bar {
+  backdrop-filter: none;
+  background: #fff;
 }
 
 .mobile-tab {
@@ -3931,6 +3972,7 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
     overflow-x: hidden;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: auto;
   }
   body.admin-mobile-detail .topbar {
     margin-bottom: 12px;
@@ -3943,6 +3985,10 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
     position: sticky;
     top: 0;
     z-index: 105;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    contain: layout style;
     flex-direction: row;
     align-items: center;
     gap: 10px;

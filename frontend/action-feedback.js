@@ -43,10 +43,14 @@
       originalHtml: button.innerHTML,
       originalLabel: button.tagName === "BUTTON" ? button.textContent : "",
       originalAriaBusy: button.getAttribute("aria-busy"),
+      originalMinWidth: button.style.minWidth,
+      originalMinHeight: button.style.minHeight,
     };
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
     button.classList.add(BUSY_CLASS);
+    if (button.offsetWidth > 0) button.style.minWidth = `${button.offsetWidth}px`;
+    if (button.offsetHeight > 0) button.style.minHeight = `${button.offsetHeight}px`;
     if (button.tagName === "BUTTON") {
       button.textContent = loadingLabel;
     }
@@ -55,9 +59,11 @@
 
   function endButtonAction(state, { successLabel, flashSuccess = false, resetAfterMs = 1800 } = {}) {
     if (!state?.button) return;
-    const { button, originalHtml, originalAriaBusy } = state;
+    const { button, originalHtml, originalAriaBusy, originalMinWidth, originalMinHeight } = state;
     button.disabled = false;
     button.classList.remove(BUSY_CLASS);
+    button.style.minWidth = originalMinWidth || "";
+    button.style.minHeight = originalMinHeight || "";
     if (originalAriaBusy == null) button.removeAttribute("aria-busy");
     else button.setAttribute("aria-busy", originalAriaBusy);
     if (button.tagName === "BUTTON") {

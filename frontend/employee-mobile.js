@@ -19,6 +19,7 @@
   let currentTab = "home";
   let previousTab = "home";
   let startupResolved = false;
+  let lastSyncedTab = null;
 
   function isMobile() {
     return window.matchMedia("(max-width: 860px)").matches;
@@ -83,6 +84,8 @@
   }
 
   function syncTabUi(tab) {
+    const tabChanged = lastSyncedTab !== tab;
+    lastSyncedTab = tab;
     document.body.dataset.mobileTab = tab;
     document.querySelectorAll("#mobile-tab-bar [data-mobile-tab]").forEach((el) => {
       el.classList.toggle("mobile-tab--active", el.dataset.mobileTab === tab);
@@ -97,7 +100,7 @@
 
     document.body.classList.toggle("employee-mobile-more-open", tab === "more");
 
-    if (isMobile()) {
+    if (isMobile() && tabChanged) {
       window.MobileShell?.resetPortalScroll?.();
     }
   }
@@ -113,9 +116,6 @@
     if (skipHash || !isMobile()) return;
 
     if (currentTab === "more") {
-      document.querySelectorAll(".admin-section").forEach((section) => {
-        section.hidden = true;
-      });
       return;
     }
 
@@ -133,6 +133,8 @@
     if (startupResolved) return;
     const tab = resolveStartupTab();
     startupResolved = true;
+    document.body.classList.remove("portal-startup-pending");
+    document.body.classList.add("portal-startup-ready");
     if (isMobile()) {
       setTab(tab);
       return;
@@ -234,8 +236,10 @@
     if (startupResolved) return;
 
     if (isMobile()) {
-      const interimTab = tabFromHash() || "home";
-      setTab(interimTab, { skipHash: true, persist: false });
+      document.body.classList.add("portal-startup-pending");
+      window.setTimeout(() => {
+        if (!startupResolved) finishStartup(clockEnabled);
+      }, 4000);
     } else {
       syncTabUi("home");
     }
