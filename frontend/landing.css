@@ -1480,6 +1480,14 @@ body.is-loading .page {
   font-weight: 700;
 }
 
+.compare-section__note {
+  text-align: center;
+  max-width: 40rem;
+  margin: -8px auto 20px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .compare-footnote {
   text-align: center;
   margin-top: 14px;
@@ -1489,6 +1497,11 @@ body.is-loading .page {
 
 .compare-section--competitors {
   padding-top: 32px;
+}
+
+.compare-table--matrix tbody td:not(:first-child) {
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .compare-table--matrix .compare-table__head--win {

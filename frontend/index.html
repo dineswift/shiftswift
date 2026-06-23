@@ -42,7 +42,7 @@
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
     <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v32" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v33" />
     <style>
       /* Critical hero band — survives stale CSS cache / missing theme import */
       .hero-band {
@@ -539,10 +539,11 @@
                 </thead>
                 <tbody>
                   <tr><td>Employee records</td><td>Scattered spreadsheets, version chaos</td><td>One HR profile per person with documents and lifecycle steps</td></tr>
-                  <tr><td>Right-to-work audit trail</td><td>Folders, emails, chaos</td><td>Timestamped records, document uploads, expiry alerts</td></tr>
+                  <tr><td>Right-to-work audit trail</td><td>Folders, email, hard to prove at audit</td><td>Timestamped records, document uploads, expiry alerts</td></tr>
                   <tr><td>Sponsor licence day-9 reporting</td><td>Calendar reminders that get missed</td><td>Automatic day-9 alerts and reportable absence logs</td></tr>
                   <tr><td>Home Office inspection prep</td><td>Hours gathering documents</td><td>One-click audit export pack, inspection-ready</td></tr>
-                  <tr><td>Time &amp; attendance</td><td>WhatsApp check-ins, no audit trail</td><td>Geofenced time clock linked to rota and day-9 alerts</td></tr>
+                  <tr><td>Time &amp; attendance</td><td>Informal check-ins, weak audit trail</td><td>Geofenced time clock linked to rota and day-9 alerts</td></tr>
+                  <tr><td>Automated reminders</td><td>Calendar notes &amp; WhatsApp chasing</td><td>RTW expiry; sponsor day-5 &amp; day-9 (email + SMS); shift &amp; missed clock-in; portal sign-in (email + push); rota publish — all configurable</td></tr>
                   <tr><td>Month-end hours for payroll</td><td>Manual totals, photo of a rota, errors</td><td>Working-hours PDF or CSV; optional auto-email to your accountant on the 1st</td></tr>
                   <tr><td>Employee self-service</td><td>HR chases everyone on WhatsApp</td><td>Employee portal — rotas, clock-in, GDPR consent, HR-visible notes</td></tr>
                   <tr><td>Multi-user access</td><td>Shared logins, no accountability</td><td>Role-based permissions per site and manager level</td></tr>
@@ -553,10 +554,15 @@
         </section>
 
         <section class="section compare-section compare-section--competitors reveal" aria-labelledby="compare-competitors-heading">
-            <h2 id="compare-competitors-heading">How ShiftSwift HR compares</h2>
+            <h2 id="compare-competitors-heading">Where ShiftSwift HR fits</h2>
             <p class="compare-section__lead muted">
-              Rotacloud excels at scheduling. Breathe HR excels at generic SME records. ShiftSwift HR is built when
-              <strong>right-to-work, sponsor duties, and geofenced clock-in</strong> need to live in one audit-ready place.
+              <strong>Rotacloud</strong> is strong for shift scheduling. <strong>Breathe HR</strong> is a solid choice for general SME HR records.
+              <strong>ShiftSwift HR</strong> is for UK teams where <strong>right-to-work, sponsor duties, and geofenced clock-in</strong>
+              need to sit in one audit-ready place — especially sponsor licence holders and hospitality venues.
+            </p>
+            <p class="compare-section__note muted">
+              We&apos;re in early access — the table below is qualitative guidance based on our product today and public vendor information.
+              Book a demo to validate fit for your site.
             </p>
             <div class="compare-table-wrap">
               <table class="compare-table compare-table--matrix">
@@ -572,67 +578,90 @@
                 <tbody>
                   <tr>
                     <td>Best for</td>
-                    <td>Tiny teams, no audit pressure</td>
-                    <td>Rota &amp; shift scheduling</td>
-                    <td>Office-style SME HR records</td>
+                    <td>Tiny teams, low audit pressure</td>
+                    <td>Shift scheduling &amp; rotas</td>
+                    <td>Office-style SME HR</td>
                     <td>UK venues &amp; sponsor licence holders</td>
                   </tr>
                   <tr>
                     <td>Right-to-work &amp; expiry alerts</td>
                     <td>Manual folders</td>
-                    <td>Not a focus</td>
-                    <td>Strong</td>
-                    <td>Strong</td>
+                    <td>Not a core focus</td>
+                    <td>Strong (HR records)</td>
+                    <td>Strong (with audit trail)</td>
                   </tr>
                   <tr>
                     <td>Sponsor day-9 &amp; audit export</td>
-                    <td>Not included</td>
-                    <td>Not included</td>
-                    <td>Limited</td>
-                    <td>Compliance plan</td>
+                    <td>Manual tracking</td>
+                    <td>Not a core focus</td>
+                    <td>General HR; not sponsor-specific</td>
+                    <td>Built in (Compliance plan)</td>
                   </tr>
                   <tr>
                     <td>Geofenced clock + premises QR</td>
-                    <td>WhatsApp / honour system</td>
-                    <td>Basic clock</td>
-                    <td>Not included</td>
+                    <td>Informal check-ins</td>
+                    <td>Clock-in available; geofence varies</td>
+                    <td>Not a core focus</td>
                     <td>Built in</td>
                   </tr>
                   <tr>
                     <td>Punch dispute audit trail</td>
                     <td>None</td>
-                    <td>Shift logs only</td>
-                    <td>Not included</td>
+                    <td>Shift &amp; clock logs</td>
+                    <td>Not a core focus</td>
                     <td>HR review &amp; re-punch flags</td>
                   </tr>
                   <tr>
                     <td>Weekly rota + attendance</td>
                     <td>Manual</td>
                     <td>Strong</td>
-                    <td>Limited</td>
-                    <td>Built in</td>
+                    <td>Basic / add-on</td>
+                    <td>Built in, linked to clock</td>
+                  </tr>
+                  <tr>
+                    <td>Compliance reminders</td>
+                    <td>DIY calendar</td>
+                    <td>Not a core focus</td>
+                    <td>RTW &amp; policy reminders</td>
+                    <td>RTW expiry; day-5 warning; day-9 alert (email + SMS)</td>
+                  </tr>
+                  <tr>
+                    <td>Clock &amp; portal reminders</td>
+                    <td>WhatsApp chasing</td>
+                    <td>Shift notifications (varies)</td>
+                    <td>Not a core focus</td>
+                    <td>Before shift; missed punch (staff + HR); portal sign-in (email + push); rota publish</td>
                   </tr>
                   <tr>
                     <td>Hours export for accountant</td>
                     <td>Rebuild each month</td>
-                    <td>Reports available</td>
+                    <td>Reports / exports available</td>
                     <td>Export options</td>
                     <td>PDF / CSV + optional auto-email</td>
                   </tr>
                   <tr>
                     <td>Typical cost · ~20 staff, 1 site</td>
                     <td>Hidden admin time</td>
-                    <td>Per-user scheduling fees</td>
-                    <td>Base + per-user HR fees</td>
-                    <td>From £49/mo capped (Essentials)</td>
+                    <td>Varies (per-user scheduling)</td>
+                    <td>Varies (base + per user)</td>
+                    <td>From £49/mo capped (Essentials, ex VAT)</td>
+                  </tr>
+                  <tr>
+                    <td>When another tool may be enough</td>
+                    <td>—</td>
+                    <td>Rota-only, no sponsor duties</td>
+                    <td>Generic HR, no clock/compliance pressure</td>
+                    <td>Sponsor + clock + audit in one place</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p class="compare-footnote muted">
-              Competitor pricing is indicative UK list pricing ex VAT — verify on vendor websites.
+              Comparison is qualitative and for guidance only. Competitor features and pricing change — check each vendor&apos;s website.
+              ShiftSwift HR pricing is on our plans page. <strong>Last reviewed: June 2026.</strong>
               <a href="#pricing">See ShiftSwift HR plans</a> ·
-              <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20comparison%20sheet">Request the full comparison sheet</a>.
+              <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20comparison%20sheet">Request the full comparison sheet</a> ·
+              <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a>.
             </p>
         </section>
 
