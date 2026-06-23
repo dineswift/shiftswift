@@ -1292,8 +1292,13 @@ body.is-loading .page {
 }
 
 .section--highlight-cards {
-  padding-top: 16px;
-  padding-bottom: 24px;
+  padding-top: 40px;
+  padding-bottom: 40px;
+  margin-top: 8px;
+}
+
+#features {
+  padding-bottom: 28px;
 }
 
 .highlight-cards-grid {
@@ -1416,7 +1421,8 @@ body.is-loading .page {
 .faq-section,
 .pricing-footnote,
 .doc-samples,
-#features {
+#features,
+.section--highlight-cards {
   opacity: 1 !important;
   transform: none !important;
 }
@@ -2196,8 +2202,9 @@ body.is-loading .page {
   }
 
   .section--highlight-cards {
-    padding-top: 12px;
-    padding-bottom: 16px;
+    padding-top: 28px;
+    padding-bottom: 28px;
+    margin-top: 4px;
   }
 
   .highlight-cards-grid {
