@@ -664,9 +664,9 @@
         host.innerHTML = `
       <article class="card settings-notify-branding">
         <h4 class="hr-section-title">Employee notification name</h4>
-        <p class="muted">This is the name staff see in rota, document, and reminder emails. Leave blank to use “Your employer”. Your legal business name is still shown where required for GDPR (portal invite).</p>
+        <p class="muted">This is the sender name staff see in rota, document, and reminder emails (the system notification address stays hidden). Leave blank to use “Your employer”. Your legal business name is still shown where required for GDPR (portal invite).</p>
         <label class="edit-field settings-notify-branding__field">
-          <span class="edit-label">Name shown to employees</span>
+          <span class="edit-label">Sender name shown to employees</span>
           <input type="text" id="settings-employee-display-name" maxlength="120" placeholder="Your employer" value="${escapeHtml(data?.employee_display_name || "")}" />
         </label>
         <p class="muted settings-notify-branding__hint" id="settings-employee-display-preview"></p>
@@ -741,7 +741,7 @@
           const value = displayInput?.value.trim();
           const shown = value || data?.employee_display_name_default || "Your employer";
           if (preview) {
-            preview.textContent = `Preview: “${shown} has published your shifts for Mon 10 – Sun 16 Jun 2026.”`;
+            preview.textContent = `Preview sender: ${shown} — “${shown} has published your shifts for Mon 10 – Sun 16 Jun 2026.”`;
           }
         };
         updatePreview();

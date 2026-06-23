@@ -124,10 +124,54 @@ def _parse_from_email() -> str:
     return raw
 
 
-def format_from_header(*, audience: EmailAudience | str = "hr") -> str:
-    """Use platform display name in From — never the tenant business name (employee-safe)."""
+_PLATFORM_FROM_PURPOSES = frozenset({"billing", "welcome"})
+
+
+def _sanitize_from_display_name(name: str) -> str:
+    cleaned = "".join(ch for ch in str(name) if ch >= " " or ch == "\t").strip()
+    return cleaned[:120] or _platform_from_name()
+
+
+def resolve_from_display_name(
+    *,
+    audience: EmailAudience | str = "hr",
+    purpose: EmailPurpose | str = "general",
+    tenant_id: int | None = None,
+    conn: Any | None = None,
+) -> str:
+    """Readable From name — tenant business/alias for staff mail; platform name otherwise."""
+    if audience == "platform" or purpose in _PLATFORM_FROM_PURPOSES:
+        return _platform_from_name()
+    if tenant_id and conn:
+        if audience == "employee":
+            from modules.employees.notification_branding import employee_notification_from_name
+
+            return _sanitize_from_display_name(
+                employee_notification_from_name(tenant_id=tenant_id, conn=conn)
+            )
+        if audience == "hr" and purpose != "password_reset":
+            contacts = fetch_tenant_contacts(tenant_id=tenant_id, conn=conn)
+            tenant_name = str(contacts.get("tenant_name") or "").strip()
+            if tenant_name:
+                return _sanitize_from_display_name(tenant_name)
+    return _platform_from_name()
+
+
+def format_from_header(
+    *,
+    audience: EmailAudience | str = "hr",
+    purpose: EmailPurpose | str = "general",
+    tenant_id: int | None = None,
+    conn: Any | None = None,
+) -> str:
+    """Format SMTP From with a display name so the raw noreply address is hidden in clients."""
     from_email = _parse_from_email()
-    display = _platform_from_name()
+    display = resolve_from_display_name(
+        audience=audience,
+        purpose=purpose,
+        tenant_id=tenant_id,
+        conn=conn,
+    )
     if not from_email:
         return display
     return formataddr((display, from_email))
@@ -495,7 +539,13 @@ def _send_email(
     msg = EmailMessage()
     msg["Subject"] = subject
     audience = str(payload.get("audience") or "hr")
-    msg["From"] = format_from_header(audience=audience)
+    purpose = str(payload.get("purpose") or "general")
+    msg["From"] = format_from_header(
+        audience=audience,
+        purpose=purpose,
+        tenant_id=tenant_id,
+        conn=conn,
+    )
     msg["To"] = to_addr
     contacts = fetch_tenant_contacts(tenant_id=tenant_id, conn=conn) if tenant_id else None
     reply_to = resolve_reply_to(
