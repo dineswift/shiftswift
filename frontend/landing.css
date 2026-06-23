@@ -1291,6 +1291,26 @@ body.is-loading .page {
   padding: 24px 0 32px;
 }
 
+.section--highlight-cards {
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+
+.highlight-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  max-width: 1080px;
+  margin: 0 auto;
+  align-items: stretch;
+}
+
+.highlight-cards-grid .compliance-card {
+  max-width: none;
+  margin: 0;
+  height: 100%;
+}
+
 .section--compact .compliance-card {
   display: grid;
   gap: 12px;
@@ -2173,6 +2193,16 @@ body.is-loading .page {
 
   .section--compact {
     padding: 16px 0 20px;
+  }
+
+  .section--highlight-cards {
+    padding-top: 12px;
+    padding-bottom: 16px;
+  }
+
+  .highlight-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .doc-samples {
