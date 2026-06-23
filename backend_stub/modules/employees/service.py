@@ -127,3 +127,16 @@ def after_employee_updated(
             actor_username=actor_username,
             actor_role=actor_role,
         )
+
+    from modules.employees.entity_history import record_employee_version
+
+    record_employee_version(
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        old_row=old_row,
+        new_row=new_row,
+        changed_by=actor_username,
+        changed_by_role=actor_role,
+        conn=conn,
+        change_reason=reason,
+    )

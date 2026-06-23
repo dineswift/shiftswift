@@ -508,6 +508,39 @@ def portal_setup_pending_hr_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def employee_signin_reminder_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    days_idle: int,
+    login_url: str,
+) -> EmailContent:
+    subject = f"{APP_NAME} — Reminder to sign in to {tenant_name}"
+    portal_url = f"{APP_URL}/employee.html"
+    text = (
+        f"Hello {employee_name},\n\n"
+        f"You have not signed in to the {tenant_name} employee portal for {days_idle} days.\n"
+        f"Open shifts, clock in and out, and view payslips when you sign in:\n{login_url}\n\n"
+        f"— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=f"Sign in to {tenant_name} — it has been {days_idle} days since your last visit.",
+        title="Reminder to sign in",
+        intro=(
+            f"Hello {employee_name}, you have not signed in to the "
+            f"{tenant_name} employee portal for {days_idle} days."
+        ),
+        paragraphs=[
+            "Use the portal to view shifts, clock in at work, request leave, and open payslips.",
+            f"Sign-in page: {login_url}",
+            f"After signing in: {portal_url}",
+        ],
+        cta_url=login_url,
+        cta_label="Sign in now",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def employee_document_shared_email(
     *,
     employee_name: str,

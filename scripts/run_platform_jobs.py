@@ -76,6 +76,7 @@ def main() -> int:
         "payroll_hours_reports": {"tenants_checked": 0, "reports_sent": 0, "skipped": 0},
         "missed_punch_alerts": 0,
         "push_reminders": 0,
+        "signin_reminders": 0,
     }
     try:
         job_now = datetime.now(timezone.utc)
@@ -103,6 +104,10 @@ def main() -> int:
 
             push_sent = evaluate_shift_push_reminders(tenant_id=tenant_id, conn=conn, now=job_now)
             summary["push_reminders"] = summary.get("push_reminders", 0) + len(push_sent)
+            from modules.employees.signin_reminders import evaluate_signin_reminders
+
+            signin_sent = evaluate_signin_reminders(tenant_id=tenant_id, conn=conn, now=job_now)
+            summary["signin_reminders"] = summary.get("signin_reminders", 0) + len(signin_sent)
         summary["events_processed"] = process_pending_events(conn=conn)
         summary["hr_templates"] = sync_all_templates(conn=conn)
         summary["trial_reminders"] = process_trial_reminders(conn=conn)

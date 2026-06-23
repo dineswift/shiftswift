@@ -8473,6 +8473,19 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   font-size: 0.82rem;
 }
 
+.settings-signin-reminder {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+
+.settings-signin-reminder__grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  max-width: 720px;
+}
+
 .settings-notify-select {
   min-width: 160px;
   padding: 6px 10px;

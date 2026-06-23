@@ -162,6 +162,26 @@ def read_employee_workspace(
         conn.close()
 
 
+@router.get("/{employee_id}/history")
+def read_employee_history(
+    employee_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.employees.entity_history import list_employee_versions
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        employee = fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        if not employee:
+            raise HTTPException(status_code=404, detail="employee not found")
+        versions = list_employee_versions(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        return {"employee_id": employee_id, "versions": versions}
+    finally:
+        conn.close()
+
+
 @router.patch("/{employee_id}/sections/{section}")
 def patch_employee_section(
     employee_id: int,

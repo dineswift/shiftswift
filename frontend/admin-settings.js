@@ -604,16 +604,29 @@
     { id: "missed_punch_employee", label: "Missed clock-in (employee reminder)", default: "email" },
   ];
 
+  const SIGNIN_REMINDER_DELIVERY = [
+    { value: "email_push", label: "Email + push alert" },
+    { value: "email", label: "Email only" },
+    { value: "push", label: "Push alert only" },
+    { value: "off", label: "Off" },
+  ];
+
   async function saveNotificationPreferences(host) {
     const preferences = {};
     host.querySelectorAll(".settings-notify-select").forEach((el) => {
       preferences[el.dataset.notifyId] = el.value;
     });
+    const signinDelivery = host.querySelector("#settings-signin-reminder-delivery")?.value;
+    if (signinDelivery) preferences.employee_signin_reminder = signinDelivery;
     const displayInput = host.querySelector("#settings-employee-display-name");
+    const intervalRaw = host.querySelector("#settings-signin-reminder-interval")?.value;
+    const hourRaw = host.querySelector("#settings-signin-reminder-hour")?.value;
     const payload = {
       preferences,
       employee_display_name: displayInput ? displayInput.value.trim() : "",
     };
+    if (intervalRaw) payload.signin_reminder_interval_days = Number(intervalRaw);
+    if (hourRaw !== undefined && hourRaw !== "") payload.signin_reminder_hour_uk = Number(hourRaw);
     try {
       const saveRes = await apiFetch("/admin/notification-preferences", {
         method: "PATCH",
@@ -636,8 +649,14 @@
     apiFetch("/admin/notification-preferences")
       .then(async (res) => {
         const data = res.ok ? await res.json() : null;
-        const events = data?.events?.length ? data.events : NOTIFICATION_EVENTS;
+        const events = (data?.events?.length ? data.events : NOTIFICATION_EVENTS).filter(
+          (ev) => ev.id !== "employee_signin_reminder",
+        );
         const prefs = data?.preferences || {};
+        const signin = data?.signin_reminder || {};
+        const signinDelivery = signin.delivery || prefs.employee_signin_reminder || "email_push";
+        const signinInterval = signin.interval_days ?? 30;
+        const signinHour = signin.hour_uk ?? 9;
 
         host.innerHTML = `
       <article class="card settings-notify-branding">
@@ -649,7 +668,31 @@
         </label>
         <p class="muted settings-notify-branding__hint" id="settings-employee-display-preview"></p>
       </article>
-      <p class="muted">Choose how your organisation receives alerts. Employee emails respect each person's notification setting.</p>
+      <article class="card settings-signin-reminder">
+        <h4 class="hr-section-title">Employee sign-in reminder</h4>
+        <p class="muted">Nudge staff who have not opened the employee portal recently. Sent once per interval at the chosen UK time (requires platform jobs cron every 15 minutes).</p>
+        <div class="settings-signin-reminder__grid">
+          <label class="edit-field">
+            <span class="edit-label">Remind after</span>
+            <select id="settings-signin-reminder-interval">
+              ${[7, 14, 30, 60, 90].map((days) => `<option value="${days}" ${Number(signinInterval) === days ? "selected" : ""}>${days} days</option>`).join("")}
+            </select>
+          </label>
+          <label class="edit-field">
+            <span class="edit-label">Send at (UK time)</span>
+            <select id="settings-signin-reminder-hour">
+              ${Array.from({ length: 24 }, (_, hour) => `<option value="${hour}" ${Number(signinHour) === hour ? "selected" : ""}>${String(hour).padStart(2, "0")}:00</option>`).join("")}
+            </select>
+          </label>
+          <label class="edit-field">
+            <span class="edit-label">Delivery</span>
+            <select id="settings-signin-reminder-delivery">
+              ${SIGNIN_REMINDER_DELIVERY.map((opt) => `<option value="${opt.value}" ${signinDelivery === opt.value ? "selected" : ""}>${escapeHtml(opt.label)}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+      </article>
+      <p class="muted">Choose how your organisation receives HR alerts.</p>
       <div class="settings-notify-table-wrap">
         <table class="data-table settings-notify-table">
           <thead><tr><th>Event</th><th>Delivery</th></tr></thead>
@@ -678,6 +721,15 @@
           select.addEventListener("change", () => {
             void saveNotificationPreferences(host);
           });
+        });
+        host.querySelector("#settings-signin-reminder-interval")?.addEventListener("change", () => {
+          void saveNotificationPreferences(host);
+        });
+        host.querySelector("#settings-signin-reminder-hour")?.addEventListener("change", () => {
+          void saveNotificationPreferences(host);
+        });
+        host.querySelector("#settings-signin-reminder-delivery")?.addEventListener("change", () => {
+          void saveNotificationPreferences(host);
         });
 
         const displayInput = host.querySelector("#settings-employee-display-name");

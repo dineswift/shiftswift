@@ -54,6 +54,7 @@ NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
     "rota_published": "email",
     "missed_punch_hr": "email",
     "missed_punch_employee": "email",
+    "employee_signin_reminder": "email_push",
 }
 
 NOTIFICATION_PREF_EVENTS = (
@@ -63,9 +64,13 @@ NOTIFICATION_PREF_EVENTS = (
     {"id": "rota_published", "label": "Rota published"},
     {"id": "missed_punch_hr", "label": "Missed clock-in (HR alert)"},
     {"id": "missed_punch_employee", "label": "Missed clock-in (employee reminder)"},
+    {"id": "employee_signin_reminder", "label": "Employee sign-in reminder (to staff)"},
 )
 
 VALID_NOTIFICATION_DELIVERY = frozenset({"email", "email_sms", "off"})
+VALID_SIGNIN_REMINDER_DELIVERY = frozenset({"email", "push", "email_push", "off"})
+SIGNIN_REMINDER_DEFAULT_INTERVAL_DAYS = 30
+SIGNIN_REMINDER_DEFAULT_HOUR_UK = 9
 
 
 from modules.employees.repository import (
@@ -397,12 +402,17 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
 
     preferences = dict(NOTIFICATION_PREF_DEFAULTS)
     for key, value in (stored or {}).items():
-        if key in NOTIFICATION_PREF_DEFAULTS and value in VALID_NOTIFICATION_DELIVERY:
+        if key == "employee_signin_reminder" and value in VALID_SIGNIN_REMINDER_DELIVERY:
+            preferences[key] = value
+        elif key in NOTIFICATION_PREF_DEFAULTS and value in VALID_NOTIFICATION_DELIVERY:
             preferences[key] = value
     if not notify_on_rota_publish:
         preferences["rota_published"] = "off"
 
     from modules.employees.notification_branding import parse_employee_display_name_from_stored
+    from modules.employees.signin_reminders import _parse_signin_config
+
+    signin = _parse_signin_config(stored)
 
     return {
         "preferences": preferences,
@@ -410,6 +420,17 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
         "employee_display_name_default": "Your employer",
         "notify_on_rota_publish": notify_on_rota_publish,
         "events": list(NOTIFICATION_PREF_EVENTS),
+        "signin_reminder": {
+            "delivery": signin["delivery"],
+            "interval_days": signin["interval_days"],
+            "hour_uk": signin["hour_uk"],
+            "delivery_options": [
+                {"value": "email_push", "label": "Email + push alert"},
+                {"value": "email", "label": "Email only"},
+                {"value": "push", "label": "Push alert only"},
+                {"value": "off", "label": "Off"},
+            ],
+        },
     }
 
 
@@ -418,6 +439,8 @@ def update_notification_preferences(
     tenant_id: int,
     preferences: dict[str, str] | None = None,
     employee_display_name: str | None = None,
+    signin_reminder_interval_days: int | None = None,
+    signin_reminder_hour_uk: int | None = None,
     actor_username: str,
     actor_role: str,
     ip_address: str | None,
@@ -444,6 +467,8 @@ def update_notification_preferences(
         stored=stored,
         preferences=preferences,
         employee_display_name=employee_display_name,
+        signin_reminder_interval_days=signin_reminder_interval_days,
+        signin_reminder_hour_uk=signin_reminder_hour_uk,
     )
     notify_on_rota_publish = merged_json.get("rota_published", "email") != "off"
     with conn.cursor() as cur:
@@ -463,6 +488,10 @@ def update_notification_preferences(
         field_names.extend(sorted(preferences.keys()))
     if employee_display_name is not None:
         field_names.append("employee_display_name")
+    if signin_reminder_interval_days is not None:
+        field_names.append("signin_reminder_interval_days")
+    if signin_reminder_hour_uk is not None:
+        field_names.append("signin_reminder_hour_uk")
 
     log_employee_data_event(
         tenant_id=tenant_id,

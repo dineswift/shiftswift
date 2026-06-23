@@ -53,17 +53,32 @@ def merge_notification_preferences_json(
     stored: Any,
     preferences: dict[str, str] | None = None,
     employee_display_name: str | None = None,
+    signin_reminder_interval_days: int | None = None,
+    signin_reminder_hour_uk: int | None = None,
 ) -> dict[str, Any]:
     """Build JSONB payload for tenants.notification_preferences."""
-    from admin_service import NOTIFICATION_PREF_DEFAULTS, VALID_NOTIFICATION_DELIVERY
+    from admin_service import (
+        NOTIFICATION_PREF_DEFAULTS,
+        SIGNIN_REMINDER_DEFAULT_HOUR_UK,
+        SIGNIN_REMINDER_DEFAULT_INTERVAL_DAYS,
+        VALID_NOTIFICATION_DELIVERY,
+        VALID_SIGNIN_REMINDER_DELIVERY,
+    )
 
     raw = _stored_notification_json(stored)
     merged = dict(NOTIFICATION_PREF_DEFAULTS)
     for key, value in raw.items():
         if key in NOTIFICATION_PREF_DEFAULTS and value in VALID_NOTIFICATION_DELIVERY:
             merged[key] = value
+        if key == "employee_signin_reminder" and value in VALID_SIGNIN_REMINDER_DELIVERY:
+            merged[key] = value
     if preferences:
         for key, value in preferences.items():
+            if key == "employee_signin_reminder":
+                if value not in VALID_SIGNIN_REMINDER_DELIVERY:
+                    raise ValueError(f"Invalid delivery mode for {key}")
+                merged[key] = value
+                continue
             if key not in NOTIFICATION_PREF_DEFAULTS:
                 continue
             if value not in VALID_NOTIFICATION_DELIVERY:
@@ -77,4 +92,13 @@ def merge_notification_preferences_json(
     out: dict[str, Any] = dict(merged)
     if display_name:
         out[_EMPLOYEE_DISPLAY_NAME_KEY] = display_name
+
+    interval = raw.get("signin_reminder_interval_days", SIGNIN_REMINDER_DEFAULT_INTERVAL_DAYS)
+    hour = raw.get("signin_reminder_hour_uk", SIGNIN_REMINDER_DEFAULT_HOUR_UK)
+    if signin_reminder_interval_days is not None:
+        interval = max(7, min(365, int(signin_reminder_interval_days)))
+    if signin_reminder_hour_uk is not None:
+        hour = max(0, min(23, int(signin_reminder_hour_uk)))
+    out["signin_reminder_interval_days"] = interval
+    out["signin_reminder_hour_uk"] = hour
     return out

@@ -121,6 +121,8 @@ class PayrollHoursEmailRequest(BaseModel):
 class NotificationPreferencesUpdate(BaseModel):
     preferences: dict[str, str] | None = None
     employee_display_name: str | None = Field(default=None, max_length=120)
+    signin_reminder_interval_days: int | None = Field(default=None, ge=7, le=365)
+    signin_reminder_hour_uk: int | None = Field(default=None, ge=0, le=23)
 
 
 class EmployeeCreate(BaseModel):
@@ -843,7 +845,12 @@ def patch_notification_preferences(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    if payload.preferences is None and payload.employee_display_name is None:
+    if (
+        payload.preferences is None
+        and payload.employee_display_name is None
+        and payload.signin_reminder_interval_days is None
+        and payload.signin_reminder_hour_uk is None
+    ):
         raise HTTPException(status_code=400, detail="No preferences to update")
     conn = _db_conn()
     try:
@@ -851,6 +858,8 @@ def patch_notification_preferences(
             tenant_id=tenant_id,
             preferences=payload.preferences,
             employee_display_name=payload.employee_display_name,
+            signin_reminder_interval_days=payload.signin_reminder_interval_days,
+            signin_reminder_hour_uk=payload.signin_reminder_hour_uk,
             actor_username=current_user.username,
             actor_role=current_user.role,
             ip_address=client_ip(request),
