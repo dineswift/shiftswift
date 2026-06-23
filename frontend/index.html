@@ -42,7 +42,7 @@
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
     <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v31" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v32" />
     <style>
       /* Critical hero band — survives stale CSS cache / missing theme import */
       .hero-band {
@@ -177,7 +177,7 @@
               <li>Cancel anytime</li>
             </ul>
           </div>
-          <div class="hero-visual hero-visual--pulse hero-in hero-in--6" aria-hidden="true">
+          <div class="hero-visual hero-visual--pulse hero-in hero-in--6" data-scroll-parallax="0.04" aria-hidden="true">
             <div class="hero-visual__frame">
             <div class="hero-preview dashboard-mock--pulse dashboard-mock--float">
               <div class="dashboard-mock__bar">
@@ -286,7 +286,7 @@
           </div>
         </section>
 
-        <section id="document-samples" class="doc-samples section section-band section-band--sage" aria-labelledby="doc-samples-heading">
+        <section id="document-samples" class="doc-samples section section-band section-band--sage reveal" aria-labelledby="doc-samples-heading">
           <h2 id="doc-samples-heading">Your compliance documents, organised</h2>
           <p class="section-lead muted">Sample records stored in ShiftSwift HR: right-to-work evidence, contracts, and inspection-ready audit packs.</p>
           <div class="doc-samples-grid reveal-stagger">
@@ -375,7 +375,7 @@
           </div>
         </section>
 
-        <section id="features" class="section section--after-doc-samples">
+        <section id="features" class="section section--after-doc-samples reveal">
           <h2>Everything your people team needs, without the enterprise price tag.</h2>
           <p class="section-lead muted">Staff records, geofenced clock-in, sponsor compliance, recruitment, and accountant-ready hours — one UK platform instead of spreadsheets and WhatsApp totals.</p>
           <div class="section-grid section-grid--features reveal-stagger">
@@ -471,7 +471,7 @@
           </div>
         </section>
 
-        <section id="pricing" class="section pricing-section">
+        <section id="pricing" class="section pricing-section reveal">
           <div class="pricing-intro">
             <div class="badge">Fair per-head pricing</div>
             <h2>Base fee + active employees — capped so it stays predictable.</h2>
@@ -482,8 +482,8 @@
             </p>
             <p class="pricing-model-note muted">Managers and HR users are free — only active employees count toward billing.</p>
           </div>
-          <div id="pricing-plans" class="pricing-grid pricing-grid--platform"></div>
-          <div class="pricing-bottom">
+          <div id="pricing-plans" class="pricing-grid pricing-grid--platform reveal-stagger"></div>
+          <div class="pricing-bottom reveal-stagger">
           <div id="pricing-calculator" class="pricing-calculator" aria-labelledby="pricing-calc-heading">
             <h3 id="pricing-calc-heading">Estimate your monthly bill</h3>
             <p class="muted">Pick a plan and enter active employee headcount. Your monthly cap is applied automatically.</p>
@@ -521,7 +521,7 @@
           </div>
         </section>
 
-        <section class="section compare-section" aria-labelledby="compare-heading">
+        <section class="section compare-section reveal" aria-labelledby="compare-heading">
             <h2 id="compare-heading">ShiftSwift HR vs spreadsheets and guesswork</h2>
             <div class="compare-table-wrap">
               <table class="compare-table">
@@ -552,7 +552,7 @@
             </div>
         </section>
 
-        <section class="section compare-section compare-section--competitors" aria-labelledby="compare-competitors-heading">
+        <section class="section compare-section compare-section--competitors reveal" aria-labelledby="compare-competitors-heading">
             <h2 id="compare-competitors-heading">How ShiftSwift HR compares</h2>
             <p class="compare-section__lead muted">
               Rotacloud excels at scheduling. Breathe HR excels at generic SME records. ShiftSwift HR is built when
@@ -636,8 +636,9 @@
             </p>
         </section>
 
-        <section id="faq" class="section faq-section" aria-labelledby="faq-heading">
+        <section id="faq" class="section faq-section reveal" aria-labelledby="faq-heading">
             <h2 id="faq-heading">Frequently asked questions</h2>
+            <div class="faq-list reveal-stagger">
             <details class="faq-item">
               <summary>How does per-head billing work?</summary>
               <div class="faq-item__answer">
@@ -692,6 +693,7 @@
                 <p>Yes. Plans are priced per site — add a subscription for each location. The Multi-site plan includes a consolidated dashboard across locations; Enterprise covers larger rollouts and bespoke SLAs.</p>
               </div>
             </details>
+            </div>
         </section>
 
         <p class="pricing-footnote">
@@ -732,10 +734,10 @@
         <p class="site-footer__copy">© 2026 Datasoftware Analytics Ltd. All rights reserved.</p>
       </footer>
     </div>
-    <script src="./landing-animations.js?v=4"></script>
+    <script src="./landing-animations.js?v=5"></script>
     <script src="./landing-faq.js?v=3"></script>
     <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./pricing.js?v=11"></script>
+    <script src="./pricing.js?v=12"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         window.ShiftSwiftPricing?.initMarketing("pricing-plans", "pricing-payroll-plans");

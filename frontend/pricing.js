@@ -502,6 +502,14 @@
       if (!platformContainer) return;
       const plans = plansForBillingInterval(catalog.platform_plans, billing);
       renderPlans(platformContainer, plans, { mode: "marketing", cardType: "platform", billing });
+      if (platformContainer.classList.contains("reveal-stagger")) {
+        const inView = platformContainer.getBoundingClientRect().top < window.innerHeight * 0.92;
+        platformContainer.classList.remove("is-visible");
+        requestAnimationFrame(() => {
+          if (inView) platformContainer.classList.add("is-visible");
+        });
+      }
+      document.dispatchEvent(new CustomEvent("shiftswift:pricing-rendered"));
     }
 
     if (platformContainer) {
