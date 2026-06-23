@@ -535,10 +535,12 @@
       const billing = billingRes.ok ? await billingRes.json() : {};
       const planName = overview.plan_display_name || "Starter";
       const status = billing.subscription_status || overview.subscription_status || "trial";
-      const trialDays = billing.days_remaining;
-      const trialEnds = billing.trial_ends_at
-        ? new Date(billing.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
-        : null;
+      const offlineBilling = billing.offline_billing || billing.billing_mode === "offline";
+      const trialDays = offlineBilling ? null : billing.days_remaining;
+      const trialEnds =
+        !offlineBilling && billing.trial_ends_at
+          ? new Date(billing.trial_ends_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+          : null;
       const advancedAddon = Boolean(overview.rota_advanced_addon);
       const multiSiteAddon = Boolean(overview.rota_multi_site_addon);
       const aiDocumentAddon = Boolean(overview.ai_document_addon);
@@ -556,6 +558,7 @@
         <div class="settings-billing-summary">
           <div class="settings-billing-row"><span class="muted">Current plan</span><strong>${escapeHtml(planName)}</strong></div>
           <div class="settings-billing-row"><span class="muted">Status</span><strong>${escapeHtml(String(status).replace(/_/g, " "))}</strong></div>
+          ${offlineBilling ? `<div class="settings-billing-row"><span class="muted">Billing</span><strong>Offline / invoice (managed by ShiftSwift)</strong></div>` : ""}
           ${trialEnds ? `<div class="settings-billing-row"><span class="muted">Trial ends</span><strong>${escapeHtml(trialEnds)}${trialDays != null ? ` (${escapeHtml(trialDays)} days left)` : ""}</strong></div>` : ""}
           <div class="settings-billing-row"><span class="muted">Employee limit</span><strong>${escapeHtml(overview.max_employees ?? billing.max_employees ?? "—")}</strong></div>
         </div>

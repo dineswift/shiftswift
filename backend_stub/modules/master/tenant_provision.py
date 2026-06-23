@@ -210,6 +210,8 @@ def update_tenant_billing(
         trial_days=trial_days,
         existing_trial_end=row[6],
     )
+    if billing_mode == "offline" and status == "active":
+        trial_end = None
 
     if billing_mode == "stripe" and status == "active":
         raise ValueError("Use offline billing for active access without Stripe checkout")

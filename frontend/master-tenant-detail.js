@@ -422,7 +422,6 @@
           return;
         }
         const notes = (changePlanNotes?.value || "").trim();
-        const subscriptionStatus = tenant.status === "trialing" ? "trialing" : "active";
         let billingMode = tenant.billing_mode === "offline" ? "offline" : "stripe";
         if (planChanged && billingMode !== "offline") {
           const ok = window.confirm(
@@ -431,6 +430,12 @@
           if (!ok) return;
           billingMode = "offline";
         }
+        const subscriptionStatus =
+          billingMode === "offline"
+            ? "active"
+            : tenant.status === "trialing"
+              ? "trialing"
+              : "active";
         if (changePlanStatus) changePlanStatus.textContent = "Saving…";
         try {
           const result = await apiPost(`/master/tenants/${tenant.id}/billing`, {

@@ -36,6 +36,10 @@
         return;
       }
       const status = await res.json();
+      if (status.offline_billing || status.billing_mode === "offline") {
+        banner.hidden = true;
+        return;
+      }
       const days = status.days_remaining;
       const expired = status.upgrade_required || status.subscription_status === "trial_expired";
       const onHold = status.license_on_hold;
@@ -206,6 +210,7 @@
     [
       ["compliance", badges.compliance],
       ["leave", badges.leave],
+      ["profile-changes", badges["profile-changes"]],
       ["disciplinary", badges.disciplinary],
       ["employees", badges.employees],
     ].forEach(([section, count]) => {

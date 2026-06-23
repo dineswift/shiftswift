@@ -17,7 +17,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v125" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v126" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -34,6 +34,7 @@
           <a class="nav-link" href="#time-clock" data-section="time-clock" data-requires-clock>Time clock</a>
           <a class="nav-link" href="#my-shifts" data-section="my-shifts">My shifts</a>
           <a class="nav-link" href="#leave" data-section="leave">Leave</a>
+          <a class="nav-link" href="#my-details" data-section="my-details">My details</a>
           <a class="nav-link" href="#documents" data-section="documents">My documents</a>
           <a class="nav-link" href="#notes" data-section="notes">Notes from HR</a>
           <a class="nav-link" href="#payslips" data-section="payslips">Payslips</a>
@@ -99,6 +100,7 @@
         <div id="mobile-more-panel" class="mobile-more-panel" hidden>
           <h2 class="mobile-panel-title">More</h2>
           <nav class="mobile-more-menu" aria-label="More options">
+            <a class="mobile-more-link" href="#my-details">My details</a>
             <a class="mobile-more-link" href="#payslips">Payslips</a>
             <a class="mobile-more-link" href="#documents">My documents</a>
             <a class="mobile-more-link" href="#notes">Notes from HR</a>
@@ -342,6 +344,55 @@
           </article>
         </section>
 
+        <section id="my-details" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>My contact details</h2>
+              <p class="muted">Update your phone, home address, or emergency contact. Changes need HR approval before they appear on your record.</p>
+            </div>
+          </header>
+          <article class="card employee-leave-shell">
+            <p id="employee-details-pending-banner" class="employee-details-pending-banner" hidden role="status"></p>
+
+            <h3 class="employee-leave-section-title">Proposed update</h3>
+            <form id="employee-details-form" class="employee-leave-form">
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Telephone</span>
+                <input type="tel" name="phone" maxlength="32" autocomplete="tel" />
+              </label>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Home address</span>
+                <textarea name="home_address" rows="3" maxlength="500" autocomplete="street-address"></textarea>
+              </label>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Emergency contact name</span>
+                <input type="text" name="emergency_contact_name" maxlength="120" autocomplete="name" />
+              </label>
+              <label class="employee-leave-field">
+                <span class="employee-leave-label">Emergency contact phone</span>
+                <input type="tel" name="emergency_contact_phone" maxlength="32" autocomplete="tel" />
+              </label>
+              <label class="employee-leave-field">
+                <span class="employee-leave-label">Relationship</span>
+                <input type="text" name="emergency_contact_relationship" maxlength="80" />
+              </label>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Note for HR <span class="employee-leave-label__optional">(optional)</span></span>
+                <textarea name="employee_note" rows="2" maxlength="2000" placeholder="Brief note if helpful"></textarea>
+              </label>
+              <div class="employee-leave-form-foot">
+                <button type="submit" class="btn primary employee-leave-submit">Submit for HR approval</button>
+                <p class="employee-leave-status muted" id="employee-details-status" aria-live="polite"></p>
+              </div>
+            </form>
+
+            <h3 class="employee-leave-section-title">Your update requests</h3>
+            <div id="employee-details-list" class="employee-leave-list-wrap">
+              <p class="employee-leave-placeholder muted">Loading…</p>
+            </div>
+          </article>
+        </section>
+
         <section id="documents" class="admin-section" hidden>
           <header class="section-header">
             <div>
@@ -515,6 +566,7 @@
     <script src="./employee-notes.js?v=2"></script>
     <script src="./employee-security.js?v=2"></script>
     <script src="./employee-leave.js?v=3"></script>
+    <script src="./employee-my-details.js?v=1"></script>
       <script src="./cookie-consent.js?v=1"></script>
     <script>
       (function hydrateEmployeeChrome() {

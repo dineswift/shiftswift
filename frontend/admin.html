@@ -42,7 +42,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v127" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v128" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -124,6 +124,10 @@
           <a class="nav-link" href="#leave" data-section="leave">
             <span class="nav-link__icon" data-nav-icon="calendar-off" aria-hidden="true"></span>
             <span class="nav-link__label">Leave</span>
+          </a>
+          <a class="nav-link" href="#profile-changes" data-section="profile-changes">
+            <span class="nav-link__icon" data-nav-icon="user" aria-hidden="true"></span>
+            <span class="nav-link__label">Contact updates</span>
           </a>
 
           <p class="nav-section-label">Tools</p>
@@ -235,6 +239,7 @@
             <a class="mobile-more-link" href="#time-punch" data-requires-clock>Time punch</a>
             <a class="mobile-more-link mobile-more-link--clock-stub" href="#settings/time-punch">Time punch (enable in Settings)</a>
             <a class="mobile-more-link" href="#leave">Leave</a>
+            <a class="mobile-more-link" href="#profile-changes">Contact updates</a>
             <a class="mobile-more-link" href="#templates">HR Templates</a>
             <p class="mobile-more-group">Support</p>
             <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
@@ -395,6 +400,19 @@
                 </div>
                 <div id="employee-change-history-list" class="employee-change-history-list">
                   <p class="muted">Loading history…</p>
+                </div>
+              </article>
+              <article class="card edit-panel" id="employee-leave-history-panel" hidden>
+                <div class="employee-change-history__head">
+                  <div>
+                    <h4>Leave history</h4>
+                    <p class="muted employee-section-hint">Holiday and absence requests submitted by this employee, including pending and past decisions.</p>
+                  </div>
+                  <button type="button" class="btn ghost btn-sm" id="employee-leave-history-close">Close</button>
+                </div>
+                <div id="employee-leave-history-summary" class="employee-leave-history-summary" hidden></div>
+                <div id="employee-leave-history-list" class="employee-change-history-list">
+                  <p class="muted">Loading leave history…</p>
                 </div>
               </article>
               <article class="card edit-panel" id="employee-advanced-links" hidden>
@@ -2628,6 +2646,83 @@
           </div>
         </section>
 
+        <section id="profile-changes" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Contact detail updates</h2>
+              <p class="muted">Staff can request changes to phone, home address, and emergency contact. Approve to update their employee record.</p>
+            </div>
+          </header>
+
+          <div class="hr-stats-grid leave-stats-grid" aria-label="Contact update summary">
+            <article class="hr-stat-card">
+              <span class="hr-stat-card__label">Pending</span>
+              <span class="hr-stat-card__value" id="profile-change-stat-pending">0</span>
+              <span class="hr-stat-card__sub" id="profile-change-stat-pending-sub">Awaiting your decision</span>
+            </article>
+          </div>
+
+          <div class="leave-workspace-layout hr-workspace-layout" id="profile-change-workspace">
+            <div class="hr-workspace-main">
+              <article class="hr-surface-panel leave-register-panel">
+                <header class="hr-surface-panel__head leave-register-head">
+                  <div>
+                    <h4 class="hr-section-title">Update requests</h4>
+                    <p class="muted leave-register-sub" id="profile-change-register-sub">Loading…</p>
+                  </div>
+                  <div class="leave-register-toolbar">
+                    <div class="hr-filter-tabs leave-filter-tabs" role="tablist" aria-label="Filter contact updates">
+                      <button type="button" class="hr-filter-tab is-active" data-profile-change-filter="pending">Pending</button>
+                      <button type="button" class="hr-filter-tab" data-profile-change-filter="approved">Approved</button>
+                      <button type="button" class="hr-filter-tab" data-profile-change-filter="rejected">Rejected</button>
+                      <button type="button" class="hr-filter-tab" data-profile-change-filter="">All</button>
+                    </div>
+                    <label class="leave-search">
+                      <span class="visually-hidden">Search contact updates</span>
+                      <input type="search" id="profile-change-search-input" placeholder="Search employee…" maxlength="80" />
+                    </label>
+                  </div>
+                </header>
+                <div class="hr-table-wrap leave-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Fields</th>
+                        <th>Submitted</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="profile-change-requests-body">
+                      <tr><td colspan="4" class="muted">Loading contact detail updates…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel leave-guide-panel" id="profile-change-guide-panel">
+                <h4 class="hr-section-title">How contact updates work</h4>
+                <ul class="leave-guide-list">
+                  <li><strong>Employee portal</strong> — staff edit phone, home address, and emergency contact under My details.</li>
+                  <li><strong>HR approval</strong> — you review proposed values and approve or reject. Approved changes update the employee record and change history.</li>
+                  <li><strong>Email alerts</strong> — HR is notified on submission; the employee is emailed when you decide.</li>
+                </ul>
+              </article>
+            </div>
+
+            <aside class="hr-detail-panel leave-detail-panel" id="profile-change-detail-panel" hidden>
+              <header class="hr-detail-panel__head leave-detail-panel__head">
+                <h4 class="leave-detail-panel__title">Request detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="profile-change-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="profile-change-detail-content" class="leave-detail-body" hidden></div>
+              <div id="profile-change-detail-empty" class="hr-detail-empty muted">
+                Select an update request to review changes and approve or reject.
+              </div>
+            </aside>
+          </div>
+        </section>
+
         <section id="settings" class="admin-section" hidden>
           <div class="settings-workspace settings-workspace--hub">
             <div class="settings-main">
@@ -2993,11 +3088,11 @@
     <script src="./admin-mobile.js?v=14"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
     <script src="./admin-shared.js?v=admin-v41"></script>
-    <script src="./admin-settings.js?v=31"></script>
-    <script src="./admin-workspace.js?v=admin-v24"></script>
+    <script src="./admin-settings.js?v=32"></script>
+    <script src="./admin-workspace.js?v=admin-v25"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=27"></script>
-    <script src="./admin-employees.js?v=24"></script>
+    <script src="./admin-employees.js?v=25"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>
@@ -3011,6 +3106,7 @@
     <script src="./admin-time-punch.js?v=34"></script>
     <script src="./admin-rota.js?v=30"></script>
     <script src="./admin-leave.js?v=admin-v4"></script>
+    <script src="./admin-profile-changes.js?v=1"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>
     <script src="./employment-contracts.js?v=4"></script>

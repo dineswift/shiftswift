@@ -721,6 +721,72 @@ def payment_failure_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def profile_change_hr_alert_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    changes: list[dict[str, object]],
+    admin_url: str,
+) -> EmailContent:
+    subject = f"{APP_NAME} — Contact detail update from {employee_name}"
+    lines = []
+    for change in changes:
+        label = change.get("label") or change.get("field") or "Field"
+        old_val = change.get("old") or "—"
+        new_val = change.get("new") or "—"
+        lines.append(f"{label}: {old_val} → {new_val}")
+    summary = "\n".join(lines) if lines else "See the admin console for proposed values."
+    text = (
+        f"Hello,\n\n"
+        f"{employee_name} submitted a contact detail update for {tenant_name}.\n\n"
+        f"{summary}\n\n"
+        f"Review and approve or reject:\n{admin_url}\n\n"
+        f"— {APP_NAME}\n"
+    )
+    details = [(str(c.get("label") or c.get("field")), f"{c.get('old') or '—'} → {c.get('new') or '—'}") for c in changes]
+    html = render_email(
+        preheader=f"{employee_name} requested a contact detail update.",
+        title="Contact detail update pending",
+        intro=f"{employee_name} submitted updated contact details for your review.",
+        details=details or None,
+        paragraphs=[f"Open the admin console to approve or reject: {admin_url}"],
+        cta_url=admin_url,
+        cta_label="Review update",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def profile_change_employee_decision_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    approved: bool,
+    review_note: str | None,
+    portal_url: str,
+) -> EmailContent:
+    if approved:
+        subject = f"{APP_NAME} — Your contact details were updated"
+        intro = f"{tenant_name} approved your contact detail update."
+        title = "Contact details updated"
+    else:
+        subject = f"{APP_NAME} — Contact detail update not approved"
+        intro = f"{tenant_name} did not approve your contact detail update."
+        title = "Update not approved"
+    paragraphs = [f"Sign in to view your profile: {portal_url}"]
+    if review_note:
+        paragraphs.insert(0, f"Note from HR: {review_note}")
+    text = f"Hello {employee_name},\n\n{intro}\n\n" + "\n".join(paragraphs) + f"\n\n— {APP_NAME}\n"
+    html = render_email(
+        preheader=subject,
+        title=title,
+        intro=f"Hello {employee_name}, {intro}",
+        paragraphs=paragraphs,
+        cta_url=portal_url,
+        cta_label="Open employee portal",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def generic_notification_email(*, subject: str, message: str, cta_url: str | None = None, cta_label: str | None = None) -> EmailContent:
     """Fallback HTML wrapper for legacy plain-text notifications."""
     text = f"{message}\n\n— {APP_NAME}\n"

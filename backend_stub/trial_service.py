@@ -17,7 +17,12 @@ from payroll_plans import get_payroll_plan, resolve_stripe_price_id as resolve_p
 DEFAULT_TRIAL_DAYS = int(os.getenv("BILLING_TRIAL_DAYS", "14"))
 ACTIVE_STATUSES = frozenset({"active", "paid"})
 TRIALING_STATUSES = frozenset({"trialing", "provisioning"})
+OFFLINE_BILLING_MODE = "offline"
 REMINDER_KEYS = ("7_day", "3_day", "1_day", "expired")
+
+
+def is_offline_billing(billing_mode: str | None) -> bool:
+    return (billing_mode or "").strip().lower() == OFFLINE_BILLING_MODE
 
 
 def _utcnow() -> datetime:
@@ -46,7 +51,7 @@ def fetch_tenant_billing_row(cur: Any, tenant_id: int) -> tuple[Any, ...] | None
         """
         SELECT id, name, billing_email, subscription_plan, subscription_status,
                trial_ends_at, stripe_customer_id, stripe_subscription_id,
-               payroll_plan_id, payroll_enabled, max_employees
+               payroll_plan_id, payroll_enabled, max_employees, billing_mode
         FROM tenants
         WHERE id = %s
         """,
@@ -74,16 +79,18 @@ def trial_snapshot(*, tenant_id: int, conn: Any, as_of: datetime | None = None) 
         payroll_plan_id,
         payroll_enabled,
         max_employees,
+        billing_mode,
     ) = row
 
-    days_left = days_until_trial_end(trial_ends_at=trial_ends_at, as_of=now)
+    offline = is_offline_billing(billing_mode)
+    days_left = days_until_trial_end(trial_ends_at=trial_ends_at, as_of=now) if not offline else None
     is_active = status in ACTIVE_STATUSES
-    is_trialing = status in TRIALING_STATUSES
-    trial_expired = status == "trial_expired" or (
-        is_trialing and days_left is not None and days_left < 0
+    is_trialing = status in TRIALING_STATUSES and not offline
+    trial_expired = False if offline else (
+        status == "trial_expired" or (is_trialing and days_left is not None and days_left < 0)
     )
-    access_allowed = is_active or (is_trialing and not trial_expired)
-    upgrade_required = trial_expired or (is_trialing and days_left is not None and days_left <= 0)
+    access_allowed = True if offline else (is_active or (is_trialing and not trial_expired))
+    upgrade_required = False if offline else (trial_expired or (is_trialing and days_left is not None and days_left <= 0))
 
     return {
         "tenant_id": tenant_id,
@@ -91,14 +98,18 @@ def trial_snapshot(*, tenant_id: int, conn: Any, as_of: datetime | None = None) 
         "billing_email": billing_email,
         "subscription_plan": plan_id,
         "subscription_status": status,
+        "billing_mode": billing_mode,
         "trial_days_default": DEFAULT_TRIAL_DAYS,
-        "trial_ends_at": trial_ends_at.isoformat() if isinstance(trial_ends_at, datetime) else trial_ends_at,
-        "days_remaining": max(days_left, 0) if days_left is not None else None,
+        "trial_ends_at": None if offline else (
+            trial_ends_at.isoformat() if isinstance(trial_ends_at, datetime) else trial_ends_at
+        ),
+        "days_remaining": None if offline else (max(days_left, 0) if days_left is not None else None),
         "is_trialing": is_trialing,
-        "is_active": is_active,
+        "is_active": is_active or offline,
         "trial_expired": trial_expired,
         "upgrade_required": upgrade_required,
         "access_allowed": access_allowed,
+        "offline_billing": offline,
         "upgrade_url": _upgrade_page_url(),
         "stripe_customer_id": stripe_customer_id,
         "stripe_subscription_id": stripe_subscription_id,
@@ -222,13 +233,11 @@ def process_trial_reminders(*, conn: Any, as_of: datetime | None = None) -> dict
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, name, billing_email, trial_ends_at, subscription_status
+            SELECT id, name, billing_email, trial_ends_at, subscription_status, billing_mode
             FROM tenants
             WHERE billing_mode IS DISTINCT FROM 'offline'
-              AND (
-                subscription_status IN ('trialing', 'provisioning', 'trial_expired')
-                OR (trial_ends_at IS NOT NULL AND subscription_status NOT IN ('active', 'cancelled'))
-              )
+              AND subscription_status IN ('trialing', 'provisioning', 'trial_expired')
+              AND trial_ends_at IS NOT NULL
             """
         )
         rows = cur.fetchall()

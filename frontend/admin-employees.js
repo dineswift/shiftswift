@@ -997,11 +997,113 @@
     </ul>`;
   }
 
+  function hideEmployeeHistoryPanels() {
+    $("employee-change-history-panel")?.setAttribute("hidden", "");
+    $("employee-leave-history-panel")?.setAttribute("hidden", "");
+  }
+
+  function bindChangeHistoryPanel() {
+    $("employee-change-history-close")?.addEventListener("click", () => {
+      $("employee-change-history-panel")?.setAttribute("hidden", "");
+    });
+    $("employee-leave-history-close")?.addEventListener("click", () => {
+      $("employee-leave-history-panel")?.setAttribute("hidden", "");
+    });
+  }
+
+  function formatLeaveDate(iso) {
+    if (!iso) return "—";
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  function leaveStatusPill(status) {
+    const tone =
+      status === "approved" ? "ok" : status === "rejected" ? "danger" : status === "cancelled" ? "muted" : "warn";
+    return `<span class="status-pill status-pill--${tone}">${escapeHtml(status)}</span>`;
+  }
+
+  function renderLeaveHistorySummary(balance) {
+    const host = $("employee-leave-history-summary");
+    if (!host) return;
+    if (!balance) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = `
+      <p class="employee-leave-history-summary__label">Annual leave balance (${escapeHtml(String(balance.year))})</p>
+      <p class="employee-leave-history-summary__value">
+        <strong>${escapeHtml(String(balance.remaining_days))}</strong> working day(s) remaining
+        <span class="muted">· allowance ${escapeHtml(String(balance.allowance_days))} · used ${escapeHtml(String(balance.used_days))} · pending ${escapeHtml(String(balance.pending_days))}</span>
+      </p>`;
+  }
+
+  async function loadEmployeeLeaveHistory(employeeId) {
+    const panel = $("employee-leave-history-panel");
+    const list = $("employee-leave-history-list");
+    if (!panel || !list || !employeeId) return;
+
+    hideEmployeeHistoryPanels();
+    panel.hidden = false;
+    list.innerHTML = `<p class="muted">Loading leave history…</p>`;
+    renderLeaveHistorySummary(null);
+
+    try {
+      const [requestsRes, balanceRes] = await Promise.all([
+        apiFetch(`/admin/leave/requests?employee_id=${employeeId}`),
+        apiFetch(`/admin/leave/employees/${employeeId}/balance`),
+      ]);
+      const data = await requestsRes.json();
+      if (!requestsRes.ok) {
+        throw new Error(typeof data.detail === "string" ? data.detail : "Could not load leave history");
+      }
+      if (balanceRes.ok) {
+        renderLeaveHistorySummary(await balanceRes.json());
+      }
+
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = `<p class="muted">No leave requests yet. When this employee submits holiday or absence requests in the portal, they appear here.</p>`;
+        return;
+      }
+
+      list.innerHTML = items
+        .map(
+          (item) => `
+        <article class="employee-change-history__item employee-leave-history__item">
+          <header class="employee-change-history__meta">
+            <strong>${escapeHtml(item.leave_type_label || item.leave_type)}</strong>
+            ${leaveStatusPill(item.status)}
+          </header>
+          <p class="muted employee-leave-history__dates">
+            ${escapeHtml(formatLeaveDate(item.start_date))} → ${escapeHtml(formatLeaveDate(item.end_date))}
+            · ${escapeHtml(String(item.days_requested))} working day(s)
+          </p>
+          ${item.reason ? `<p class="employee-leave-history__reason">${escapeHtml(item.reason)}</p>` : ""}
+          <p class="muted employee-change-history__actor">
+            Submitted ${escapeHtml(formatNoteWhen(item.created_at))}
+            ${item.reviewed_by ? ` · Reviewed by ${escapeHtml(item.reviewed_by)}${item.reviewed_at ? ` (${escapeHtml(formatNoteWhen(item.reviewed_at))})` : ""}` : ""}
+          </p>
+          ${item.review_note ? `<p class="muted employee-leave-history__review-note">Review note: ${escapeHtml(item.review_note)}</p>` : ""}
+        </article>`,
+        )
+        .join("");
+    } catch (error) {
+      list.innerHTML = `<p class="form-error-message">${escapeHtml(error.message || "Could not load leave history")}</p>`;
+    }
+  }
+
   async function loadEmployeeChangeHistory(employeeId) {
     const panel = $("employee-change-history-panel");
     const list = $("employee-change-history-list");
     if (!panel || !list || !employeeId) return;
 
+    hideEmployeeHistoryPanels();
     panel.hidden = false;
     list.innerHTML = `<p class="muted">Loading history…</p>`;
 
@@ -1034,13 +1136,6 @@
     }
   }
 
-  function bindChangeHistoryPanel() {
-    $("employee-change-history-close")?.addEventListener("click", () => {
-      const panel = $("employee-change-history-panel");
-      if (panel) panel.hidden = true;
-    });
-  }
-
   function renderAdvancedLinks(employee) {
     const host = $("employee-advanced-link-row");
     if (!host) return;
@@ -1048,6 +1143,7 @@
     const employeeId = employee?.id || activeEmployeeId;
     host.innerHTML = `
       <button type="button" class="btn ghost" id="employee-change-history-btn">Change history</button>
+      <button type="button" class="btn ghost" id="employee-leave-history-btn">Leave history</button>
       ${sponsored ? '<a href="#compliance" class="btn ghost">Sponsor compliance</a>' : ""}
       <a href="#grievance" class="btn ghost">Grievance cases</a>
       <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
@@ -1055,6 +1151,9 @@
       <a href="#time-punch" class="btn ghost">Time punch</a>`;
     host.querySelector("#employee-change-history-btn")?.addEventListener("click", () => {
       if (employeeId) void loadEmployeeChangeHistory(employeeId);
+    });
+    host.querySelector("#employee-leave-history-btn")?.addEventListener("click", () => {
+      if (employeeId) void loadEmployeeLeaveHistory(employeeId);
     });
   }
 
@@ -2003,8 +2102,7 @@
       window.location.hash = desired;
     }
     activeEmployeeId = employeeId;
-    const historyPanel = $("employee-change-history-panel");
-    if (historyPanel) historyPanel.hidden = true;
+    hideEmployeeHistoryPanels();
     showDetailView();
     const accordion = lifecycleAccordionHost();
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;

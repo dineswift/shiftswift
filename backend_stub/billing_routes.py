@@ -196,7 +196,7 @@ def billing_status(
             cur.execute(
                 """
                 SELECT subscription_plan, subscription_status, billing_email, vat_number, max_employees,
-                       payroll_plan_id, payroll_enabled, trial_ends_at
+                       payroll_plan_id, payroll_enabled, trial_ends_at, billing_mode
                 FROM tenants WHERE id = %s
                 """,
                 (tenant_id,),
@@ -204,7 +204,7 @@ def billing_status(
             row = cur.fetchone()
             if not row:
                 raise HTTPException(status_code=404, detail="Business not found")
-            plan, status, email, vat, max_employees, payroll_plan_id, payroll_enabled, trial_ends_at = row
+            plan, status, email, vat, max_employees, payroll_plan_id, payroll_enabled, trial_ends_at, billing_mode = row
         trial = trial_snapshot(tenant_id=tenant_id, conn=conn)
         license_info = license_snapshot(tenant_id=tenant_id, conn=conn)
         with conn.cursor() as cur:
@@ -216,6 +216,8 @@ def billing_status(
         "tenant_id": tenant_id,
         "subscription_plan": plan,
         "subscription_status": status,
+        "billing_mode": billing_mode,
+        "offline_billing": trial.get("offline_billing"),
         "billing_email": email,
         "vat_number": vat,
         "max_employees": max_employees,

@@ -1078,6 +1078,10 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
 
         pending_leave_requests = count_pending_leave_requests(tenant_id=tenant_id, conn=conn)
 
+        from modules.employees.profile_change_requests import count_pending_profile_change_requests
+
+        pending_profile_changes = count_pending_profile_change_requests(tenant_id=tenant_id, conn=conn)
+
         from modules.rota.missed_punch import count_missed_punch_alerts_on_date
 
         missed_punch_today = count_missed_punch_alerts_on_date(
@@ -1153,6 +1157,16 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                 "detail": "Review holiday and absence requests from staff.",
                 "href": "#leave",
                 "section": "leave",
+            }
+        )
+    if pending_profile_changes:
+        open_actions.append(
+            {
+                "severity": "warn",
+                "title": f"{pending_profile_changes} contact detail update{'s' if pending_profile_changes != 1 else ''} awaiting approval",
+                "detail": "Review phone, address, and emergency contact changes from staff.",
+                "href": "#profile-changes",
+                "section": "profile-changes",
             }
         )
     qual_alerts = qualification_certs.get("expired", 0) + qualification_certs.get("expiring_soon", 0)
@@ -1363,11 +1377,13 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "contracts": {"pending_signature": contracts_pending},
             "documents": {"count": document_count},
             "leave": {"pending_requests": pending_leave_requests},
+            "profile_changes": {"pending_requests": pending_profile_changes},
             "qualifications": qualification_certs,
         },
         "nav_badges": {
             "compliance": day9_alerts + rtw_expired + rtw_expiring_soon,
             "leave": pending_leave_requests,
+            "profile-changes": pending_profile_changes,
             "disciplinary": open_disciplinary,
             "employees": qual_alerts,
         },

@@ -32,6 +32,8 @@ from modules.rota.routes import admin_router as rota_admin_router
 from modules.rota.routes import employee_router as rota_employee_router
 from modules.leave.routes import admin_router as leave_admin_router
 from modules.leave.routes import employee_router as leave_employee_router
+from modules.employees.profile_change_routes import admin_router as profile_change_admin_router
+from modules.employees.profile_change_routes import employee_router as profile_change_employee_router
 from modules.push.routes import router as push_router
 from modules.master.routes import router as master_router
 from modules.registry import module_catalog
@@ -134,5 +136,7 @@ app.include_router(rota_admin_router)
 app.include_router(rota_employee_router)
 app.include_router(leave_admin_router)
 app.include_router(leave_employee_router)
+app.include_router(profile_change_admin_router)
+app.include_router(profile_change_employee_router)
 app.include_router(push_router)
 app.include_router(master_router)
