@@ -3,32 +3,25 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from modules.push.shift_reminders import (
-    EARLY_MISSED_CLOCK_IN_MINUTES,
-    MISSED_CLOCK_IN_MINUTES,
-    REMINDER_MINUTES_BEFORE,
-    evaluate_shift_push_reminders,
-)
+from modules.employees.business_schedule import parse_business_schedule
+from modules.push.shift_reminders import evaluate_shift_push_reminders
 
 
-def test_shift_reminder_constants() -> None:
-    assert REMINDER_MINUTES_BEFORE == 10
-    assert EARLY_MISSED_CLOCK_IN_MINUTES == 10
-    assert MISSED_CLOCK_IN_MINUTES == 30
-
-
+@patch("modules.push.shift_reminders.get_business_schedule")
 @patch("modules.push.shift_reminders.send_employee_push")
 @patch("modules.push.shift_reminders.load_punches_for_employees", return_value={})
 @patch("modules.push.shift_reminders.list_published_shifts_on_date")
 @patch("modules.push.shift_reminders.tenant_has_active_punch_sites", return_value=True)
 @patch("modules.push.shift_reminders._primary_site_name", return_value="Himalayan Inn — main")
-def test_sends_ten_minute_reminder(
+def test_sends_shift_reminder_before_start(
     _site: MagicMock,
     _has_sites: MagicMock,
     list_shifts: MagicMock,
     _punches: MagicMock,
     send_push: MagicMock,
+    schedule_mock: MagicMock,
 ) -> None:
+    schedule_mock.return_value = parse_business_schedule({"shift_reminder_minutes_before": 10})
     list_shifts.return_value = [
         {
             "id": 42,
@@ -55,6 +48,7 @@ def test_sends_ten_minute_reminder(
     assert "employee.html#time-clock" in send_push.call_args.kwargs["url"]
 
 
+@patch("modules.push.shift_reminders.get_business_schedule")
 @patch("modules.push.shift_reminders.send_employee_push")
 @patch("modules.push.shift_reminders.evaluate_shift_attendance", return_value={"attendance_status": "awaiting"})
 @patch("modules.push.shift_reminders.load_punches_for_employees", return_value={7: []})
@@ -68,7 +62,9 @@ def test_sends_early_missed_clock_in(
     _punches: MagicMock,
     _attendance: MagicMock,
     send_push: MagicMock,
+    schedule_mock: MagicMock,
 ) -> None:
+    schedule_mock.return_value = parse_business_schedule({"missed_clock_in_early_minutes": 10})
     list_shifts.return_value = [
         {
             "id": 99,

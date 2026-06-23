@@ -410,9 +410,11 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
         preferences["rota_published"] = "off"
 
     from modules.employees.notification_branding import parse_employee_display_name_from_stored
+    from modules.employees.business_schedule import parse_business_schedule
     from modules.employees.signin_reminders import _parse_signin_config
 
     signin = _parse_signin_config(stored)
+    business_schedule = parse_business_schedule(stored)
 
     return {
         "preferences": preferences,
@@ -420,10 +422,14 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
         "employee_display_name_default": "Your employer",
         "notify_on_rota_publish": notify_on_rota_publish,
         "events": list(NOTIFICATION_PREF_EVENTS),
+        "business_schedule": business_schedule.to_api_dict(),
         "signin_reminder": {
             "delivery": signin["delivery"],
             "interval_days": signin["interval_days"],
+            "hour_local": signin["hour_uk"],
             "hour_uk": signin["hour_uk"],
+            "timing": business_schedule.signin_reminder_timing,
+            "minutes_before_open": business_schedule.signin_reminder_minutes_before_open,
             "delivery_options": [
                 {"value": "email_push", "label": "Email + push alert"},
                 {"value": "email", "label": "Email only"},
@@ -441,6 +447,14 @@ def update_notification_preferences(
     employee_display_name: str | None = None,
     signin_reminder_interval_days: int | None = None,
     signin_reminder_hour_uk: int | None = None,
+    business_timezone: str | None = None,
+    opening_hours: dict[str, Any] | None = None,
+    shift_reminder_minutes_before: int | None = None,
+    missed_clock_in_early_minutes: int | None = None,
+    missed_clock_in_late_minutes: int | None = None,
+    missed_punch_alert_minutes: int | None = None,
+    signin_reminder_timing: str | None = None,
+    signin_reminder_minutes_before_open: int | None = None,
     actor_username: str,
     actor_role: str,
     ip_address: str | None,
@@ -469,6 +483,14 @@ def update_notification_preferences(
         employee_display_name=employee_display_name,
         signin_reminder_interval_days=signin_reminder_interval_days,
         signin_reminder_hour_uk=signin_reminder_hour_uk,
+        business_timezone=business_timezone,
+        opening_hours=opening_hours,
+        shift_reminder_minutes_before=shift_reminder_minutes_before,
+        missed_clock_in_early_minutes=missed_clock_in_early_minutes,
+        missed_clock_in_late_minutes=missed_clock_in_late_minutes,
+        missed_punch_alert_minutes=missed_punch_alert_minutes,
+        signin_reminder_timing=signin_reminder_timing,
+        signin_reminder_minutes_before_open=signin_reminder_minutes_before_open,
     )
     notify_on_rota_publish = merged_json.get("rota_published", "email") != "off"
     with conn.cursor() as cur:
@@ -492,6 +514,22 @@ def update_notification_preferences(
         field_names.append("signin_reminder_interval_days")
     if signin_reminder_hour_uk is not None:
         field_names.append("signin_reminder_hour_uk")
+    if business_timezone is not None:
+        field_names.append("business_timezone")
+    if opening_hours is not None:
+        field_names.append("opening_hours")
+    if shift_reminder_minutes_before is not None:
+        field_names.append("shift_reminder_minutes_before")
+    if missed_clock_in_early_minutes is not None:
+        field_names.append("missed_clock_in_early_minutes")
+    if missed_clock_in_late_minutes is not None:
+        field_names.append("missed_clock_in_late_minutes")
+    if missed_punch_alert_minutes is not None:
+        field_names.append("missed_punch_alert_minutes")
+    if signin_reminder_timing is not None:
+        field_names.append("signin_reminder_timing")
+    if signin_reminder_minutes_before_open is not None:
+        field_names.append("signin_reminder_minutes_before_open")
 
     log_employee_data_event(
         tenant_id=tenant_id,

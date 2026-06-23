@@ -5,14 +5,12 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
+from modules.employees.business_schedule import get_business_schedule, local_now
 from modules.push.service import app_url_path, send_employee_push
 from modules.rota.attendance import evaluate_shift_attendance, load_punches_for_employees
 from modules.rota.missed_punch import list_published_shifts_on_date, tenant_has_active_punch_sites
 from modules.rota.service import shift_window
 
-REMINDER_MINUTES_BEFORE = 10
-EARLY_MISSED_CLOCK_IN_MINUTES = 10
-MISSED_CLOCK_IN_MINUTES = 30
 TRIGGER_WINDOW_MINUTES = 8
 
 
@@ -56,10 +54,15 @@ def evaluate_shift_push_reminders(
     if not tenant_has_active_punch_sites(tenant_id=tenant_id, conn=conn):
         return []
 
-    on_date = now.date()
+    schedule = get_business_schedule(tenant_id=tenant_id, conn=conn)
+    on_date = local_now(now=now, schedule=schedule).date()
     shifts = list_published_shifts_on_date(tenant_id=tenant_id, on_date=on_date, conn=conn)
     if not shifts:
         return []
+
+    reminder_before = schedule.shift_reminder_minutes_before
+    missed_early = schedule.missed_clock_in_early_minutes
+    missed_late = schedule.missed_clock_in_late_minutes
 
     site_name = _primary_site_name(tenant_id=tenant_id, conn=conn)
     clock_url = _app_path("employee.html#time-clock")
@@ -88,12 +91,12 @@ def evaluate_shift_push_reminders(
         employee_id = int(shift["employee_id"])
         shift_id = int(shift["id"])
 
-        if _within_minutes(minutes_until_start, REMINDER_MINUTES_BEFORE):
+        if _within_minutes(minutes_until_start, reminder_before):
             result = send_employee_push(
                 tenant_id=tenant_id,
                 employee_id=employee_id,
-                notification_key=f"shift_reminder_10:{shift_id}",
-                title="Shift in 10 minutes",
+                notification_key=f"shift_reminder_{reminder_before}:{shift_id}",
+                title=f"Shift in {reminder_before} minutes",
                 body=(
                     f"Your shift starts at {shift['start_time']} — tap to open the clock at {site_name}."
                 ),
@@ -103,7 +106,7 @@ def evaluate_shift_push_reminders(
                 conn=conn,
             )
             if result.get("sent"):
-                sent.append({"type": "shift_reminder_10", "shift_id": shift_id, **result})
+                sent.append({"type": f"shift_reminder_{reminder_before}", "shift_id": shift_id, **result})
             continue
 
         if _within_minutes(minutes_after_start, 0):
@@ -122,7 +125,7 @@ def evaluate_shift_push_reminders(
                 sent.append({"type": "shift_start", "shift_id": shift_id, **result})
             continue
 
-        if _within_minutes(minutes_after_start, EARLY_MISSED_CLOCK_IN_MINUTES):
+        if _within_minutes(minutes_after_start, missed_early):
             attendance = evaluate_shift_attendance(
                 shift=shift,
                 punches=punches_by_employee.get(employee_id, []),
@@ -133,22 +136,22 @@ def evaluate_shift_push_reminders(
             result = send_employee_push(
                 tenant_id=tenant_id,
                 employee_id=employee_id,
-                notification_key=f"shift_missed_clock_in_10:{shift_id}",
+                notification_key=f"shift_missed_clock_in_{missed_early}:{shift_id}",
                 title="Reminder: clock in for your shift",
                 body=(
-                    f"Your shift at {site_name} started 10 minutes ago and you have not clocked in yet. "
+                    f"Your shift at {site_name} started {missed_early} minutes ago and you have not clocked in yet. "
                     "Tap to clock in now."
                 ),
                 url=clock_url,
-                tag=f"shift-{shift_id}-missed-10",
+                tag=f"shift-{shift_id}-missed-{missed_early}",
                 alert_type="missed_clock_in_early",
                 conn=conn,
             )
             if result.get("sent"):
-                sent.append({"type": "shift_missed_clock_in_10", "shift_id": shift_id, **result})
+                sent.append({"type": f"shift_missed_clock_in_{missed_early}", "shift_id": shift_id, **result})
             continue
 
-        if _within_minutes(minutes_after_start, MISSED_CLOCK_IN_MINUTES):
+        if _within_minutes(minutes_after_start, missed_late):
             attendance = evaluate_shift_attendance(
                 shift=shift,
                 punches=punches_by_employee.get(employee_id, []),
@@ -159,16 +162,16 @@ def evaluate_shift_push_reminders(
             result = send_employee_push(
                 tenant_id=tenant_id,
                 employee_id=employee_id,
-                notification_key=f"shift_missed_clock_in_30:{shift_id}",
+                notification_key=f"shift_missed_clock_in_{missed_late}:{shift_id}",
                 title="You still haven't clocked in",
                 body="Tap to clock in or contact your manager if you're unable to work this shift.",
                 url=clock_url,
-                tag=f"shift-{shift_id}-missed-30",
+                tag=f"shift-{shift_id}-missed-{missed_late}",
                 alert_type="missed_clock_in",
                 conn=conn,
             )
             if result.get("sent"):
-                sent.append({"type": "shift_missed_clock_in_30", "shift_id": shift_id, **result})
+                sent.append({"type": f"shift_missed_clock_in_{missed_late}", "shift_id": shift_id, **result})
             continue
 
         if _within_minutes(minutes_after_end, 0):

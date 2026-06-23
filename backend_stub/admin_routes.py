@@ -123,6 +123,14 @@ class NotificationPreferencesUpdate(BaseModel):
     employee_display_name: str | None = Field(default=None, max_length=120)
     signin_reminder_interval_days: int | None = Field(default=None, ge=7, le=365)
     signin_reminder_hour_uk: int | None = Field(default=None, ge=0, le=23)
+    business_timezone: str | None = Field(default=None, max_length=64)
+    opening_hours: dict[str, dict[str, Any]] | None = None
+    shift_reminder_minutes_before: int | None = Field(default=None, ge=5, le=120)
+    missed_clock_in_early_minutes: int | None = Field(default=None, ge=5, le=120)
+    missed_clock_in_late_minutes: int | None = Field(default=None, ge=10, le=180)
+    missed_punch_alert_minutes: int | None = Field(default=None, ge=5, le=180)
+    signin_reminder_timing: str | None = Field(default=None, pattern="^(fixed_hour|before_opening)$")
+    signin_reminder_minutes_before_open: int | None = Field(default=None, ge=15, le=240)
 
 
 class EmployeeCreate(BaseModel):
@@ -850,6 +858,14 @@ def patch_notification_preferences(
         and payload.employee_display_name is None
         and payload.signin_reminder_interval_days is None
         and payload.signin_reminder_hour_uk is None
+        and payload.business_timezone is None
+        and payload.opening_hours is None
+        and payload.shift_reminder_minutes_before is None
+        and payload.missed_clock_in_early_minutes is None
+        and payload.missed_clock_in_late_minutes is None
+        and payload.missed_punch_alert_minutes is None
+        and payload.signin_reminder_timing is None
+        and payload.signin_reminder_minutes_before_open is None
     ):
         raise HTTPException(status_code=400, detail="No preferences to update")
     conn = _db_conn()
@@ -860,6 +876,14 @@ def patch_notification_preferences(
             employee_display_name=payload.employee_display_name,
             signin_reminder_interval_days=payload.signin_reminder_interval_days,
             signin_reminder_hour_uk=payload.signin_reminder_hour_uk,
+            business_timezone=payload.business_timezone,
+            opening_hours=payload.opening_hours,
+            shift_reminder_minutes_before=payload.shift_reminder_minutes_before,
+            missed_clock_in_early_minutes=payload.missed_clock_in_early_minutes,
+            missed_clock_in_late_minutes=payload.missed_clock_in_late_minutes,
+            missed_punch_alert_minutes=payload.missed_punch_alert_minutes,
+            signin_reminder_timing=payload.signin_reminder_timing,
+            signin_reminder_minutes_before_open=payload.signin_reminder_minutes_before_open,
             actor_username=current_user.username,
             actor_role=current_user.role,
             ip_address=client_ip(request),

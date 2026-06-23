@@ -6,12 +6,11 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from modules.employees.business_schedule import get_business_schedule, local_now
 from modules.rota.attendance import evaluate_shift_attendance, load_punches_for_employees
 from modules.rota.service import shift_window
 
 UK_TZ = ZoneInfo("Europe/London")
-
-MISSED_PUNCH_ALERT_MINUTES = 15
 
 
 def _parse_now(now: datetime | None) -> datetime:
@@ -96,7 +95,8 @@ def evaluate_missed_punch_alerts(
     if not tenant_has_active_punch_sites(tenant_id=tenant_id, conn=conn):
         return []
 
-    on_date = now.astimezone(UK_TZ).date()
+    schedule = get_business_schedule(tenant_id=tenant_id, conn=conn)
+    on_date = local_now(now=now, schedule=schedule).date()
     shifts = list_published_shifts_on_date(tenant_id=tenant_id, on_date=on_date, conn=conn)
     if not shifts:
         return []
@@ -125,6 +125,8 @@ def evaluate_missed_punch_alerts(
         conn=conn,
     )
 
+    missed_punch_minutes = schedule.missed_punch_alert_minutes
+
     created: list[dict[str, Any]] = []
     for shift in shifts:
         shift_date = date.fromisoformat(str(shift["shift_date"])[:10])
@@ -135,7 +137,7 @@ def evaluate_missed_punch_alerts(
             start_time=start_time,
             end_time=end_time,
         )
-        alert_at = window_start + timedelta(minutes=MISSED_PUNCH_ALERT_MINUTES)
+        alert_at = window_start + timedelta(minutes=missed_punch_minutes)
         if now < alert_at or now > window_end:
             continue
 
@@ -180,7 +182,7 @@ def evaluate_missed_punch_alerts(
                 employee_name=shift["employee_name"],
                 shift_label=shift_label,
                 role_label=shift.get("role_label") or "",
-                grace_minutes=MISSED_PUNCH_ALERT_MINUTES,
+                grace_minutes=missed_punch_minutes,
             )
             channels = ["email", "sms"] if hr_delivery == "email_sms" else ["email"]
             for channel in channels:
@@ -208,7 +210,7 @@ def evaluate_missed_punch_alerts(
                 employee_name=shift["employee_name"],
                 tenant_name=employee_from_name,
                 shift_label=shift_label,
-                grace_minutes=MISSED_PUNCH_ALERT_MINUTES,
+                grace_minutes=missed_punch_minutes,
             )
             send_email_content(
                 conn=conn,

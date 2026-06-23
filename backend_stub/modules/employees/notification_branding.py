@@ -55,6 +55,14 @@ def merge_notification_preferences_json(
     employee_display_name: str | None = None,
     signin_reminder_interval_days: int | None = None,
     signin_reminder_hour_uk: int | None = None,
+    business_timezone: str | None = None,
+    opening_hours: dict[str, Any] | None = None,
+    shift_reminder_minutes_before: int | None = None,
+    missed_clock_in_early_minutes: int | None = None,
+    missed_clock_in_late_minutes: int | None = None,
+    missed_punch_alert_minutes: int | None = None,
+    signin_reminder_timing: str | None = None,
+    signin_reminder_minutes_before_open: int | None = None,
 ) -> dict[str, Any]:
     """Build JSONB payload for tenants.notification_preferences."""
     from admin_service import (
@@ -101,4 +109,18 @@ def merge_notification_preferences_json(
         hour = max(0, min(23, int(signin_reminder_hour_uk)))
     out["signin_reminder_interval_days"] = interval
     out["signin_reminder_hour_uk"] = hour
-    return out
+
+    from modules.employees.business_schedule import merge_business_schedule_fields
+
+    return merge_business_schedule_fields(
+        out,
+        raw,
+        business_timezone=business_timezone,
+        opening_hours=opening_hours,
+        shift_reminder_minutes_before=shift_reminder_minutes_before,
+        missed_clock_in_early_minutes=missed_clock_in_early_minutes,
+        missed_clock_in_late_minutes=missed_clock_in_late_minutes,
+        missed_punch_alert_minutes=missed_punch_alert_minutes,
+        signin_reminder_timing=signin_reminder_timing,
+        signin_reminder_minutes_before_open=signin_reminder_minutes_before_open,
+    )

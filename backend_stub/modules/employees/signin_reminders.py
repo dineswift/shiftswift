@@ -6,13 +6,16 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from modules.employees.business_schedule import (
+    get_business_schedule,
+    should_send_signin_reminder_now,
+)
 from modules.employees.notification_branding import employee_notification_from_name
 from modules.push.service import app_url_path, send_employee_push
 
 UK_TZ = ZoneInfo("Europe/London")
 DEFAULT_INTERVAL_DAYS = 30
 DEFAULT_HOUR_UK = 9
-TRIGGER_WINDOW_MINUTES = 20
 SIGNIN_DELIVERY_MODES = frozenset({"email", "push", "email_push", "off"})
 
 
@@ -44,11 +47,9 @@ def get_signin_reminder_config(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     return _parse_signin_config(row[0] if row else None)
 
 
-def _within_send_window(*, now: datetime, hour_uk: int) -> bool:
-    local = now.astimezone(UK_TZ)
-    target = local.replace(hour=hour_uk, minute=0, second=0, microsecond=0)
-    delta_minutes = abs((local - target).total_seconds()) / 60.0
-    return delta_minutes <= TRIGGER_WINDOW_MINUTES
+def _within_send_window(*, now: datetime, hour_uk: int, tenant_id: int, conn: Any) -> bool:
+    schedule = get_business_schedule(tenant_id=tenant_id, conn=conn)
+    return should_send_signin_reminder_now(now=now, hour_local=hour_uk, schedule=schedule)
 
 
 def _last_login_at(*, tenant_id: int, username: str, conn: Any) -> datetime | None:
@@ -182,7 +183,7 @@ def evaluate_signin_reminders(
     if config["delivery"] == "off":
         return []
 
-    if not _within_send_window(now=now, hour_uk=config["hour_uk"]):
+    if not _within_send_window(now=now, hour_uk=config["hour_uk"], tenant_id=tenant_id, conn=conn):
         return []
 
     interval_days = int(config["interval_days"])
@@ -247,7 +248,7 @@ def evaluate_signin_reminders(
             channels_used.append("email")
 
         if delivery in {"push", "email_push"}:
-            notification_key = f"signin_reminder:{employee_id}:{now.astimezone(UK_TZ).date().isoformat()}"
+            notification_key = f"signin_reminder:{employee_id}:{local_now(now=now, schedule=get_business_schedule(tenant_id=tenant_id, conn=conn)).date().isoformat()}"
             push_result = send_employee_push(
                 tenant_id=tenant_id,
                 employee_id=employee_id,

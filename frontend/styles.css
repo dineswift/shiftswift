@@ -8666,6 +8666,26 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   max-width: 720px;
 }
 
+.settings-opening-hours-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+
+.settings-opening-hours-table input[type="time"] {
+  min-width: 7rem;
+}
+
+.settings-opening-hours-table td,
+.settings-opening-hours-table th {
+  vertical-align: middle;
+}
+
+.settings-business-schedule,
+.settings-clock-reminders {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+}
+
 .settings-notify-select {
   min-width: 160px;
   padding: 6px 10px;

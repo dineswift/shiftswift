@@ -614,6 +614,49 @@
     { value: "off", label: "Off" },
   ];
 
+  const OPENING_DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+  function collectOpeningHours(host) {
+    const opening_hours = {};
+    OPENING_DAY_KEYS.forEach((day) => {
+      opening_hours[day] = {
+        closed: Boolean(host.querySelector(`#settings-hours-${day}-closed`)?.checked),
+        open: host.querySelector(`#settings-hours-${day}-open`)?.value || "09:00",
+        close: host.querySelector(`#settings-hours-${day}-close`)?.value || "22:00",
+      };
+    });
+    return opening_hours;
+  }
+
+  function renderOpeningHoursRows(schedule) {
+    const hours = schedule?.opening_hours || {};
+    const labels = schedule?.day_labels || {
+      mon: "Monday",
+      tue: "Tuesday",
+      wed: "Wednesday",
+      thu: "Thursday",
+      fri: "Friday",
+      sat: "Saturday",
+      sun: "Sunday",
+    };
+    return OPENING_DAY_KEYS.map((day) => {
+      const row = hours[day] || { closed: day === "sun", open: "09:00", close: "22:00" };
+      return `
+        <tr>
+          <td>${escapeHtml(labels[day] || day)}</td>
+          <td><input type="checkbox" id="settings-hours-${day}-closed" data-hours-day="${day}" ${row.closed ? "checked" : ""} aria-label="${escapeHtml(labels[day] || day)} closed" /></td>
+          <td><input type="time" id="settings-hours-${day}-open" value="${escapeHtml(row.open || "09:00")}" ${row.closed ? "disabled" : ""} /></td>
+          <td><input type="time" id="settings-hours-${day}-close" value="${escapeHtml(row.close || "22:00")}" ${row.closed ? "disabled" : ""} /></td>
+        </tr>`;
+    }).join("");
+  }
+
+  function syncSigninTimingFields(host) {
+    const timing = host.querySelector("#settings-signin-reminder-timing")?.value || "fixed_hour";
+    host.querySelector("#settings-signin-fixed-hour-wrap")?.toggleAttribute("hidden", timing !== "fixed_hour");
+    host.querySelector("#settings-signin-before-open-wrap")?.toggleAttribute("hidden", timing !== "before_opening");
+  }
+
   async function saveNotificationPreferences(host) {
     const preferences = {};
     host.querySelectorAll(".settings-notify-select").forEach((el) => {
@@ -627,6 +670,16 @@
     const payload = {
       preferences,
       employee_display_name: displayInput ? displayInput.value.trim() : "",
+      business_timezone: host.querySelector("#settings-business-timezone")?.value,
+      opening_hours: collectOpeningHours(host),
+      shift_reminder_minutes_before: Number(host.querySelector("#settings-shift-reminder-before")?.value || 10),
+      missed_clock_in_early_minutes: Number(host.querySelector("#settings-missed-clock-early")?.value || 10),
+      missed_clock_in_late_minutes: Number(host.querySelector("#settings-missed-clock-late")?.value || 30),
+      missed_punch_alert_minutes: Number(host.querySelector("#settings-missed-punch-alert")?.value || 15),
+      signin_reminder_timing: host.querySelector("#settings-signin-reminder-timing")?.value || "fixed_hour",
+      signin_reminder_minutes_before_open: Number(
+        host.querySelector("#settings-signin-minutes-before-open")?.value || 60,
+      ),
     };
     if (intervalRaw) payload.signin_reminder_interval_days = Number(intervalRaw);
     if (hourRaw !== undefined && hourRaw !== "") payload.signin_reminder_hour_uk = Number(hourRaw);
@@ -657,9 +710,16 @@
         );
         const prefs = data?.preferences || {};
         const signin = data?.signin_reminder || {};
+        const schedule = data?.business_schedule || {};
         const signinDelivery = signin.delivery || prefs.employee_signin_reminder || "email_push";
         const signinInterval = signin.interval_days ?? 30;
-        const signinHour = signin.hour_uk ?? 9;
+        const signinHour = signin.hour_local ?? signin.hour_uk ?? 9;
+        const signinTiming = signin.timing || schedule.signin_reminder_timing || "fixed_hour";
+        const signinBeforeOpen = signin.minutes_before_open ?? schedule.signin_reminder_minutes_before_open ?? 60;
+        const timezone = schedule.timezone || "Europe/London";
+        const timezoneOptions = schedule.timezone_options || [
+          { value: "Europe/London", label: "UK — London (GMT/BST)" },
+        ];
 
         host.innerHTML = `
       <article class="card settings-notify-branding">
@@ -671,9 +731,47 @@
         </label>
         <p class="muted settings-notify-branding__hint" id="settings-employee-display-preview"></p>
       </article>
+      <article class="card settings-business-schedule">
+        <h4 class="hr-section-title">Business hours &amp; timezone</h4>
+        <p class="muted">Set when your business is open. Sign-in reminders respect closed days. Clock alerts still follow each employee’s published rota shift times.</p>
+        <label class="edit-field">
+          <span class="edit-label">Business timezone</span>
+          <select id="settings-business-timezone">
+            ${timezoneOptions.map((opt) => `<option value="${escapeHtml(opt.value)}" ${timezone === opt.value ? "selected" : ""}>${escapeHtml(opt.label)}</option>`).join("")}
+          </select>
+        </label>
+        <div class="settings-opening-hours-wrap">
+          <table class="data-table settings-opening-hours-table">
+            <thead><tr><th>Day</th><th>Closed</th><th>Opens</th><th>Closes</th></tr></thead>
+            <tbody>${renderOpeningHoursRows(schedule)}</tbody>
+          </table>
+        </div>
+      </article>
+      <article class="card settings-clock-reminders">
+        <h4 class="hr-section-title">Clock &amp; shift reminders</h4>
+        <p class="muted">Push alert timing relative to each published shift (requires time clock and platform jobs cron every 15 minutes).</p>
+        <div class="settings-signin-reminder__grid">
+          <label class="edit-field">
+            <span class="edit-label">Before shift starts (minutes)</span>
+            <input type="number" id="settings-shift-reminder-before" min="5" max="120" value="${Number(schedule.shift_reminder_minutes_before ?? 10)}" />
+          </label>
+          <label class="edit-field">
+            <span class="edit-label">Missed clock-in — first nudge (minutes after start)</span>
+            <input type="number" id="settings-missed-clock-early" min="5" max="120" value="${Number(schedule.missed_clock_in_early_minutes ?? 10)}" />
+          </label>
+          <label class="edit-field">
+            <span class="edit-label">Missed clock-in — second nudge (minutes after start)</span>
+            <input type="number" id="settings-missed-clock-late" min="10" max="180" value="${Number(schedule.missed_clock_in_late_minutes ?? 30)}" />
+          </label>
+          <label class="edit-field">
+            <span class="edit-label">Missed clock-in — HR/email alert (minutes after start)</span>
+            <input type="number" id="settings-missed-punch-alert" min="5" max="180" value="${Number(schedule.missed_punch_alert_minutes ?? 15)}" />
+          </label>
+        </div>
+      </article>
       <article class="card settings-signin-reminder">
         <h4 class="hr-section-title">Employee sign-in reminder</h4>
-        <p class="muted">Nudge staff who have not opened the employee portal recently. Sent once per interval at the chosen UK time (requires platform jobs cron every 15 minutes).</p>
+        <p class="muted">Nudge staff who have not opened the employee portal recently. Only sent on days your business is open.</p>
         <div class="settings-signin-reminder__grid">
           <label class="edit-field">
             <span class="edit-label">Remind after</span>
@@ -682,10 +780,21 @@
             </select>
           </label>
           <label class="edit-field">
-            <span class="edit-label">Send at (UK time)</span>
+            <span class="edit-label">When to send</span>
+            <select id="settings-signin-reminder-timing">
+              <option value="fixed_hour" ${signinTiming === "fixed_hour" ? "selected" : ""}>Fixed time each open day</option>
+              <option value="before_opening" ${signinTiming === "before_opening" ? "selected" : ""}>Before opening time</option>
+            </select>
+          </label>
+          <label class="edit-field" id="settings-signin-fixed-hour-wrap" ${signinTiming === "fixed_hour" ? "" : "hidden"}>
+            <span class="edit-label">Send at (business timezone)</span>
             <select id="settings-signin-reminder-hour">
               ${Array.from({ length: 24 }, (_, hour) => `<option value="${hour}" ${Number(signinHour) === hour ? "selected" : ""}>${String(hour).padStart(2, "0")}:00</option>`).join("")}
             </select>
+          </label>
+          <label class="edit-field" id="settings-signin-before-open-wrap" ${signinTiming === "before_opening" ? "" : "hidden"}>
+            <span class="edit-label">Minutes before opening</span>
+            <input type="number" id="settings-signin-minutes-before-open" min="15" max="240" value="${Number(signinBeforeOpen)}" />
           </label>
           <label class="edit-field">
             <span class="edit-label">Delivery</span>
@@ -734,6 +843,39 @@
         host.querySelector("#settings-signin-reminder-delivery")?.addEventListener("change", () => {
           void saveNotificationPreferences(host);
         });
+        host.querySelector("#settings-signin-reminder-timing")?.addEventListener("change", () => {
+          syncSigninTimingFields(host);
+          void saveNotificationPreferences(host);
+        });
+        host.querySelector("#settings-business-timezone")?.addEventListener("change", () => {
+          void saveNotificationPreferences(host);
+        });
+        [
+          "#settings-shift-reminder-before",
+          "#settings-missed-clock-early",
+          "#settings-missed-clock-late",
+          "#settings-missed-punch-alert",
+          "#settings-signin-minutes-before-open",
+        ].forEach((selector) => {
+          host.querySelector(selector)?.addEventListener("change", () => {
+            void saveNotificationPreferences(host);
+          });
+        });
+        OPENING_DAY_KEYS.forEach((day) => {
+          host.querySelector(`#settings-hours-${day}-closed`)?.addEventListener("change", (event) => {
+            const closed = event.target.checked;
+            host.querySelector(`#settings-hours-${day}-open`)?.toggleAttribute("disabled", closed);
+            host.querySelector(`#settings-hours-${day}-close`)?.toggleAttribute("disabled", closed);
+            void saveNotificationPreferences(host);
+          });
+          host.querySelector(`#settings-hours-${day}-open`)?.addEventListener("change", () => {
+            void saveNotificationPreferences(host);
+          });
+          host.querySelector(`#settings-hours-${day}-close`)?.addEventListener("change", () => {
+            void saveNotificationPreferences(host);
+          });
+        });
+        syncSigninTimingFields(host);
 
         const displayInput = host.querySelector("#settings-employee-display-name");
         const preview = host.querySelector("#settings-employee-display-preview");
