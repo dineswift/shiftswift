@@ -943,16 +943,119 @@
     renderLifecycleAccordion(workspace || workspaceCache);
   }
 
+  const HISTORY_FIELD_LABELS = {
+    first_name: "First name",
+    last_name: "Last name",
+    email: "Work email",
+    phone: "Telephone",
+    home_address: "Home address",
+    job_title: "Job title",
+    salary: "Salary",
+    work_location: "Work location",
+    department: "Department",
+    employment_type: "Employment type",
+    contract_hours_weekly: "Contract hours (weekly)",
+    start_date: "Start date",
+    status: "Status",
+    date_of_birth: "Date of birth",
+    ni_number: "NI number",
+    probation_end_date: "Probation end date",
+    termination_date: "Termination date",
+    termination_reason: "Termination reason",
+    emergency_contact_name: "Emergency contact name",
+    emergency_contact_phone: "Emergency contact phone",
+    emergency_contact_relationship: "Emergency contact relationship",
+    is_sponsored: "Sponsored worker",
+  };
+
+  function historyFieldLabel(field) {
+    return HISTORY_FIELD_LABELS[field] || field.replace(/_/g, " ");
+  }
+
+  function formatHistoryValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    return String(value);
+  }
+
+  function renderHistoryChangeRows(changes) {
+    if (!changes?.length) {
+      return `<p class="muted employee-change-history__empty">No field changes recorded in this version.</p>`;
+    }
+    return `<ul class="employee-change-history__changes">
+      ${changes
+        .map(
+          (change) => `
+        <li>
+          <strong>${escapeHtml(historyFieldLabel(change.field))}</strong>
+          <span class="employee-change-history__from">${escapeHtml(formatHistoryValue(change.old))}</span>
+          <span class="employee-change-history__arrow" aria-hidden="true">→</span>
+          <span class="employee-change-history__to">${escapeHtml(formatHistoryValue(change.new))}</span>
+        </li>`,
+        )
+        .join("")}
+    </ul>`;
+  }
+
+  async function loadEmployeeChangeHistory(employeeId) {
+    const panel = $("employee-change-history-panel");
+    const list = $("employee-change-history-list");
+    if (!panel || !list || !employeeId) return;
+
+    panel.hidden = false;
+    list.innerHTML = `<p class="muted">Loading history…</p>`;
+
+    try {
+      const res = await apiFetch(`/admin/employees/${employeeId}/history`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Could not load history");
+
+      const versions = data.versions || [];
+      if (!versions.length) {
+        list.innerHTML = `<p class="muted">No changes recorded yet. Updates to address, telephone, job details, and other profile fields will appear here.</p>`;
+        return;
+      }
+
+      list.innerHTML = versions
+        .map(
+          (version) => `
+        <article class="employee-change-history__item">
+          <header class="employee-change-history__meta">
+            <strong>Version ${version.version_no}</strong>
+            <span class="muted">${escapeHtml(formatNoteWhen(version.effective_from || version.created_at))}</span>
+          </header>
+          <p class="muted employee-change-history__actor">Updated by ${escapeHtml(version.changed_by || "HR")} (${escapeHtml(version.changed_by_role || "hr")})</p>
+          ${renderHistoryChangeRows(version.changed_fields)}
+        </article>`,
+        )
+        .join("");
+    } catch (error) {
+      list.innerHTML = `<p class="form-error-message">${escapeHtml(error.message || "Could not load history")}</p>`;
+    }
+  }
+
+  function bindChangeHistoryPanel() {
+    $("employee-change-history-close")?.addEventListener("click", () => {
+      const panel = $("employee-change-history-panel");
+      if (panel) panel.hidden = true;
+    });
+  }
+
   function renderAdvancedLinks(employee) {
     const host = $("employee-advanced-link-row");
     if (!host) return;
     const sponsored = Boolean(employee?.is_sponsored);
+    const employeeId = employee?.id || activeEmployeeId;
     host.innerHTML = `
+      <button type="button" class="btn ghost" id="employee-change-history-btn">Change history</button>
       ${sponsored ? '<a href="#compliance" class="btn ghost">Sponsor compliance</a>' : ""}
       <a href="#grievance" class="btn ghost">Grievance cases</a>
-      <a href="${employee?.id || activeEmployeeId ? `#employment-contracts/start/${employee?.id || activeEmployeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
-      <a href="${employee?.id || activeEmployeeId ? `#offboarding/start/${employee?.id || activeEmployeeId}` : "#offboarding"}" class="btn ghost">Off-boarding workflow</a>
+      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
+      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost">Off-boarding workflow</a>
       <a href="#time-punch" class="btn ghost">Time punch</a>`;
+    host.querySelector("#employee-change-history-btn")?.addEventListener("click", () => {
+      if (employeeId) void loadEmployeeChangeHistory(employeeId);
+    });
   }
 
   let kioskPinLoadRequest = 0;
@@ -1900,6 +2003,8 @@
       window.location.hash = desired;
     }
     activeEmployeeId = employeeId;
+    const historyPanel = $("employee-change-history-panel");
+    if (historyPanel) historyPanel.hidden = true;
     showDetailView();
     const accordion = lifecycleAccordionHost();
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;
@@ -2109,6 +2214,7 @@
       await loadFormOptions();
       mountQuickAddForm();
       mountKioskPinForm();
+      bindChangeHistoryPanel();
       document.getElementById("employees-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites());
       window.addEventListener("resize", () => renderLifecycleHub(employeesCache));
     }
