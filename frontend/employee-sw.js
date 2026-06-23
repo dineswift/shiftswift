@@ -1,5 +1,5 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v9";
+const CACHE_NAME = "shiftswift-employee-v10";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
@@ -23,6 +23,8 @@ const SHELL = [
   "./employee.js",
   "./employee-time-punch.js",
   "./employee-rota.js",
+  "./employee-my-details.js",
+  "./employee-leave.js",
   "./assets/shiftswift-employee-app-icon-192.png",
   "./assets/shiftswift-employee-app-icon.png",
   "./assets/shiftswift-employee-app-icon-180.png",

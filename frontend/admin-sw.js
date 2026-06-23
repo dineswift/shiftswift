@@ -1,5 +1,5 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v6";
+const CACHE_NAME = "shiftswift-admin-v7";
 const SHELL = [
   "./admin.html",
   "./business-login.html",
@@ -21,6 +21,8 @@ const SHELL = [
   "./push-notifications.js",
   "./mobile-shell.js",
   "./admin-mobile.js",
+  "./admin-profile-changes.js",
+  "./admin-employees.js",
   "./assets/shiftswift-hr-app-icon-192.png",
   "./assets/shiftswift-hr-app-icon.png",
   "./assets/shiftswift-hr-app-icon-180.png",
