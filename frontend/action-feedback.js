@@ -36,8 +36,19 @@
     toneClasses(tone).forEach((cls) => el.classList.add(cls));
   }
 
-  function beginButtonAction(button, { loadingLabel = "Working…" } = {}) {
+  function tapHaptic(kind = "light") {
+    try {
+      if (typeof navigator.vibrate === "function") {
+        navigator.vibrate(kind === "success" ? 10 : 6);
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function beginButtonAction(button, { loadingLabel = "Working…", haptic = true } = {}) {
     if (!button || button.disabled) return null;
+    if (haptic) tapHaptic("light");
     const state = {
       button,
       originalHtml: button.innerHTML,
@@ -70,6 +81,7 @@
       button.innerHTML = originalHtml;
     }
     if (flashSuccess && successLabel && button.tagName === "BUTTON") {
+      tapHaptic("success");
       button.classList.add(FLASH_CLASS);
       button.textContent = successLabel;
       window.setTimeout(() => {

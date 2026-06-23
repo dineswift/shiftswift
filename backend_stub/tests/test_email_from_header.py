@@ -24,7 +24,7 @@ def test_resolve_from_display_name_uses_employee_alias(monkeypatch) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchone.return_value = ({"employee_display_name": "Restaurant HR"},)
+    cursor.fetchone.return_value = ({"employee_display_name": "Restaurant HR"}, "Acme Ltd")
 
     display = resolve_from_display_name(
         audience="employee",
@@ -41,7 +41,7 @@ def test_format_from_header_masks_employee_mail_with_business_name(monkeypatch) 
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchone.return_value = ({"employee_display_name": "Restaurant HR"},)
+    cursor.fetchone.return_value = ({"employee_display_name": "Restaurant HR"}, "Acme Ltd")
 
     header = format_from_header(
         audience="employee",

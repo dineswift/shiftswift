@@ -76,6 +76,18 @@ def _cta_button(url: str, label: str) -> str:
     )
 
 
+def _employer_subject(employer_name: str, detail: str) -> str:
+    """Inbox subject — employer first; platform name only if employer is missing."""
+    employer = str(employer_name or "").strip() or APP_NAME
+    detail = str(detail or "").strip()
+    return f"{employer} — {detail}" if detail else employer
+
+
+def _employer_text_signoff(employer_name: str) -> str:
+    employer = str(employer_name or "").strip() or APP_NAME
+    return f"— {employer}"
+
+
 def render_email(
     *,
     preheader: str,
@@ -86,12 +98,34 @@ def render_email(
     cta_url: str | None = None,
     cta_label: str | None = None,
     footer_note: str | None = None,
+    employer_name: str | None = None,
 ) -> str:
     """Wrap content in a responsive, client-safe HTML shell."""
     preheader_esc = _esc(preheader)
     detail_html = _bullet_list(details) if details else ""
     cta_html = _cta_button(cta_url, cta_label) if cta_url and cta_label else ""
     footer = footer_note or f"Questions? Reply to {_esc(SUPPORT_EMAIL)}"
+    employer = str(employer_name or "").strip()
+    if employer:
+        header_brand = (
+            f'<p style="margin:0;font-size:20px;font-weight:800;line-height:1.25;color:#ffffff;">'
+            f"{_esc(employer)}</p>"
+            f'<p style="margin:6px 0 0;font-size:11px;line-height:1.3;color:#ffffff;opacity:0.72;">'
+            f"via {_esc(APP_NAME)}</p>"
+        )
+        platform_footer = (
+            f'<p style="margin:0;font-size:10px;line-height:1.45;color:#9a9893;">'
+            f"Powered by {_esc(APP_NAME)} · {_esc(APP_DOMAIN)}</p>"
+        )
+    else:
+        header_brand = (
+            f'<img src="{_esc(LOGO_URL)}" alt="{_esc(APP_NAME)}" width="160" '
+            f'style="display:block;max-width:160px;height:auto;border:0;" />'
+        )
+        platform_footer = (
+            f'<p style="margin:0;font-size:12px;line-height:1.5;color:{MUTED};">'
+            f"{_esc(APP_NAME)} · {_esc(APP_DOMAIN)}</p>"
+        )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -119,8 +153,7 @@ def render_email(
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="vertical-align:middle;">
-                    <img src="{_esc(LOGO_URL)}" alt="{_esc(APP_NAME)}" width="160"
-                      style="display:block;max-width:160px;height:auto;border:0;" />
+                    {header_brand}
                   </td>
                   <td align="right" style="vertical-align:middle;color:#ffffff;font-size:12px;opacity:0.9;">
                     UK HR &amp; compliance
@@ -141,9 +174,7 @@ def render_email(
           <tr>
             <td class="pad" style="padding:8px 28px 28px;">
               <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:{MUTED};">{_esc(footer)}</p>
-              <p style="margin:0;font-size:12px;line-height:1.5;color:{MUTED};">
-                {_esc(APP_NAME)} · {_esc(APP_DOMAIN)}
-              </p>
+              {platform_footer}
             </td>
           </tr>
         </table>
@@ -426,8 +457,8 @@ def employee_portal_invite_email(
     reset_hours: int,
     install_app_url: str | None = None,
 ) -> EmailContent:
-    subject = f"{APP_NAME} — Set up your employee portal"
-    intro = f"{notification_from_name} has invited you to ShiftSwift HR's employee portal."
+    subject = _employer_subject(notification_from_name, "Set up your employee portal")
+    intro = f"{notification_from_name} has invited you to the employee portal."
     privacy_url = f"{APP_URL}/privacy-policy.html"
     install_url = (install_app_url or f"{APP_URL}/install-employee.html").rstrip("/")
     gdpr_note = (
@@ -451,7 +482,7 @@ def employee_portal_invite_email(
         f"If you do not see this email, check your junk or spam folder.\n\n"
         f"{iphone_install_note}\n\n"
         f"Privacy policy: {privacy_url}\n\n"
-        f"— {APP_NAME}\n"
+        f"{_employer_text_signoff(notification_from_name)}\n"
     )
     html = render_email(
         preheader="Set up your employee portal access.",
@@ -467,6 +498,7 @@ def employee_portal_invite_email(
         ],
         cta_url=setup_url,
         cta_label="Choose your password",
+        employer_name=notification_from_name,
     )
     return EmailContent(subject=subject, text=text, html=html)
 
@@ -515,13 +547,13 @@ def employee_signin_reminder_email(
     days_idle: int,
     login_url: str,
 ) -> EmailContent:
-    subject = f"{APP_NAME} — Reminder to sign in to {tenant_name}"
+    subject = _employer_subject(tenant_name, f"Reminder to sign in")
     portal_url = f"{APP_URL}/employee.html"
     text = (
         f"Hello {employee_name},\n\n"
         f"You have not signed in to the {tenant_name} employee portal for {days_idle} days.\n"
         f"Open shifts, clock in and out, and view payslips when you sign in:\n{login_url}\n\n"
-        f"— {APP_NAME}\n"
+        f"{_employer_text_signoff(tenant_name)}\n"
     )
     html = render_email(
         preheader=f"Sign in to {tenant_name} — it has been {days_idle} days since your last visit.",
@@ -537,6 +569,7 @@ def employee_signin_reminder_email(
         ],
         cta_url=login_url,
         cta_label="Sign in now",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)
 
@@ -550,7 +583,7 @@ def employee_document_shared_email(
     tenant_name: str,
 ) -> EmailContent:
     period_line = f" for {pay_period}" if pay_period else ""
-    subject = f"{APP_NAME} — New {category_label.lower()}{period_line}"
+    subject = _employer_subject(tenant_name, f"New {category_label.lower()}{period_line}")
     portal_url = f"{APP_URL}/employee.html#documents"
     intro = f"{tenant_name} has shared a new document with you: {document_title}."
     details = [("Type", category_label)]
@@ -560,7 +593,7 @@ def employee_document_shared_email(
         f"Hello {employee_name},\n\n"
         f"{intro}\n\n"
         f"Sign in to your employee portal to view and download it:\n{portal_url}\n\n"
-        f"— {APP_NAME}\n"
+        f"{_employer_text_signoff(tenant_name)}\n"
     )
     html = render_email(
         preheader=f"New {category_label.lower()} from {tenant_name}.",
@@ -569,6 +602,7 @@ def employee_document_shared_email(
         details=details,
         cta_url=portal_url,
         cta_label="Open employee portal",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)
 
@@ -580,7 +614,7 @@ def rota_published_email(
     week_label: str,
     shift_lines: list[str],
 ) -> EmailContent:
-    subject = f"{APP_NAME} — Your rota for {week_label}"
+    subject = _employer_subject(tenant_name, f"Your rota for {week_label}")
     portal_url = f"{APP_URL}/employee.html#rota"
     shift_text = "\n".join(f"• {line}" for line in shift_lines) if shift_lines else "See your employee portal for details."
     intro = f"{tenant_name} has published your shifts for {week_label}."
@@ -589,7 +623,7 @@ def rota_published_email(
         f"{intro}\n\n"
         f"{shift_text}\n\n"
         f"View your full rota:\n{portal_url}\n\n"
-        f"— {APP_NAME}\n"
+        f"{_employer_text_signoff(tenant_name)}\n"
     )
     paragraphs = shift_lines[:8] if shift_lines else ["Open your employee portal to see your full schedule."]
     if len(shift_lines) > 8:
@@ -601,6 +635,7 @@ def rota_published_email(
         paragraphs=paragraphs,
         cta_url=portal_url,
         cta_label="View my rota",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)
 
@@ -650,7 +685,7 @@ def missed_punch_employee_email(
     grace_minutes: int,
 ) -> EmailContent:
     clock_url = f"{APP_URL}/punch.html"
-    subject = f"{APP_NAME} — please clock in for your shift"
+    subject = _employer_subject(tenant_name, "Please clock in for your shift")
     intro = (
         f"Your shift at {tenant_name} started at least {grace_minutes} minutes ago and we have not "
         f"received a clock-in yet."
@@ -661,7 +696,7 @@ def missed_punch_employee_email(
         f"Shift: {shift_label}\n\n"
         f"Open the Time Clock app and clock in when you are at your work site:\n{clock_url}\n\n"
         f"Location access is required at punch time.\n\n"
-        f"— {APP_NAME}\n"
+        f"{_employer_text_signoff(tenant_name)}\n"
     )
     html = render_email(
         preheader=f"Please clock in for {shift_label}.",
@@ -674,6 +709,7 @@ def missed_punch_employee_email(
         ],
         cta_url=clock_url,
         cta_label="Open Time Clock",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)
 
@@ -765,17 +801,17 @@ def profile_change_employee_decision_email(
     portal_url: str,
 ) -> EmailContent:
     if approved:
-        subject = f"{APP_NAME} — Your contact details were updated"
+        subject = _employer_subject(tenant_name, "Your contact details were updated")
         intro = f"{tenant_name} approved your contact detail update."
         title = "Contact details updated"
     else:
-        subject = f"{APP_NAME} — Contact detail update not approved"
+        subject = _employer_subject(tenant_name, "Contact detail update not approved")
         intro = f"{tenant_name} did not approve your contact detail update."
         title = "Update not approved"
     paragraphs = [f"Sign in to view your profile: {portal_url}"]
     if review_note:
         paragraphs.insert(0, f"Note from HR: {review_note}")
-    text = f"Hello {employee_name},\n\n{intro}\n\n" + "\n".join(paragraphs) + f"\n\n— {APP_NAME}\n"
+    text = f"Hello {employee_name},\n\n{intro}\n\n" + "\n".join(paragraphs) + f"\n\n{_employer_text_signoff(tenant_name)}\n"
     html = render_email(
         preheader=subject,
         title=title,
@@ -783,6 +819,7 @@ def profile_change_employee_decision_email(
         paragraphs=paragraphs,
         cta_url=portal_url,
         cta_label="Open employee portal",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)
 

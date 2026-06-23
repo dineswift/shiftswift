@@ -239,10 +239,17 @@
           ? "Day off"
           : `${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}`;
         const role = escapeHtml(shift.role_label || employeeRoleLabel(emp));
-        return `<button type="button" class="rota-mobile-shift-chip ${blockClass}" data-mobile-edit-shift="${index}" aria-label="Edit shift for ${escapeHtml(employeeShortName(emp))}">
+        return `<div class="rota-mobile-shift-chip-wrap">
+          <button type="button" class="rota-mobile-shift-chip ${blockClass}" data-mobile-edit-shift="${index}" aria-label="Edit shift for ${escapeHtml(employeeShortName(emp))}">
           <span class="rota-mobile-shift-chip__time">${body}</span>
           <span class="rota-mobile-shift-chip__role">${role}</span>
-        </button>`;
+        </button>
+          ${
+            readonly
+              ? ""
+              : `<button type="button" class="rota-mobile-shift-delete" data-mobile-delete-shift="${index}" aria-label="Delete shift for ${escapeHtml(employeeShortName(emp))}">×</button>`
+          }
+        </div>`;
       })
       .join("");
     const addBtn = readonly
@@ -307,6 +314,14 @@
         openShiftPanel({ shiftIndex: Number(btn.getAttribute("data-mobile-edit-shift")) });
       });
     });
+    list.querySelectorAll("[data-mobile-delete-shift]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const index = Number(btn.getAttribute("data-mobile-delete-shift"));
+        if (!window.confirm("Remove this shift from the draft rota?")) return;
+        deleteShift(index);
+      });
+    });
   }
 
   function syncMobileNotifyChip() {
@@ -359,10 +374,12 @@
       backdrop.removeAttribute("hidden");
       backdrop.setAttribute("aria-hidden", "false");
       document.body.classList.add("rota-shift-panel-open");
+      window.ShiftSwiftPortalStability?.lockBodyScroll?.(true);
     } else {
       backdrop.setAttribute("hidden", "");
       backdrop.setAttribute("aria-hidden", "true");
       document.body.classList.remove("rota-shift-panel-open");
+      window.ShiftSwiftPortalStability?.lockBodyScroll?.(false);
     }
   }
 
@@ -810,6 +827,14 @@
     markDirty();
     setMessage("Shift removed — click Save draft.", "success");
     renderAll();
+  }
+
+  function deleteShiftFromPanel() {
+    if (editingShiftIndex == null) return;
+    if (!guardWeekEditable("remove shifts")) return;
+    if (!window.confirm("Remove this shift from the draft rota?")) return;
+    deleteShift(editingShiftIndex);
+    closeShiftPanel();
   }
 
   function copyShiftToTargets(index, { dayIsos = [], employeeIds = [] } = {}) {
@@ -1476,9 +1501,7 @@
 
     host.querySelectorAll("[data-rota-remove]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        shifts.splice(Number(btn.getAttribute("data-rota-remove")), 1);
-        markDirty();
-        renderAll();
+        deleteShift(Number(btn.getAttribute("data-rota-remove")));
       });
     });
     host.querySelectorAll("[data-rota-edit]").forEach((btn) => {
@@ -1535,9 +1558,7 @@
     });
     tbody.querySelectorAll("[data-rota-remove]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        shifts.splice(Number(btn.getAttribute("data-rota-remove")), 1);
-        markDirty();
-        renderAll();
+        deleteShift(Number(btn.getAttribute("data-rota-remove")));
       });
     });
     tbody.querySelectorAll("[data-rota-edit]").forEach((btn) => {
@@ -1747,6 +1768,8 @@
     document.getElementById("rota-shift-popover-title").textContent = "Add shift";
     const panelCopyBtn = document.getElementById("rota-panel-copy-btn");
     if (panelCopyBtn) panelCopyBtn.hidden = true;
+    const panelDeleteBtn = document.getElementById("rota-panel-delete-btn");
+    if (panelDeleteBtn) panelDeleteBtn.hidden = true;
     const bulkSection = document.getElementById("rota-bulk-times");
     if (bulkSection) bulkSection.hidden = true;
   }
@@ -1810,6 +1833,11 @@
         panelCopyBtn.hidden = true;
         panelCopyBtn.onclick = null;
       }
+    }
+
+    const panelDeleteBtn = document.getElementById("rota-panel-delete-btn");
+    if (panelDeleteBtn) {
+      panelDeleteBtn.hidden = !(shiftIndex != null && !isWeekReadOnly());
     }
 
     const panelBody = document.querySelector("#rota-shift-panel .rota-shift-panel__body");
@@ -2482,6 +2510,7 @@
     document.getElementById("rota-view-grid")?.addEventListener("click", () => setView("grid"));
     document.getElementById("rota-view-list")?.addEventListener("click", () => setView("list"));
     document.getElementById("rota-shift-cancel-btn")?.addEventListener("click", closeShiftPanel);
+    document.getElementById("rota-panel-delete-btn")?.addEventListener("click", deleteShiftFromPanel);
     document.getElementById("rota-shift-popover-close")?.addEventListener("click", closeShiftPanel);
     document.getElementById("rota-mobile-prev-week")?.addEventListener("click", () => changeWeek(-1));
     document.getElementById("rota-mobile-next-week")?.addEventListener("click", () => changeWeek(1));

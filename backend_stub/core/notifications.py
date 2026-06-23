@@ -77,16 +77,20 @@ def resolve_reply_to(
 ) -> str:
     """
     Reply-To routing:
-    - ShiftSwift platform / employee mail → support@shiftswifthr.co.uk
-    - HR / tenant business mail → tenant company email when available
+    - Platform mail, welcome, password reset → support@shiftswifthr.co.uk
+    - Employee / HR tenant mail → tenant company email when available, else support
     """
     if explicit and _looks_like_email(explicit):
         return explicit.strip()
-    if audience in {"employee", "platform"}:
+    if audience == "platform":
         return _support_email()
     if purpose in {"welcome", "password_reset"}:
         return _support_email()
     company = resolve_tenant_company_email(contacts)
+    if company and audience in {"employee", "hr"}:
+        return company
+    if audience == "employee":
+        return _support_email()
     if company:
         return company
     return _support_email()
@@ -96,6 +100,7 @@ def format_reply_to_header(
     reply_to: str,
     *,
     contacts: dict[str, str | None] | None = None,
+    display_name: str | None = None,
 ) -> str:
     """Format Reply-To with a readable display name where appropriate."""
     address = reply_to.strip()
@@ -105,7 +110,7 @@ def format_reply_to_header(
         label = os.getenv("SMTP_REPLY_NAME", f"{_platform_from_name()} Support")
         return formataddr((label, address))
     company = resolve_tenant_company_email(contacts)
-    tenant_name = (contacts or {}).get("tenant_name")
+    tenant_name = display_name or (contacts or {}).get("tenant_name")
     if company and address.lower() == company.lower() and tenant_name:
         return formataddr((str(tenant_name).strip(), address))
     return address
@@ -555,7 +560,16 @@ def _send_email(
         explicit=payload.get("reply_to"),
     )
     if reply_to and _looks_like_email(str(reply_to)):
-        msg["Reply-To"] = format_reply_to_header(str(reply_to).strip(), contacts=contacts)
+        reply_display_name = None
+        if audience == "employee" and tenant_id and conn:
+            from modules.employees.notification_branding import employee_notification_from_name
+
+            reply_display_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
+        msg["Reply-To"] = format_reply_to_header(
+            str(reply_to).strip(),
+            contacts=contacts,
+            display_name=reply_display_name,
+        )
     cc_addr = payload.get("cc")
     if cc_addr and _looks_like_email(str(cc_addr)):
         msg["Cc"] = str(cc_addr).strip()

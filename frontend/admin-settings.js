@@ -724,7 +724,7 @@
         host.innerHTML = `
       <article class="card settings-notify-branding">
         <h4 class="hr-section-title">Employee notification name</h4>
-        <p class="muted">This is the sender name staff see in rota, document, and reminder emails (the system notification address stays hidden). Leave blank to use “Your employer”. Your legal business name is still shown where required for GDPR (portal invite).</p>
+        <p class="muted">Staff see your business name first in notification emails (sender and subject). ShiftSwift HR appears only as small secondary text. Leave blank to use your registered business name, or “Your employer” if that is not set.</p>
         <label class="edit-field settings-notify-branding__field">
           <span class="edit-label">Sender name shown to employees</span>
           <input type="text" id="settings-employee-display-name" maxlength="120" placeholder="Your employer" value="${escapeHtml(data?.employee_display_name || "")}" />
@@ -881,9 +881,9 @@
         const preview = host.querySelector("#settings-employee-display-preview");
         const updatePreview = () => {
           const value = displayInput?.value.trim();
-          const shown = value || data?.employee_display_name_default || "Your employer";
+          const shown = value || data?.tenant_trading_name || data?.employee_display_name_default || "Your employer";
           if (preview) {
-            preview.textContent = `Preview sender: ${shown} — “${shown} has published your shifts for Mon 10 – Sun 16 Jun 2026.”`;
+            preview.textContent = `Preview — From: ${shown} · Subject: ${shown} — Your rota for Mon 10 – Sun 16 Jun 2026`;
           }
         };
         updatePreview();

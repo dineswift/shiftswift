@@ -29,20 +29,31 @@
   }
 
   let scrollResetFrame = 0;
+  let lastScrollResetAt = 0;
 
-  function resetPortalScrollDebounced() {
+  function resetPortalScrollDebounced(options = {}) {
+    const { force = false } = options;
+    const now = performance.now();
+    if (!force && now - lastScrollResetAt < 80) return;
+
     if (scrollResetFrame) cancelAnimationFrame(scrollResetFrame);
     scrollResetFrame = requestAnimationFrame(() => {
       scrollResetFrame = 0;
+      lastScrollResetAt = performance.now();
       const content = document.querySelector("main.content");
       if (content) {
-        content.scrollTop = 0;
+        if (content.scrollTop !== 0) content.scrollTop = 0;
         return;
       }
-      document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0;
-      window.scrollTo(0, 0);
+      if (document.documentElement.scrollTop) document.documentElement.scrollTop = 0;
+      if (document.body.scrollTop) document.body.scrollTop = 0;
+      if (window.scrollY) window.scrollTo(0, 0);
     });
+  }
+
+  function initTouchPolish() {
+    if (!document.getElementById("mobile-tab-bar")) return;
+    document.documentElement.classList.add("portal-touch-polish");
   }
 
   function initServiceWorkerReload(storageKey) {
@@ -55,6 +66,7 @@
   }
 
   markPortalShell();
+  initTouchPolish();
 
   window.ShiftSwiftPortalStability = {
     lockBodyScroll,

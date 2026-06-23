@@ -388,7 +388,7 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT notify_on_rota_publish, notification_preferences
+            SELECT notify_on_rota_publish, notification_preferences, name
             FROM tenants
             WHERE id = %s
             """,
@@ -399,6 +399,7 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
             raise LookupError("tenant not found")
         notify_on_rota_publish = bool(row[0])
         stored = row[1] if isinstance(row[1], dict) else {}
+        tenant_trading_name = str(row[2] or "").strip() if len(row) > 2 else ""
 
     preferences = dict(NOTIFICATION_PREF_DEFAULTS)
     for key, value in (stored or {}).items():
@@ -420,6 +421,7 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
         "preferences": preferences,
         "employee_display_name": parse_employee_display_name_from_stored(stored),
         "employee_display_name_default": "Your employer",
+        "tenant_trading_name": tenant_trading_name,
         "notify_on_rota_publish": notify_on_rota_publish,
         "events": list(NOTIFICATION_PREF_EVENTS),
         "business_schedule": business_schedule.to_api_dict(),

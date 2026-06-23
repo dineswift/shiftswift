@@ -21,7 +21,7 @@ def employee_notification_from_name(*, tenant_id: int, conn: Any) -> str:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT notification_preferences
+                SELECT notification_preferences, name
                 FROM tenants
                 WHERE id = %s
                 """,
@@ -30,7 +30,8 @@ def employee_notification_from_name(*, tenant_id: int, conn: Any) -> str:
             row = cur.fetchone()
         stored = _stored_notification_json(row[0] if row else None)
         custom = str(stored.get(_EMPLOYEE_DISPLAY_NAME_KEY) or "").strip()
-        tenant_name = custom or EMPLOYEE_NOTIFICATION_DEFAULT
+        legal_name = str(row[1] or "").strip() if row else ""
+        tenant_name = custom or legal_name or EMPLOYEE_NOTIFICATION_DEFAULT
     except Exception:
         _rollback_quietly(conn)
     return tenant_name

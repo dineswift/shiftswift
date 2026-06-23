@@ -43,12 +43,19 @@ body.portal-startup-pending #mobile-tab-bar {
 
 body.portal-startup-ready .app > main.content {
   opacity: 1;
-  transition: opacity 0.18s ease;
+  transition: opacity 0.22s ease;
 }
 
 body.portal-startup-ready #mobile-tab-bar {
   opacity: 1;
-  transition: opacity 0.18s ease;
+  transition: opacity 0.22s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.portal-startup-ready .app > main.content,
+  body.portal-startup-ready #mobile-tab-bar {
+    transition: none;
+  }
 }
 
 a { color: inherit; }
@@ -997,12 +1004,27 @@ textarea:focus {
   letter-spacing: 0.02em;
   cursor: pointer;
   text-decoration: none;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.btn:hover {
-  transform: translateY(-1px);
-  background: var(--green-800);
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-1px);
+    background: var(--green-800);
+  }
+}
+
+.btn:active:not(:disabled):not(.btn--busy) {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
+}
+
+.btn.primary:active:not(:disabled):not(.btn--busy),
+.btn.btn--primary:active:not(:disabled):not(.btn--busy) {
+  background: var(--green-900);
 }
 
 .btn.secondary {
@@ -1315,6 +1337,16 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   color: #888;
 }
 
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) .admin-upgrade-toast {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body:has(#mobile-tab-bar) .portal-pwa-install-banner {
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .admin-upgrade-toast {
   position: fixed;
   left: 50%;
@@ -1496,6 +1528,16 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   background: var(--white);
   color: var(--green-800);
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.topbar-icon-btn:active {
+  transform: scale(0.92);
+  background: var(--green-100);
+  border-color: var(--green-300);
 }
 
 .topbar-icon-btn__badge {
@@ -1638,9 +1680,11 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   -webkit-tap-highlight-color: transparent;
   padding: 4px max(6px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
     max(6px, env(safe-area-inset-left));
-  border-top: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 -1px 0 rgba(15, 23, 42, 0.04), 0 -8px 24px rgba(15, 23, 42, 0.06);
 }
 
 html.pwa-standalone .mobile-tab-bar {
@@ -1663,6 +1707,15 @@ html.pwa-standalone .mobile-tab-bar {
   text-decoration: none;
   font: inherit;
   cursor: pointer;
+  transition: color 0.15s ease, transform 0.12s ease, opacity 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.mobile-tab:active {
+  transform: scale(0.92);
+  opacity: 0.88;
 }
 
 .mobile-tab__icon {
@@ -1682,6 +1735,20 @@ html.pwa-standalone .mobile-tab-bar {
   justify-content: center;
   line-height: 1;
   color: var(--ink-700);
+  position: relative;
+}
+
+.mobile-tab--active .mobile-tab__icon-wrap::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--green-700);
+  transform: translateX(-50%);
+  opacity: 0.9;
 }
 
 .mobile-tab__icon-wrap .admin-icon,
@@ -1727,6 +1794,15 @@ html.pwa-standalone .mobile-tab-bar {
   padding: 8px 4px 8px 0;
   cursor: pointer;
   flex-shrink: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.mobile-back-btn:active {
+  transform: scale(0.96);
+  opacity: 0.75;
 }
 
 .mobile-home-header {
@@ -1833,6 +1909,15 @@ html.pwa-standalone .mobile-tab-bar {
   color: inherit;
   font-weight: 600;
   font-size: 0.92rem;
+  transition: background 0.15s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.mobile-more-link:active {
+  background: rgba(15, 107, 74, 0.08);
+  transform: scale(0.99);
 }
 
 .mobile-more-link::after {
@@ -2009,6 +2094,15 @@ html.pwa-standalone .mobile-tab-bar {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.compliance-mobile-section:active {
+  background: rgba(15, 107, 74, 0.06);
+  transform: scale(0.995);
 }
 
 .compliance-mobile-section:last-child {
@@ -3985,7 +4079,6 @@ html.pwa-standalone .mobile-tab-bar {
     position: sticky;
     top: 0;
     z-index: 105;
-    transform: translateZ(0);
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
     contain: layout style;
@@ -4070,7 +4163,18 @@ html.pwa-standalone .mobile-tab-bar {
 
   /* Compact mobile home dashboard */
   .mobile-home-header {
-    display: none;
+    display: block;
+    margin-bottom: 10px;
+    padding: 2px 0 0;
+  }
+
+  body:has(#mobile-tab-bar) .mobile-greeting {
+    font-size: 1.15rem;
+    margin-bottom: 2px;
+  }
+
+  body:has(#mobile-tab-bar) .mobile-business-name {
+    font-size: 0.82rem;
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid {
@@ -4365,6 +4469,14 @@ html.pwa-standalone .mobile-tab-bar {
     font: inherit;
     min-height: 64px;
     position: relative;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .rota-mobile-day-pill:active {
+    transform: scale(0.96);
   }
 
   .rota-mobile-day-pill.is-selected {
@@ -4478,6 +4590,42 @@ html.pwa-standalone .mobile-tab-bar {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .rota-mobile-shift-chip-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    max-width: 100%;
+  }
+
+  .rota-mobile-shift-chip-wrap .rota-mobile-shift-chip {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 36px;
+  }
+
+  .rota-mobile-shift-delete {
+    appearance: none;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 28px;
+    height: calc(100% - 8px);
+    min-height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #b42318;
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+
+  .rota-mobile-shift-delete:active {
+    background: #fee4e2;
   }
 
   .rota-mobile-shift-chip {
@@ -4679,6 +4827,11 @@ html.pwa-standalone .mobile-tab-bar {
   }
   body.rota-shift-panel-open .rota-shift-panel__foot #rota-shift-cancel-btn {
     order: 1;
+  }
+  body.rota-shift-panel-open .rota-shift-panel__foot #rota-panel-delete-btn {
+    order: 0;
+    flex: 1 1 100%;
+    margin-bottom: 4px;
   }
   body.rota-shift-panel-open .rota-shift-panel__close {
     display: block;
@@ -6267,8 +6420,10 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   background: var(--card);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .overview-module-card__head {
@@ -6512,8 +6667,10 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .hr-stat-card--link {
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 .hr-stat-card--link:active,
@@ -7871,7 +8028,34 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 
 .btn--busy {
   cursor: wait;
-  opacity: 0.78;
+  opacity: 0.82;
+  animation: pwa-btn-busy-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pwa-btn-busy-pulse {
+  0%,
+  100% {
+    opacity: 0.78;
+  }
+  50% {
+    opacity: 0.92;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn--busy {
+    animation: none;
+    opacity: 0.78;
+  }
+
+  .mobile-tab:active,
+  .mobile-more-link:active,
+  .topbar-icon-btn:active,
+  .btn:active:not(:disabled):not(.btn--busy),
+  .compliance-mobile-section:active,
+  .mobile-back-btn:active {
+    transform: none;
+  }
 }
 
 .btn--action-success {
@@ -10933,7 +11117,7 @@ body.rota-week-readonly .rota-builder-hint {
     flex-wrap: wrap;
   }
 
-  .rota-shift-panel__foot #rota-panel-copy-btn {
+  .rota-shift-panel__foot #rota-panel-delete-btn:not([hidden]) {
     margin-right: auto;
   }
 
@@ -11181,6 +11365,13 @@ body.rota-week-readonly .rota-builder-hint {
 
 .rota-shift-action--danger {
   color: #b42318;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .rota-shift-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .rota-shift-block--drag-copy {
@@ -17324,7 +17515,13 @@ body.employee-portal .employee-desktop-top {
   body.employee-portal .employee-home-card:focus-visible {
     border-color: #95d5b2;
     box-shadow: var(--shadow-card);
-    transform: translateY(-1px);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    body.employee-portal .employee-home-card:hover,
+    body.employee-portal .employee-home-card:focus-visible {
+      transform: translateY(-1px);
+    }
   }
 
   body.employee-portal .employee-home-card__value {
@@ -17344,5 +17541,29 @@ body.employee-portal .employee-desktop-top {
   .employee-home {
     display: grid !important;
   }
+}
+
+/* PWA touch polish — mobile shell only */
+html.portal-touch-polish.portal-mobile-shell {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.portal-touch-polish.portal-mobile-shell .card,
+html.portal-touch-polish.portal-mobile-shell .mobile-subscription-card,
+html.portal-touch-polish.portal-mobile-shell .mobile-urgent-card {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+html.portal-touch-polish.portal-mobile-shell main.content {
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.portal-touch-polish.portal-mobile-shell .overview-module-card:active,
+html.portal-touch-polish.portal-mobile-shell .hr-stat-card--link:active,
+html.portal-touch-polish.portal-mobile-shell .employee-quick-btn:active,
+html.portal-touch-polish.portal-mobile-shell .employee-home-card:active {
+  transform: scale(0.985);
+  transition-duration: 0.08s;
 }
 

@@ -42,7 +42,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v130" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v132" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2505,6 +2505,7 @@
               <p id="rota-overlap-status" class="rota-overlap-status rota-overlap-status--ok"></p>
             </div>
             <div class="rota-shift-panel__foot mobile-editor-sheet__foot">
+              <button type="button" class="btn btn--ghost btn--danger" id="rota-panel-delete-btn" hidden>Delete shift</button>
               <button type="button" class="btn ghost" id="rota-panel-copy-btn" hidden>Copy shift…</button>
               <button type="button" class="btn ghost" id="rota-shift-cancel-btn">Cancel</button>
               <button type="button" class="btn primary" id="rota-add-btn">Add to rota</button>
@@ -3071,8 +3072,8 @@
 
     <script src="./session-auth.js?v=3"></script>
     <script src="./auth-guard.js?v=security-v2"></script>
-    <script src="./portal-pwa-stability.js?v=1"></script>
-    <script src="./admin-pwa.js?v=8"></script>
+    <script src="./portal-pwa-stability.js?v=2"></script>
+    <script src="./admin-pwa.js?v=9"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>
@@ -3081,16 +3082,16 @@
       data-portal="admin"
       data-app-name="ShiftSwift HR Admin"
       data-manifest="./admin-manifest.webmanifest?v=8"
-      data-sw="./admin-sw.js?v=10"
+      data-sw="./admin-sw.js?v=11"
     ></script>
     <script src="./mobile-shell.js?v=6"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
     <script src="./admin-mobile.js?v=15"></script>
     <script src="./admin-compliance-mobile.js?v=3"></script>
-    <script src="./action-feedback.js?v=1"></script>
+    <script src="./action-feedback.js?v=2"></script>
     <script src="./admin-shared.js?v=admin-v43"></script>
-    <script src="./admin-settings.js?v=32"></script>
+    <script src="./admin-settings.js?v=33"></script>
     <script src="./admin-workspace.js?v=admin-v25"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=27"></script>
@@ -3106,7 +3107,7 @@
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v12"></script>
     <script src="./admin-time-punch.js?v=34"></script>
-    <script src="./admin-rota.js?v=31"></script>
+    <script src="./admin-rota.js?v=33"></script>
     <script src="./admin-leave.js?v=admin-v5"></script>
     <script src="./admin-profile-changes.js?v=2"></script>
     <script src="./app.js?v=admin-v6"></script>

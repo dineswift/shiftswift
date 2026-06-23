@@ -23,16 +23,25 @@ def test_employee_notification_from_name_uses_custom_alias() -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchone.return_value = ({"employee_display_name": "Restaurant HR"},)
+    cursor.fetchone.return_value = ({"employee_display_name": "Restaurant HR"}, "Himalayan Inn Ltd")
 
     assert employee_notification_from_name(tenant_id=1, conn=conn) == "Restaurant HR"
+
+
+def test_employee_notification_from_name_falls_back_to_legal_name() -> None:
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchone.return_value = ({"employee_display_name": "   "}, "Himalayan Inn Ltd")
+
+    assert employee_notification_from_name(tenant_id=1, conn=conn) == "Himalayan Inn Ltd"
 
 
 def test_employee_notification_from_name_falls_back_when_blank() -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchone.return_value = ({"employee_display_name": "   "},)
+    cursor.fetchone.return_value = ({"employee_display_name": "   "}, "")
 
     assert employee_notification_from_name(tenant_id=1, conn=conn) == EMPLOYEE_NOTIFICATION_DEFAULT
 
@@ -78,4 +87,7 @@ def test_rota_published_email_uses_resolved_display_name() -> None:
         week_label="10 – 16 Jun 2026",
         shift_lines=["Mon 10 Jun: 09:00–17:00 (Chef)"],
     )
+    assert content.subject == "HR Team — Your rota for 10 – 16 Jun 2026"
     assert "HR Team has published your shifts" in content.text
+    assert "Powered by ShiftSwift HR" in content.html
+    assert "via ShiftSwift HR" in content.html

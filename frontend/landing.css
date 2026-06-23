@@ -1279,6 +1279,14 @@ body.is-loading .page {
 
 .section { padding: 48px 0; }
 
+.section--after-doc-samples {
+  padding-top: 32px;
+}
+
+#features > h2 {
+  max-width: 18ch;
+}
+
 .section--compact {
   padding: 24px 0 32px;
 }
@@ -1386,7 +1394,9 @@ body.is-loading .page {
 /* Post-pricing blocks must stay visible on mobile (tall pricing breaks scroll-reveal). */
 .compare-section,
 .faq-section,
-.pricing-footnote {
+.pricing-footnote,
+.doc-samples,
+#features {
   opacity: 1 !important;
   transform: none !important;
 }
@@ -1721,7 +1731,7 @@ body.is-loading .page {
 
 /* Document sample visuals */
 .doc-samples {
-  padding: 40px 0;
+  padding: 36px 0 28px;
 }
 
 .doc-samples h2 {
@@ -1740,14 +1750,26 @@ body.is-loading .page {
 
 .doc-samples-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
   margin-top: 28px;
+  max-width: 1080px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 1180px) {
+  .doc-samples-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: 1280px;
+    gap: 20px;
+  }
 }
 
 .doc-sample {
   display: grid;
   gap: 14px;
+  align-content: start;
 }
 
 .doc-sample h3 {
