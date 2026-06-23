@@ -7803,6 +7803,37 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   font-weight: 600;
 }
 
+.action-status--success,
+.employee-leave-status--ok {
+  color: var(--green-800) !important;
+  font-weight: 600;
+}
+
+.action-status--error {
+  color: #b42318 !important;
+  font-weight: 600;
+}
+
+.action-status--warn {
+  color: #b54708 !important;
+  font-weight: 600;
+}
+
+.action-status--info {
+  color: var(--text-muted);
+}
+
+.btn--busy {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.btn--action-success {
+  background: var(--green-700, #0f6e56) !important;
+  border-color: var(--green-700, #0f6e56) !important;
+  color: #fff !important;
+}
+
 .settings-doc-audience-field {
   border: none;
   margin: 0;

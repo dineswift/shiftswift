@@ -497,17 +497,34 @@
     const noteEl = $("leave-review-note");
     const statusEl = $("leave-review-status");
     const reviewNote = noteEl?.value?.trim() || "";
+    const btn = document.getElementById(decision === "approved" ? "leave-approve-btn" : "leave-reject-btn");
     reviewBusy = true;
-    if (statusEl) statusEl.textContent = decision === "approved" ? "Approving…" : "Rejecting…";
-    try {
+
+    const performReview = async () => {
       const res = await apiFetch(`/admin/leave/requests/${requestId}/review`, {
         method: "POST",
         body: JSON.stringify({ decision, review_note: reviewNote || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Review failed");
-      if (statusEl) statusEl.textContent = decision === "approved" ? "Approved." : "Rejected.";
       await loadRequests();
+      return decision === "approved" ? "Approved." : "Rejected.";
+    };
+
+    try {
+      if (window.ShiftSwiftAction?.runButtonAction && btn) {
+        await window.ShiftSwiftAction.runButtonAction(btn, statusEl, {
+          loadingLabel: decision === "approved" ? "Approving…" : "Rejecting…",
+          successMessage: decision === "approved" ? "Approved." : "Rejected.",
+          errorMessage: "Could not update leave request.",
+          successLabel: decision === "approved" ? "Approved" : "Rejected",
+          onAction: performReview,
+        });
+      } else {
+        if (statusEl) statusEl.textContent = decision === "approved" ? "Approving…" : "Rejecting…";
+        const message = await performReview();
+        if (statusEl) statusEl.textContent = message;
+      }
     } catch (error) {
       if (statusEl) statusEl.textContent = "";
       window.alert(error.message || "Could not update leave request.");

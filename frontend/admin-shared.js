@@ -736,13 +736,39 @@ window.Admin = (() => {
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (status) status.textContent = "Saving…";
-      const payload = readFormPayload(form);
-      try {
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const run = window.ShiftSwiftAction?.runButtonAction;
+      const applyStatus = (text, tone) => {
+        if (window.ShiftSwiftAction?.setActionStatus) {
+          window.ShiftSwiftAction.setActionStatus(status, text, tone);
+        } else if (status) {
+          status.textContent = text;
+        }
+      };
+
+      const execute = async () => {
+        const payload = readFormPayload(form);
         await onSubmit(payload, form);
-        if (status) status.textContent = schema.successMessage || "Saved.";
+        return schema.successMessage || "Saved.";
+      };
+
+      if (run && submitBtn) {
+        await run(submitBtn, status, {
+          loadingLabel: schema.loadingLabel || "Saving…",
+          successMessage: schema.successMessage || "Saved.",
+          errorMessage: "Save failed.",
+          successLabel: schema.successButtonLabel || "Saved",
+          onAction: execute,
+        });
+        return;
+      }
+
+      applyStatus("Saving…", "info");
+      try {
+        const message = await execute();
+        applyStatus(typeof message === "string" ? message : schema.successMessage || "Saved.", "ok");
       } catch (error) {
-        if (status) status.textContent = error.message || "Save failed.";
+        applyStatus(error.message || "Save failed.", "error");
       }
     });
 

@@ -2123,12 +2123,12 @@
     setMessage("Rota cleared — click Save draft to persist.");
   }
 
-  async function saveRota() {
+  async function saveRota(options = {}) {
     if (!guardWeekEditable("save this rota")) return false;
-    const btn = document.getElementById("rota-save-btn");
-    if (btn) btn.disabled = true;
-    setMessage("Saving…");
-    try {
+    const button = options.button || document.getElementById("rota-save-btn") || document.getElementById("rota-mobile-save-btn");
+    const statusEl = document.getElementById("rota-admin-message");
+
+    const performSave = async () => {
       const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -2145,25 +2145,40 @@
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 409) {
-        setMessage((data.detail?.message || "Version conflict.") + " Reloading…", "error");
+        setMessage(`${data.detail?.message || "Version conflict."} Reloading…`, "error");
         await loadWeek();
         return false;
       }
       if (!res.ok) {
-        setMessage(data.detail?.message || data.detail || "Save failed.", "error");
-        return false;
+        throw new Error(data.detail?.message || data.detail || "Save failed.");
       }
       weekMeta = data.week;
       shifts = data.shifts || [];
       markClean();
       renderAll();
-      setMessage(data.message || "Rota saved — publish when ready.");
+      return data.message || "Rota saved — publish when ready.";
+    };
+
+    if (button && window.ShiftSwiftAction?.runButtonAction) {
+      const result = await window.ShiftSwiftAction.runButtonAction(button, statusEl, {
+        loadingLabel: "Saving…",
+        successMessage: "Rota saved — publish when ready.",
+        errorMessage: "Save failed.",
+        successLabel: "Saved",
+        onAction: performSave,
+      });
+      return result.ok;
+    }
+
+    setMessage("Saving…");
+    try {
+      const message = await performSave();
+      if (message === false) return false;
+      setMessage(message, "success");
       return true;
     } catch (error) {
       setMessage(error.message || "Save failed.", "error");
       return false;
-    } finally {
-      if (btn) btn.disabled = false;
     }
   }
 
@@ -2255,11 +2270,12 @@
       setMessage("Save the rota before publishing.", "error");
       return;
     }
-    const btn = document.getElementById("rota-publish-btn");
+    const btn =
+      document.getElementById("rota-publish-btn") || document.getElementById("rota-mobile-publish-btn");
+    const statusEl = document.getElementById("rota-admin-message");
     const notifyStaff = document.getElementById("rota-notify-staff")?.checked ?? false;
-    if (btn) btn.disabled = true;
-    setMessage("Publishing…");
-    try {
+
+    const performPublish = async () => {
       const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/publish`, {
         method: "POST",
         body: JSON.stringify({ expected_version: weekMeta.version, notify_staff: notifyStaff }),
@@ -2268,11 +2284,9 @@
       if (!res.ok) {
         const message = data.detail?.message || data.detail || "Publish failed.";
         if (/at least one shift/i.test(String(message))) {
-          setMessage(`${message} Click Save draft first, then publish again.`, "error");
-        } else {
-          setMessage(message, "error");
+          throw new Error(`${message} Click Save draft first, then publish again.`);
         }
-        return;
+        throw new Error(message);
       }
       weekMeta = data.week;
       shifts = data.shifts || [];
@@ -2283,11 +2297,25 @@
         if (sent > 0) msg += ` · ${sent} email${sent === 1 ? "" : "s"} sent`;
         else if (skipped > 0) msg += " · no staff emails sent (check addresses or notification settings)";
       }
-      setMessage(msg);
+      return msg;
+    };
+
+    if (btn && window.ShiftSwiftAction?.runButtonAction) {
+      await window.ShiftSwiftAction.runButtonAction(btn, statusEl, {
+        loadingLabel: "Publishing…",
+        successMessage: "Rota published.",
+        errorMessage: "Publish failed.",
+        successLabel: "Published",
+        onAction: performPublish,
+      });
+      return;
+    }
+
+    setMessage("Publishing…");
+    try {
+      setMessage(await performPublish(), "success");
     } catch (error) {
       setMessage(error.message || "Publish failed.", "error");
-    } finally {
-      if (btn) btn.disabled = false;
     }
   }
 

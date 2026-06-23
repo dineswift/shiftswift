@@ -33,6 +33,10 @@
 
   function setStatus(text, tone) {
     if (!statusEl) return;
+    if (window.ShiftSwiftAction?.setActionStatus) {
+      window.ShiftSwiftAction.setActionStatus(statusEl, text, tone === "ok" ? "ok" : tone || "info");
+      return;
+    }
     statusEl.textContent = text || "";
     statusEl.className =
       tone === "ok" ? "employee-leave-status employee-leave-status--ok" : "employee-leave-status muted";
@@ -146,16 +150,34 @@
   }
 
   async function cancelRequest(requestId) {
-    setStatus("Cancelling…");
-    try {
+    const btn = listHost?.querySelector(`.employee-leave-cancel-btn[data-id="${requestId}"]`);
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    const performCancel = async () => {
       const res = await apiFetch(`/employee/me/leave/requests/${requestId}/cancel`, {
         method: "POST",
         body: "{}",
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(parseApiError(data, "Cancel failed"));
-      setStatus("Request cancelled.", "ok");
       await loadLeaveData();
+      return "Request cancelled.";
+    };
+
+    if (run && btn) {
+      await run(btn, statusEl, {
+        loadingLabel: "Cancelling…",
+        successMessage: "Request cancelled.",
+        errorMessage: "Could not cancel request.",
+        successLabel: "Cancelled",
+        onAction: performCancel,
+      });
+      return;
+    }
+
+    setStatus("Cancelling…");
+    try {
+      await performCancel();
+      setStatus("Request cancelled.", "ok");
     } catch (error) {
       setStatus(error.message || "Could not cancel request.");
     }
@@ -164,9 +186,11 @@
   async function submitForm(event) {
     event.preventDefault();
     if (!form) return;
-    const fd = new FormData(form);
-    setStatus("Submitting…");
-    try {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const run = window.ShiftSwiftAction?.runButtonAction;
+
+    const performSubmit = async () => {
+      const fd = new FormData(form);
       const res = await apiFetch("/employee/me/leave/requests", {
         method: "POST",
         body: JSON.stringify({
@@ -179,8 +203,25 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(parseApiError(data, "Submit failed"));
       form.reset();
-      setStatus("Leave request submitted for HR approval.", "ok");
       await loadLeaveData();
+      return "Leave request submitted for HR approval.";
+    };
+
+    if (run && submitBtn) {
+      await run(submitBtn, statusEl, {
+        loadingLabel: "Submitting…",
+        successMessage: "Leave request submitted for HR approval.",
+        errorMessage: "Could not submit leave request.",
+        successLabel: "Submitted",
+        onAction: performSubmit,
+      });
+      return;
+    }
+
+    setStatus("Submitting…");
+    try {
+      await performSubmit();
+      setStatus("Leave request submitted for HR approval.", "ok");
     } catch (error) {
       setStatus(error.message || "Could not submit leave request.");
     }
