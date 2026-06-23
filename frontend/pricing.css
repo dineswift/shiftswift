@@ -134,8 +134,14 @@
 .pricing-card.is-featured .pricing-vat,
 .pricing-card.is-featured .pricing-staff-cap,
 .pricing-card.is-featured .pricing-features li,
-.pricing-card.is-featured .pricing-per-head-detail {
-  color: rgba(234, 243, 222, 0.85);
+.pricing-card.is-featured .pricing-per-head-detail,
+.pricing-card.is-featured .pricing-examples li {
+  color: rgba(234, 243, 222, 0.88);
+}
+
+.pricing-card.is-featured .pricing-examples strong {
+  color: var(--white);
+  font-weight: 600;
 }
 
 .pricing-card.is-featured .pricing-badge {
@@ -264,22 +270,34 @@
 }
 
 .pricing-calculator {
-  max-width: 640px;
-  margin: 2rem auto 0;
+  margin: 0;
+  max-width: none;
   padding: 1.25rem 1.5rem;
   border: 1px solid rgba(15, 46, 34, 0.1);
   border-radius: var(--radius-lg);
   background: var(--white);
   box-shadow: var(--shadow-card);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.pricing-secondary {
+.pricing-bottom {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   gap: 20px;
   max-width: 1080px;
   margin: 2rem auto 0;
   align-items: stretch;
+}
+
+.pricing-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  margin: 0;
+  max-width: none;
 }
 
 .pricing-integration-wrap {
@@ -332,12 +350,19 @@
 }
 
 .pricing-card--enterprise__value {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 @media (max-width: 900px) {
-  .pricing-secondary {
+  .pricing-bottom {
     grid-template-columns: 1fr;
+  }
+
+  .pricing-secondary {
+    display: flex;
+    flex-direction: column;
   }
 
   .pricing-integration-split {
