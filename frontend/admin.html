@@ -42,7 +42,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v132" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v133" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -134,6 +134,10 @@
           <a class="nav-link" href="#templates" data-section="templates">
             <span class="nav-link__icon" data-nav-icon="sparkles" aria-hidden="true"></span>
             <span class="nav-link__label">HR Templates</span>
+          </a>
+          <a class="nav-link" href="#global-documents" data-section="global-documents">
+            <span class="nav-link__icon" data-nav-icon="folder" aria-hidden="true"></span>
+            <span class="nav-link__label">Global downloads</span>
           </a>
 
           <p class="nav-section-label">Admin</p>
@@ -241,6 +245,7 @@
             <a class="mobile-more-link" href="#leave">Leave</a>
             <a class="mobile-more-link" href="#profile-changes">Contact updates</a>
             <a class="mobile-more-link" href="#templates">HR Templates</a>
+            <a class="mobile-more-link" href="#global-documents">Global downloads</a>
             <p class="mobile-more-group">Support</p>
             <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
             <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
@@ -1245,6 +1250,40 @@
               <div id="templates-side-content" hidden></div>
             </aside>
           </div>
+        </section>
+
+        <section id="global-documents" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Global downloads</h2>
+              <p class="muted">Ready-made Word and Excel templates for every business — rota planners, timesheets, and HR forms. Free to download; customise offline and store in your document library.</p>
+            </div>
+            <div class="section-actions">
+              <a class="btn ghost" href="#templates">HR process templates →</a>
+              <a class="btn ghost" href="#settings/documents">Your document store →</a>
+            </div>
+          </header>
+
+          <article class="hr-surface-panel global-documents-panel">
+            <div class="templates-library-toolbar">
+              <h4 class="hr-section-title">Platform library</h4>
+              <div class="templates-library-filters">
+                <label class="templates-filter">
+                  <span class="edit-label">Category</span>
+                  <select id="global-documents-category-filter">
+                    <option value="">All categories</option>
+                  </select>
+                </label>
+                <label class="templates-filter templates-filter--search">
+                  <span class="edit-label">Search</span>
+                  <input type="search" id="global-documents-search" placeholder="Search downloads…" maxlength="80" />
+                </label>
+              </div>
+            </div>
+            <div class="global-documents-grid" id="global-documents-grid" aria-live="polite">
+              <p class="muted">Open this section to load downloads…</p>
+            </div>
+          </article>
         </section>
 
         <section id="compliance" class="admin-section" hidden data-feature="sponsor-compliance">
@@ -3092,7 +3131,7 @@
     <script src="./action-feedback.js?v=2"></script>
     <script src="./admin-shared.js?v=admin-v43"></script>
     <script src="./admin-settings.js?v=33"></script>
-    <script src="./admin-workspace.js?v=admin-v25"></script>
+    <script src="./admin-workspace.js?v=admin-v26"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=27"></script>
     <script src="./admin-employees.js?v=25"></script>
@@ -3106,6 +3145,7 @@
     <script src="./admin-disciplinary.js?v=3"></script>
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v12"></script>
+    <script src="./admin-global-documents.js?v=1"></script>
     <script src="./admin-time-punch.js?v=34"></script>
     <script src="./admin-rota.js?v=33"></script>
     <script src="./admin-leave.js?v=admin-v5"></script>

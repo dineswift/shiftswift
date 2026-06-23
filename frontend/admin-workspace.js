@@ -582,6 +582,13 @@
           }),
           moduleCard({
             icon: "folder",
+            title: "Global downloads",
+            value: "Free",
+            sub: "Word & Excel HR forms",
+            href: "#global-documents",
+          }),
+          moduleCard({
+            icon: "folder",
             title: "Documents",
             value: String(docs.count ?? data.document_count ?? 0),
             sub: "In tenant document store",

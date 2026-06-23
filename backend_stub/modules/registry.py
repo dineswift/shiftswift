@@ -67,6 +67,13 @@ MODULES: list[dict[str, object]] = [
         "setup": ["DATABASE_URL"],
     },
     {
+        "id": "global_documents",
+        "name": "Global Document Library",
+        "prefix": "/global-documents",
+        "description": "Platform Word and Excel templates — free downloads for every tenant.",
+        "setup": ["DATABASE_URL"],
+    },
+    {
         "id": "hr_templates",
         "name": "HR Process Templates",
         "prefix": "/hr-templates",
