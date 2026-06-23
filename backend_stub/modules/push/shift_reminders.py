@@ -99,6 +99,7 @@ def evaluate_shift_push_reminders(
                 ),
                 url=clock_url,
                 tag=f"shift-{shift_id}-reminder",
+                alert_type="shift_reminder",
                 conn=conn,
             )
             if result.get("sent"):
@@ -114,6 +115,7 @@ def evaluate_shift_push_reminders(
                 body=f"Your shift at {site_name} has started. Tap to clock in.",
                 url=clock_url,
                 tag=f"shift-{shift_id}-start",
+                alert_type="clock_in",
                 conn=conn,
             )
             if result.get("sent"):
@@ -139,6 +141,7 @@ def evaluate_shift_push_reminders(
                 ),
                 url=clock_url,
                 tag=f"shift-{shift_id}-missed-10",
+                alert_type="missed_clock_in_early",
                 conn=conn,
             )
             if result.get("sent"):
@@ -161,6 +164,7 @@ def evaluate_shift_push_reminders(
                 body="Tap to clock in or contact your manager if you're unable to work this shift.",
                 url=clock_url,
                 tag=f"shift-{shift_id}-missed-30",
+                alert_type="missed_clock_in",
                 conn=conn,
             )
             if result.get("sent"):
@@ -176,6 +180,7 @@ def evaluate_shift_push_reminders(
                 body=f"Your shift at {site_name} ends now — tap to clock out.",
                 url=clock_url,
                 tag=f"shift-{shift_id}-end",
+                alert_type="clock_out",
                 conn=conn,
             )
             if result.get("sent"):

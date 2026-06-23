@@ -72,18 +72,23 @@
         void ctx.resume();
       }
       const now = ctx.currentTime;
-      [0, 0.22].forEach((offset) => {
+      const tones = [
+        { offset: 0, freq: 880 },
+        { offset: 0.28, freq: 988 },
+        { offset: 0.56, freq: 880 },
+      ];
+      tones.forEach(({ offset, freq }) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = offset === 0 ? 880 : 988;
+        osc.type = "square";
+        osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.42, now + offset + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now + offset);
-        osc.stop(now + offset + 0.2);
+        osc.stop(now + offset + 0.24);
       });
     } catch {
       /* ignore — device may block audio until user gesture */
@@ -179,6 +184,13 @@
     navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "SHIFT_ALERT") {
         playAlertSound();
+        if (event.data?.urgent && "vibrate" in navigator) {
+          try {
+            navigator.vibrate([400, 120, 400, 120, 400]);
+          } catch {
+            /* ignore */
+          }
+        }
       }
     });
   }

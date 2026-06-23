@@ -124,15 +124,19 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
       const data = parsePushPayload(event);
+      const urgent = Boolean(data.urgent);
       await self.registration.showNotification(data.title, {
         body: data.body,
         icon: "./assets/shiftswift-clock-app-icon-192.png",
         badge: "./assets/shiftswift-clock-app-icon-192.png",
         tag: data.tag || "shiftswift",
         renotify: true,
+        silent: false,
+        requireInteraction: urgent,
+        vibrate: urgent ? [400, 120, 400, 120, 400, 120, 400] : [180, 80, 180],
         data: { url: data.url || "./punch.html" },
         actions: [
-          { action: "open", title: "Clock in now" },
+          { action: "open", title: data.alert_type === "clock_out" ? "Clock out now" : "Clock in now" },
           { action: "dismiss", title: "Dismiss" },
         ],
       });

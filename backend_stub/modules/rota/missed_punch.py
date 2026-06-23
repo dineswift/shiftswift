@@ -222,6 +222,22 @@ def evaluate_missed_punch_alerts(
             )
             notified_employee = True
 
+        from modules.push.service import app_url_path, send_employee_push
+
+        push_result = send_employee_push(
+            tenant_id=tenant_id,
+            employee_id=int(shift["employee_id"]),
+            notification_key=f"missed_punch_alert:{shift['id']}",
+            title="Missed clock-in — tap to clock in now",
+            body=f"Your shift {shift_label} started but you have not clocked in yet.",
+            url=app_url_path("employee.html#time-clock"),
+            tag=f"missed-punch-{shift['id']}",
+            alert_type="missed_clock_in",
+            conn=conn,
+        )
+        if push_result.get("sent"):
+            notified_employee = True
+
         with conn.cursor() as cur:
             cur.execute(
                 """

@@ -1,5 +1,5 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v10";
+const CACHE_NAME = "shiftswift-employee-v11";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
@@ -139,6 +139,8 @@ function parsePushPayload(event) {
     body: "",
     url: "./employee.html#time-clock",
     tag: "shiftswift-employee",
+    alert_type: "general",
+    urgent: false,
   };
   if (!event.data) return fallback;
   try {
@@ -152,28 +154,43 @@ function parsePushPayload(event) {
   }
 }
 
+const CLOCK_ALERT_TYPES = new Set([
+  "shift_reminder",
+  "clock_in",
+  "clock_out",
+  "missed_clock_in",
+  "missed_clock_in_early",
+]);
+
+function buildClockNotificationOptions(data) {
+  const urgent = Boolean(data.urgent || CLOCK_ALERT_TYPES.has(data.alert_type));
+  const isClockOut = data.alert_type === "clock_out";
+  return {
+    body: data.body,
+    icon: "./assets/shiftswift-employee-app-icon-192.png",
+    badge: "./assets/shiftswift-employee-app-icon-192.png",
+    tag: data.tag || "shiftswift-employee",
+    renotify: true,
+    silent: false,
+    requireInteraction: urgent,
+    vibrate: urgent ? [400, 120, 400, 120, 400, 120, 400] : [180, 80, 180],
+    data: { url: data.url || "./employee.html#time-clock", alert_type: data.alert_type || "general" },
+    actions: [
+      { action: "open", title: isClockOut ? "Clock out now" : "Clock in now" },
+      { action: "dismiss", title: "Dismiss" },
+    ],
+  };
+}
+
 self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
       const data = parsePushPayload(event);
       const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of allClients) {
-        client.postMessage({ type: "SHIFT_ALERT", title: data.title, body: data.body });
+        client.postMessage({ type: "SHIFT_ALERT", title: data.title, body: data.body, urgent: data.urgent });
       }
-      await self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: "./assets/shiftswift-employee-app-icon-192.png",
-        badge: "./assets/shiftswift-employee-app-icon-192.png",
-        tag: data.tag || "shiftswift-employee",
-        renotify: true,
-        vibrate: [180, 80, 180],
-        silent: false,
-        data: { url: data.url || "./employee.html#time-clock" },
-        actions: [
-          { action: "open", title: "Clock in now" },
-          { action: "dismiss", title: "Dismiss" },
-        ],
-      });
+      await self.registration.showNotification(data.title, buildClockNotificationOptions(data));
     })()
   );
 });

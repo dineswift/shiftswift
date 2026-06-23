@@ -208,6 +208,7 @@ def send_employee_push(
     body: str,
     url: str,
     tag: str | None = None,
+    alert_type: str | None = None,
     conn: Any,
 ) -> dict[str, Any]:
     """Send to all devices for an employee once per notification_key."""
@@ -242,11 +243,17 @@ def send_employee_push(
     if not subscriptions:
         return {"sent": 0, "skipped": "no_subscription"}
 
+    resolved_alert_type = alert_type or "general"
+    clock_alert_types = frozenset(
+        {"shift_reminder", "clock_in", "clock_out", "missed_clock_in", "missed_clock_in_early"}
+    )
     payload = {
         "title": title,
         "body": body,
         "url": url,
         "tag": tag or notification_key,
+        "alert_type": resolved_alert_type,
+        "urgent": resolved_alert_type in clock_alert_types,
     }
     sent = 0
     for sub in subscriptions:
