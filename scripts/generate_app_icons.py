@@ -141,6 +141,37 @@ def render_wordmark_icon(*, bottom_label: str, maskable: bool, size: int) -> Ima
     return img
 
 
+def render_unified_splash(*, width: int, height: int) -> Image.Image:
+    """Unified native app splash — green field, centred mark, one app name."""
+    img = Image.new("RGB", (width, height), GREEN)
+    draw = ImageDraw.Draw(img)
+
+    icon_size = int(min(width, height) * 0.24)
+    mark_scale = icon_size / 96.0
+    mark_height = int(96 * mark_scale)
+    cx = width // 2
+    mark_top = int(height * 0.38) - mark_height // 2
+    _draw_mark(draw, cx, mark_top, scale=mark_scale)
+
+    title_font = _font(int(height * 0.032))
+    subtitle_font = _font(int(height * 0.02), bold=False)
+    title = "ShiftSwift HR"
+    subtitle = "Staff & managers · one sign-in"
+    title_box = draw.textbbox((0, 0), title, font=title_font)
+    subtitle_box = draw.textbbox((0, 0), subtitle, font=subtitle_font)
+    title_w = title_box[2] - title_box[0]
+    subtitle_w = subtitle_box[2] - subtitle_box[0]
+    text_top = mark_top + mark_height + int(height * 0.045)
+    draw.text((cx - title_w // 2, text_top), title, fill=WHITE, font=title_font)
+    draw.text(
+        (cx - subtitle_w // 2, text_top + int(height * 0.04)),
+        subtitle,
+        fill=GREEN_SOFT,
+        font=subtitle_font,
+    )
+    return img
+
+
 def render_splash(*, label: str, width: int, height: int) -> Image.Image:
     """iOS PWA launch splash — green field, centred mark, short app label."""
     img = Image.new("RGB", (width, height), GREEN)
@@ -195,6 +226,11 @@ def main() -> None:
             out = ASSETS / f"shiftswift-{slug}-splash-{width}x{height}.png"
             render_splash(label=label, width=width, height=height).save(out, "PNG")
             print(f"wrote {out.relative_to(ROOT)}")
+
+    for width, height in SPLASH_SIZES:
+        out = ASSETS / f"shiftswift-unified-splash-{width}x{height}.png"
+        render_unified_splash(width=width, height=height).save(out, "PNG")
+        print(f"wrote {out.relative_to(ROOT)}")
 
     aliases = {
         "app-icon-hr-512.png": "shiftswift-hr-app-icon.png",

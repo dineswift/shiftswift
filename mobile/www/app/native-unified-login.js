@@ -167,6 +167,7 @@
         return;
       }
       storeSession(data);
+      window.ShiftSwiftNativeApp?.showSplash?.();
       window.location.href = redirect;
     } catch (error) {
       setStatus(error.message || "Login failed");

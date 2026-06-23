@@ -11,7 +11,7 @@ const frontendAssets = path.join(repoRoot, "frontend", "assets");
 
 const branded = {
   icon: "shiftswift-hr-app-icon.png",
-  splash: "shiftswift-hr-splash-1170x2532.png",
+  splash: "shiftswift-unified-splash-1170x2532.png",
 };
 
 const legacyVariants = [

@@ -14,8 +14,9 @@ const allowNavigation = [
 
 const pluginConfig = {
   SplashScreen: {
-    launchAutoHide: true,
-    launchShowDuration: 1500,
+    launchAutoHide: false,
+    launchShowDuration: 0,
+    launchFadeOutDuration: 450,
     backgroundColor: "#0f6e56",
     showSpinner: false,
     androidSplashResourceName: "splash",

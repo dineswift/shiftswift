@@ -3,16 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <base href="https://app.shiftswifthr.co.uk/" />
     <meta name="theme-color" content="#0f6e56" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ShiftSwift HR" />
-    <script src="/brand-config.js?v=brand-v8"></script>
-    <script src="/native-app.js?v=4"></script>
+    <script>
+      (function () {
+        function hideSplash() {
+          try {
+            var splash = window.Capacitor?.Plugins?.SplashScreen;
+            if (splash?.hide) splash.hide().catch(function () {});
+          } catch (_) {}
+        }
+        function schedule() {
+          window.setTimeout(hideSplash, 80);
+        }
+        document.addEventListener("DOMContentLoaded", schedule, { once: true });
+        window.addEventListener("load", schedule, { once: true });
+        if (document.readyState !== "loading") schedule();
+        window.setTimeout(hideSplash, 5000);
+      })();
+    </script>
+    <script src="./brand-config.js?v=brand-v8"></script>
+    <script src="./native-app.js?v=7"></script>
     <title>ShiftSwift HR | Sign in</title>
     <link rel="stylesheet" href="https://app.shiftswifthr.co.uk/styles.css?v=brandkit-v9" />
-    <link rel="stylesheet" href="/native-app-login.css?v=2" />
+    <link rel="stylesheet" href="./native-app-login.css?v=3" />
   </head>
   <body class="portal-login-page portal-login-page--native-app portal-login-page--unified" data-login-page="unified">
     <div class="portal-login-shell">
@@ -62,7 +78,7 @@
               <label class="portal-login-password-field">
                 <span class="portal-login-password-label">
                   <span id="password-label">Password</span>
-                  <a class="portal-login-inline-link portal-login-forgot" id="forgot-password-link" href="./employee-forgot-password.html">Forgot?</a>
+                  <a class="portal-login-inline-link portal-login-forgot" id="forgot-password-link" href="https://app.shiftswifthr.co.uk/employee-forgot-password.html">Forgot?</a>
                 </span>
                 <input
                   name="password"
@@ -122,6 +138,6 @@
       </main>
     </div>
     <script src="https://app.shiftswifthr.co.uk/session-auth.js?v=3"></script>
-    <script src="/native-unified-login.js?v=2"></script>
+    <script src="./native-unified-login.js?v=4"></script>
   </body>
 </html>
