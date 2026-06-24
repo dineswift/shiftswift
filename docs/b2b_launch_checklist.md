@@ -48,7 +48,7 @@ Map your isolated HR platform requirements to project status. Legal text below i
 
 ## Launch order (recommended)
 
-1. Run migration `023_b2b_tenant_billing_rbac_audit.sql`
+1. Run all pending migrations (`bash scripts/run_migrations.sh`) — current head: `088_employee_profile_change_requests.sql`
 2. Create Stripe Products/Prices; set env vars
 3. Enable Stripe Tax; test checkout with a test VAT number
 4. Solicitor review: MSA, DPA, payment terms

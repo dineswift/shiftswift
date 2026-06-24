@@ -350,7 +350,6 @@ body.is-loading .page {
   .reveal-stagger > * {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 
   .feature-card--animated:hover,
@@ -521,13 +520,50 @@ body.is-loading .page {
 }
 
 .btn:hover {
-  transform: translateY(-2px);
   box-shadow: 0 10px 24px rgba(15, 110, 86, 0.22);
 }
 
 .btn:active {
   transform: translateY(0);
   box-shadow: 0 4px 12px rgba(15, 110, 86, 0.16);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .social-proof.is-visible:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 48px rgba(15, 110, 86, 0.1);
+  }
+
+  .logo-pill:hover {
+    transform: translateY(-3px) scale(1.03);
+    background: var(--green-200);
+    color: var(--green-900);
+  }
+
+  .feature-card--animated:hover {
+    transform: translateY(-8px);
+    border-color: rgba(15, 110, 86, 0.22);
+    box-shadow: 0 20px 40px rgba(15, 110, 86, 0.12);
+  }
+
+  .feature-card--animated:hover .feature-icon {
+    transform: scale(1.08) rotate(-3deg);
+    background: var(--green-200);
+  }
+
+  .reveal-stagger.is-visible .social-proof-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 32px rgba(15, 110, 86, 0.1);
+    border-color: rgba(15, 110, 86, 0.18);
+  }
+
+  .compare-table tbody tr:hover td {
+    background-image: linear-gradient(rgba(15, 46, 34, 0.02), rgba(15, 46, 34, 0.02));
+  }
 }
 
 .btn.ghost {
@@ -588,32 +624,27 @@ body.is-loading .page {
 
 .reveal {
   opacity: 0;
-  transform: translate3d(0, 44px, 0) scale(0.985);
-  filter: blur(8px);
+  transform: translate3d(0, 36px, 0) scale(0.99);
   transition:
-    opacity 1.05s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 1.15s cubic-bezier(0.16, 1, 0.3, 1),
-    filter 0.95s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reveal[data-reveal-from="above"]:not(.is-visible) {
-  transform: translate3d(0, -32px, 0) scale(0.985);
+  transform: translate3d(0, -24px, 0) scale(0.99);
 }
 
 .reveal.is-visible {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
-  filter: blur(0);
 }
 
 .reveal-stagger > * {
   opacity: 0;
-  transform: translate3d(0, 28px, 0) scale(0.99);
-  filter: blur(6px);
+  transform: translate3d(0, 24px, 0) scale(0.995);
   transition:
-    opacity 0.95s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 1.05s cubic-bezier(0.16, 1, 0.3, 1),
-    filter 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.95s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reveal-stagger[data-reveal-from="above"]:not(.is-visible) > * {
@@ -636,7 +667,6 @@ body.is-loading .page {
 .reveal-stagger.is-visible > * {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
-  filter: blur(0);
 }
 
 .hero {
@@ -1212,11 +1242,6 @@ body.is-loading .page {
   color: var(--gray-500);
 }
 
-.social-proof.is-visible:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 24px 48px rgba(15, 110, 86, 0.1);
-}
-
 .social-proof__quote {
   font-size: 1.125rem !important;
   font-weight: var(--text-support-weight) !important;
@@ -1267,12 +1292,6 @@ body.is-loading .page {
     transform 0.25s ease,
     background 0.25s ease,
     color 0.25s ease;
-}
-
-.logo-pill:hover {
-  transform: translateY(-3px) scale(1.03);
-  background: var(--green-200);
-  color: var(--green-900);
 }
 
 .hero-panel {
@@ -1389,17 +1408,6 @@ body.is-loading .page {
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.35s ease,
     border-color 0.35s ease;
-}
-
-.feature-card--animated:hover {
-  transform: translateY(-8px);
-  border-color: rgba(15, 110, 86, 0.22);
-  box-shadow: 0 20px 40px rgba(15, 110, 86, 0.12);
-}
-
-.feature-card--animated:hover .feature-icon {
-  transform: scale(1.08) rotate(-3deg);
-  background: var(--green-200);
 }
 
 .feature-card h3 {
@@ -1544,10 +1552,28 @@ body.is-loading .page {
 
 .compare-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-lg);
   background: var(--white);
   box-shadow: var(--shadow-card);
+}
+
+.compare-table--matrix {
+  min-width: 640px;
+}
+
+.pricing-grid--platform {
+  min-height: 420px;
+}
+
+.motion-ready .hero-visual[data-scroll-parallax] {
+  transition: none;
+  will-change: auto;
+}
+
+.hero-visual {
+  transition: transform 0.12s linear;
 }
 
 .compare-table {
@@ -1584,10 +1610,6 @@ body.is-loading .page {
   white-space: nowrap;
   font-weight: 600;
   color: var(--pine);
-}
-
-.compare-table tbody tr:hover td {
-  background-image: linear-gradient(rgba(15, 46, 34, 0.02), rgba(15, 46, 34, 0.02));
 }
 
 .compare-table__head--pain {
@@ -2319,11 +2341,6 @@ body.is-loading .page {
   50% { background-position: 100% center; }
 }
 
-.hero-visual {
-  transition: transform 0.12s linear;
-  will-change: transform;
-}
-
 .hero-actions .btn.btn--shine {
   position: relative;
   overflow: hidden;
@@ -2384,12 +2401,6 @@ body.is-loading .page {
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.35s ease,
     border-color 0.35s ease;
-}
-
-.reveal-stagger.is-visible .social-proof-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 32px rgba(15, 110, 86, 0.1);
-  border-color: rgba(15, 110, 86, 0.18);
 }
 
 .doc-sample__visual {

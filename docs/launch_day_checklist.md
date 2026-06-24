@@ -33,19 +33,17 @@
   bash deploy/cloudpanel/pull-production.sh
   ```
   *(Or manually: `git pull --ff-only`, migrations, restart API, rsync frontend.)*
-- [ ] **All migrations applied through `067_tenants_updated_at.sql`**
+- [ ] **All migrations applied through `088_employee_profile_change_requests.sql`**
   ```bash
   bash scripts/run_migrations.sh
   ```
   Recent migrations you must not skip:
   | Migration | Adds |
   |-----------|------|
-  | `055` | Employee portal GDPR consent |
-  | `063` | Premises QR clock-in tokens |
-  | `064` | Break punches, kiosk PIN, timesheet approvals |
-  | `065` | Master tenant suspend / soft delete / internal notes |
-  | `066` | Offline / manual billing mode for sales-led accounts |
-  | `067` | `tenants.updated_at` for master ops updates |
+  | `080`–`083` | Document store audit, punch HR review, punch state flags |
+  | `084`–`085` | Offboarding cancel reason, AI document add-on |
+  | `086`–`087` | CRM addon price default, sign-in reminders + entity versions |
+  | `088` | Employee profile change requests |
 - [ ] `sudo systemctl restart shiftswifthr-api` (if not done by pull script)
 - [ ] `curl -s https://api.shiftswifthr.co.uk/health` → `"status":"ok"`, `"environment":"production"`
 - [ ] GDPR deploy verify:

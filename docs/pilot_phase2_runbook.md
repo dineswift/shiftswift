@@ -95,7 +95,7 @@ Optional — confirm app static assets updated (cache-bust version in admin bund
 curl -sS https://app.shiftswifthr.co.uk/admin.html | grep -o 'admin-shared.js?v=[^"]*' | head -1
 ```
 
-After CRM nav fix deploy you should see `admin-shared.js?v=admin-v36` (or newer).
+After CRM nav fix deploy you should see `admin-shared.js?v=admin-v43` (or newer) and `portal-pwa-stability.js?v=3+`.
 
 ---
 

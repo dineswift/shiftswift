@@ -2,6 +2,9 @@
 (function initPortalPwaStability() {
   "use strict";
 
+  let scrollLockCount = 0;
+  let savedWindowScrollY = 0;
+
   function markPortalShell() {
     const root = document.documentElement;
     root.classList.add("portal-pwa-shell");
@@ -11,16 +14,39 @@
   }
 
   function lockBodyScroll(lock) {
-    const content = document.querySelector("main.content");
     if (lock) {
+      scrollLockCount += 1;
+      if (scrollLockCount > 1) return;
+
+      savedWindowScrollY = window.scrollY;
       document.body.classList.add("no-scroll");
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${savedWindowScrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+
+      const content = document.querySelector("main.content");
       if (content) {
         content.dataset.scrollLockTop = String(content.scrollTop);
         content.style.overflow = "hidden";
       }
       return;
     }
+
+    if (scrollLockCount <= 0) return;
+    scrollLockCount -= 1;
+    if (scrollLockCount > 0) return;
+
     document.body.classList.remove("no-scroll");
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    window.scrollTo(0, savedWindowScrollY);
+
+    const content = document.querySelector("main.content");
     if (!content) return;
     const top = Number(content.dataset.scrollLockTop || "0");
     delete content.dataset.scrollLockTop;

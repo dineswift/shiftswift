@@ -119,8 +119,23 @@
   background: var(--pine);
   border: 2px solid var(--verdant);
   box-shadow: var(--shadow-pine);
-  transform: translateY(-8px) scale(1.02);
   z-index: 2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pricing-card.is-featured {
+    transform: translateY(-8px) scale(1.02);
+  }
+
+  .pricing-card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 900px) {
+  .pricing-card.is-featured {
+    transform: none;
+  }
 }
 
 .pricing-card.is-featured .pricing-plan-name,

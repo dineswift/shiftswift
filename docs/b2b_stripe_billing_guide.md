@@ -46,7 +46,7 @@ Each plan needs **two recurring GBP Prices** on one Product (or separate Product
 | ShiftSwift HR Multi-site | Recurring fixed | £29/mo | `STRIPE_PRICE_MULTISITE_BASE_MONTHLY` |
 | Multi-site seat | Recurring per unit | £2/mo | `STRIPE_PRICE_MULTISITE_SEAT_MONTHLY` |
 
-**Monthly cap:** enforced in application logic when syncing seat quantity (Stripe does not cap automatically). Until seat sync ships, cap is reflected in marketing quotes only — implement `billing_seat_sync` before live per-head billing.
+**Monthly cap:** enforced in application logic when syncing seat quantity via `billing_seat_sync.py` (wired from employee lifecycle updates).
 
 ### Signup subscription items
 
@@ -143,10 +143,10 @@ Events: `checkout.session.completed`, `customer.subscription.updated`, `customer
 
 ---
 
-## TODO before live per-head billing
+## Before live per-head billing
 
-1. **Seat quantity sync** — update Stripe subscription item when active employee count changes; respect monthly cap
-2. **Stripe live Prices** — create all six Price IDs above
+1. ~~**Seat quantity sync**~~ — **Done** (`billing_seat_sync.py`); verify on staging after employee add/remove
+2. **Stripe live Prices** — create all six Price IDs above in Dashboard + `.env`
 3. **End-to-end test** — signup → add employees → invoice matches quote
 
 *Legacy flat per-site (£29/£59/£99) and annual plans are retired from marketing; existing tenants on old plan IDs remain supported until migrated.*

@@ -25,7 +25,6 @@
       sidebar?.classList.remove("sidebar--open");
       overlay?.classList.remove("sidebar-overlay--visible");
       window.ShiftSwiftPortalStability?.lockBodyScroll?.(false);
-      document.body.classList.remove("no-scroll");
       setExpanded(false);
     }
 
@@ -33,7 +32,6 @@
       sidebar?.classList.add("sidebar--open");
       overlay?.classList.add("sidebar-overlay--visible");
       window.ShiftSwiftPortalStability?.lockBodyScroll?.(true);
-      document.body.classList.add("no-scroll");
       setExpanded(true);
     }
 

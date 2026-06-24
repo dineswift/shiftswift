@@ -926,7 +926,8 @@
     contextMenuEl.hidden = true;
     document.body.appendChild(contextMenuEl);
     document.addEventListener("click", hideContextMenu);
-    document.addEventListener("scroll", hideContextMenu, true);
+    const scrollRoot = document.querySelector("main.content") || document.querySelector(".rota-shifts-table-wrap");
+    scrollRoot?.addEventListener("scroll", hideContextMenu, { passive: true });
     return contextMenuEl;
   }
 

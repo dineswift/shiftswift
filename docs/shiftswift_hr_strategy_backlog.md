@@ -25,7 +25,7 @@ Use this file as the **working note** — the docx stays the copy/design source;
 
 | Item | Strategy requirement | Code / status |
 |------|---------------------|---------------|
-| Trading name footer | Full block with Co. 14568900 + address | `frontend/index.html` — **partial** (update to match docx verbatim incl. `legal@datasoftwareanalytics.co.uk`) |
+| Trading name footer | Full block with Co. 14568900 + address | `frontend/index.html` — **done** (support email only on www; legal on privacy/DPA pages) |
 | Provider on contracts | Datasoftware Analytics Ltd trading as ShiftSwift HR | `contracts_service.py`, templates — **done** |
 | Privacy / cookies URLs | `/docs/privacy-policy`, `/docs/cookies` | **Done** — `docs/privacy-policy.md`, `docs/cookies.md` + footer links |
 | DineSwift footer parity | Same parent, different product email | Separate site — not in this repo |
@@ -46,13 +46,13 @@ support@shiftswifthr.co.uk · legal@datasoftwareanalytics.co.uk
 
 | Section | Strategy headline / intent | File | Status |
 |---------|---------------------------|------|--------|
-| Meta title | UK HR Software for SMEs & Sponsor Licence Holders | `index.html` `<title>` + meta description | **TODO** |
+| Meta title | UK HR Software for SMEs & Sponsor Licence Holders | `index.html` `<title>` + meta description | **Review** — live copy differs slightly; acceptable for SEO focus |
 | Hero | “HR software that keeps you compliant…” | `index.html` hero | **Review** — align exact copy |
 | Trust strip | GDPR · UK-hosted · RTI · audit exports · cancel anytime | trust strip | **Partial** |
 | Social proof | Early-access honesty block (no template quotes) | `index.html` | **Done** — add named case study when pilot completes |
 | Features | 6 cards (RTW, sponsor, payroll add-on, rota, lifecycle, audit export) | features section | **Review** |
-| Comparison table | Spreadsheets vs ShiftSwift HR | `index.html` + `docs/competitive_comparison.md` | **Done** — spreadsheets table + competitor matrix (Breathe, Rotacloud) |
-| FAQ | 7 questions from strategy (RTI add-on, trial no card, payroll later, sponsor, UK data, cancel, multi-site) | `index.html` / FAQ | **TODO** — fix dev-facing Stripe answer |
+| Comparison table | Spreadsheets vs ShiftSwift HR + competitor matrix | `index.html` + `docs/competitive_comparison.md` | **Done** — softened copy, reminder rows, last-reviewed footnote |
+| FAQ | Trial, payroll handoff, sponsor, UK data, cancel, multi-site | `index.html` / FAQ | **Done** — early-access honesty included |
 | Screenshots | RTW dashboard, rota, audit export | `assets/` | **TODO** — need real UI captures |
 | Pricing page copy | “Simple, predictable pricing…” + VAT note | `pricing.js` + `index.html` | **TODO** |
 
@@ -81,7 +81,7 @@ Strategy tiers (per **site**, ex VAT):
 |------|-------|--------|
 | Align DB plan catalog with strategy names/prices | `scripts/seed_billing_catalog.py`, `billing_config.py` | **Review** — current IDs like `site_medium_monthly` may not match Starter/Growth/Scale |
 | Feature gates per tier | `plan_features.py`, `admin_service.py`, `admin-shared.js` | **Done** — Growth: sponsor, grievance, audit export; Scale: multi-site, API |
-| Stripe Price IDs | `.env` + `subscription_plans` table | **TODO on server** — create in Stripe Dashboard; env vars documented |
+| Stripe Price IDs | `.env` + `subscription_plans` table | **TODO on server** — use `STRIPE_PRICE_ESSENTIALS_*`, `COMPLIANCE_*`, `MULTISITE_*` per `billing_config.py` |
 
 ---
 
@@ -113,6 +113,7 @@ What the strategy **claims** vs what the **app already has**:
 - [x] **Screenshots** — product showcase section with UI mocks (replace with real captures when ready)
 - [x] **Signup page** — strategy copy + legal footer
 - [x] **Deploy script** — `pull-production.sh` runs `seed_billing_catalog.py`
+- [x] **Landing UX** — one-way scroll reveals, touch-safe hovers, iOS scroll lock ref-count
 
 ---
 

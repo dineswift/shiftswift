@@ -19,7 +19,7 @@ Checklist for going live on **shiftswifthr.co.uk** with real customer data. Use 
 
 ## 1. Blockers (must be green before launch)
 
-- [ ] **All migrations applied** (through `084_offboarding_cancel_reason.sql`)
+- [ ] **All migrations applied** (through `088_employee_profile_change_requests.sql`)
   ```bash
   DATABASE_URL=postgresql://... bash scripts/run_migrations.sh
   ```
@@ -200,7 +200,7 @@ See [server_installation.md](./server_installation.md) for step-by-step staging 
 
 1. Provision **staging VPS** and run `sudo bash scripts/install_server.sh`
 2. Point **DNS** and run **certbot**
-3. Apply **all migrations** through **`065`** (MFA `034`, time punch `035`–`064`, master ops `065`)
+3. Apply **all migrations** through **`088`** (sign-in reminders `087`, profile change requests `088`; see `migrations/`)
 4. **Rotate secrets** and change seeded passwords
 5. Configure **daily Postgres backup** (DB + document/RTW upload dirs) and test restore
 6. Add **uptime monitor** on `https://api.shiftswifthr.co.uk/health`

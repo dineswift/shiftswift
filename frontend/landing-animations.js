@@ -1,9 +1,10 @@
 (function () {
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const luxuryEase = "cubic-bezier(0.16, 1, 0.3, 1)";
-  let scrollDirection = "down";
-  let lastScrollY = window.scrollY;
   let revealObserver = null;
+  let scrollTicking = false;
+  let parallaxLayers = [];
+  let parallaxReady = false;
 
   function revealAll(nodes) {
     nodes.forEach((node) => {
@@ -12,24 +13,9 @@
     });
   }
 
-  function updateScrollDirection() {
-    const y = window.scrollY;
-    scrollDirection = y >= lastScrollY ? "down" : "up";
-    lastScrollY = y;
-  }
-
   function setRevealDirection(node) {
     const rect = node.getBoundingClientRect();
-    const viewportMid = window.innerHeight * 0.42;
-    if (rect.top > viewportMid) {
-      node.dataset.revealFrom = "below";
-      return;
-    }
-    if (rect.bottom < viewportMid) {
-      node.dataset.revealFrom = "above";
-      return;
-    }
-    node.dataset.revealFrom = scrollDirection === "down" ? "below" : "above";
+    node.dataset.revealFrom = rect.top > window.innerHeight * 0.55 ? "below" : "above";
   }
 
   function collectRevealRoots() {
@@ -55,18 +41,15 @@
     revealObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
           const node = entry.target;
-          if (entry.isIntersecting) {
-            setRevealDirection(node);
-            node.classList.add("is-visible");
-            return;
-          }
-          if (entry.intersectionRatio === 0) {
-            node.classList.remove("is-visible");
-          }
+          if (node.classList.contains("is-visible")) return;
+          setRevealDirection(node);
+          node.classList.add("is-visible");
+          revealObserver.unobserve(node);
         });
       },
-      { root: null, rootMargin: "0px 0px -5% 0px", threshold: [0, 0.06, 0.14] }
+      { root: null, rootMargin: "0px 0px -5% 0px", threshold: 0.08 }
     );
 
     revealRoots.forEach((node) => {
@@ -74,6 +57,8 @@
       if (isInViewport(node)) {
         setRevealDirection(node);
         node.classList.add("is-visible");
+        revealObserver.unobserve(node);
+        return;
       }
       revealObserver.observe(node);
     });
@@ -87,6 +72,7 @@
       if (isInViewport(node)) {
         setRevealDirection(node);
         node.classList.add("is-visible");
+        return;
       }
       revealObserver.observe(node);
     });
@@ -124,55 +110,48 @@
     counterObserver.observe(counter);
   }
 
-  function initHeroParallax() {
-    if (reduced) return;
-    const visual = document.querySelector(".hero-visual:not([data-scroll-parallax])");
-    if (!visual) return;
+  function updateParallax() {
+    if (!parallaxReady || !parallaxLayers.length) return;
+    const viewport = window.innerHeight;
+    parallaxLayers.forEach((layer) => {
+      const speed = Number(layer.dataset.scrollParallax) || 0.04;
+      const rect = layer.getBoundingClientRect();
+      const centerOffset = rect.top + rect.height * 0.5 - viewport * 0.5;
+      layer.style.transform = `translate3d(0, ${centerOffset * speed}px, 0)`;
+    });
+  }
 
-    let ticking = false;
-    window.addEventListener(
-      "scroll",
-      () => {
-        if (ticking) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-          visual.style.transform = `translate3d(0, ${window.scrollY * 0.055}px, 0)`;
-          ticking = false;
-        });
-      },
-      { passive: true }
-    );
+  function onScrollFrame() {
+    scrollTicking = false;
+    updateParallax();
+  }
+
+  function scheduleScrollWork() {
+    if (scrollTicking) return;
+    scrollTicking = true;
+    requestAnimationFrame(onScrollFrame);
   }
 
   function initScrollParallax() {
     if (reduced) return;
-    const layers = document.querySelectorAll("[data-scroll-parallax]");
-    if (!layers.length) return;
+    if (window.matchMedia("(max-width: 900px)").matches) return;
 
-    let ticking = false;
-    const update = () => {
-      const viewport = window.innerHeight;
-      layers.forEach((layer) => {
-        const speed = Number(layer.dataset.scrollParallax) || 0.04;
-        const rect = layer.getBoundingClientRect();
-        const centerOffset = rect.top + rect.height * 0.5 - viewport * 0.5;
-        layer.style.transform = `translate3d(0, ${centerOffset * speed}px, 0)`;
-      });
+    parallaxLayers = Array.from(document.querySelectorAll("[data-scroll-parallax]"));
+    if (!parallaxLayers.length) return;
+
+    const start = () => {
+      parallaxReady = true;
+      updateParallax();
+      window.addEventListener("scroll", scheduleScrollWork, { passive: true });
     };
 
-    window.addEventListener(
-      "scroll",
-      () => {
-        if (ticking) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-          update();
-          ticking = false;
-        });
-      },
-      { passive: true }
-    );
-    update();
+    const hero = document.querySelector(".hero-visual[data-scroll-parallax].hero-in");
+    if (hero) {
+      hero.addEventListener("animationend", start, { once: true });
+      window.setTimeout(start, 1400);
+      return;
+    }
+    start();
   }
 
   function initCtaShine() {
@@ -183,20 +162,11 @@
   }
 
   function boot() {
-    window.addEventListener("scroll", updateScrollDirection, { passive: true });
     initReveal();
     initCounters();
-    initHeroParallax();
     initScrollParallax();
     initCtaShine();
-
     document.addEventListener("shiftswift:pricing-rendered", refreshReveal, { passive: true });
-
-    const pricingGrid = document.getElementById("pricing-plans");
-    if (pricingGrid && !reduced && typeof MutationObserver !== "undefined") {
-      const mo = new MutationObserver(() => refreshReveal());
-      mo.observe(pricingGrid, { childList: true });
-    }
   }
 
   window.ShiftSwiftLandingMotion = {
