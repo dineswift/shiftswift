@@ -20,6 +20,6 @@
   <rect x="590" y="276" width="250" height="160" rx="12" fill="#fff" stroke="#e2ebe4"/>
   <rect x="860" y="276" width="252" height="160" rx="12" fill="#fff" stroke="#e2ebe4"/>
   <rect x="320" y="460" width="792" height="192" rx="12" fill="#fff" stroke="#e2ebe4"/>
-  <text x="600" y="400" text-anchor="middle" fill="#5a6d64" font-family="system-ui,sans-serif" font-size="22" font-weight="600">Pilot workspace capture</text>
-  <text x="600" y="432" text-anchor="middle" fill="#7a8f84" font-family="system-ui,sans-serif" font-size="16">Replace with redacted screenshot · assets/screenshots/admin-overview.webp</text>
+  <text x="600" y="400" text-anchor="middle" fill="#5a6d64" font-family="system-ui,sans-serif" font-size="22" font-weight="600">Admin overview</text>
+  <text x="600" y="432" text-anchor="middle" fill="#7a8f84" font-family="system-ui,sans-serif" font-size="16">Illustrative placeholder · assets/screenshots/admin-overview.webp</text>
 </svg>

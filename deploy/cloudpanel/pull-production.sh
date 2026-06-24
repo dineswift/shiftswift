@@ -129,6 +129,14 @@ for page in index.html landing.css theme.css pricing.css; do
     exit 1
   fi
 done
+for shot in admin-overview time-clock compliance; do
+  for ext in webp png; do
+    if [ ! -f "${WWW_ROOT}/assets/screenshots/${shot}.${ext}" ]; then
+      echo "ERROR: missing ${WWW_ROOT}/assets/screenshots/${shot}.${ext} — run scripts/generate_screenshot_placeholders.py"
+      exit 1
+    fi
+  done
+done
 echo "    marketing CSS OK"
 
 echo "==> verify legal pages (WWW + App)"

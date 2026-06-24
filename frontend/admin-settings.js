@@ -1335,7 +1335,7 @@
       <div class="settings-form-actions">
         <a class="btn outline" href="#" data-brand-support-mailto="Invite manager to ShiftSwift HR">Invite manager</a>
       </div>
-      <p class="muted">Multi-user roles and manager invites are managed by support during early access. Email us to add HR managers or site leads.</p>`;
+      <p class="muted">Multi-user roles and manager invites are set up by support. Email us to add HR managers or site leads.</p>`;
     window.ShiftSwiftBrand?.applyBrandDom?.(host);
     host.dataset.ready = "true";
   }

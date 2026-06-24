@@ -20,5 +20,5 @@
   <rect x="150" y="350" width="820" height="12" rx="4" fill="#e8f0eb"/>
   <rect x="150" y="400" width="200" height="36" rx="8" fill="#0f2e22" opacity="0.85"/>
   <text x="600" y="400" text-anchor="middle" fill="#5a6d64" font-family="system-ui,sans-serif" font-size="22" font-weight="600">RTW · day-9 · audit export</text>
-  <text x="600" y="432" text-anchor="middle" fill="#7a8f84" font-family="system-ui,sans-serif" font-size="16">Replace with redacted screenshot · assets/screenshots/compliance.webp</text>
+  <text x="600" y="432" text-anchor="middle" fill="#7a8f84" font-family="system-ui,sans-serif" font-size="16">Illustrative placeholder · assets/screenshots/compliance.webp</text>
 </svg>

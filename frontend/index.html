@@ -42,7 +42,7 @@
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
     <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v35" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v37" />
     <style>
       /* Critical hero band — survives stale CSS cache / missing theme import */
       .hero-band {
@@ -245,16 +245,16 @@
           </div>
         </section>
 
-        <section class="social-proof" aria-label="Early access programme">
-          <p class="social-proof__eyebrow">Early access</p>
-          <h2 class="social-proof__heading">Live product, honest launch — we're finishing the checklist before we sell hard.</h2>
+        <section class="social-proof" aria-label="Why ShiftSwift HR">
+          <p class="social-proof__eyebrow">UK HR &amp; compliance</p>
+          <h2 class="social-proof__heading">HR, time clock, and sponsor compliance in one place</h2>
           <p class="section-lead muted social-proof__lead">
-            ShiftSwift HR runs on production infrastructure with real trials. We are not publishing anonymous customer quotes —
-            a named case study with permission on file comes first. Book a demo to see the admin console on your own data.
+            ShiftSwift HR runs on UK-hosted infrastructure with a 14-day free trial. Book a demo to walk through the admin console,
+            or start a trial and explore on your own data.
           </p>
           <div class="social-proof-grid reveal-stagger">
             <article class="social-proof-card social-proof-card--honest">
-              <h3>Verify today</h3>
+              <h3>What you get</h3>
               <ul class="social-proof-list">
                 <li>14-day trial — no card required</li>
                 <li>Employee lifecycle, RTW uploads, sponsor compliance</li>
@@ -264,33 +264,14 @@
               </ul>
             </article>
             <article class="social-proof-card social-proof-card--honest">
-              <h3>Before we scale sales</h3>
+              <h3>Built for</h3>
               <ul class="social-proof-list">
-                <li>Stripe live mode end-to-end checkout</li>
-                <li>Product showcase on www (swap placeholders when pilot captures land)</li>
-                <li>First named customer case study</li>
-                <li>Solicitor-reviewed MSA &amp; DPA on file</li>
+                <li>Restaurants &amp; hospitality</li>
+                <li>Care providers</li>
+                <li>Retail &amp; SMEs</li>
+                <li>Sponsor licence holders</li>
               </ul>
-            </article>
-            <article class="social-proof-card social-proof-card--honest social-proof-card--case-study">
-              <p class="case-study-slot__eyebrow">Pilot case study · slot reserved</p>
-              <h3>UK hospitality sponsor — coming soon</h3>
-              <dl class="case-study-slot__metrics">
-                <div>
-                  <dt>Challenge</dt>
-                  <dd>RTW evidence, day-9 tracking, and month-end hours spread across spreadsheets</dd>
-                </div>
-                <div>
-                  <dt>Measuring</dt>
-                  <dd>Admin hours saved, missed day-9 deadlines, accountant handoff time</dd>
-                </div>
-                <div>
-                  <dt>Publish</dt>
-                  <dd>Named quote + redacted screenshots once pilot consent is on file</dd>
-                </div>
-              </dl>
-              <p class="muted case-study-slot__note">We only publish identifiable outcomes with written permission.</p>
-              <p><a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20pilot">Join the pilot programme</a></p>
+              <p><a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a></p>
             </article>
           </div>
           <div class="logo-row reveal-stagger" aria-label="Industries we serve">
@@ -304,41 +285,48 @@
         <section id="product-showcase" class="section product-showcase" aria-labelledby="product-showcase-heading">
           <h2 id="product-showcase-heading">Inside the admin console</h2>
           <p class="section-lead muted">
-            Structured captures from our pilot workspace — placeholders today, redacted PNG/WebP screenshots when the first case study publishes.
+            Structured captures from the admin console — illustrative placeholders today, redacted screenshots as we publish customer stories.
             Book a <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">live demo</a> for an unredacted walkthrough.
           </p>
-          <div class="product-showcase-grid reveal-stagger">
+          <div class="product-showcase-grid">
             <figure class="product-showcase-card">
-              <img
-                src="./assets/screenshots/admin-overview.svg"
-                alt="ShiftSwift HR admin overview — pilot placeholder (redacted screenshot coming soon)"
-                width="1200"
-                height="750"
-                loading="lazy"
-                decoding="async"
-              />
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/admin-overview.webp" />
+                <img
+                  src="/assets/screenshots/admin-overview.png"
+                  alt="ShiftSwift HR admin overview — illustrative placeholder"
+                  width="1200"
+                  height="750"
+                  decoding="async"
+                  fetchpriority="high"
+                />
+              </picture>
               <figcaption>Overview — active employees, RTW due, day-9 status</figcaption>
             </figure>
             <figure class="product-showcase-card">
-              <img
-                src="./assets/screenshots/time-clock.svg"
-                alt="ShiftSwift HR Time Clock — pilot placeholder (redacted screenshot coming soon)"
-                width="1200"
-                height="750"
-                loading="lazy"
-                decoding="async"
-              />
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/time-clock.webp" />
+                <img
+                  src="/assets/screenshots/time-clock.png"
+                  alt="ShiftSwift HR Time Clock — illustrative placeholder"
+                  width="1200"
+                  height="750"
+                  decoding="async"
+                />
+              </picture>
               <figcaption>Time Clock — geofenced punch, monthly hours PDF for accountants</figcaption>
             </figure>
             <figure class="product-showcase-card">
-              <img
-                src="./assets/screenshots/compliance.svg"
-                alt="ShiftSwift HR sponsor compliance — pilot placeholder (redacted screenshot coming soon)"
-                width="1200"
-                height="750"
-                loading="lazy"
-                decoding="async"
-              />
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/compliance.webp" />
+                <img
+                  src="/assets/screenshots/compliance.png"
+                  alt="ShiftSwift HR sponsor compliance — illustrative placeholder"
+                  width="1200"
+                  height="750"
+                  decoding="async"
+                />
+              </picture>
               <figcaption>Compliance — right-to-work, day-9 alerts, Home Office audit export</figcaption>
             </figure>
           </div>
@@ -619,7 +607,7 @@
               need to sit in one audit-ready place — especially sponsor licence holders and hospitality venues.
             </p>
             <p class="compare-section__note muted">
-              We&apos;re in early access — the table below is qualitative guidance based on our product today and public vendor information.
+              The table below is qualitative guidance based on our product today and public vendor information.
               Book a demo to validate fit for your site.
             </p>
             <div class="compare-table-wrap">
@@ -733,9 +721,9 @@
               </div>
             </details>
             <details class="faq-item">
-              <summary>Are you in early access?</summary>
+              <summary>Is ShiftSwift HR live?</summary>
               <div class="faq-item__answer">
-                <p>Yes. The product is live for trials and pilot customers on UK-hosted infrastructure, but we are still completing our go-live checklist — Stripe live billing, solicitor-reviewed contracts, and our first named case study. Book a demo and judge the product yourself rather than relying on template marketing quotes.</p>
+                <p>Yes. ShiftSwift HR is live on UK-hosted infrastructure with 14-day free trials, geofenced time clock, sponsor compliance tools, and Stripe billing. Book a demo or start a trial to explore the product on your own data.</p>
               </div>
             </details>
             <details class="faq-item">

@@ -1209,7 +1209,7 @@ body.is-loading .page {
 
 .social-proof-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   text-align: left;
   margin-bottom: 20px;
@@ -2106,6 +2106,10 @@ body.is-loading .page {
   margin: 0;
   display: grid;
   gap: 12px;
+}
+
+.product-showcase-card picture {
+  display: block;
 }
 
 .product-showcase-card img {
