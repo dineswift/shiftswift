@@ -142,6 +142,7 @@ Use a **real trial tenant** or pilot business — not demo passwords.
 
 ## F. Billing (only if charging on launch day)
 
+- [ ] `bash scripts/check_stripe_setup.sh https://api.shiftswifthr.co.uk` → **PASS** (see `docs/stripe_env_verification_checklist.md`)
 - [ ] Stripe **live** keys in `.env` (not test)
 - [ ] Webhook endpoint registered + `STRIPE_WEBHOOK_SECRET` set
 - [ ] One live checkout completes

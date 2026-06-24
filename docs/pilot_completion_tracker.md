@@ -49,7 +49,7 @@ Track progress toward **9/10 pilot-ready**. Update after each deploy and manual 
 | 1 | Stripe live prices match Essentials / Compliance / Multi-site | ☐ |
 | 2 | Backup + restore test on staging | ☐ |
 | 3 | MSA + DPA ready for first paying customer | ☐ |
-| 4 | Replace www UI mocks with live admin screenshots | ☐ |
+| 4 | Product showcase on www (placeholders → redacted WebP when pilot ready) | ⚠️ |
 | 5 | One pilot site using product daily for 2 weeks | ☐ |
 | 6 | Named case study quote (with permission) | ☐ |
 

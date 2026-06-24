@@ -147,7 +147,7 @@ Do **not** force ShiftSwift when:
 | Multi-site dashboard | vs Rotacloud multi-location | Partial — Multi-site plan |
 | Native mobile apps | vs Deputy | PWA only |
 | Payroll RTI in-app | vs BrightPay bundle | Export + add-on; messaging clear |
-| Marketing screenshots | Conversion | Replace mocks with real UI |
+| Screenshots | Conversion | Product showcase live — replace SVG placeholders in `frontend/assets/screenshots/` |
 | Named case study | Trust vs Breathe | Waiting on pilot permission |
 | Stripe live + plan name sync | Pricing truth | Backlog Lane C |
 

@@ -36,7 +36,8 @@ Checklist for going live on **shiftswifthr.co.uk** with real customer data. Use 
 - [ ] **Restore test documented** — restore a backup to staging and verify login works
 - [ ] **Privacy notice live** on www (solicitor-reviewed)
 - [ ] **MSA + DPA signed** with customers (see `docs/hr_msa_outline.md`, `docs/hr_dpa_outline.md`)
-- [ ] **Stripe live mode** (if billing at launch) — live keys, webhook secret, VAT/tax configured
+- [ ] **Stripe live mode** (if billing at launch) — live keys, webhook secret, VAT/tax configured  
+  Run: `bash scripts/check_stripe_setup.sh https://api.shiftswifthr.co.uk` — see `docs/stripe_env_verification_checklist.md`
 - [ ] **Marketing honesty** — no template testimonials; UI mocks labelled; claims match shipped features ([go_to_market_credibility.md](./go_to_market_credibility.md))
 
 ### Pre-flight (run on staging)
@@ -217,9 +218,9 @@ See **[go_to_market_credibility.md](./go_to_market_credibility.md)** for the ful
 | Template customer quotes removed | ✅ |
 | Product previews labelled (not “demo business”) | ✅ |
 | Feature claims match codebase (no fake rota/RTI) | ✅ |
-| Real admin screenshots on homepage | ❌ |
+| Real admin screenshots on homepage | ⚠️ | Product showcase section with SVG placeholders — swap `frontend/assets/screenshots/*.webp` when pilot captures ready |
 | First named case study with permission | ❌ |
-| Stripe live checkout verified | ⚠️ |
+| Stripe live checkout verified | ⚠️ | `scripts/check_stripe_setup.sh` + manual E2E in `docs/stripe_env_verification_checklist.md` |
 
 ---
 

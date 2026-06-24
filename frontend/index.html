@@ -42,7 +42,7 @@
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
     <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v34" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v35" />
     <style>
       /* Critical hero band — survives stale CSS cache / missing theme import */
       .hero-band {
@@ -184,7 +184,7 @@
                 <span class="dashboard-mock__dot"></span>
                 <span class="dashboard-mock__dot"></span>
                 <span class="dashboard-mock__dot"></span>
-                <span class="dashboard-mock__title">Product preview · illustrative</span>
+                <span class="dashboard-mock__title">Illustrative preview — <a href="#product-showcase">see console captures</a></span>
               </div>
               <div class="hero-preview__body">
                 <div class="hero-preview__stats">
@@ -267,14 +267,29 @@
               <h3>Before we scale sales</h3>
               <ul class="social-proof-list">
                 <li>Stripe live mode end-to-end checkout</li>
-                <li>Real product screenshots (not UI mocks)</li>
+                <li>Product showcase on www (swap placeholders when pilot captures land)</li>
                 <li>First named customer case study</li>
                 <li>Solicitor-reviewed MSA &amp; DPA on file</li>
               </ul>
             </article>
-            <article class="social-proof-card social-proof-card--honest social-proof-card--placeholder">
-              <h3>First case study</h3>
-              <p class="muted">Reserved for a pilot customer — real name, measurable outcome, and screenshots from their workspace. In progress.</p>
+            <article class="social-proof-card social-proof-card--honest social-proof-card--case-study">
+              <p class="case-study-slot__eyebrow">Pilot case study · slot reserved</p>
+              <h3>UK hospitality sponsor — coming soon</h3>
+              <dl class="case-study-slot__metrics">
+                <div>
+                  <dt>Challenge</dt>
+                  <dd>RTW evidence, day-9 tracking, and month-end hours spread across spreadsheets</dd>
+                </div>
+                <div>
+                  <dt>Measuring</dt>
+                  <dd>Admin hours saved, missed day-9 deadlines, accountant handoff time</dd>
+                </div>
+                <div>
+                  <dt>Publish</dt>
+                  <dd>Named quote + redacted screenshots once pilot consent is on file</dd>
+                </div>
+              </dl>
+              <p class="muted case-study-slot__note">We only publish identifiable outcomes with written permission.</p>
               <p><a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20pilot">Join the pilot programme</a></p>
             </article>
           </div>
@@ -283,6 +298,49 @@
             <span class="logo-pill">Care providers</span>
             <span class="logo-pill">Retail &amp; SMEs</span>
             <span class="logo-pill">Sponsor licence holders</span>
+          </div>
+        </section>
+
+        <section id="product-showcase" class="section product-showcase" aria-labelledby="product-showcase-heading">
+          <h2 id="product-showcase-heading">Inside the admin console</h2>
+          <p class="section-lead muted">
+            Structured captures from our pilot workspace — placeholders today, redacted PNG/WebP screenshots when the first case study publishes.
+            Book a <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">live demo</a> for an unredacted walkthrough.
+          </p>
+          <div class="product-showcase-grid reveal-stagger">
+            <figure class="product-showcase-card">
+              <img
+                src="./assets/screenshots/admin-overview.svg"
+                alt="ShiftSwift HR admin overview — pilot placeholder (redacted screenshot coming soon)"
+                width="1200"
+                height="750"
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>Overview — active employees, RTW due, day-9 status</figcaption>
+            </figure>
+            <figure class="product-showcase-card">
+              <img
+                src="./assets/screenshots/time-clock.svg"
+                alt="ShiftSwift HR Time Clock — pilot placeholder (redacted screenshot coming soon)"
+                width="1200"
+                height="750"
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>Time Clock — geofenced punch, monthly hours PDF for accountants</figcaption>
+            </figure>
+            <figure class="product-showcase-card">
+              <img
+                src="./assets/screenshots/compliance.svg"
+                alt="ShiftSwift HR sponsor compliance — pilot placeholder (redacted screenshot coming soon)"
+                width="1200"
+                height="750"
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>Compliance — right-to-work, day-9 alerts, Home Office audit export</figcaption>
+            </figure>
           </div>
         </section>
 
