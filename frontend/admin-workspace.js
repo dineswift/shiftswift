@@ -336,6 +336,7 @@
     const trialNote = document.getElementById("overview-trial-note");
     if (!grid) return;
     try {
+      await window.ShiftSwiftSession?.hydrateNativeSession?.();
       const res = await apiFetch("/admin/overview");
       if (!res.ok) throw new Error("Overview unavailable");
       const data = await res.json();
@@ -613,8 +614,11 @@
       window.dispatchEvent(new CustomEvent("admin:overview-loaded", { detail: { data } }));
       window.AdminMobile?.renderMobileCompliance?.(data);
     } catch (error) {
-      const message = escapeHtml(error.message || "Could not load overview.");
-      grid.innerHTML = `<div class="overview-error"><p class="muted">${message}</p><button type="button" class="btn outline btn-sm" id="overview-retry-btn">Retry</button></div>`;
+      let message = error.message || "Could not load overview.";
+      if (message === "Load failed" || message === "Failed to fetch") {
+        message = "Cannot reach the API. Check your connection and try again.";
+      }
+      grid.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(message)}</p><button type="button" class="btn outline btn-sm" id="overview-retry-btn">Retry</button></div>`;
       document.getElementById("overview-retry-btn")?.addEventListener("click", () => loadOverview());
       if (modulesHost) modulesHost.innerHTML = "";
       if (actionsHost) actionsHost.innerHTML = "";

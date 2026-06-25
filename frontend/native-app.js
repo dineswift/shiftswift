@@ -3,7 +3,8 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "11";
+const BUNDLED_ASSET_VERSION = "12";
+const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
     try {
@@ -55,14 +56,41 @@ const BUNDLED_ASSET_VERSION = "11";
 
   function capacitorAssetUrl(filename) {
     const scheme = window.Capacitor?.config?.ios?.scheme || "App";
-    return `${scheme}://localhost/${filename}?v=${BUNDLED_ASSET_VERSION}`;
+    const raw = String(filename || "");
+    const [path, query = ""] = raw.split("?");
+    const params = new URLSearchParams(query);
+    if (!params.has("v")) params.set("v", BUNDLED_ASSET_VERSION);
+    const qs = params.toString();
+    return `${scheme}://localhost/${path}${qs ? `?${qs}` : ""}`;
+  }
+
+  function isBundledNativeShell() {
+    try {
+      const href = window.location.href || "";
+      return /\/\/localhost\//i.test(href) || href.startsWith("capacitor://");
+    } catch {
+      return false;
+    }
   }
 
   function unifiedNativeLoginUrl() {
     if (isCapacitorNative()) {
-      return capacitorAssetUrl("index.html");
+      return capacitorAssetUrl(BUNDLED_LOGIN_PAGE);
     }
     return "./native-app-login.html?source=native";
+  }
+
+  function redirectUnifiedAppToBundledLogin() {
+    if (!isUnifiedNativeApp() || isBundledNativeShell()) return;
+    try {
+      const href = window.location.href || "";
+      if (!href.includes("app.shiftswifthr.co.uk")) return;
+      const path = window.location.pathname || "";
+      if (!/(login|native-app-login|business-login|employee-login)/i.test(path)) return;
+      window.location.replace(unifiedNativeLoginUrl());
+    } catch {
+      /* ignore */
+    }
   }
 
   function resolveNativeLoginUrl() {
@@ -265,6 +293,7 @@ const BUNDLED_ASSET_VERSION = "11";
   }
 
   applyNativeClasses();
+  redirectUnifiedAppToBundledLogin();
   redirectLegacyLoginPages();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
@@ -296,7 +325,7 @@ const BUNDLED_ASSET_VERSION = "11";
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
     const scheme = window.Capacitor.config?.ios?.scheme || "App";
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=11`;
+    script.src = `${scheme}://localhost/native-app.js?v=12`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);

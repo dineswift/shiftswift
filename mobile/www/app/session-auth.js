@@ -38,7 +38,7 @@
         window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
       ) {
         const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html`;
+        return `${scheme}://localhost/index.html?build=12&v=12`;
       }
     } catch {
       /* ignore */
@@ -84,8 +84,17 @@
     return `./${clean}`;
   }
 
+  function getCapacitorAppId() {
+    try {
+      return window.Capacitor?.config?.appId || "";
+    } catch {
+      return "";
+    }
+  }
+
   function resolveLoginUrl(explicit) {
     if (explicit) return explicit;
+    if (getCapacitorAppId() === "co.uk.shiftswifthr.app") return unifiedNativeLoginUrl();
     if (isCapacitorUnifiedApp()) return unifiedNativeLoginUrl();
     const nativeLogin = window.ShiftSwiftNativeApp?.resolveNativeLoginUrl?.();
     if (nativeLogin) return nativeLogin;

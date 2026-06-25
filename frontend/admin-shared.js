@@ -35,6 +35,11 @@ window.Admin = (() => {
   const API_BASE = getApiBase();
   const businessName = localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
 
+  async function resolveTenantId() {
+    await window.ShiftSwiftSession?.hydrateNativeSession?.();
+    return resolveWorkspaceTenantId();
+  }
+
   async function ensureHrPortal() {
     await window.ShiftSwiftSession?.hydrateNativeSession?.();
     if (!window.ShiftSwiftSession?.hasSession?.()) return;
@@ -157,12 +162,13 @@ window.Admin = (() => {
   }
 
   async function apiFetch(path, options = {}) {
-    if (!TENANT_ID) {
+    const tenantId = await resolveTenantId();
+    if (!tenantId) {
       throw new Error("Business not set. Sign in again.");
     }
     return window.ShiftSwiftSession.fetchWithAuth(path, options, {
       apiBase: getApiBase(),
-      tenantId: TENANT_ID,
+      tenantId,
     });
   }
 

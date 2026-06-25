@@ -12,12 +12,12 @@
 
     var link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = scheme + "://localhost/native-app-chrome.css?v=11";
+    link.href = scheme + "://localhost/native-app-chrome.css?v=12";
     link.setAttribute("data-sshr-native-bootstrap", "1");
     document.head.appendChild(link);
 
     var script = document.createElement("script");
-    script.src = scheme + "://localhost/native-app.js?v=11";
+    script.src = scheme + "://localhost/native-app.js?v=12";
     script.setAttribute("data-sshr-native-bootstrap", "1");
     document.head.appendChild(script);
   } catch (e) {}

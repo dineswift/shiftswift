@@ -18,11 +18,27 @@
     return Boolean(window.ShiftSwiftSession.hasSession?.());
   }
 
+  function loginRedirectUrl() {
+    try {
+      if (window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app") {
+        return (
+          window.ShiftSwiftSession?.unifiedNativeLoginUrl?.() ||
+          `${window.Capacitor.config?.ios?.scheme || "App"}://localhost/index.html?build=12`
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+    return window.ShiftSwiftSession?.resolveLoginUrl?.() || "./native-app-login.html";
+  }
+
   async function guard() {
     const ok = await waitForSession();
     if (ok) return;
-    window.location.replace(window.ShiftSwiftSession?.resolveLoginUrl?.() || "./native-app-login.html");
+    window.location.replace(loginRedirectUrl());
   }
+
+  window.ShiftSwiftAuthGuard = { loginRedirectUrl };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => void guard(), { once: true });
@@ -37,7 +53,10 @@ function signOut() {
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("tenantId");
   localStorage.removeItem("userRole");
-  window.location.href = window.ShiftSwiftSession?.resolveLoginUrl?.() || "./native-app-login.html";
+  window.location.href =
+    window.ShiftSwiftAuthGuard?.loginRedirectUrl?.() ||
+    window.ShiftSwiftSession?.resolveLoginUrl?.() ||
+    "./native-app-login.html";
 }
 
 document.querySelectorAll("[data-sign-out]").forEach((el) => {

@@ -28,8 +28,8 @@ html = html.replace(
   `<link rel="stylesheet" href="./native-app-startup.css?v=2" />
     <script src="./native-app-startup.js?v=4"></script>
     <script src="./brand-config.js?v=brand-v8"></script>
-    <script src="./native-app.js?v=11"></script>
-    <script src="./session-auth.js?v=9"></script>`,
+    <script src="./native-app.js?v=12"></script>
+    <script src="./session-auth.js?v=10"></script>`,
 );
 
 html = html.replace(

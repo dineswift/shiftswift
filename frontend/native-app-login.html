@@ -9,8 +9,9 @@
           if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
           if (cap.config && cap.config.appId !== "co.uk.shiftswifthr.app") return;
           var scheme = (cap.config.ios && cap.config.ios.scheme) || "App";
-          if (!String(location.href).startsWith(scheme + "://localhost/")) {
-            location.replace(scheme + "://localhost/index.html");
+          var bundled = scheme + "://localhost/index.html?build=12";
+          if (!String(location.href).includes("build=12")) {
+            location.replace(bundled);
           }
         } catch (e) {}
       })();
@@ -24,12 +25,12 @@
     <script src="./portal-sw-guard.js?v=2"></script>
     <script src="./brand-config.js?v=brand-v8"></script>
     <script src="./app-host-guard.js?v=2"></script>
-    <script src="./native-app.js?v=11"></script>
-    <script src="./session-auth.js?v=9"></script>
+    <script src="./native-app.js?v=12"></script>
+    <script src="./session-auth.js?v=10"></script>
     <link rel="stylesheet" href="./native-app-startup.css?v=2" />
     <script src="./native-app-startup.js?v=4"></script>
     <title>ShiftSwift HR | Sign in</title>
-    <link rel="stylesheet" href="./native-app-login.css?v=11" />
+    <link rel="stylesheet" href="./native-app-login.css?v=12" />
   </head>
   <body class="portal-login-page portal-login-page--native-app portal-login-page--unified" data-login-page="unified">
     <div id="native-startup-loader" class="native-startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
@@ -145,7 +146,7 @@
       </main>
     </div>
     <script src="./trusted-device.js?v=2"></script>
-    <script src="./unified-login.js?v=14"></script>
+    <script src="./unified-login.js?v=15"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>
