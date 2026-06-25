@@ -1,3 +1,11 @@
+html.native-startup-active {
+  overflow: hidden;
+}
+
+html.native-startup-active body {
+  overflow: hidden;
+}
+
 /* Native app startup — animated mark + sliding arrow (matches website loader). */
 .native-startup-loader {
   position: fixed;
@@ -6,7 +14,8 @@
   display: grid;
   place-items: center;
   background: #0f6e56;
-  transition: opacity 0.48s ease, visibility 0.48s ease;
+  transition: opacity 0.52s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.52s ease;
+  will-change: opacity;
 }
 
 .native-startup-loader.is-done {
@@ -164,8 +173,26 @@ html.native-startup-active .portal-login-shell {
   visibility: hidden;
 }
 
-html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell {
-  animation: native-app-fade-in 0.45s ease both;
+html.native-startup-active body.admin-portal .app,
+html.native-startup-active body.employee-portal .employee-app,
+html.native-startup-active body.master-app .master-layout,
+html.native-startup-active body.admin-portal #mobile-tab-bar,
+html.native-startup-active body.employee-portal #mobile-tab-bar {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell,
+html:not(.native-startup-active) body.admin-portal .app,
+html:not(.native-startup-active) body.employee-portal .employee-app,
+html:not(.native-startup-active) body.master-app .master-layout {
+  animation: native-app-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html:not(.native-startup-active) body.admin-portal #mobile-tab-bar,
+html:not(.native-startup-active) body.employee-portal #mobile-tab-bar {
+  animation: native-app-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.06s both;
 }
 
 @keyframes native-app-fade-in {
@@ -201,7 +228,12 @@ html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell
 
   .native-startup-loader__ring { display: none; }
 
-  html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell {
+  html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell,
+  html:not(.native-startup-active) body.admin-portal .app,
+  html:not(.native-startup-active) body.employee-portal .employee-app,
+  html:not(.native-startup-active) body.master-app .master-layout,
+  html:not(.native-startup-active) body.admin-portal #mobile-tab-bar,
+  html:not(.native-startup-active) body.employee-portal #mobile-tab-bar {
     animation: none;
   }
 }

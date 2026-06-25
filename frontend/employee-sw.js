@@ -184,6 +184,7 @@ function parsePushPayload(event) {
 
 const CLOCK_ALERT_TYPES = new Set([
   "shift_reminder",
+  "shift_end_reminder",
   "clock_in",
   "clock_out",
   "missed_clock_in",

@@ -125,6 +125,11 @@
     }
   }
 
+  function dispatchPortalReady() {
+    window.__SSHR_PORTAL_READY = true;
+    window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
+  }
+
   function finishStartup(enabled) {
     syncClockAvailability(enabled);
     if (window.location.hash.replace("#", "").split("/")[0] === "time-clock" && !clockEnabled) {
@@ -135,6 +140,7 @@
     startupResolved = true;
     document.body.classList.remove("portal-startup-pending");
     document.body.classList.add("portal-startup-ready");
+    dispatchPortalReady();
     if (isMobile()) {
       setTab(tab);
       return;
@@ -242,6 +248,12 @@
       }, 4000);
     } else {
       syncTabUi("home");
+      if (!startupResolved) {
+        startupResolved = true;
+        document.body.classList.remove("portal-startup-pending");
+        document.body.classList.add("portal-startup-ready");
+        dispatchPortalReady();
+      }
     }
   }
 

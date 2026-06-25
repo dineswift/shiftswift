@@ -105,11 +105,40 @@
 
   function redirectForRole(data, fallback) {
     if (data.role === "employee") return portalUrl("employee.html");
-    if (data.role === "admin" && String(data.portal || "") === "master") return portalUrl("master.html");
+    if (String(data.portal || "") === "master" || (data.role === "admin" && isMasterTenantId(data.tenant_id))) {
+      return portalUrl("master.html");
+    }
     if (data.role === "hr" || data.role === "admin") return portalUrl("admin.html");
     const fb = String(fallback || "admin.html");
     if (/^https?:\/\//i.test(fb)) return withNativeSource(fb);
     return portalUrl(fb.replace(/^\.\//, ""));
+  }
+
+  function isMasterTenantId(tenantId) {
+    if (tenantId == null) return false;
+    const masterId = localStorage.getItem("masterTenantId") || "999";
+    return String(tenantId) === String(masterId);
+  }
+
+  function applyPortalLead(portalInfo) {
+    const lead = document.getElementById("login-lead");
+    if (!lead || !portalInfo?.lead) return;
+    lead.textContent = portalInfo.lead;
+  }
+
+  async function resolvePortalForEmail(email) {
+    try {
+      const info = await postJson("/auth/resolve-login-portal", { username: email });
+      if (info?.portal && info.portal !== "unknown") {
+        return {
+          ...info,
+          useAutoPortal: false,
+        };
+      }
+    } catch {
+      /* fall back to unified auto-detect */
+    }
+    return defaultPortalInfo();
   }
 
   function friendlyLoginError(message) {
@@ -118,6 +147,9 @@
         return "Cannot reach the API. Start it with: bash scripts/start_local.sh";
       }
       return "Cannot reach the API. Check your connection and try again.";
+    }
+    if (String(message || "").includes("Master console not available from this network")) {
+      return "Platform master sign-in is not allowed from this network. Use approved Wi‑Fi or VPN.";
     }
     return message || "Login failed";
   }
@@ -149,6 +181,14 @@
     window.ShiftSwiftTrustedDevice?.setBiometricUnlockEnabled?.(true);
   }
 
+  function markPostLoginTransition() {
+    try {
+      sessionStorage.setItem("sshrPostLoginTransition", "1");
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function finishAuthSuccess(data, email, redirect) {
     if (window.ShiftSwiftSession?.storeSession) {
       window.ShiftSwiftSession.storeSession(data);
@@ -160,6 +200,8 @@
     }
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
     await maybeEnableBiometricUnlock();
+    markPostLoginTransition();
+    window.ShiftSwiftNativeApp?.showSplash?.();
     window.location.replace(redirect);
   }
 
@@ -185,6 +227,17 @@
         if (!isPortalMismatch(error.message)) throw error;
       }
     }
+
+    const masterHint = /platform master|separate sign-in page/i.test(String(lastError?.message || ""));
+    if (masterHint) {
+      try {
+        const data = await postJson("/auth/master-login", payload);
+        return { data, redirect: redirectForRole(data, portalUrl("master.html")) };
+      } catch (error) {
+        throw error;
+      }
+    }
+
     throw lastError || new Error("Login failed");
   }
 
@@ -285,6 +338,7 @@
 
   function loginEndpoint(portalInfo) {
     if (portalInfo?.endpoint) return portalInfo.endpoint;
+    if (portalInfo?.portal === "master") return "/auth/master-login";
     if (portalInfo?.portal === "employee") return "/auth/employee-login";
     if (portalInfo?.portal === "hr") return "/auth/business-login";
     return "/auth/unified-login";
@@ -292,6 +346,7 @@
 
   function loginRedirect(portalInfo) {
     if (portalInfo?.redirect_path) return portalUrl(portalInfo.redirect_path);
+    if (portalInfo?.portal === "master") return portalUrl("master.html");
     if (portalInfo?.portal === "employee") return portalUrl("employee.html");
     return portalUrl("admin.html");
   }
@@ -390,9 +445,21 @@
     }
   }
 
+  function showMasterLoginNotice() {
+    try {
+      const notice = sessionStorage.getItem("masterLoginNotice");
+      if (!notice) return;
+      sessionStorage.removeItem("masterLoginNotice");
+      setStatus(notice);
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function init() {
     if (document.body.dataset.loginPage !== "unified") return;
     showLoginForm();
+    showMasterLoginNotice();
     bindKeyboardScroll();
     bindUnifiedLogin();
     if (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.()) return;
@@ -426,13 +493,14 @@
       }
       pendingEmail = email;
 
-      const portalInfo = defaultPortalInfo();
-      pendingRedirect = loginRedirect(portalInfo);
       setStatus("Signing in…");
       const submitBtn = document.getElementById("login-submit");
       if (submitBtn) submitBtn.disabled = true;
 
       try {
+        const portalInfo = await resolvePortalForEmail(email);
+        applyPortalLead(portalInfo);
+        pendingRedirect = loginRedirect(portalInfo);
         const result = await submitLogin(email, password, portalInfo);
         const { data, redirect } = result;
         pendingRedirect = redirect;

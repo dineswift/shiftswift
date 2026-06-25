@@ -80,6 +80,22 @@
     }
   }
 
+  let reminderConfig = { minutes_before_start: 10, minutes_before_end: 10 };
+
+  function renderReminderBanner() {
+    const host = document.getElementById("employee-shift-reminders-info");
+    if (!host) return;
+    const startMin = Number(reminderConfig.minutes_before_start) || 10;
+    const endMin = Number(reminderConfig.minutes_before_end) || 10;
+    host.hidden = false;
+    host.innerHTML = `
+      <div class="employee-shift-alerts-banner__copy">
+        <span class="employee-shift-alerts-banner__title">Shift reminders active</span>
+        <span class="employee-shift-alerts-banner__sub">Bell alert ${startMin} min before start · ${endMin} min before end</span>
+      </div>
+      <span class="employee-shift-alerts-banner__icon" aria-hidden="true">🔔</span>`;
+  }
+
   function renderShiftCard(shift) {
     const date = new Date(`${shift.shift_date}T12:00:00`);
     const todayIso = new Date().toISOString().slice(0, 10);
@@ -89,6 +105,11 @@
     const role = shift.role_label ? `<p class="employee-shift-card__role">${escapeHtml(shift.role_label)}</p>` : "";
     const notes = shift.notes
       ? `<p class="employee-shift-card__notes muted">${escapeHtml(shift.notes)}</p>`
+      : "";
+    const startMin = Number(reminderConfig.minutes_before_start) || 10;
+    const endMin = Number(reminderConfig.minutes_before_end) || 10;
+    const reminderHint = isToday
+      ? `<p class="employee-shift-card__reminder-hint">🔔 Reminders at ${startMin} min before start · ${endMin} min before end</p>`
       : "";
 
     return `
@@ -103,6 +124,7 @@
             <p class="employee-shift-card__time">${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}</p>
             ${role}
             ${notes}
+            ${reminderHint}
           </div>
           <button type="button" class="btn ghost btn-sm employee-shift-card__cover" data-cover-shift="${shift.id}">
             Cover
@@ -158,6 +180,14 @@
       }
 
       const items = data.shifts || [];
+      if (data.shift_reminders) {
+        reminderConfig = {
+          minutes_before_start: data.shift_reminders.minutes_before_start ?? 10,
+          minutes_before_end: data.shift_reminders.minutes_before_end ?? 10,
+        };
+      }
+      renderReminderBanner();
+      window.dispatchEvent(new CustomEvent("employee:shifts-loaded", { detail: data }));
       setShiftsSummary(formatShiftSummary(items));
 
       if (weekLabelEl) {

@@ -126,6 +126,7 @@ class NotificationPreferencesUpdate(BaseModel):
     business_timezone: str | None = Field(default=None, max_length=64)
     opening_hours: dict[str, dict[str, Any]] | None = None
     shift_reminder_minutes_before: int | None = Field(default=None, ge=5, le=120)
+    shift_end_reminder_minutes_before: int | None = Field(default=None, ge=5, le=120)
     missed_clock_in_early_minutes: int | None = Field(default=None, ge=5, le=120)
     missed_clock_in_late_minutes: int | None = Field(default=None, ge=10, le=180)
     missed_punch_alert_minutes: int | None = Field(default=None, ge=5, le=180)
@@ -861,6 +862,7 @@ def patch_notification_preferences(
         and payload.business_timezone is None
         and payload.opening_hours is None
         and payload.shift_reminder_minutes_before is None
+        and payload.shift_end_reminder_minutes_before is None
         and payload.missed_clock_in_early_minutes is None
         and payload.missed_clock_in_late_minutes is None
         and payload.missed_punch_alert_minutes is None
@@ -879,6 +881,7 @@ def patch_notification_preferences(
             business_timezone=payload.business_timezone,
             opening_hours=payload.opening_hours,
             shift_reminder_minutes_before=payload.shift_reminder_minutes_before,
+            shift_end_reminder_minutes_before=payload.shift_end_reminder_minutes_before,
             missed_clock_in_early_minutes=payload.missed_clock_in_early_minutes,
             missed_clock_in_late_minutes=payload.missed_clock_in_late_minutes,
             missed_punch_alert_minutes=payload.missed_punch_alert_minutes,

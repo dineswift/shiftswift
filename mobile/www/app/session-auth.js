@@ -38,7 +38,7 @@
         window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
       ) {
         const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html?build=12&v=12`;
+        return `${scheme}://localhost/index.html?build=13&v=13`;
       }
     } catch {
       /* ignore */
@@ -235,6 +235,13 @@
     return refreshInFlight;
   }
 
+  function isMasterAdminSession() {
+    const role = localStorage.getItem("userRole");
+    const tenantId = localStorage.getItem("tenantId");
+    const masterId = localStorage.getItem("masterTenantId") || "999";
+    return role === "admin" && String(tenantId) === String(masterId);
+  }
+
   async function redirectIfLoggedIn() {
     await hydrateNativeSession();
     if (!hasSession()) return false;
@@ -244,6 +251,16 @@
       return false;
     }
     await persistNativeSession();
+    try {
+      sessionStorage.setItem("sshrPostLoginTransition", "1");
+    } catch {
+      /* ignore */
+    }
+    window.ShiftSwiftNativeApp?.showSplash?.();
+    if (isMasterAdminSession()) {
+      window.location.replace(portalUrl("master.html"));
+      return true;
+    }
     const role = localStorage.getItem("userRole");
     if (role === "employee") {
       window.location.replace(portalUrl("employee.html"));

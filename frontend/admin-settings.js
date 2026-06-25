@@ -673,6 +673,9 @@
       business_timezone: host.querySelector("#settings-business-timezone")?.value,
       opening_hours: collectOpeningHours(host),
       shift_reminder_minutes_before: Number(host.querySelector("#settings-shift-reminder-before")?.value || 10),
+      shift_end_reminder_minutes_before: Number(
+        host.querySelector("#settings-shift-end-reminder-before")?.value || 10,
+      ),
       missed_clock_in_early_minutes: Number(host.querySelector("#settings-missed-clock-early")?.value || 10),
       missed_clock_in_late_minutes: Number(host.querySelector("#settings-missed-clock-late")?.value || 30),
       missed_punch_alert_minutes: Number(host.querySelector("#settings-missed-punch-alert")?.value || 15),
@@ -747,14 +750,24 @@
           </table>
         </div>
       </article>
-      <article class="card settings-clock-reminders">
-        <h4 class="hr-section-title">Clock &amp; shift reminders</h4>
-        <p class="muted">Push alert timing relative to each published shift (requires time clock and platform jobs cron every 15 minutes).</p>
-        <div class="settings-signin-reminder__grid">
+      <article class="card settings-rota-reminders">
+        <h4 class="hr-section-title">Rota shift reminders</h4>
+        <p class="muted settings-rota-reminders__lead">Bell alerts and push notifications before each published shift starts and ends. Applies to all employees on the rota (platform jobs cron every 15 minutes).</p>
+        <div class="settings-rota-reminders__grid">
           <label class="edit-field">
             <span class="edit-label">Before shift starts (minutes)</span>
             <input type="number" id="settings-shift-reminder-before" min="5" max="120" value="${Number(schedule.shift_reminder_minutes_before ?? 10)}" />
           </label>
+          <label class="edit-field">
+            <span class="edit-label">Before shift ends (minutes)</span>
+            <input type="number" id="settings-shift-end-reminder-before" min="5" max="120" value="${Number(schedule.shift_end_reminder_minutes_before ?? 10)}" />
+          </label>
+        </div>
+      </article>
+      <article class="card settings-clock-reminders">
+        <h4 class="hr-section-title">Clock-in reminders</h4>
+        <p class="muted">Nudges when an employee has not clocked in after their shift starts (requires time clock).</p>
+        <div class="settings-signin-reminder__grid">
           <label class="edit-field">
             <span class="edit-label">Missed clock-in — first nudge (minutes after start)</span>
             <input type="number" id="settings-missed-clock-early" min="5" max="120" value="${Number(schedule.missed_clock_in_early_minutes ?? 10)}" />

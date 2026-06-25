@@ -40,6 +40,11 @@
     document.body.classList.toggle("admin-clock-disabled", !clockEnabled);
   }
 
+  function dispatchPortalReady() {
+    window.__SSHR_PORTAL_READY = true;
+    window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
+  }
+
   function finishStartup(enabled) {
     syncClockAvailability(enabled);
     const hashSection = window.location.hash.replace("#", "").split("/")[0];
@@ -50,6 +55,7 @@
     startupResolved = true;
     document.body.classList.remove("portal-startup-pending");
     document.body.classList.add("portal-startup-ready");
+    dispatchPortalReady();
 
     if (!isMobile()) return;
 
@@ -390,6 +396,12 @@
     } else {
       delete document.body.dataset.mobileTab;
       document.querySelector("#overview .overview-main")?.removeAttribute("hidden");
+      if (!startupResolved) {
+        startupResolved = true;
+        document.body.classList.remove("portal-startup-pending");
+        document.body.classList.add("portal-startup-ready");
+        dispatchPortalReady();
+      }
     }
   }
 

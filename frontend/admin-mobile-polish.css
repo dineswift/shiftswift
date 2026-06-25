@@ -1,0 +1,209 @@
+/* Admin mobile shell — post-login polish (native + PWA) */
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) .mobile-home-header {
+    margin: 0 0 18px;
+    padding: 18px 16px 16px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(15, 110, 86, 0.12) 0%, rgba(255, 255, 255, 0.96) 58%);
+    border: 1px solid rgba(15, 110, 86, 0.14);
+    box-shadow: 0 10px 28px rgba(15, 110, 86, 0.08);
+  }
+
+  body:has(#mobile-tab-bar) .mobile-greeting {
+    margin: 0 0 4px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #12352c;
+  }
+
+  body:has(#mobile-tab-bar) .mobile-business-name {
+    margin: 0;
+    font-size: 0.92rem;
+    color: #5c6b66;
+  }
+
+  body:has(#mobile-tab-bar) .overview-stats-grid {
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  body:has(#mobile-tab-bar) .overview-stats-grid .hr-stat-card {
+    border-radius: 16px;
+    border: 1px solid rgba(15, 110, 86, 0.1);
+    box-shadow: 0 6px 18px rgba(18, 53, 44, 0.06);
+    padding: 14px 14px 12px;
+    min-height: 108px;
+  }
+
+  body:has(#mobile-tab-bar) .overview-error {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(198, 40, 40, 0.18);
+    background: rgba(198, 40, 40, 0.05);
+    text-align: center;
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-grid {
+    gap: 10px;
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-card {
+    border-radius: 16px;
+    min-height: 118px;
+    box-shadow: 0 4px 14px rgba(18, 53, 44, 0.05);
+  }
+
+  body:has(#mobile-tab-bar) .mobile-subscription-card {
+    border-radius: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 6px 18px rgba(18, 53, 44, 0.06);
+  }
+
+  body:has(#mobile-tab-bar) .rota-admin-message {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  body:has(#mobile-tab-bar) .rota-admin-message--error {
+    border: 1px solid rgba(198, 40, 40, 0.22);
+    background: rgba(198, 40, 40, 0.06);
+    color: #b42318;
+  }
+
+  body:has(#mobile-tab-bar) .rota-admin-message--success {
+    border: 1px solid rgba(15, 110, 86, 0.22);
+    background: rgba(15, 110, 86, 0.06);
+    color: #0f6e56;
+  }
+
+  body:has(#mobile-tab-bar) .rota-mobile-day-strip {
+    gap: 8px;
+    padding: 4px 0 10px;
+  }
+
+  body:has(#mobile-tab-bar) .rota-mobile-day-pill {
+    border-radius: 14px;
+    min-width: 52px;
+    box-shadow: 0 2px 8px rgba(18, 53, 44, 0.04);
+  }
+
+  body:has(#mobile-tab-bar) .rota-mobile-staff-list {
+    gap: 10px;
+  }
+
+  body:has(#mobile-tab-bar) .rota-mobile-staff-card {
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(18, 53, 44, 0.05);
+  }
+
+  body:has(#mobile-tab-bar) .rota-mobile-footer {
+    box-shadow: 0 -8px 24px rgba(18, 53, 44, 0.08);
+    border-top: 1px solid rgba(15, 110, 86, 0.1);
+  }
+
+  body:has(#mobile-tab-bar) .mobile-tab-bar {
+    box-shadow: 0 -6px 22px rgba(18, 53, 44, 0.1);
+    border-top: 1px solid rgba(15, 110, 86, 0.12);
+  }
+
+  body:has(#mobile-tab-bar) .mobile-tab-bar__item.is-active {
+    color: #0f6e56;
+    font-weight: 700;
+  }
+}
+
+html.native-app .employee-shift-reminder-toast,
+.employee-shift-reminder-toast {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #12352c;
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(18, 53, 44, 0.28);
+  transform: translateY(12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+html.native-app .employee-shift-reminder-toast.is-visible,
+.employee-shift-reminder-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+html.native-app .employee-shift-reminder-toast strong,
+.employee-shift-reminder-toast strong {
+  font-size: 0.95rem;
+}
+
+html.native-app .employee-shift-reminder-toast span,
+.employee-shift-reminder-toast span {
+  font-size: 0.84rem;
+  opacity: 0.92;
+}
+
+.employee-shift-alerts-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 110, 86, 0.16);
+  background: linear-gradient(135deg, rgba(15, 110, 86, 0.08), rgba(255, 255, 255, 0.9));
+}
+
+.employee-shift-alerts-banner__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.employee-shift-alerts-banner__title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #12352c;
+}
+
+.employee-shift-alerts-banner__sub {
+  font-size: 0.82rem;
+  color: #5c6b66;
+}
+
+.employee-shift-card--today {
+  border-color: rgba(15, 110, 86, 0.35);
+  box-shadow: 0 8px 20px rgba(15, 110, 86, 0.1);
+}
+
+.employee-shift-card__reminder-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: #0f6e56;
+}
+
+.settings-rota-reminders__lead {
+  margin: 0 0 12px;
+}
+
+.settings-rota-reminders__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}

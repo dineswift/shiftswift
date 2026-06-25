@@ -978,7 +978,11 @@
       if (els.userName) els.userName.textContent = name.split("@")[0].replace(/\./g, " ");
       if (els.userAvatar) els.userAvatar.textContent = initials(name.split("@")[0]);
     } catch {
-      window.location.replace("./ops-9x7k2.html");
+      window.location.replace(
+        window.ShiftSwiftSession?.resolveLoginUrl?.() ||
+          window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
+          "./native-app-login.html",
+      );
       return;
     }
     try {
@@ -990,6 +994,8 @@
     }
     routeFromHash();
     initCreateTenantPanel();
+    window.__SSHR_PORTAL_READY = true;
+    window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
   }
 
   document.querySelectorAll("[data-master-section]").forEach((link) => {

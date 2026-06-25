@@ -34,7 +34,7 @@
     if (!tenantId) {
       setBannerState({
         active: false,
-        message: "Bell alerts 10 minutes before your shift and if you forget to clock in.",
+        message: "Bell alerts before your shift starts and ends, plus clock-in reminders if you forget.",
         hideBanner: false,
       });
       return;
@@ -82,7 +82,7 @@
     if (status.subscribed) {
       setBannerState({
         active: true,
-        message: "Alerts on — bell before shift, clock-in reminders, and clock-out at shift end.",
+        message: "Alerts on — bell before shift start and end, plus clock-in reminders.",
         hideBanner: true,
       });
       return;
@@ -90,7 +90,7 @@
 
     setBannerState({
       active: false,
-      message: "Get bell alerts before your shift, when to clock in, and when to clock out.",
+      message: "Get bell alerts before your shift starts and ends, plus clock-in nudges.",
       hideBanner: false,
     });
   }

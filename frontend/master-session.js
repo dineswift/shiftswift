@@ -41,7 +41,11 @@
 
   function redirectToMasterLogin(reason) {
     if (reason) sessionStorage.setItem("masterLoginNotice", reason);
-    window.location.replace("./ops-9x7k2.html");
+    const url =
+      global.ShiftSwiftSession?.resolveLoginUrl?.() ||
+      global.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
+      "./native-app-login.html";
+    window.location.replace(url);
   }
 
   function isMasterAuthError(message) {

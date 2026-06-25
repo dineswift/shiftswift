@@ -615,10 +615,13 @@ def my_shifts(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     week_start: str | None = Query(default=None),
 ) -> dict[str, object]:
+    from modules.employees.business_schedule import get_business_schedule
+
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
         employee = _employee_for_user(tenant_id=tenant_id, user=current_user, conn=conn)
+        schedule = get_business_schedule(tenant_id=tenant_id, conn=conn)
         week_start_day = _tenant_week_start_day(tenant_id=tenant_id, conn=conn)
         if week_start:
             parsed = rota_service.parse_week_start(week_start, week_start_day=week_start_day)
@@ -636,6 +639,10 @@ def my_shifts(
             "week_start_day": week_start_day,
             "week_start_day_name": rota_service.WEEKDAY_NAMES[week_start_day],
             "shifts": shifts,
+            "shift_reminders": {
+                "minutes_before_start": schedule.shift_reminder_minutes_before,
+                "minutes_before_end": schedule.shift_end_reminder_minutes_before,
+            },
         }
     except RotaValidationError as exc:
         raise _handle_rota_errors(exc) from exc

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="./native-app-bootstrap.js?v=3"></script>
+    <script src="./native-app-bootstrap.js?v=5"></script>
     <script src="./brand-config.js?v=brand-v5"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="theme-color" content="#0f6e56" />
@@ -17,7 +17,8 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v132" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v135" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=1" />
   </head>
   <body class="employee-portal">
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
@@ -283,6 +284,7 @@
             </div>
           </header>
           <article class="card employee-shifts-card">
+            <div id="employee-shift-reminders-info" class="employee-shift-alerts-banner" hidden></div>
             <p id="employee-shifts-week-label" class="employee-shifts-week muted" hidden></p>
             <div id="employee-week-shifts" class="employee-shifts-list">
               <p class="employee-shifts-placeholder muted">Loading shifts…</p>
@@ -552,7 +554,7 @@
       data-portal="employee"
       data-app-name="ShiftSwift Employee"
       data-manifest="./employee-manifest.webmanifest?v=8"
-      data-sw="./employee-sw.js?v=14"
+      data-sw="./employee-sw.js?v=15"
     ></script>
     <script src="./mobile-shell.js?v=6"></script>
     <script src="./mobile-tables.js?v=1"></script>
@@ -563,7 +565,8 @@
     <script src="./employee-push-alerts.js?v=2"></script>
     <script src="./employee-time-punch.js?v=10"></script>
     <script src="./employee-timesheet.js?v=2"></script>
-    <script src="./employee-rota.js?v=7"></script>
+    <script src="./employee-rota.js?v=8"></script>
+    <script src="./employee-shift-reminders.js?v=1"></script>
     <script src="./employee-documents.js?v=6"></script>
     <script src="./employee-notes.js?v=2"></script>
     <script src="./employee-security.js?v=2"></script>

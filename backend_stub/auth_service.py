@@ -279,9 +279,10 @@ def resolve_login_portal(settings: Settings, username: str) -> dict[str, str]:
     if role == "admin" or login_portal == "master":
         return {
             "portal": "master",
-            "lead": "This account uses the platform master console.",
+            "lead": "Platform master console — tenants, billing, and platform settings.",
             "pill": "Platform",
-            "redirect_path": "ops-9x7k2.html",
+            "endpoint": "/auth/master-login",
+            "redirect_path": "master.html",
             "forgot_path": "ops-9x7k2.html",
         }
     if role == "employee":

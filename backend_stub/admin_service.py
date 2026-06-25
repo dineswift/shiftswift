@@ -452,6 +452,7 @@ def update_notification_preferences(
     business_timezone: str | None = None,
     opening_hours: dict[str, Any] | None = None,
     shift_reminder_minutes_before: int | None = None,
+    shift_end_reminder_minutes_before: int | None = None,
     missed_clock_in_early_minutes: int | None = None,
     missed_clock_in_late_minutes: int | None = None,
     missed_punch_alert_minutes: int | None = None,
@@ -488,6 +489,7 @@ def update_notification_preferences(
         business_timezone=business_timezone,
         opening_hours=opening_hours,
         shift_reminder_minutes_before=shift_reminder_minutes_before,
+        shift_end_reminder_minutes_before=shift_end_reminder_minutes_before,
         missed_clock_in_early_minutes=missed_clock_in_early_minutes,
         missed_clock_in_late_minutes=missed_clock_in_late_minutes,
         missed_punch_alert_minutes=missed_punch_alert_minutes,
@@ -522,6 +524,8 @@ def update_notification_preferences(
         field_names.append("opening_hours")
     if shift_reminder_minutes_before is not None:
         field_names.append("shift_reminder_minutes_before")
+    if shift_end_reminder_minutes_before is not None:
+        field_names.append("shift_end_reminder_minutes_before")
     if missed_clock_in_early_minutes is not None:
         field_names.append("missed_clock_in_early_minutes")
     if missed_clock_in_late_minutes is not None:

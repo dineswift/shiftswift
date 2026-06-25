@@ -2,6 +2,14 @@
   const session = window.ShiftSwiftMasterSession;
   const masterId = session?.masterTenantId?.() || localStorage.getItem("masterTenantId") || "999";
 
+  function masterLoginUrl() {
+    return (
+      window.ShiftSwiftSession?.resolveLoginUrl?.() ||
+      window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
+      "./native-app-login.html"
+    );
+  }
+
   if (sessionStorage.getItem("impersonationActive")) {
     if (session?.restoreMasterReturnSession?.()) {
       /* Restored platform token after returning from impersonation. */
@@ -18,13 +26,13 @@
   const role = localStorage.getItem("userRole");
 
   if ((!token && !refresh) || role !== "admin") {
-    window.location.replace("./ops-9x7k2.html");
+    window.location.replace(masterLoginUrl());
     return;
   }
 
   const tenantId = localStorage.getItem("tenantId");
   if (tenantId !== masterId) {
-    window.location.replace("./ops-9x7k2.html");
+    window.location.replace(masterLoginUrl());
   }
 })();
 
@@ -34,7 +42,10 @@ function masterSignOut() {
   localStorage.removeItem("tenantId");
   localStorage.removeItem("masterTenantId");
   localStorage.removeItem("userRole");
-  window.location.href = "./ops-9x7k2.html";
+  window.location.href =
+    window.ShiftSwiftSession?.resolveLoginUrl?.() ||
+    window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
+    "./native-app-login.html";
 }
 
 document.querySelectorAll("[data-master-sign-out]").forEach((el) => {

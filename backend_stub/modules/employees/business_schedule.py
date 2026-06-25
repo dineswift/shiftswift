@@ -24,6 +24,7 @@ DEFAULT_TIMEZONE = "Europe/London"
 DEFAULT_OPEN = "09:00"
 DEFAULT_CLOSE = "22:00"
 DEFAULT_SHIFT_REMINDER_MINUTES_BEFORE = 10
+DEFAULT_SHIFT_END_REMINDER_MINUTES_BEFORE = 10
 DEFAULT_MISSED_CLOCK_IN_EARLY_MINUTES = 10
 DEFAULT_MISSED_CLOCK_IN_LATE_MINUTES = 30
 DEFAULT_MISSED_PUNCH_ALERT_MINUTES = 15
@@ -105,6 +106,7 @@ class BusinessSchedule:
     tz: ZoneInfo
     opening_hours: dict[str, dict[str, Any]]
     shift_reminder_minutes_before: int
+    shift_end_reminder_minutes_before: int
     missed_clock_in_early_minutes: int
     missed_clock_in_late_minutes: int
     missed_punch_alert_minutes: int
@@ -131,6 +133,7 @@ class BusinessSchedule:
             "opening_hours": self.opening_hours,
             "day_labels": dict(DAY_LABELS),
             "shift_reminder_minutes_before": self.shift_reminder_minutes_before,
+            "shift_end_reminder_minutes_before": self.shift_end_reminder_minutes_before,
             "missed_clock_in_early_minutes": self.missed_clock_in_early_minutes,
             "missed_clock_in_late_minutes": self.missed_clock_in_late_minutes,
             "missed_punch_alert_minutes": self.missed_punch_alert_minutes,
@@ -161,6 +164,12 @@ def parse_business_schedule(stored: Any) -> BusinessSchedule:
         shift_reminder_minutes_before=_clamp_minutes(
             raw.get("shift_reminder_minutes_before"),
             default=DEFAULT_SHIFT_REMINDER_MINUTES_BEFORE,
+            min_v=5,
+            max_v=120,
+        ),
+        shift_end_reminder_minutes_before=_clamp_minutes(
+            raw.get("shift_end_reminder_minutes_before"),
+            default=DEFAULT_SHIFT_END_REMINDER_MINUTES_BEFORE,
             min_v=5,
             max_v=120,
         ),
@@ -258,6 +267,7 @@ def merge_business_schedule_fields(
     business_timezone: str | None = None,
     opening_hours: dict[str, Any] | None = None,
     shift_reminder_minutes_before: int | None = None,
+    shift_end_reminder_minutes_before: int | None = None,
     missed_clock_in_early_minutes: int | None = None,
     missed_clock_in_late_minutes: int | None = None,
     missed_punch_alert_minutes: int | None = None,
@@ -287,6 +297,16 @@ def merge_business_schedule_fields(
         )
     else:
         out["shift_reminder_minutes_before"] = schedule.shift_reminder_minutes_before
+
+    if shift_end_reminder_minutes_before is not None:
+        out["shift_end_reminder_minutes_before"] = _clamp_minutes(
+            shift_end_reminder_minutes_before,
+            default=schedule.shift_end_reminder_minutes_before,
+            min_v=5,
+            max_v=120,
+        )
+    else:
+        out["shift_end_reminder_minutes_before"] = schedule.shift_end_reminder_minutes_before
 
     if missed_clock_in_early_minutes is not None:
         out["missed_clock_in_early_minutes"] = _clamp_minutes(

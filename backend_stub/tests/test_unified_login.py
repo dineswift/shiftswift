@@ -24,7 +24,8 @@ def test_resolve_login_portal_dev_users() -> None:
 
     master = resolve_login_portal(settings, MASTER_USERNAME)
     assert master["portal"] == "master"
-    assert master["redirect_path"] == "ops-9x7k2.html"
+    assert master["endpoint"] == "/auth/master-login"
+    assert master["redirect_path"] == "master.html"
 
     unknown = resolve_login_portal(settings, "nobody@example.com")
     assert unknown["portal"] == "unknown"
