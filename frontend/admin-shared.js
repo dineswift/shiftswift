@@ -157,7 +157,8 @@ window.Admin = (() => {
   }
 
   function authHeaders(json = true) {
-    const headers = window.ShiftSwiftSession.authHeaders({ json, tenantId: TENANT_ID });
+    const tenantId = localStorage.getItem("tenantId") || TENANT_ID;
+    const headers = window.ShiftSwiftSession.authHeaders({ json, tenantId });
     return headers;
   }
 

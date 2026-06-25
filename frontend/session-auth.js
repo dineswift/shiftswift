@@ -142,9 +142,10 @@
     }
   }
 
-  async function hydrateNativeSession() {
-    if (!isCapacitorNative() || nativeHydrated) return;
-    nativeHydrated = true;
+  async function hydrateNativeSession(options = {}) {
+    const force = Boolean(options.force);
+    if (!isCapacitorNative()) return;
+    if (nativeHydrated && !force) return;
     try {
       const prefs = await preferencesPlugin();
       if (!prefs?.get) return;
@@ -152,6 +153,7 @@
         const { value } = await prefs.get({ key: `sshr:${key}` });
         if (value) localStorage.setItem(key, value);
       }
+      nativeHydrated = true;
     } catch {
       /* ignore */
     }
@@ -269,6 +271,9 @@
 
   async function fetchWithAuth(path, options = {}, config = {}) {
     await hydrateNativeSession();
+    if (isCapacitorNative() && !hasSession()) {
+      await hydrateNativeSession({ force: true });
+    }
     const {
       apiBase = getApiBase(),
       loginUrl = resolveLoginUrl(config.loginUrl),
@@ -292,7 +297,13 @@
     try {
       response = await request();
     } catch (error) {
-      throw error;
+      if (isCapacitorNative() && (error?.message === "Load failed" || error?.message === "Failed to fetch")) {
+        nativeHydrated = false;
+        await hydrateNativeSession({ force: true });
+        response = await request();
+      } else {
+        throw error;
+      }
     }
 
     if (response.status === 401) {

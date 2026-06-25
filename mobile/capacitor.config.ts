@@ -7,6 +7,7 @@ const devServer = process.env.SSHR_SERVER_URL?.trim();
 
 const allowNavigation = [
   "app.shiftswifthr.co.uk",
+  "api.shiftswifthr.co.uk",
   "*.shiftswifthr.co.uk",
   "localhost",
   "127.0.0.1",
@@ -14,7 +15,7 @@ const allowNavigation = [
 
 const pluginConfig = {
   CapacitorHttp: {
-    enabled: true,
+    enabled: false,
   },
   SplashScreen: {
     launchAutoHide: true,

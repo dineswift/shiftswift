@@ -2072,7 +2072,12 @@
     } catch (error) {
       shifts = [];
       renderAll();
-      setMessage(error.message || "Could not load rota.", "error");
+      setMessage(
+        error.message === "Load failed" || error.message === "Failed to fetch"
+          ? "Cannot reach the API. Check your connection and try again."
+          : error.message || "Could not load rota.",
+        "error",
+      );
     }
   }
 

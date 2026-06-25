@@ -228,6 +228,16 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     );
   }
 
+  async function unregisterNativeServiceWorkers() {
+    if (!("serviceWorker" in navigator)) return;
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((reg) => reg.unregister()));
+    } catch {
+      /* ignore */
+    }
+  }
+
   function forceHideSplash() {
     hideSplash();
     try {
@@ -267,6 +277,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function initNativeChrome() {
     if (!isCapacitorNative()) return;
+    void unregisterNativeServiceWorkers();
     applyNativeClasses();
     injectBundledStylesheet("native-app-chrome.css");
     bindNavigationSplash();

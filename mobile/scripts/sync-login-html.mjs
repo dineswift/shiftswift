@@ -29,7 +29,7 @@ html = html.replace(
     <script src="./native-app-startup.js?v=4"></script>
     <script src="./brand-config.js?v=brand-v8"></script>
     <script src="./native-app.js?v=12"></script>
-    <script src="./session-auth.js?v=10"></script>`,
+    <script src="./session-auth.js?v=11"></script>`,
 );
 
 html = html.replace(
