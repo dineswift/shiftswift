@@ -42,7 +42,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v133" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v134" />
   </head>
   <body class="admin-portal">
     <script src="./admin-impersonation.js?v=1"></script>
@@ -2284,7 +2284,7 @@
               <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
               <label class="signup-check rota-notify-check">
                 <input type="checkbox" id="rota-notify-staff" checked />
-                <span>Notify staff by email</span>
+                <span>Notify staff by email (re-publish emails only people with changes)</span>
               </label>
               <button type="button" class="btn primary" id="rota-publish-btn">Publish rota</button>
             </div>
@@ -2829,7 +2829,8 @@
                           <span class="edit-label">File</span>
                           <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="document-upload-dropzone">
                             <input name="file" type="file" id="document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
-                            <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button></p>
+                            <input type="file" id="document-upload-camera" accept="image/*" capture="environment" hidden />
+                            <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
                             <p class="doc-upload-dropzone__hint muted" data-document-upload-hint>PDF, JPEG or PNG · max 10 MB per file</p>
                             <p class="doc-upload-filename" id="document-upload-filename" hidden></p>
                           </div>
@@ -2953,7 +2954,8 @@
                         <span class="edit-label">File</span>
                         <div class="doc-upload-dropzone" id="document-distribute-dropzone">
                           <input name="file" type="file" id="document-distribute-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
-                          <p class="doc-upload-dropzone__lead">Drag &amp; drop a file here, or <button type="button" class="doc-upload-browse" data-distribute-browse>browse</button></p>
+                          <input type="file" id="document-distribute-camera" accept="image/*" capture="environment" hidden />
+                          <p class="doc-upload-dropzone__lead">Drag &amp; drop a file here, or <button type="button" class="doc-upload-browse" data-distribute-browse>browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
                           <p class="doc-upload-dropzone__hint muted" data-document-upload-hint>PDF, JPEG or PNG · max 10 MB per file</p>
                           <p class="doc-upload-filename" id="document-distribute-filename" hidden></p>
                         </div>
@@ -3133,8 +3135,8 @@
     <script src="./admin-settings.js?v=33"></script>
     <script src="./admin-workspace.js?v=admin-v26"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-documents.js?v=27"></script>
-    <script src="./admin-employees.js?v=25"></script>
+    <script src="./admin-documents.js?v=28"></script>
+    <script src="./admin-employees.js?v=27"></script>
     <script src="./admin-recruitment.js?v=6"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>
@@ -3147,12 +3149,12 @@
     <script src="./admin-templates.js?v=admin-v12"></script>
     <script src="./admin-global-documents.js?v=1"></script>
     <script src="./admin-time-punch.js?v=34"></script>
-    <script src="./admin-rota.js?v=34"></script>
+    <script src="./admin-rota.js?v=35"></script>
     <script src="./admin-leave.js?v=admin-v5"></script>
     <script src="./admin-profile-changes.js?v=2"></script>
     <script src="./app.js?v=admin-v6"></script>
     <script src="./contracts.js?v=7"></script>
-    <script src="./employment-contracts.js?v=4"></script>
+    <script src="./employment-contracts.js?v=5"></script>
       <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

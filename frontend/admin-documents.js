@@ -956,24 +956,46 @@
     updateTabDescription("upload");
   }
 
-  function bindUploadDropzone() {
-    const dropzone = document.getElementById("document-upload-dropzone");
-    const fileInput = document.getElementById("document-upload-file");
-    const filenameEl = document.getElementById("document-upload-filename");
+  function assignFileToInput(fileInput, file) {
+    if (!fileInput || !file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+  }
+
+  function bindFileDropzone({
+    dropzone,
+    fileInput,
+    filenameEl,
+    browseSelector = ".doc-upload-browse",
+    cameraInput,
+  }) {
     if (!dropzone || !fileInput || dropzone.dataset.ready === "true") return;
 
     const showFile = (file) => {
+      if (!filenameEl) return;
       if (!file) {
         filenameEl.hidden = true;
         filenameEl.textContent = "";
         return;
       }
       filenameEl.hidden = false;
-      filenameEl.textContent = file.name;
+      filenameEl.textContent = file.name || "Photo capture";
     };
 
-    dropzone.querySelector(".doc-upload-browse")?.addEventListener("click", () => fileInput.click());
+    dropzone.querySelector(browseSelector)?.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", () => showFile(fileInput.files?.[0]));
+
+    if (cameraInput) {
+      dropzone.querySelector(".doc-upload-camera")?.addEventListener("click", () => cameraInput.click());
+      cameraInput.addEventListener("change", () => {
+        const file = cameraInput.files?.[0];
+        if (!file) return;
+        assignFileToInput(fileInput, file);
+        showFile(file);
+        cameraInput.value = "";
+      });
+    }
 
     ["dragenter", "dragover"].forEach((eventName) => {
       dropzone.addEventListener(eventName, (event) => {
@@ -990,13 +1012,20 @@
     dropzone.addEventListener("drop", (event) => {
       const file = event.dataTransfer?.files?.[0];
       if (!file) return;
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      fileInput.files = dt.files;
+      assignFileToInput(fileInput, file);
       showFile(file);
     });
 
     dropzone.dataset.ready = "true";
+  }
+
+  function bindUploadDropzone() {
+    bindFileDropzone({
+      dropzone: document.getElementById("document-upload-dropzone"),
+      fileInput: document.getElementById("document-upload-file"),
+      filenameEl: document.getElementById("document-upload-filename"),
+      cameraInput: document.getElementById("document-upload-camera"),
+    });
   }
 
   function mountUploadForm() {
@@ -1162,39 +1191,13 @@
     syncPayPeriodRequired();
 
     if (dropzone && fileInput && !dropzone.dataset.ready) {
-      const showFile = (file) => {
-        if (!filenameEl) return;
-        if (!file) {
-          filenameEl.hidden = true;
-          filenameEl.textContent = "";
-          return;
-        }
-        filenameEl.hidden = false;
-        filenameEl.textContent = file.name;
-      };
-      dropzone.querySelector("[data-distribute-browse]")?.addEventListener("click", () => fileInput.click());
-      fileInput.addEventListener("change", () => showFile(fileInput.files?.[0]));
-      ["dragenter", "dragover"].forEach((eventName) => {
-        dropzone.addEventListener(eventName, (event) => {
-          event.preventDefault();
-          dropzone.classList.add("doc-upload-dropzone--active");
-        });
+      bindFileDropzone({
+        dropzone,
+        fileInput,
+        filenameEl,
+        browseSelector: "[data-distribute-browse]",
+        cameraInput: document.getElementById("document-distribute-camera"),
       });
-      ["dragleave", "drop"].forEach((eventName) => {
-        dropzone.addEventListener(eventName, (event) => {
-          event.preventDefault();
-          dropzone.classList.remove("doc-upload-dropzone--active");
-        });
-      });
-      dropzone.addEventListener("drop", (event) => {
-        const file = event.dataTransfer?.files?.[0];
-        if (!file) return;
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        showFile(file);
-      });
-      dropzone.dataset.ready = "true";
     }
 
     guardFormSubmit(form, async () => {

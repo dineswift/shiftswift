@@ -8666,7 +8666,8 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin: 0 0 6px;
 }
 
-.doc-upload-browse {
+.doc-upload-browse,
+.doc-upload-camera {
   border: none;
   background: none;
   padding: 0;
@@ -8675,6 +8676,11 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   color: var(--green-700);
   cursor: pointer;
   text-decoration: underline;
+}
+
+.doc-upload-dropzone__or {
+  color: var(--gray-400);
+  font-weight: 500;
 }
 
 .doc-upload-filename {
