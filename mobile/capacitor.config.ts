@@ -18,13 +18,13 @@ const pluginConfig = {
     enabled: false,
   },
   SplashScreen: {
-    launchAutoHide: true,
+    launchAutoHide: false,
     launchShowDuration: 0,
-    launchFadeOutDuration: 300,
+    launchFadeOutDuration: 280,
     backgroundColor: "#0f6e56",
     showSpinner: false,
     androidSplashResourceName: "splash",
-    androidScaleType: "CENTER_CROP",
+    androidScaleType: "CENTER_INSIDE",
     iosSpinnerStyle: "small",
   },
   StatusBar: {

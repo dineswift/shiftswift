@@ -10,7 +10,6 @@ const variant = process.env.SSHR_APP || "app";
 const iosRoot = path.join(root, `ios-${variant === "app" ? "app" : variant}`, "App", "App");
 const assetsDir = path.join(root, "assets");
 const iconSrc = path.join(assetsDir, "icon.png");
-const splashSrc = path.join(assetsDir, "splash.png");
 
 spawnSync("node", ["scripts/generate-native-assets.mjs"], { cwd: root, stdio: "inherit" });
 
@@ -31,15 +30,16 @@ function runSips(args) {
 fs.copyFileSync(iconSrc, iconDest);
 runSips(["-z", "1024", "1024", iconDest]);
 
+/** Square app mark for launch screen — never stretch portrait splash art to a square. */
 const splashFiles = [
-  ["splash-2732x2732.png", 2732, 2732],
-  ["splash-2732x2732-1.png", 1821, 1821],
-  ["splash-2732x2732-2.png", 910, 910],
+  ["splash-2732x2732-2.png", 910],
+  ["splash-2732x2732-1.png", 1821],
+  ["splash-2732x2732.png", 2732],
 ];
-for (const [name, height, width] of splashFiles) {
+for (const [name, size] of splashFiles) {
   const dest = path.join(splashDestDir, name);
-  fs.copyFileSync(splashSrc, dest);
-  runSips(["-z", String(height), String(width), dest]);
+  fs.copyFileSync(iconSrc, dest);
+  runSips(["-z", String(size), String(size), dest]);
 }
 
 const displayNamePlist = path.join(iosRoot, "Info.plist");

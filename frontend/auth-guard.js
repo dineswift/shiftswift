@@ -23,7 +23,7 @@
       if (window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app") {
         return (
           window.ShiftSwiftSession?.unifiedNativeLoginUrl?.() ||
-          `${window.Capacitor.config?.ios?.scheme || "App"}://localhost/index.html?build=13`
+          `${window.Capacitor.config?.ios?.scheme || "App"}://localhost/index.html?build=14`
         );
       }
     } catch {

@@ -51,9 +51,9 @@ html.native-startup-active body {
 .native-startup-loader__mark {
   display: block;
   width: 88px;
-  height: 93px;
+  height: auto;
   max-width: 88px;
-  max-height: 93px;
+  aspect-ratio: 68 / 72;
   flex-shrink: 0;
   overflow: visible;
 }

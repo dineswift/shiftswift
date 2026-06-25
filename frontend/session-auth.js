@@ -38,7 +38,7 @@
         window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
       ) {
         const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html?build=13&v=13`;
+        return `${scheme}://localhost/index.html?build=14&v=14`;
       }
     } catch {
       /* ignore */

@@ -5,7 +5,7 @@
       <div class="native-startup-loader__inner">
         <div class="native-startup-loader__icon-wrap">
           <span class="native-startup-loader__ring" aria-hidden="true"></span>
-          <svg class="native-startup-loader__mark" viewBox="0 0 68 72" width="88" height="93" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <svg class="native-startup-loader__mark" viewBox="0 0 68 72" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             <g class="native-startup-loader__tile">
               <rect x="0" y="0" width="68" height="68" rx="14" fill="#0a5a47" />
               <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5" />
