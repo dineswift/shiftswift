@@ -1,6 +1,21 @@
 /** Native app startup loader — sliding logo animation while the shell loads. */
 (function initNativeStartupLoader() {
-  function boot() {
+  async function hasStoredSession() {
+    try {
+      if (window.ShiftSwiftSession?.hydrateNativeSession) {
+        await window.ShiftSwiftSession.hydrateNativeSession();
+      }
+    } catch {
+      /* ignore */
+    }
+    return Boolean(
+      window.ShiftSwiftSession?.hasSession?.() ||
+        localStorage.getItem("token") ||
+        localStorage.getItem("refreshToken"),
+    );
+  }
+
+  async function boot() {
     const loader = document.getElementById("native-startup-loader");
     if (!loader) {
       try {
@@ -27,8 +42,9 @@
     hideCapacitorSplash();
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const MIN_MS = reduced ? 280 : 1550;
-    const MAX_MS = 4200;
+    const sessionReady = await hasStoredSession();
+    const MIN_MS = sessionReady ? 0 : reduced ? 280 : 900;
+    const MAX_MS = sessionReady ? 120 : 4200;
     let finished = false;
     const started = performance.now();
 
@@ -60,8 +76,8 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot, { once: true });
+    document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });
   } else {
-    boot();
+    void boot();
   }
 })();

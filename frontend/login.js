@@ -122,8 +122,7 @@ function bindMfaEnrollmentSubmit() {
     btn.disabled = true;
     try {
       const data = await postJsonAuth("/auth/mfa/enable", { code }, pendingEnrollmentToken);
-      storeSession(data);
-      window.location.href = data.redirect_url || pendingRedirect || "./admin.html";
+      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
     } catch (error) {
       setEnrollmentStatus(error.message || "Invalid code — try again");
       btn.disabled = false;
@@ -199,6 +198,10 @@ async function postJson(path, body) {
 }
 
 function storeSession(data) {
+  if (window.ShiftSwiftSession?.storeSession) {
+    window.ShiftSwiftSession.storeSession(data);
+    return;
+  }
   if (data.access_token) localStorage.setItem("token", data.access_token);
   if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
   if (data.role) localStorage.setItem("userRole", data.role);
@@ -206,6 +209,14 @@ function storeSession(data) {
     localStorage.setItem("masterTenantId", data.tenant_id);
     localStorage.setItem("tenantId", data.tenant_id);
   }
+}
+
+async function storeSessionAndGo(data, url) {
+  storeSession(data);
+  if (window.ShiftSwiftSession?.persistNativeSession) {
+    await window.ShiftSwiftSession.persistNativeSession();
+  }
+  window.location.replace(url);
 }
 
 function redirectForRole(data, fallback) {
@@ -249,8 +260,7 @@ function bindMfaForm() {
         challenge_token: pendingChallenge,
         code,
       });
-      storeSession(data);
-      window.location.href = redirectForRole(data, pendingRedirect);
+      await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
     } catch (error) {
       setStatus(error.message);
     }
@@ -291,8 +301,7 @@ function bindPortalLogin() {
         await startMfaEnrollment(data, redirectForRole(data, mode.redirect));
         return;
       }
-      storeSession(data);
-      window.location.href = redirectForRole(data, mode.redirect);
+      await storeSessionAndGo(data, redirectForRole(data, mode.redirect));
     } catch (error) {
       setStatus(friendlyLoginError(error.message, mode.endpoint, payload.username));
     }
@@ -449,8 +458,7 @@ function bindUnifiedLogin() {
         await startMfaEnrollment(data, redirect);
         return;
       }
-      storeSession(data);
-      window.location.href = redirect;
+      await storeSessionAndGo(data, redirect);
     } catch (error) {
       setStatus(
         friendlyLoginError(
@@ -546,8 +554,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
         await startMfaEnrollment(data, redirectUrl);
         return;
       }
-      storeSession(data);
-      window.location.href = redirectUrl;
+      await storeSessionAndGo(data, redirectUrl);
     } catch (error) {
       setStatus(friendlyLoginError(error.message, endpoint, payload.username));
     }

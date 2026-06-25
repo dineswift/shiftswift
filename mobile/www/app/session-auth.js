@@ -46,14 +46,42 @@
     return NATIVE_UNIFIED_LOGIN_URL;
   }
 
-  function portalUrl(path) {
-    const raw = String(path || "admin.html").replace(/^\.\//, "");
-    if (isCapacitorUnifiedApp()) {
-      const url = new URL(`https://app.shiftswifthr.co.uk/${raw}`);
-      url.searchParams.set("source", "native");
-      return url.toString();
+  function isNativeSource() {
+    try {
+      return new URLSearchParams(window.location.search).get("source") === "native";
+    } catch {
+      return false;
     }
-    return `./${raw}`;
+  }
+
+  function isBundledNativeShell() {
+    try {
+      const href = window.location.href;
+      return /\/\/localhost\//i.test(href) || href.startsWith("capacitor://");
+    } catch {
+      return false;
+    }
+  }
+
+  function withNativeSource(url) {
+    if (!isCapacitorNative() && !isNativeSource()) return url;
+    try {
+      const parsed = new URL(url, window.location.href);
+      if (parsed.searchParams.get("source") !== "native") {
+        parsed.searchParams.set("source", "native");
+      }
+      return parsed.toString();
+    } catch {
+      return url;
+    }
+  }
+
+  function portalUrl(path) {
+    const clean = String(path || "admin.html").replace(/^\.\//, "");
+    if (isCapacitorNative() || isNativeSource()) {
+      return withNativeSource(`https://app.shiftswifthr.co.uk/${clean}`);
+    }
+    return `./${clean}`;
   }
 
   function resolveLoginUrl(explicit) {
@@ -201,6 +229,7 @@
       clearSession();
       return false;
     }
+    await persistNativeSession();
     const role = localStorage.getItem("userRole");
     if (role === "employee") {
       window.location.replace(portalUrl("employee.html"));
@@ -277,6 +306,10 @@
     unifiedNativeLoginUrl,
     resolveLoginUrl,
     portalUrl,
+    withNativeSource,
+    isCapacitorNative,
+    isCapacitorUnifiedApp,
+    isBundledNativeShell,
     getApiBase,
     getToken,
     getRefreshToken,

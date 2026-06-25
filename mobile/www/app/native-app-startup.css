@@ -40,8 +40,12 @@
 }
 
 .native-startup-loader__mark {
+  display: block;
   width: 88px;
-  height: auto;
+  height: 93px;
+  max-width: 88px;
+  max-height: 93px;
+  flex-shrink: 0;
   overflow: visible;
 }
 

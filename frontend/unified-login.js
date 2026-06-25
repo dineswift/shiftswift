@@ -18,29 +18,20 @@
   }
 
   function portalUrl(path) {
-    const raw = String(path || "").trim();
-    if (!raw) {
-      return withNativeSource(isNativeShell() ? "https://app.shiftswifthr.co.uk/admin.html" : "./admin.html");
+    if (window.ShiftSwiftSession?.portalUrl) {
+      return window.ShiftSwiftSession.portalUrl(path);
     }
-    if (/^https?:\/\//i.test(raw)) return withNativeSource(raw);
-    const clean = raw.replace(/^\.\//, "");
-    if (isNativeShell()) {
-      return withNativeSource(`https://app.shiftswifthr.co.uk/${clean}`);
-    }
+    const clean = String(path || "").trim().replace(/^\.\//, "");
+    if (!clean) return "./admin.html";
+    if (/^https?:\/\//i.test(clean)) return clean;
     return `./${clean}`;
   }
 
   function withNativeSource(url) {
-    if (!isNativeShell()) return url;
-    try {
-      const parsed = new URL(url);
-      if (parsed.searchParams.get("source") !== "native") {
-        parsed.searchParams.set("source", "native");
-      }
-      return parsed.toString();
-    } catch {
-      return url;
+    if (window.ShiftSwiftSession?.withNativeSource) {
+      return window.ShiftSwiftSession.withNativeSource(url);
     }
+    return url;
   }
 
   function setStatus(message) {
@@ -159,13 +150,16 @@
   }
 
   async function finishAuthSuccess(data, email, redirect) {
-    storeSession(data);
+    if (window.ShiftSwiftSession?.storeSession) {
+      window.ShiftSwiftSession.storeSession(data);
+    } else {
+      storeSession(data);
+    }
     if (window.ShiftSwiftSession?.persistNativeSession) {
       await window.ShiftSwiftSession.persistNativeSession();
     }
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
     await maybeEnableBiometricUnlock();
-    window.ShiftSwiftNativeApp?.showSplash?.();
     window.location.replace(redirect);
   }
 

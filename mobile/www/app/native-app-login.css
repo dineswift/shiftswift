@@ -53,9 +53,9 @@ html.native-app body.portal-login-page--unified {
   text-align: center;
   overflow: hidden;
   padding:
-    max(56px, calc(env(safe-area-inset-top) + 32px))
-    24px
-    44px;
+    max(44px, calc(env(safe-area-inset-top) + 24px))
+    20px
+    32px;
   background:
     radial-gradient(ellipse 80% 60% at 80% 10%, rgba(29, 158, 117, 0.28), transparent 60%),
     radial-gradient(ellipse 70% 50% at 10% 90%, rgba(15, 110, 86, 0.35), transparent 55%),
@@ -157,10 +157,10 @@ html.native-app body.portal-login-page--unified {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  margin-top: -22px;
+  margin-top: -18px;
   padding:
-    12px 22px
-    max(32px, calc(env(safe-area-inset-bottom) + 20px));
+    10px 20px
+    max(24px, calc(env(safe-area-inset-bottom) + 16px));
   background: var(--native-white);
   border-radius: var(--native-radius) var(--native-radius) 0 0;
   box-shadow:

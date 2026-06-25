@@ -274,11 +274,56 @@ body.admin-portal .nav-crumb {
   gap: 10px;
 }
 
+.portal-login-alt-note--compact {
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: 0.84rem;
+  text-align: center;
+}
+
+.portal-login-shell--streamlined {
+  gap: 14px;
+  padding: 20px 16px 32px;
+}
+
+.portal-login-brand--streamlined {
+  gap: 8px;
+}
+
+.portal-login-card--streamlined {
+  border-radius: 18px;
+}
+
+.portal-login-card-head--streamlined h1 {
+  font-size: 1.45rem;
+  margin-bottom: 4px;
+}
+
+.portal-login-card-head--streamlined .portal-login-card-lead {
+  margin: 0;
+}
+
+.portal-login-form--streamlined {
+  gap: 14px;
+}
+
+.portal-login-footnote--streamlined {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.portal-login-page--streamlined .portal-login-role-banner,
+.portal-login-page--streamlined .portal-pwa-install-banner {
+  display: none !important;
+}
+
 .portal-login-brand-logo {
   width: 44px;
   height: 44px;
   max-width: 44px;
-  object-fit: cover;
+  max-height: 44px;
+  object-fit: contain;
   border-radius: 10px;
   display: block;
 }

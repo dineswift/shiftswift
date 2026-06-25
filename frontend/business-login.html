@@ -29,47 +29,28 @@
     <script src="./native-app.js?v=6"></script>
     <script src="./pwa-ios.js?v=1"></script>
     <title>ShiftSwift HR | Business sign in</title>
-    <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v8" />
   </head>
-  <body class="portal-login-page" data-login-page="business">
-    <div class="portal-login-shell">
-      <header class="portal-login-brand">
-        <a href="./index.html">
-          <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" />
+  <body class="portal-login-page portal-login-page--streamlined" data-login-page="business">
+    <div class="portal-login-shell portal-login-shell--streamlined">
+      <header class="portal-login-brand portal-login-brand--streamlined">
+        <a href="./native-app-login.html">
+          <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" width="44" height="44" />
         </a>
-        <p class="portal-login-brand-copy">HR admin dashboard</p>
+        <p class="portal-login-brand-copy">HR admin</p>
       </header>
 
-      <section class="portal-login-card portal-login-card--business portal-login-card--has-install" id="portal-login-card">
-        <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
-          <div class="portal-pwa-install-banner__copy">
-            <strong id="portal-pwa-install-title">Get HR Admin app</strong>
-            <p id="portal-pwa-install-copy">Add ShiftSwift HR Admin to your iPhone home screen for a full-screen app experience.</p>
-          </div>
-          <div class="portal-pwa-install-banner__actions">
-            <button type="button" class="btn primary" id="portal-pwa-install-btn">Add to Home Screen</button>
-            <button type="button" class="btn ghost portal-pwa-install-dismiss" id="portal-pwa-install-dismiss">Not now</button>
-          </div>
-        </div>
-
-        <div class="portal-login-role-banner" id="login-role-banner" role="status" aria-live="polite">
-          <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Business HR</span>
-          <p class="portal-login-role-banner__copy" id="login-role-banner-copy">
-            You are signing in as an <strong>HR admin</strong> — manage employees, rotas, and compliance.
-          </p>
-        </div>
-
+      <section class="portal-login-card portal-login-card--business portal-login-card--streamlined" id="portal-login-card">
         <div id="login-shell" class="portal-login-card-body">
-          <div class="portal-login-card-head">
+          <div class="portal-login-card-head portal-login-card-head--streamlined">
             <h1>Business sign in</h1>
             <p class="portal-login-card-lead" id="login-lead">Sign in to your ShiftSwift HR account.</p>
-            <p class="muted portal-login-card-note">One email address maps to one HR workspace. If you signed up more than once while testing, use the email from your welcome message.</p>
           </div>
 
-          <form id="portal-login-form" class="portal-login-form">
+          <form id="portal-login-form" class="portal-login-form portal-login-form--streamlined">
             <label>
-              Username
-              <input name="username" required autocomplete="username" placeholder="hr@shiftswifthr.co.uk" />
+              Work email
+              <input name="username" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="hr@yourcompany.co.uk" />
             </label>
             <label class="portal-login-password-field">
               <span class="portal-login-password-label">
@@ -78,7 +59,7 @@
                   class="portal-login-inline-link portal-login-forgot"
                   id="forgot-password-link"
                   href="./forgot-password.html"
-                >Forgot password?</a>
+                >Forgot?</a>
               </span>
               <input
                 name="password"
@@ -101,17 +82,11 @@
             </p>
           </form>
 
-          <p class="portal-login-alt-note">
-            No account yet?
-            <a class="portal-login-inline-link" href="./signup.html">Start your free 14-day trial</a>
-          </p>
-          <p class="portal-login-alt-note">
-            One login for everyone —
+          <p class="portal-login-alt-note portal-login-alt-note--compact">
+            Prefer one login for staff and managers?
             <a class="portal-login-inline-link" href="./native-app-login.html">Sign in with work email</a>
-          </p>
-          <p class="portal-login-alt-note">
-            Staff member?
-            <a class="portal-login-inline-link" href="./employee-login.html">Employee sign in</a>
+            ·
+            <a class="portal-login-inline-link" href="./signup.html">Start free trial</a>
           </p>
         </div>
 
@@ -153,27 +128,18 @@
         </div>
       </section>
 
-      <p class="portal-login-footnote muted">
-        Need help signing in? Email
-        <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>.
-        · <a class="portal-login-inline-link" href="./install-business.html">Install iPhone app</a>
+      <p class="portal-login-footnote muted portal-login-footnote--streamlined">
+        Need help?
+        <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>
       </p>
     </div>
-    <script src="./session-auth.js?v=3"></script>
+    <script src="./session-auth.js?v=9"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./admin-pwa.js?v=8"></script>
-    <script src="./login.js?v=brandkit-v17"></script>
+    <script src="./login.js?v=brandkit-v18"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>
-    <script
-      src="./portal-pwa-install.js?v=3"
-      data-portal="admin"
-      data-app-name="ShiftSwift HR Admin"
-      data-manifest="./admin-manifest.webmanifest?v=8"
-      data-sw="./admin-sw.js?v=11"
-      data-layout="login-card"
-    ></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>
