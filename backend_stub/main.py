@@ -20,6 +20,7 @@ from modules.disciplinary.routes import router as disciplinary_router
 from modules.offboarding.routes import router as offboarding_router
 from modules.ai.routes import router as ai_router
 from modules.employee_portal.routes import router as employee_portal_router
+from modules.document_signing.routes import router as document_signing_router
 from modules.employee_contracts.routes import router as employment_contracts_router
 from modules.hr_templates.routes import router as hr_templates_router
 from modules.global_documents.routes import router as global_documents_router
@@ -123,6 +124,7 @@ app.include_router(ai_router)
 app.include_router(hr_templates_router)
 app.include_router(global_documents_router)
 app.include_router(employment_contracts_router)
+app.include_router(document_signing_router)
 app.include_router(events_router)
 app.include_router(billing_router)
 app.include_router(signup_router)

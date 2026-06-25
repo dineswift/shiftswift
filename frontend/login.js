@@ -464,7 +464,12 @@ function bindUnifiedLogin() {
 }
 
 function initUnifiedNativeLogin() {
+  if (window.ShiftSwiftUnifiedLogin?.init) {
+    window.ShiftSwiftUnifiedLogin.init();
+    return;
+  }
   bindUnifiedLogin();
+  bindMfaEnrollmentSubmit();
 }
 
 function redirectIfBusinessSession() {

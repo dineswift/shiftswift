@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from auth_mfa import (
     MFA_ENROLLMENT_MINUTES,
+    MFA_TRUSTED_DEVICE_DAYS,
     begin_mfa_setup,
     confirm_mfa_setup,
     create_mfa_challenge_token,
@@ -17,7 +18,9 @@ from auth_mfa import (
     decode_mfa_enrollment_token,
     disable_mfa,
     fetch_user_mfa,
+    issue_trusted_device,
     portal_allows_user,
+    trusted_device_is_valid,
     verify_user_mfa_code,
 )
 from auth_password_reset import complete_password_reset, request_password_reset
@@ -31,6 +34,8 @@ from auth_service import (
     log_security_event,
     login_portal_mismatch_message,
     record_login_attempt,
+    resolve_login_portal,
+    resolve_unified_authentication,
 )
 from config import load_settings
 from deps import client_ip, get_current_user
@@ -44,6 +49,11 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=256)
     tenant_id: str | None = Field(default=None, max_length=32)
     email: str | None = None
+    device_token: str | None = Field(default=None, max_length=256)
+
+
+class ResolveLoginPortalRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=254)
 
 
 class RefreshRequest(BaseModel):
@@ -53,10 +63,14 @@ class RefreshRequest(BaseModel):
 class MfaVerifyRequest(BaseModel):
     challenge_token: str = Field(min_length=10)
     code: str = Field(min_length=6, max_length=8)
+    remember_device: bool = False
+    device_label: str | None = Field(default=None, max_length=120)
 
 
 class MfaEnableRequest(BaseModel):
     code: str = Field(min_length=6, max_length=8)
+    remember_device: bool = False
+    device_label: str | None = Field(default=None, max_length=120)
 
 
 class MfaDisableRequest(BaseModel):
@@ -243,6 +257,31 @@ def _login_response(
         }
 
     if mfa_required:
+        trusted_ok = False
+        if payload.device_token and settings.use_db and settings.database_url:
+            conn = _db_conn()
+            try:
+                trusted_ok = trusted_device_is_valid(
+                    conn=conn,
+                    username=user.username,
+                    raw_token=payload.device_token,
+                )
+            finally:
+                conn.close()
+        if trusted_ok:
+            mfa_required = False
+            log_security_event(
+                settings,
+                event_type="mfa_trusted_device_used",
+                username=user.username,
+                tenant_id=tenant_id,
+                ip_address=ip,
+                user_agent=user_agent,
+                success=True,
+                detail=f"portal={portal}",
+            )
+
+    if mfa_required:
         challenge = create_mfa_challenge_token(
             settings,
             username=user.username,
@@ -339,6 +378,71 @@ def employee_login(request: Request, payload: LoginRequest) -> dict[str, object]
     )
 
 
+@router.post("/resolve-login-portal")
+def resolve_login_portal_route(
+    request: Request,
+    payload: ResolveLoginPortalRequest,
+) -> dict[str, str]:
+    """Email-first unified sign-in — returns which portal to use (no password)."""
+    ip = client_ip(request)
+    if is_login_rate_limited(settings, ip, payload.username):
+        raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
+    return resolve_login_portal(settings, payload.username)
+
+
+@router.post("/unified-login")
+def unified_login(request: Request, payload: LoginRequest) -> dict[str, object]:
+    """Unified business sign-in — picks employee vs HR portal after password check."""
+    from auth_policy import business_require_mfa_hr, employee_require_mfa
+
+    ip = client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    if is_login_rate_limited(settings, ip, payload.username):
+        log_security_event(
+            settings,
+            event_type="login_rate_limited",
+            username=payload.username,
+            tenant_id=payload.tenant_id,
+            ip_address=ip,
+            user_agent=user_agent,
+            success=False,
+            detail="portal=unified",
+        )
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again later.")
+
+    user, business_role, error = resolve_unified_authentication(
+        settings,
+        payload.username,
+        payload.password,
+    )
+    if not user or not business_role:
+        record_login_attempt(settings, ip, payload.username)
+        log_security_event(
+            settings,
+            event_type="login_failed",
+            username=payload.username,
+            tenant_id=payload.tenant_id,
+            ip_address=ip,
+            user_agent=user_agent,
+            success=False,
+            detail="portal=unified",
+        )
+        raise HTTPException(status_code=401, detail=error or "Invalid username or password")
+
+    require_mfa_enrollment = (
+        employee_require_mfa(settings)
+        if business_role == "employee"
+        else business_require_mfa_hr(settings)
+    )
+    return _login_response(
+        request,
+        payload,
+        portal="business",
+        business_role=business_role,
+        require_mfa_enrollment=require_mfa_enrollment,
+    )
+
+
 @router.post("/master-login")
 def master_login(request: Request, payload: LoginRequest) -> dict[str, object]:
     """Master platform admin login — isolated from business accounts."""
@@ -402,7 +506,27 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
         success=True,
         detail=f"portal={challenge['portal']};mfa=1",
     )
-    return {**tokens.__dict__, "portal": challenge["portal"], "mfa_required": False}
+    response: dict[str, object] = {
+        **tokens.__dict__,
+        "portal": challenge["portal"],
+        "role": user_obj.role,
+        "mfa_required": False,
+    }
+    if payload.remember_device and settings.use_db and settings.database_url:
+        conn = _db_conn()
+        try:
+            device_token = issue_trusted_device(
+                conn=conn,
+                username=user_obj.username,
+                user_agent=user_agent,
+                ip_address=ip,
+                device_label=payload.device_label,
+            )
+            response["device_token"] = device_token
+            response["device_trust_days"] = MFA_TRUSTED_DEVICE_DAYS
+        finally:
+            conn.close()
+    return response
 
 
 @router.post("/mfa/setup")
@@ -492,7 +616,7 @@ def mfa_enable(
             )
             message = "Two-factor authentication is active. Opening HR dashboard…"
             redirect_hint = "./admin.html"
-        return {
+        response: dict[str, object] = {
             **tokens.__dict__,
             "portal": portal,
             "role": current_user.role,
@@ -501,6 +625,21 @@ def mfa_enable(
             "message": message,
             "redirect_url": redirect_hint,
         }
+        if payload.remember_device and settings.use_db and settings.database_url:
+            conn = _db_conn()
+            try:
+                device_token = issue_trusted_device(
+                    conn=conn,
+                    username=current_user.username,
+                    user_agent=user_agent,
+                    ip_address=ip,
+                    device_label=payload.device_label,
+                )
+                response["device_token"] = device_token
+                response["device_trust_days"] = MFA_TRUSTED_DEVICE_DAYS
+            finally:
+                conn.close()
+        return response
 
     return {"status": "enabled", "message": "Two-factor authentication is now active on your account."}
 

@@ -2,6 +2,19 @@
 <html lang="en" data-app-icon="hr" data-pwa-portal="hr">
   <head>
     <meta charset="utf-8" />
+    <script>
+      (function () {
+        try {
+          var cap = window.Capacitor;
+          if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
+          if (cap.config && cap.config.appId !== "co.uk.shiftswifthr.app") return;
+          var scheme = (cap.config.ios && cap.config.ios.scheme) || "App";
+          if (!String(location.href).startsWith(scheme + "://localhost/")) {
+            location.replace(scheme + "://localhost/index.html");
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="canonical" href="https://app.shiftswifthr.co.uk/native-app-login.html" />
     <meta name="theme-color" content="#0f6e56" />
@@ -9,24 +22,48 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ShiftSwift HR" />
     <script src="./portal-sw-guard.js?v=2"></script>
-    <script src="./brand-config.js?v=brand-v7"></script>
+    <script src="./brand-config.js?v=brand-v8"></script>
     <script src="./app-host-guard.js?v=2"></script>
-    <script src="./app-icons.js?v=brandkit-v7"></script>
-    <script src="./native-app.js?v=6"></script>
-    <script src="./pwa-ios.js?v=1"></script>
+    <script src="./native-app.js?v=11"></script>
+    <link rel="stylesheet" href="./native-app-startup.css?v=1" />
+    <script src="./native-app-startup.js?v=3"></script>
     <title>ShiftSwift HR | Sign in</title>
-    <link rel="stylesheet" href="./styles.css?v=brandkit-v9" />
-    <link rel="stylesheet" href="./native-app-login.css?v=2" />
+    <link rel="stylesheet" href="./native-app-login.css?v=10" />
   </head>
   <body class="portal-login-page portal-login-page--native-app portal-login-page--unified" data-login-page="unified">
+    <div id="native-startup-loader" class="native-startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
+      <div class="native-startup-loader__inner">
+        <div class="native-startup-loader__icon-wrap">
+          <span class="native-startup-loader__ring" aria-hidden="true"></span>
+          <svg class="native-startup-loader__mark" viewBox="0 0 68 72" width="88" height="93" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <g class="native-startup-loader__tile">
+              <rect x="0" y="0" width="68" height="68" rx="14" fill="#0a5a47" />
+              <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5" />
+              <rect x="14" y="24" width="18" height="5" rx="2.5" fill="#9FE1CB" />
+              <rect x="14" y="34" width="22" height="5" rx="2.5" fill="#5DCAA5" />
+              <g class="logo-arrow">
+                <line class="logo-arrow__shaft" x1="14" y1="56" x2="54" y2="56" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+                <polyline class="logo-arrow__head" points="44,48 54,56 44,64" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+              </g>
+            </g>
+          </svg>
+        </div>
+        <p class="native-startup-loader__title">ShiftSwift HR</p>
+        <p class="native-startup-loader__tagline">Staff &amp; managers · one sign-in</p>
+      </div>
+    </div>
+
     <div class="portal-login-shell">
       <header class="native-login-hero">
         <div class="native-login-hero__logo-wrap">
-          <img
-            class="native-login-hero__logo app-mark app-mark--login"
-            src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v7"
-            alt=""
-          />
+          <svg class="native-login-hero__mark" viewBox="0 0 68 68" width="80" height="80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="0" y="0" width="68" height="68" rx="14" fill="#0a5a47" />
+            <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5" />
+            <rect x="14" y="24" width="18" height="5" rx="2.5" fill="#9FE1CB" />
+            <rect x="14" y="34" width="22" height="5" rx="2.5" fill="#5DCAA5" />
+            <line x1="14" y1="56" x2="54" y2="56" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+            <polyline points="44,48 54,56 44,64" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </div>
         <h1 class="native-login-hero__title">ShiftSwift HR</h1>
         <p class="native-login-hero__tagline">One sign-in for your whole team</p>
@@ -34,57 +71,31 @@
 
       <main class="native-login-sheet">
         <section class="portal-login-card portal-login-card--business" id="portal-login-card">
-          <div class="portal-login-role-banner" id="login-role-banner" hidden aria-hidden="true">
-            <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Sign in</span>
-            <p class="portal-login-role-banner__copy" id="login-role-banner-copy"></p>
-          </div>
-
           <div id="login-shell" class="portal-login-card-body">
-            <div class="native-login-roles" aria-label="Supported account types">
-              <div class="native-login-role-chip native-login-role-chip--employee">
-                <span class="native-login-role-chip__label">Staff</span>
-                Employee portal
-              </div>
-              <div class="native-login-role-chip native-login-role-chip--admin">
-                <span class="native-login-role-chip__label">Managers</span>
-                HR admin
-              </div>
-            </div>
-
             <div class="portal-login-card-head">
               <h1>Sign in</h1>
-              <p class="portal-login-card-lead" id="login-lead">
-                Use your work email — we open the right portal for you.
-              </p>
+              <p class="portal-login-card-lead" id="login-lead">Enter your work email and password.</p>
             </div>
 
-            <form id="portal-login-form" class="portal-login-form">
+            <form id="portal-login-form" class="portal-login-form" novalidate>
               <label>
                 Work email
-                <input name="username" required autocomplete="username" placeholder="you@company.co.uk" />
+                <input name="username" id="login-email" required autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you@company.co.uk" />
               </label>
               <label class="portal-login-password-field">
                 <span class="portal-login-password-label">
                   <span id="password-label">Password</span>
-                  <a
-                    class="portal-login-inline-link portal-login-forgot"
-                    id="forgot-password-link"
-                    href="./employee-forgot-password.html"
-                  >Forgot?</a>
+                  <a class="portal-login-inline-link portal-login-forgot" id="forgot-password-link" href="./employee-forgot-password.html">Forgot?</a>
                 </span>
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  autocomplete="current-password"
-                  placeholder="Enter password"
-                  aria-labelledby="password-label"
-                />
+                <input name="password" type="password" autocomplete="current-password" placeholder="Enter password" aria-labelledby="password-label" />
               </label>
+              <label class="unified-login-remember-device" id="login-remember-device-wrap">
+                <input type="checkbox" id="login-remember-device" checked />
+                <span>Trust this device for 30 days — skip authenticator next time</span>
+              </label>
+              <button class="btn portal-login-submit" type="submit" id="login-submit">Sign in</button>
 
               <p id="login-status" class="form-error-message" hidden></p>
-
-              <button class="btn portal-login-submit" type="submit" id="login-submit">Sign in</button>
 
               <p class="portal-login-secure-note">
                 Secured · <span data-secure-host>shiftswifthr.co.uk</span>
@@ -119,6 +130,10 @@
               <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
             </div>
             <form id="mfa-form" class="portal-login-form">
+              <label class="unified-login-remember-device">
+                <input type="checkbox" id="login-remember-device-mfa" checked />
+                <span>Trust this device for 30 days</span>
+              </label>
               <label>
                 Authenticator code
                 <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
@@ -129,8 +144,9 @@
         </section>
       </main>
     </div>
-    <script src="./session-auth.js?v=3"></script>
-    <script src="./login.js?v=brandkit-v19"></script>
+    <script src="./trusted-device.js?v=2"></script>
+    <script src="./session-auth.js?v=8"></script>
+    <script src="./unified-login.js?v=12"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

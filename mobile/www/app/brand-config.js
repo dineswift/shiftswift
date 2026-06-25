@@ -28,7 +28,19 @@ window.ShiftSwiftBrand = {
   },
 };
 
+window.ShiftSwiftBrand.isCapacitorNative = function isCapacitorNative() {
+  try {
+    return Boolean(
+      window.Capacitor?.isNativePlatform?.() ||
+        (window.Capacitor?.getPlatform?.() && window.Capacitor.getPlatform() !== "web"),
+    );
+  } catch {
+    return false;
+  }
+};
+
 window.ShiftSwiftBrand.isLocalDevHost = function isLocalDevHost() {
+  if (this.isCapacitorNative()) return false;
   const host = window.location.hostname;
   return host === "localhost" || host === "127.0.0.1";
 };
@@ -79,6 +91,9 @@ window.ShiftSwiftBrand.normalizeApiBase = function normalizeApiBase(url) {
 };
 
 window.ShiftSwiftBrand.resolveApiBase = function resolveApiBase() {
+  if (this.isCapacitorNative()) {
+    return this.normalizeApiBase(this.urls.api);
+  }
   if (this.isLocalDevHost()) {
     return this.urls.localApi;
   }

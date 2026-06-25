@@ -477,10 +477,11 @@ def publish_week(
     notify_staff: bool = False,
 ) -> dict[str, Any]:
     assert_week_publish_allowed(week_start=week_start)
+    previous_snapshot: list[dict[str, Any]] | None = None
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, version
+            SELECT id, version, published_shift_snapshot
             FROM rota_weeks
             WHERE tenant_id = %s AND week_start = %s
             FOR UPDATE
@@ -490,9 +491,11 @@ def publish_week(
         row = cur.fetchone()
         if not row:
             raise RotaValidationError("No rota for this week — save shifts first", field="week_start")
-        week_id, version = row[0], int(row[1])
+        week_id, version, snapshot_raw = row[0], int(row[1]), row[2]
         if version != expected_version:
             raise RotaConflictError(expected_version, version)
+        if snapshot_raw:
+            previous_snapshot = list(snapshot_raw) if isinstance(snapshot_raw, list) else None
 
         cur.execute(
             "SELECT COUNT(*) FROM rota_shifts WHERE tenant_id = %s AND rota_week_id = %s",
@@ -523,14 +526,20 @@ def publish_week(
     _, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
     result: dict[str, Any] = {"week": week, "shifts": shifts, "message": "Rota published"}
     if notify_staff:
-        from modules.rota.notifications import notify_rota_published
+        from modules.rota.notifications import notify_rota_published, save_published_snapshot
 
         result["notifications"] = notify_rota_published(
             tenant_id=tenant_id,
             week_start=week_start,
             shifts=shifts,
             conn=conn,
+            previous_shifts=previous_snapshot,
         )
+        save_published_snapshot(conn=conn, week_id=week_id, shifts=shifts)
+    else:
+        from modules.rota.notifications import save_published_snapshot
+
+        save_published_snapshot(conn=conn, week_id=week_id, shifts=shifts)
     return result
 
 

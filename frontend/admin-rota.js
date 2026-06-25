@@ -2322,9 +2322,24 @@
       await loadWeek();
       let msg = data.message || "Rota published — staff can see shifts in Time Clock.";
       if (notifyStaff && data.notifications) {
-        const { emails_sent: sent = 0, emails_skipped: skipped = 0 } = data.notifications;
-        if (sent > 0) msg += ` · ${sent} email${sent === 1 ? "" : "s"} sent`;
-        else if (skipped > 0) msg += " · no staff emails sent (check addresses or notification settings)";
+        const n = data.notifications;
+        const sent = n.emails_sent ?? 0;
+        const notified = n.employees_notified ?? sent;
+        const unchanged = n.employees_unchanged ?? 0;
+        if (n.mode === "update") {
+          if (notified > 0) {
+            msg += ` · ${notified} staff notified about changes`;
+            if (unchanged > 0) {
+              msg += ` (${unchanged} unchanged — not emailed)`;
+            }
+          } else {
+            msg += " · no schedule changes — staff not emailed";
+          }
+        } else if (sent > 0) {
+          msg += ` · ${sent} email${sent === 1 ? "" : "s"} sent`;
+        } else if ((n.emails_skipped ?? 0) > 0) {
+          msg += " · no staff emails sent (check addresses or notification settings)";
+        }
       }
       return msg;
     };

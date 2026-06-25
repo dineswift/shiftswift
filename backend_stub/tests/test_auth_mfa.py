@@ -15,6 +15,7 @@ from auth_mfa import (
     create_mfa_enrollment_token,
     decode_mfa_challenge_token,
     decode_mfa_enrollment_token,
+    hash_device_token,
     portal_allows_user,
     verify_totp_code,
 )
@@ -53,6 +54,11 @@ def test_totp_verify_round_trip() -> None:
     code = pyotp.TOTP(secret).now()
     assert verify_totp_code(secret=secret, code=code)
     assert not verify_totp_code(secret=secret, code="000000")
+
+
+def test_device_token_hash_is_stable() -> None:
+    assert hash_device_token("abc") == hash_device_token("abc")
+    assert hash_device_token("abc") != hash_device_token("xyz")
 
 
 def test_mfa_challenge_token_round_trip() -> None:

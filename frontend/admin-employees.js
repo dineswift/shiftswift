@@ -700,6 +700,7 @@
   let workspaceCache = null;
   let sectionLoaded = false;
   let openEmployeeRequest = 0;
+  let pendingDocumentSigningUi = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -1698,9 +1699,12 @@
         </label>
         <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
       </form>
+      <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
+      <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
+      <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th></th></tr></thead>
+          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th></th></tr></thead>
           <tbody id="employee-documents-body"></tbody>
         </table>
       </div>`;
@@ -1757,13 +1761,27 @@
         { key: "expires_at", render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set") },
         { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
         {
+          key: "signing_status",
+          render: (row) => {
+            if (row.signing_status === "signed") return '<span class="badge">Signed</span>';
+            if (row.signing_status === "sent") return '<span class="badge pill">Awaiting signature</span>';
+            return "";
+          },
+        },
+        {
           key: "actions",
-          render: (row) =>
-            `<div class="table-actions">
+          render: (row) => {
+            const canSign =
+              row.has_file &&
+              row.category !== "payslip" &&
+              row.signing_status !== "signed";
+            return `<div class="table-actions">
               ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
+              ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
               ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
               <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
-            </div>`,
+            </div>`;
+          },
         },
       ],
       rows: docs,
@@ -1772,26 +1790,109 @@
     container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!window.confirm("Remove this document record?")) return;
-        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${btn.dataset.deleteDoc}`, {
-          method: "DELETE",
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          alert(err.detail || "Delete failed");
-          return;
+        const actionStatus = container.querySelector("#employee-document-action-status");
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performDelete = async () => {
+          const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${btn.dataset.deleteDoc}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Delete failed");
+          }
+          await openEmployee(activeEmployeeId, "document_store");
+          return "Removed.";
+        };
+        if (run) {
+          await run(btn, actionStatus, {
+            loadingLabel: "Removing…",
+            successMessage: "Removed.",
+            errorMessage: "Remove failed.",
+            successLabel: "Removed",
+            onAction: performDelete,
+          });
+        } else {
+          try {
+            if (actionStatus) actionStatus.textContent = "Removing…";
+            const message = await performDelete();
+            if (actionStatus) actionStatus.textContent = message;
+          } catch (error) {
+            window.alert(error.message || "Delete failed");
+          }
         }
-        await openEmployee(activeEmployeeId, "document_store");
       });
     });
 
     container.querySelectorAll("[data-download-doc]").forEach((btn) => {
       btn.addEventListener("click", async () => {
+        const actionStatus = container.querySelector("#employee-document-action-status");
         const row = docs.find((item) => String(item.id) === btn.dataset.downloadDoc);
         const name = row?.original_filename || `${row?.title || "document"}.bin`;
-        await downloadAuthenticated(
-          `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.downloadDoc}/file`,
-          name
-        );
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performDownload = async () => {
+          await downloadAuthenticated(
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.downloadDoc}/file`,
+            name
+          );
+          return "Download started.";
+        };
+        if (run) {
+          await run(btn, actionStatus, {
+            loadingLabel: "Downloading…",
+            successMessage: "Download started.",
+            errorMessage: "Download failed.",
+            successLabel: "Done",
+            clearStatusAfterMs: 3000,
+            onAction: performDownload,
+          });
+        } else {
+          try {
+            await performDownload();
+          } catch (error) {
+            window.alert(error.message || "Download failed");
+          }
+        }
+      });
+    });
+
+    container.querySelectorAll("[data-send-sign-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const signingStatus = container.querySelector("#employee-document-signing-status");
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performSend = async () => {
+          const res = await apiFetch(
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
+            {
+              method: "POST",
+              body: JSON.stringify({ frontend_base: window.location.origin }),
+            }
+          );
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Send failed");
+          pendingDocumentSigningUi = {
+            signing_url: data.signing_url,
+            reference_code: data.reference_code,
+          };
+          await openEmployee(activeEmployeeId, "document_store");
+          return `Sent for signature · ${data.reference_code}`;
+        };
+        if (run) {
+          await run(btn, signingStatus, {
+            loadingLabel: "Sending…",
+            successMessage: "Sent for signature.",
+            errorMessage: "Send failed.",
+            successLabel: "Sent",
+            onAction: performSend,
+          });
+        } else {
+          if (signingStatus) signingStatus.textContent = "Sending signing link…";
+          try {
+            const message = await performSend();
+            if (signingStatus) signingStatus.textContent = message;
+          } catch (error) {
+            if (signingStatus) signingStatus.textContent = error.message || "Send failed";
+          }
+        }
       });
     });
 
@@ -1824,23 +1925,31 @@
       event.preventDefault();
       const status = uploadForm.querySelector("[data-upload-status]");
       if (uploadCategory?.value === "payslip" && !payPeriodInput?.value.trim()) {
-        if (status) status.textContent = "Pay period is required for payslips.";
+        if (window.ShiftSwiftAction?.setActionStatus) {
+          window.ShiftSwiftAction.setActionStatus(status, "Pay period is required for payslips.", "error");
+        } else if (status) {
+          status.textContent = "Pay period is required for payslips.";
+        }
         return;
       }
       const uploadFile = uploadForm.querySelector('input[name="file"]')?.files?.[0];
       const fileError = validateDocumentUploadFile(uploadFile);
       if (fileError) {
-        if (status) status.textContent = fileError;
+        if (window.ShiftSwiftAction?.setActionStatus) {
+          window.ShiftSwiftAction.setActionStatus(status, fileError, "error");
+        } else if (status) {
+          status.textContent = fileError;
+        }
         return;
       }
-      if (status) status.textContent = "Uploading…";
-      const fd = new FormData(uploadForm);
-      const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
-      const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
-      fd.set("notify_employee", notify ? "true" : "false");
-      fd.set("send_email", sendEmail ? "true" : "false");
-      if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
-      try {
+
+      const performUpload = async () => {
+        const fd = new FormData(uploadForm);
+        const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
+        const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
+        fd.set("notify_employee", notify ? "true" : "false");
+        fd.set("send_email", sendEmail ? "true" : "false");
+        if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",
           headers: authHeaders(false),
@@ -1853,14 +1962,50 @@
           uploadCategory.dispatchEvent(new Event("change"));
         }
         const notified = data?.notifications?.notified_count;
-        if (status) {
-          status.textContent = notified != null ? `Uploaded. Employee notified.` : "Uploaded.";
-        }
         await openEmployee(activeEmployeeId, "document_store");
+        return notified != null ? "Uploaded. Employee notified." : "Uploaded.";
+      };
+
+      const run = window.ShiftSwiftAction?.runFormSubmit;
+      if (run) {
+        await run(uploadForm, status, {
+          loadingLabel: "Uploading…",
+          successMessage: "Uploaded.",
+          errorMessage: "Upload failed.",
+          successLabel: "Uploaded",
+          onAction: performUpload,
+        });
+        return;
+      }
+
+      if (status) status.textContent = "Uploading…";
+      try {
+        const message = await performUpload();
+        if (status) status.textContent = message;
       } catch (error) {
         if (status) status.textContent = error.message;
       }
     });
+
+    if (pendingDocumentSigningUi) {
+      const { signing_url: signingUrl, reference_code: referenceCode } = pendingDocumentSigningUi;
+      const linkBox = container.querySelector("#employee-document-signing-link");
+      const signingStatus = container.querySelector("#employee-document-signing-status");
+      if (linkBox && signingUrl) {
+        linkBox.hidden = false;
+        linkBox.innerHTML = `<p><strong>Signing link</strong> (also emailed to employee):</p>
+          <input type="text" readonly value="${escapeHtml(signingUrl)}" style="width:100%;" onclick="this.select()" />`;
+      }
+      if (signingStatus) {
+        const message = `Sent for signature · ${referenceCode}`;
+        if (window.ShiftSwiftAction?.setActionStatus) {
+          window.ShiftSwiftAction.setActionStatus(signingStatus, message, "ok");
+        } else {
+          signingStatus.textContent = message;
+        }
+      }
+      pendingDocumentSigningUi = null;
+    }
   }
 
   function formatNoteWhen(iso) {

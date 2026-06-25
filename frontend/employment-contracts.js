@@ -376,7 +376,7 @@
       </div>
       ${!data.employee_email ? `<p class="employment-detail-alert">Add an email on the employee profile before sending.</p>` : ""}
       <div id="employment-signing-link-box" class="signing-link-box" hidden></div>
-      <p class="muted employment-action-status" id="employment-contract-action-status"></p>`;
+      <p class="edit-form-status muted employment-action-status" id="employment-contract-action-status" aria-live="polite"></p>`;
     content.querySelector("#employment-contract-send-btn")?.addEventListener("click", () => sendContract(data.id));
     syncDetailLayout();
   }
@@ -399,8 +399,9 @@
 
   async function sendContract(id) {
     const status = $("employment-contract-action-status");
-    if (status) status.textContent = "Sending signing link…";
-    try {
+    const btn = $("employment-contract-send-btn");
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    const performSend = async () => {
       const res = await apiFetch(`/employment-contracts/${id}/send`, {
         method: "POST",
         body: JSON.stringify({ frontend_base: window.location.origin }),
@@ -413,9 +414,24 @@
         box.innerHTML = `<p><strong>Signing link</strong> (also emailed to employee):</p>
           <input type="text" readonly value="${escapeHtml(data.signing_url)}" style="width:100%;" onclick="this.select()" />`;
       }
-      if (status) status.textContent = "Sent for signature.";
       await loadContracts();
       await selectContract(id, { scroll: false });
+      return "Sent for signature.";
+    };
+    if (run && btn) {
+      await run(btn, status, {
+        loadingLabel: "Sending…",
+        successMessage: "Sent for signature.",
+        errorMessage: "Send failed.",
+        successLabel: "Sent",
+        onAction: performSend,
+      });
+      return;
+    }
+    if (status) status.textContent = "Sending signing link…";
+    try {
+      const message = await performSend();
+      if (status) status.textContent = message;
     } catch (error) {
       if (status) status.textContent = error.message || "Send failed";
     }

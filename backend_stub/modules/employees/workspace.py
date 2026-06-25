@@ -149,6 +149,9 @@ def build_workspace(*, tenant_id: int, employee_id: int, conn: Any) -> dict[str,
     employee["_payroll_enabled"] = bool(profile.get("payroll_enabled"))
 
     documents = list_employee_documents(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    from modules.document_signing.service import attach_signing_status
+
+    documents = attach_signing_status(tenant_id=tenant_id, documents=documents, conn=conn)
     req_status = requirements_status(
         is_sponsored=bool(employee.get("is_sponsored")),
         documents=documents,

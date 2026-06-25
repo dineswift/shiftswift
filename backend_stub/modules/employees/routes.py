@@ -295,6 +295,9 @@ def read_employee_documents(
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
             raise HTTPException(status_code=404, detail="employee not found")
         items = list_employee_documents(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        from modules.document_signing.service import attach_signing_status
+
+        items = attach_signing_status(tenant_id=tenant_id, documents=items, conn=conn)
     finally:
         conn.close()
     return {"items": items, "count": len(items)}
@@ -465,6 +468,59 @@ def download_employee_document_file(
         media_type=doc.get("content_type") or "application/octet-stream",
         filename=filename,
     )
+
+
+class SendDocumentSignatureRequest(BaseModel):
+    frontend_base: str | None = Field(default=None, max_length=240)
+
+
+@router.post("/{employee_id}/documents/{document_id}/send-for-signature")
+def send_employee_document_for_signature(
+    employee_id: int,
+    document_id: int,
+    payload: SendDocumentSignatureRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.document_signing.service import send_document_for_signature
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    frontend_base = (payload.frontend_base or str(request.base_url)).rstrip("/")
+    if frontend_base.endswith("/admin/employees"):
+        frontend_base = frontend_base.rsplit("/admin", 1)[0]
+    conn = get_connection()
+    try:
+        if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
+            raise HTTPException(status_code=404, detail="employee not found")
+        try:
+            result = send_document_for_signature(
+                conn=conn,
+                tenant_id=tenant_id,
+                employee_id=employee_id,
+                document_id=document_id,
+                actor=current_user.username,
+                frontend_base=frontend_base,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        log_employee_data_event(
+            tenant_id=tenant_id,
+            actor_username=current_user.username,
+            actor_role=current_user.role,
+            action="send_for_signature",
+            entity_type="employee_document",
+            entity_id=document_id,
+            field_name=f"employee_id={employee_id}",
+            ip_address=client_ip(request),
+            user_agent=request.headers.get("User-Agent"),
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    return result
 
 
 @router.post("/{employee_id}/documents")

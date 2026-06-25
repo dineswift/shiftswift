@@ -359,6 +359,35 @@ def contract_signing_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def document_signing_email(
+    *,
+    signatory_name: str | None,
+    document_title: str,
+    reference_code: str,
+    signing_url: str,
+) -> EmailContent:
+    greeting = signatory_name or "there"
+    subject = f"{APP_NAME} — Please sign: {document_title} ({reference_code})"
+    text = (
+        f"Dear {greeting},\n\n"
+        f"A document is ready for your review and electronic signature:\n{signing_url}\n\n"
+        f"Reference: {reference_code}\n"
+        f"This link expires in 30 days.\n\n{APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=f"Sign {document_title}.",
+        title="Document ready for signature",
+        intro=f"Dear {greeting}, please review and sign «{document_title}» (reference {reference_code}).",
+        paragraphs=[
+            "Open the secure link to read the document and confirm your signature.",
+            "This link expires in 30 days.",
+        ],
+        cta_url=signing_url,
+        cta_label="Review and sign",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def trial_reminder_email(
     *,
     tenant_name: str,
@@ -635,6 +664,66 @@ def rota_published_email(
         paragraphs=paragraphs,
         cta_url=portal_url,
         cta_label="View my rota",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def rota_updated_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    week_label: str,
+    shift_lines: list[str],
+    change_kind: str,
+) -> EmailContent:
+    portal_url = f"{APP_URL}/employee.html#rota"
+    if change_kind == "removed":
+        subject = _employer_subject(tenant_name, f"Schedule update for {week_label}")
+        intro = (
+            f"{tenant_name} has updated the rota for {week_label}. "
+            "You are no longer scheduled for any shifts that week."
+        )
+        title = "Your schedule changed"
+        preheader = f"Rota update for {week_label}."
+        paragraphs = [
+            "If you think this is a mistake, speak to your manager.",
+            "Open the employee portal to check your current schedule.",
+        ]
+        cta_label = "View my schedule"
+    elif change_kind == "added":
+        subject = _employer_subject(tenant_name, f"New shifts for {week_label}")
+        intro = f"{tenant_name} has added you to the rota for {week_label}."
+        title = "You've been scheduled"
+        preheader = f"New shifts for {week_label}."
+        paragraphs = shift_lines[:8] if shift_lines else ["Open your employee portal to see your shifts."]
+        if len(shift_lines) > 8:
+            paragraphs.append(f"…and {len(shift_lines) - 8} more shift(s) in the portal.")
+        cta_label = "View my shifts"
+    else:
+        subject = _employer_subject(tenant_name, f"Shift update for {week_label}")
+        intro = f"{tenant_name} has updated your shifts for {week_label}."
+        title = "Your shifts were updated"
+        preheader = f"Your shifts for {week_label} changed."
+        paragraphs = shift_lines[:8] if shift_lines else ["Open your employee portal to see your updated schedule."]
+        if len(shift_lines) > 8:
+            paragraphs.append(f"…and {len(shift_lines) - 8} more shift(s) in the portal.")
+        cta_label = "View updated rota"
+
+    shift_text = "\n".join(f"• {line}" for line in shift_lines) if shift_lines and change_kind != "removed" else ""
+    text_parts = [f"Hello {employee_name},\n\n{intro}\n"]
+    if shift_text:
+        text_parts.append(f"\n{shift_text}\n")
+    text_parts.append(f"\nView your schedule:\n{portal_url}\n\n{_employer_text_signoff(tenant_name)}\n")
+    text = "".join(text_parts)
+
+    html = render_email(
+        preheader=preheader,
+        title=title,
+        intro=f"Hello {employee_name}, {intro}",
+        paragraphs=paragraphs,
+        cta_url=portal_url,
+        cta_label=cta_label,
         employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)

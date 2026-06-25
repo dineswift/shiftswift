@@ -3,7 +3,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-  const BUNDLED_ASSET_VERSION = "7";
+const BUNDLED_ASSET_VERSION = "11";
 
   function isCapacitorNative() {
     try {
@@ -78,6 +78,11 @@
     if (!isNativeApp()) return;
     document.documentElement.classList.add("native-app", "pwa-standalone", "ios-device");
     if (document.body) document.body.classList.add("native-app", "pwa-standalone");
+    try {
+      localStorage.setItem("sshrNativeApp", "1");
+    } catch {
+      /* ignore */
+    }
     if (isUnifiedNativeApp()) {
       document.documentElement.classList.add("native-app--unified");
       if (document.body) document.body.classList.add("native-app--unified");
@@ -103,16 +108,33 @@
   function redirectLegacyLoginPages() {
     if (!isCapacitorNative()) return;
     const path = window.location.pathname || "";
+    const href = window.location.href || "";
+
+    if (isUnifiedNativeApp()) {
+      if (
+        path.includes("native-app-login") ||
+        path.includes("employee-login") ||
+        path.includes("business-login") ||
+        (path.endsWith("/login.html") && !path.includes("native-app-login"))
+      ) {
+        window.location.replace(unifiedNativeLoginUrl());
+        return;
+      }
+      if (href.includes("app.shiftswifthr.co.uk") && !href.includes("source=native")) {
+        const onPortal =
+          path.endsWith("/admin.html") ||
+          path.endsWith("/employee.html") ||
+          path.endsWith("/master.html");
+        if (onPortal) return;
+      }
+      return;
+    }
+
     const onDedicatedLogin =
       path.includes("employee-login") ||
       path.includes("business-login") ||
       (path.endsWith("/login.html") && !path.includes("native-app-login"));
     if (!onDedicatedLogin) return;
-
-    if (isUnifiedNativeApp()) {
-      window.location.replace(unifiedNativeLoginUrl());
-      return;
-    }
 
     const appId = getNativeAppId();
     if (appId === EMPLOYEE_APP_ID && !path.includes("employee-login")) {
@@ -169,26 +191,55 @@
 
     document.addEventListener(
       "submit",
-      () => {
+      (event) => {
+        const form = event.target;
+        if (form?.id === "portal-login-form" || form?.id === "mfa-form") return;
         showSplash();
       },
       true,
     );
   }
 
+  function forceHideSplash() {
+    hideSplash();
+    try {
+      window.Capacitor?.Plugins?.SplashScreen?.hide?.()?.catch?.(() => null);
+    } catch {
+      /* ignore */
+    }
+  }
+
   function scheduleSplashHide() {
-    const hide = () => window.setTimeout(hideSplash, 80);
+    const hide = () => window.setTimeout(forceHideSplash, 80);
+    if (document.getElementById("native-startup-loader")) {
+      window.addEventListener(
+        "shiftswift:startup-loader-done",
+        () => window.setTimeout(forceHideSplash, 40),
+        { once: true },
+      );
+      window.setTimeout(forceHideSplash, 4500);
+      return;
+    }
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", hide, { once: true });
     } else {
       hide();
     }
     window.addEventListener("load", hide, { once: true });
-    window.setTimeout(hideSplash, 4000);
+    window.setTimeout(forceHideSplash, 4000);
+
+    document.addEventListener(
+      "touchstart",
+      () => {
+        forceHideSplash();
+      },
+      { once: true, passive: true },
+    );
   }
 
   function initNativeChrome() {
     if (!isCapacitorNative()) return;
+    applyNativeClasses();
     injectBundledStylesheet("native-app-chrome.css");
     bindNavigationSplash();
     scheduleSplashHide();
@@ -216,9 +267,13 @@
   applyNativeClasses();
   redirectLegacyLoginPages();
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initNativeChrome, { once: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      initNativeChrome();
+      forceHideSplash();
+    }, { once: true });
   } else {
     initNativeChrome();
+    forceHideSplash();
   }
 
   window.ShiftSwiftNativeApp = {
@@ -241,7 +296,7 @@
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
     const scheme = window.Capacitor.config?.ios?.scheme || "App";
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=7`;
+    script.src = `${scheme}://localhost/native-app.js?v=11`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);

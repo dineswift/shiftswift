@@ -241,7 +241,133 @@ def authenticate_user(
         return None
     if portal == "business" and user.role == "admin":
         return None
-    return user
+    return None
+
+
+def _lookup_user_row(settings: Settings, username: str) -> dict[str, Any] | None:
+    row = fetch_user_from_db(settings, username)
+    if row:
+        return row
+    if settings.is_production:
+        return None
+    normalized = username.strip().lower()
+    fallbacks = development_fallback_users(master_tenant_id=settings.master_customer_id)
+    for key, fallback in fallbacks.items():
+        if key.lower() == normalized:
+            return {
+                "username": key,
+                "role": fallback["role"],
+                "tenant_id": str(fallback["tenant_id"]),
+                "is_active": True,
+                "login_portal": "master" if fallback["role"] == "admin" else "business",
+            }
+    return None
+
+
+def resolve_login_portal(settings: Settings, username: str) -> dict[str, str]:
+    """Return a non-sensitive portal hint for unified sign-in (email-first step)."""
+    normalized = username.strip()
+    if not normalized:
+        return _unknown_login_portal_response()
+
+    row = _lookup_user_row(settings, normalized)
+    if not row or not row.get("is_active"):
+        return _unknown_login_portal_response()
+
+    role = str(row["role"])
+    login_portal = row.get("login_portal") or ("master" if role == "admin" else "business")
+    if role == "admin" or login_portal == "master":
+        return {
+            "portal": "master",
+            "lead": "This account uses the platform master console.",
+            "pill": "Platform",
+            "redirect_path": "ops-9x7k2.html",
+            "forgot_path": "ops-9x7k2.html",
+        }
+    if role == "employee":
+        return {
+            "portal": "employee",
+            "lead": "Staff portal — payslips, shifts, and clock-in.",
+            "pill": "Staff",
+            "endpoint": "/auth/employee-login",
+            "redirect_path": "employee.html",
+            "forgot_path": "employee-forgot-password.html",
+        }
+    return {
+        "portal": "hr",
+        "lead": "HR admin — manage employees, rotas, and compliance.",
+        "pill": "Managers",
+        "endpoint": "/auth/business-login",
+        "redirect_path": "admin.html",
+        "forgot_path": "forgot-password.html",
+    }
+
+
+def _unknown_login_portal_response() -> dict[str, str]:
+    return {
+        "portal": "unknown",
+        "lead": "Enter your password — we'll open the right portal for you.",
+        "pill": "Sign in",
+        "endpoint": "/auth/unified-login",
+        "redirect_path": "",
+        "forgot_path": "employee-forgot-password.html",
+    }
+
+
+def resolve_unified_authentication(
+    settings: Settings,
+    username: str,
+    password: str,
+) -> tuple[AuthUser | None, Literal["hr", "employee"] | None, str | None]:
+    """Authenticate once for unified sign-in and pick the business portal role."""
+    row = fetch_user_from_db(settings, username)
+    if row:
+        if not row.get("is_active"):
+            return None, None, "Invalid username or password"
+        locked_until = row.get("locked_until")
+        if locked_until and locked_until > datetime.now(timezone.utc):
+            return None, None, "Invalid username or password"
+        if not verify_password(password, row["password_hash"]):
+            return None, None, "Invalid username or password"
+        role = str(row["role"])
+        login_portal = row.get("login_portal") or ("master" if role == "admin" else "business")
+        if role == "admin" or login_portal == "master":
+            return None, None, "Platform master admin uses a separate sign-in page."
+        if role == "employee":
+            return (
+                AuthUser(username=row["username"], role=role, tenant_id=str(row["tenant_id"])),
+                "employee",
+                None,
+            )
+        if role == "hr":
+            return (
+                AuthUser(username=row["username"], role=role, tenant_id=str(row["tenant_id"])),
+                "hr",
+                None,
+            )
+        return None, None, "Invalid username or password"
+
+    if settings.is_production:
+        return None, None, "Invalid username or password"
+
+    fallback_users = development_fallback_users(master_tenant_id=settings.master_customer_id)
+    fallback = fallback_users.get(username)
+    if not fallback:
+        for key, value in fallback_users.items():
+            if key.lower() == username.lower():
+                fallback = value
+                break
+    if not fallback or fallback["password"] != password:
+        return None, None, "Invalid username or password"
+    role = str(fallback["role"])
+    if role == "admin":
+        return None, None, "Platform master admin uses a separate sign-in page."
+    business_role: Literal["hr", "employee"] = "employee" if role == "employee" else "hr"
+    return (
+        AuthUser(username=username, role=role, tenant_id=str(fallback["tenant_id"])),
+        business_role,
+        None,
+    )
 
 
 def login_portal_mismatch_message(

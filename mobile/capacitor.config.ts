@@ -13,10 +13,13 @@ const allowNavigation = [
 ];
 
 const pluginConfig = {
+  CapacitorHttp: {
+    enabled: true,
+  },
   SplashScreen: {
-    launchAutoHide: false,
+    launchAutoHide: true,
     launchShowDuration: 0,
-    launchFadeOutDuration: 450,
+    launchFadeOutDuration: 300,
     backgroundColor: "#0f6e56",
     showSpinner: false,
     androidSplashResourceName: "splash",
@@ -46,7 +49,7 @@ const apps: Record<AppVariant, CapacitorConfig> = {
     webDir: "www/app",
     server: devServer
       ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation }
-      : undefined,
+      : { allowNavigation },
     ios: {
       path: "ios-app",
       contentInset: "automatic",

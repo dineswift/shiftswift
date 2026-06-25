@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -18,6 +19,7 @@ Portal = Literal["master", "business"]
 MFA_ISSUER = os.getenv("MFA_ISSUER_NAME", "ShiftSwift HR")
 MFA_CHALLENGE_MINUTES = int(os.getenv("MFA_CHALLENGE_MINUTES", "5"))
 MFA_ENROLLMENT_MINUTES = int(os.getenv("MFA_ENROLLMENT_MINUTES", "15"))
+MFA_TRUSTED_DEVICE_DAYS = int(os.getenv("MFA_TRUSTED_DEVICE_DAYS", "30"))
 
 
 def _store_secret(raw_secret: str) -> str:
@@ -214,3 +216,74 @@ def verify_user_mfa_code(*, conn: Any, username: str, code: str) -> bool:
         return False
     secret = _load_secret(user["totp_secret"])
     return verify_totp_code(secret=secret, code=code)
+
+
+def hash_device_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def issue_trusted_device(
+    *,
+    conn: Any,
+    username: str,
+    user_agent: str | None = None,
+    ip_address: str | None = None,
+    device_label: str | None = None,
+) -> str:
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hash_device_token(raw_token)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=MFA_TRUSTED_DEVICE_DAYS)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO mfa_trusted_devices (
+              username, device_token_hash, device_label, user_agent, ip_address, expires_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (username, token_hash, device_label, user_agent, ip_address, expires_at),
+        )
+    conn.commit()
+    return raw_token
+
+
+def trusted_device_is_valid(*, conn: Any, username: str, raw_token: str) -> bool:
+    if not raw_token or not username:
+        return False
+    token_hash = hash_device_token(raw_token.strip())
+    now = datetime.now(timezone.utc)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id
+            FROM mfa_trusted_devices
+            WHERE lower(username) = lower(%s)
+              AND device_token_hash = %s
+              AND revoked_at IS NULL
+              AND expires_at > %s
+            LIMIT 1
+            """,
+            (username, token_hash, now),
+        )
+        row = cur.fetchone()
+        if not row:
+            return False
+        cur.execute(
+            "UPDATE mfa_trusted_devices SET last_used_at = NOW() WHERE id = %s",
+            (row[0],),
+        )
+    conn.commit()
+    return True
+
+
+def revoke_trusted_devices(*, conn: Any, username: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE mfa_trusted_devices
+            SET revoked_at = NOW()
+            WHERE lower(username) = lower(%s) AND revoked_at IS NULL
+            """,
+            (username,),
+        )
+    conn.commit()
