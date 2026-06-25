@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="./native-app-bootstrap.js?v=5"></script>
+    <script src="./native-app-bootstrap.js?v=6"></script>
     <script src="./brand-config.js?v=brand-v5"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="theme-color" content="#0f6e56" />
@@ -21,6 +21,20 @@
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=1" />
   </head>
   <body class="employee-portal">
+    <script>
+      (function () {
+        function stripStartupLoader() {
+          try {
+            var loader = document.getElementById("native-startup-loader");
+            if (loader) loader.remove();
+            document.documentElement.classList.remove("native-startup-active");
+            document.body.classList.remove("native-startup-active");
+          } catch (e) {}
+        }
+        stripStartupLoader();
+        document.addEventListener("DOMContentLoaded", stripStartupLoader, { once: true });
+      })();
+    </script>
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
     <div class="app employee-app">
       <aside class="sidebar" id="app-sidebar">

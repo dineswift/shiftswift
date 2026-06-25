@@ -3,7 +3,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "14";
+const BUNDLED_ASSET_VERSION = "15";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -247,8 +247,25 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     }
   }
 
+  function isPortalShellPage() {
+    const cls = document.body?.classList;
+    return Boolean(
+      cls?.contains("admin-portal") || cls?.contains("employee-portal") || cls?.contains("master-app"),
+    );
+  }
+
+  function dismissStartupLoader() {
+    const loader = document.getElementById("native-startup-loader");
+    if (loader) loader.remove();
+    document.documentElement.classList.remove("native-startup-active");
+    document.body?.classList.remove("native-startup-active");
+    forceHideSplash();
+    window.dispatchEvent(new CustomEvent("shiftswift:startup-loader-done"));
+  }
+
   function scheduleSplashHide() {
     const hide = () => window.setTimeout(forceHideSplash, 80);
+
     if (document.getElementById("native-startup-loader")) {
       window.addEventListener(
         "shiftswift:startup-loader-done",
@@ -256,6 +273,13 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
         { once: true },
       );
       window.setTimeout(forceHideSplash, 4500);
+      return;
+    }
+
+    if (isPortalShellPage()) {
+      dismissStartupLoader();
+      window.addEventListener("shiftswift:portal-ready", () => hide(), { once: true });
+      window.setTimeout(forceHideSplash, 6000);
       return;
     }
     if (document.readyState === "loading") {
@@ -325,6 +349,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     capacitorAssetUrl,
     showSplash,
     hideSplash,
+    dismissStartupLoader,
   };
 })();
 
@@ -336,7 +361,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
     const scheme = window.Capacitor.config?.ios?.scheme || "App";
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=14`;
+    script.src = `${scheme}://localhost/native-app.js?v=15`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);

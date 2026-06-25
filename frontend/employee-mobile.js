@@ -127,6 +127,7 @@
 
   function dispatchPortalReady() {
     window.__SSHR_PORTAL_READY = true;
+    window.ShiftSwiftNativeApp?.dismissStartupLoader?.();
     window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
   }
 

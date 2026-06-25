@@ -45,6 +45,7 @@
   }
 
   function injectLoader() {
+    if (isPortalPage()) return null;
     const existing = document.getElementById("native-startup-loader");
     if (existing) return existing;
     if (!document.body || !isNative()) return null;
@@ -121,9 +122,18 @@
   }
 
   async function boot() {
-    if (isNative() && isPortalPage()) {
-      document.documentElement.classList.add("native-startup-active");
-      document.body?.classList.add("native-startup-active");
+    if (isPortalPage()) {
+      document.getElementById("native-startup-loader")?.remove();
+      document.documentElement.classList.remove("native-startup-active");
+      document.body?.classList.remove("native-startup-active");
+      hideCapacitorSplash();
+      window.ShiftSwiftNativeStartup = {
+        finish: hideCapacitorSplash,
+        hideCapacitorSplash,
+        injectLoader,
+        dismissNativeStartupLoader: hideCapacitorSplash,
+      };
+      return;
     }
 
     const loader = document.getElementById("native-startup-loader") || injectLoader();

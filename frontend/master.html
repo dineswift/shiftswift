@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="./native-app-bootstrap.js?v=5"></script>
+    <script src="./native-app-bootstrap.js?v=6"></script>
     <script src="./brand-config.js?v=brand-v5"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="robots" content="noindex, nofollow" />
@@ -15,6 +15,20 @@
     <link rel="stylesheet" href="./master.css?v=24" />
   </head>
   <body class="master-app">
+    <script>
+      (function () {
+        function stripStartupLoader() {
+          try {
+            var loader = document.getElementById("native-startup-loader");
+            if (loader) loader.remove();
+            document.documentElement.classList.remove("native-startup-active");
+            document.body.classList.remove("native-startup-active");
+          } catch (e) {}
+        }
+        stripStartupLoader();
+        document.addEventListener("DOMContentLoaded", stripStartupLoader, { once: true });
+      })();
+    </script>
     <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
 
     <aside class="master-sidebar" id="master-sidebar">
