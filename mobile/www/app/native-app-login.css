@@ -168,6 +168,27 @@ html.native-app body.portal-login-page--unified {
     0 -1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
+.portal-login-page--unified #login-shell[hidden],
+.portal-login-page--unified #mfa-panel[hidden],
+.portal-login-page--unified #mfa-enrollment-panel[hidden] {
+  display: none !important;
+}
+
+.portal-login-page--unified.login-step-mfa #login-shell,
+.portal-login-page--unified.login-step-mfa #mfa-enrollment-panel {
+  display: none !important;
+}
+
+.portal-login-page--unified.login-step-mfa #mfa-panel {
+  display: flex !important;
+  flex-direction: column;
+}
+
+.portal-login-page--unified.login-step-enroll #login-shell,
+.portal-login-page--unified.login-step-enroll #mfa-panel {
+  display: none !important;
+}
+
 .portal-login-page--unified #login-shell {
   flex: 1 1 auto;
   display: flex;
@@ -346,7 +367,8 @@ html.native-app body.portal-login-page--unified {
   gap: 12px;
 }
 
-.portal-login-page--unified .portal-login-form input {
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input {
   width: 100%;
   min-height: 50px;
   padding: 13px 15px;
@@ -359,11 +381,13 @@ html.native-app body.portal-login-page--unified {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.portal-login-page--unified .portal-login-form input::placeholder {
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input::placeholder,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input::placeholder {
   color: #9a9890;
 }
 
-.portal-login-page--unified .portal-login-form input:focus {
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input:focus,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input:focus {
   outline: none;
   border-color: var(--native-verdant);
   box-shadow: 0 0 0 4px rgba(29, 158, 117, 0.16);
@@ -442,16 +466,21 @@ html.native-app body.portal-login-page--unified {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 0.84rem;
   line-height: 1.45;
   color: var(--native-muted);
 }
 
-.unified-login-remember-device input {
-  width: auto;
-  min-height: 0;
-  margin-top: 3px;
+.unified-login-remember-device input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  min-width: 18px;
+  margin: 2px 0 0;
+  padding: 0;
+  border-radius: 5px;
+  flex-shrink: 0;
   accent-color: var(--native-green);
 }
 

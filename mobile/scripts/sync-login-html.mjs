@@ -24,7 +24,7 @@ for (const pattern of dropPatterns) {
 }
 
 html = html.replace(
-  /<script src="\.\/brand-config\.js[^"]*"><\/script>\s*<script src="\.\/native-app\.js[^"]*"><\/script>/i,
+  /<script src="\.\/brand-config\.js[^"]*"><\/script>\s*(?:<script src="\.\/app-host-guard\.js[^"]*"><\/script>\s*)?<script src="\.\/native-app\.js[^"]*"><\/script>\s*(?:<script src="\.\/session-auth\.js[^"]*"><\/script>\s*)?/i,
   `<link rel="stylesheet" href="./native-app-startup.css?v=2" />
     <script src="./native-app-startup.js?v=4"></script>
     <script src="./brand-config.js?v=brand-v8"></script>

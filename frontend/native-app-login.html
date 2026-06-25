@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="./native-app-startup.css?v=2" />
     <script src="./native-app-startup.js?v=4"></script>
     <title>ShiftSwift HR | Sign in</title>
-    <link rel="stylesheet" href="./native-app-login.css?v=10" />
+    <link rel="stylesheet" href="./native-app-login.css?v=11" />
   </head>
   <body class="portal-login-page portal-login-page--native-app portal-login-page--unified" data-login-page="unified">
     <div id="native-startup-loader" class="native-startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
@@ -131,22 +131,21 @@
               <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
             </div>
             <form id="mfa-form" class="portal-login-form">
-              <label class="unified-login-remember-device">
-                <input type="checkbox" id="login-remember-device-mfa" checked />
-                <span>Trust this device for 30 days</span>
-              </label>
               <label>
                 Authenticator code
                 <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
               </label>
               <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+              <p class="portal-login-secure-note">
+                Secured · <span data-secure-host>shiftswifthr.co.uk</span>
+              </p>
             </form>
           </div>
         </section>
       </main>
     </div>
     <script src="./trusted-device.js?v=2"></script>
-    <script src="./unified-login.js?v=13"></script>
+    <script src="./unified-login.js?v=14"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

@@ -218,6 +218,12 @@
     return String(value || "").trim();
   }
 
+  function setLoginStep(step) {
+    document.body.classList.remove("login-step-mfa", "login-step-enroll");
+    if (step === "mfa") document.body.classList.add("login-step-mfa");
+    if (step === "enroll") document.body.classList.add("login-step-enroll");
+  }
+
   function showLoginForm() {
     const loginShell = document.getElementById("login-shell");
     const mfaPanel = document.getElementById("mfa-panel");
@@ -225,6 +231,7 @@
     if (loginShell) loginShell.hidden = false;
     if (mfaPanel) mfaPanel.hidden = true;
     if (enrollmentPanel) enrollmentPanel.hidden = true;
+    setLoginStep("signin");
     const lead = document.getElementById("login-lead");
     if (lead) lead.textContent = "Enter your work email and password.";
     setStatus("");
@@ -237,6 +244,7 @@
     const enrollmentPanel = document.getElementById("mfa-enrollment-panel");
     if (loginShell) loginShell.hidden = true;
     if (enrollmentPanel) enrollmentPanel.hidden = true;
+    setLoginStep("mfa");
     if (mfaPanel) {
       mfaPanel.hidden = false;
       const userLabel = mfaPanel.querySelector("[data-mfa-user]");
@@ -297,6 +305,7 @@
     const mfaPanel = document.getElementById("mfa-panel");
     if (loginShell) loginShell.hidden = true;
     if (mfaPanel) mfaPanel.hidden = true;
+    setLoginStep("enroll");
     if (enrollmentPanel) enrollmentPanel.hidden = false;
 
     const userLabel = document.getElementById("mfa-enrollment-user");
