@@ -9,7 +9,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "26";
+    var version = "27";
 
     function markNativeShell() {
       try {

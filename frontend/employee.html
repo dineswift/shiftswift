@@ -7,6 +7,16 @@
       (function () {
         try {
           if (!window.Capacitor?.isNativePlatform?.()) return;
+          window.Capacitor.Plugins?.SplashScreen?.hide?.();
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
+    <script>
+      (function () {
+        try {
+          if (!window.Capacitor?.isNativePlatform?.()) return;
           window.__SSHR_BUNDLED_NATIVE_BOOT = true;
           var scheme =
             window.Capacitor.config && window.Capacitor.config.ios
@@ -16,12 +26,12 @@
           document.write(
             '<script src="' +
               scheme +
-              '://localhost/native-app-portal-guard.js?v=16"><\/script>',
+              '://localhost/native-app-portal-guard.js?v=27"><\/script>',
           );
           document.write(
             '<script src="' +
               scheme +
-              '://localhost/native-app-bootstrap.js?v=16"><\/script>',
+              '://localhost/native-app-bootstrap.js?v=27"><\/script>',
           );
         } catch (e) {
           /* ignore */
@@ -592,7 +602,8 @@
     </dialog>
 
     <script src="./brand-config.js?v=brand-v5"></script>
-    <script src="./session-auth.js?v=3"></script>
+    <script src="./session-auth.js?v=4"></script>
+    <script src="./auth-guard.js?v=security-v6"></script>
     <script src="./portal-pwa-stability.js?v=2"></script>
     <script src="./employee-pwa.js?v=8"></script>
     <script src="./push-notifications.js?v=3"></script>
@@ -608,7 +619,7 @@
     <script src="./admin-icons.js?v=2"></script>
     <script src="./employee-mobile.js?v=7"></script>
     <script src="./action-feedback.js?v=3"></script>
-    <script src="./employee.js?v=10"></script>
+    <script src="./employee.js?v=11"></script>
     <script src="./employee-push-alerts.js?v=2"></script>
     <script src="./employee-time-punch.js?v=10"></script>
     <script src="./employee-timesheet.js?v=2"></script>

@@ -9,8 +9,8 @@
           if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
           if (cap.config && cap.config.appId !== "co.uk.shiftswifthr.app") return;
           var scheme = (cap.config.ios && cap.config.ios.scheme) || "App";
-          var bundled = scheme + "://localhost/index.html?build=24";
-          if (!String(location.href).includes("build=24")) {
+          var bundled = scheme + "://localhost/index.html?build=27";
+          if (!String(location.href).includes("build=27")) {
             location.replace(bundled);
           }
         } catch (e) {}

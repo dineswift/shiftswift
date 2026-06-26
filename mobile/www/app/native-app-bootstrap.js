@@ -9,7 +9,7 @@
         : "App";
     if (!scheme) scheme = "App";
 
-    var version = "26";
+    var version = "27";
     var path = String(window.location.pathname || "");
     var onPortal =
       /admin\.html$/i.test(path) ||

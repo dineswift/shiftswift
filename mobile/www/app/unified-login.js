@@ -207,7 +207,6 @@
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
     await maybeEnableBiometricUnlock();
     markPostLoginTransition();
-    window.ShiftSwiftNativeApp?.showSplash?.();
     window.location.replace(redirect);
   }
 

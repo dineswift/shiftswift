@@ -3,9 +3,14 @@
   const API_BASE = session.getApiBase();
   const loginUrl = session.resolveLoginUrl();
 
-  if (!session.hasSession()) {
-    window.location.replace(loginUrl);
-    return;
+  async function ensureEmployeeSession() {
+    await session?.hydrateNativeSession?.({ force: true });
+    if (session?.hasSession?.()) return true;
+    if (session?.getRefreshToken?.()) {
+      const refreshed = await session.refreshAccessToken?.();
+      if (refreshed && session.hasSession?.()) return true;
+    }
+    return Boolean(session?.hasSession?.());
   }
 
   function setModalStatus(message) {
@@ -156,23 +161,38 @@
     })();
   }
 
-  document.querySelectorAll("[data-sign-out]").forEach((el) => {
-    el.addEventListener("click", signOut);
-  });
+  async function boot() {
+    const ok = await ensureEmployeeSession();
+    if (!ok) {
+      window.ShiftSwiftNativeApp?.hideSplash?.();
+      window.location.replace(
+        window.ShiftSwiftAuthGuard?.loginRedirectUrl?.() || session.resolveLoginUrl(),
+      );
+      return;
+    }
 
-  document.getElementById("employee-gdpr-submit")?.addEventListener("click", submitGdprConsent);
+    window.ShiftSwiftNativeApp?.hideSplash?.();
 
-  if (window.MobileShell) {
-    const sidebar = window.MobileShell.initSidebar();
-    window.EmployeeMobile?.init?.();
-    window.MobileShell.initHashSections({
-      defaultSection: "overview",
-      sectionEvent: "employee:section",
-      sidebar,
+    document.querySelectorAll("[data-sign-out]").forEach((el) => {
+      el.addEventListener("click", signOut);
     });
-  } else {
-    window.EmployeeMobile?.init?.();
+
+    document.getElementById("employee-gdpr-submit")?.addEventListener("click", submitGdprConsent);
+
+    if (window.MobileShell) {
+      const sidebar = window.MobileShell.initSidebar();
+      window.EmployeeMobile?.init?.();
+      window.MobileShell.initHashSections({
+        defaultSection: "overview",
+        sectionEvent: "employee:section",
+        sidebar,
+      });
+    } else {
+      window.EmployeeMobile?.init?.();
+    }
+
+    loadProfile();
   }
 
-  loadProfile();
+  void boot();
 })();

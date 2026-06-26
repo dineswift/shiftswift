@@ -11,7 +11,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "26";
+const BUNDLED_ASSET_VERSION = "27";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -423,6 +423,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   function initNativeChrome() {
     if (!isCapacitorNative()) return;
     const onLogin = document.body?.classList?.contains("portal-login-page");
+    const onEmployeePortal = document.body?.classList?.contains("employee-portal");
     void unregisterNativeServiceWorkers();
     applyNativeClasses();
     if (!onLogin) {
@@ -430,6 +431,9 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     }
     bindNavigationSplash();
     scheduleSplashHide();
+    if (onEmployeePortal) {
+      forceHideSplash();
+    }
     if (!onLogin) {
       sanitizeNativeApiBase();
       window.ShiftSwiftNativeApiFetch?.boot?.();
@@ -500,7 +504,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
     const scheme = window.Capacitor.config?.ios?.scheme || "App";
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=17`;
+    script.src = `${scheme}://localhost/native-app.js?v=27`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);
