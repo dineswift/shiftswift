@@ -266,3 +266,52 @@ html.native-app .employee-shift-reminder-toast span,
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
+
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) .topbar.app-mobile-header {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-brand__logo,
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-brand .app-mark {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-main {
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-brand__name {
+    font-size: 0.82rem;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-brand__app {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .mobile-back-btn {
+    font-size: 0.8rem;
+    padding: 6px 2px 6px 0;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-tools {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-signout-btn--mobile {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  body:has(#mobile-tab-bar).admin-mobile-detail .topbar-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+}

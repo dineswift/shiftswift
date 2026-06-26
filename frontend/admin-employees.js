@@ -581,8 +581,15 @@
           : "";
       const recruitmentExtras =
         stage.id === "recruitment"
-          ? `<div class="employees-recruitment-form-slot" id="employees-recruitment-form-slot"></div>
-             <button type="button" class="btn outline lifecycle-add-employee-btn" id="employees-hub-add-btn">+ Add employee</button>`
+          ? `<div class="employees-recruitment-add">
+              ${rows.length ? "" : `<p class="employees-recruitment-add__title">Start your register</p>`}
+              <p class="muted employees-recruitment-add__lead">${
+                rows.length
+                  ? "Add another employee — name and email is enough."
+                  : "Add your first employee — name and email is enough to begin."
+              }</p>
+              <div class="employees-recruitment-form-slot" id="employees-recruitment-form-slot"></div>
+            </div>`
           : "";
       const bulkInvite =
         stage.id === "active"
@@ -591,6 +598,12 @@
               <p class="muted" id="employees-hub-bulk-invite-status" aria-live="polite"></p>
             </div>`
           : "";
+      const stageBody =
+        stage.id === "recruitment"
+          ? !rows.length
+            ? recruitmentExtras
+            : `${cards}${viewAll}${recruitmentExtras}`
+          : `${cards}${viewAll}${bulkInvite}`;
 
       return `<section class="lifecycle-hub-section${isOpen ? " is-open" : ""}" data-lifecycle-section="${stage.id}">
         <button type="button" class="lifecycle-hub-section__header" data-lifecycle-toggle="${stage.id}" aria-expanded="${isOpen}">
@@ -600,10 +613,7 @@
           <span class="lifecycle-hub-section__chevron" aria-hidden="true"></span>
         </button>
         <div class="lifecycle-hub-section__body"${isOpen ? "" : " hidden"}>
-          ${cards}
-          ${viewAll}
-          ${recruitmentExtras}
-          ${bulkInvite}
+          ${stageBody}
         </div>
       </section>`;
     }).join("");
@@ -634,29 +644,25 @@
       });
     });
 
-    $("employees-hub-add-btn")?.addEventListener("click", () => {
-      $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      $("employee-quick-add-form")?.querySelector("input")?.focus();
-    });
-    hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => {
-      $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      $("employee-quick-add-form")?.querySelector("input")?.focus();
-    });
+    hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => focusRecruitmentAddForm());
 
     $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
+  }
+
+  function focusRecruitmentAddForm() {
+    lifecycleHubExpanded.recruitment = true;
+    lifecycleHubOpenStage = "recruitment";
+    renderLifecycleHub(employeesCache);
+    window.requestAnimationFrame(() => {
+      $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("employee-quick-add-form")?.querySelector("input")?.focus();
+    });
   }
 
   function stageEmptyStateHtml(stageId) {
     const { emptyStateHtml } = window.Admin;
     if (stageId === "recruitment") {
-      return emptyStateHtml({
-        icon: "user-plus",
-        title: "Start your register",
-        message: "Add your first employee — name and email is enough to begin.",
-        actionLabel: "+ Add employee",
-        actionId: "employees-stage-add-btn",
-        compact: true,
-      });
+      return "";
     }
     if (stageId === "onboarding") {
       return emptyStateHtml({
@@ -664,7 +670,7 @@
         title: "No one onboarding",
         message: "When you hire someone, set their status to Onboarding and complete lifecycle steps here.",
         actionLabel: "Add employee",
-        actionHref: "#employees",
+        actionId: "employees-stage-add-btn",
         compact: true,
       });
     }

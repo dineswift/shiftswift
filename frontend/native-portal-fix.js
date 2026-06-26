@@ -20,7 +20,7 @@
   }
 
   function version() {
-    return "25";
+    return "26";
   }
 
   function injectHideStyles() {

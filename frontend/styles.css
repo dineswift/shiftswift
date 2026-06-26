@@ -4115,7 +4115,8 @@ html.pwa-standalone .mobile-tab-bar {
   }
   body.admin-mobile-detail .topbar {
     margin-bottom: 12px;
-    padding: 12px max(12px, env(safe-area-inset-right)) 12px max(12px, env(safe-area-inset-left));
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px
+      max(12px, env(safe-area-inset-left));
   }
   body:has(#mobile-tab-bar) .admin-section[hidden] {
     display: none !important;
@@ -4133,7 +4134,7 @@ html.pwa-standalone .mobile-tab-bar {
     margin-left: calc(-1 * max(16px, env(safe-area-inset-left)));
     margin-right: calc(-1 * max(16px, env(safe-area-inset-right)));
     padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
-    padding-top: max(8px, env(safe-area-inset-top));
+    padding-top: max(12px, env(safe-area-inset-top));
     border-radius: 0;
     border-left: none;
     border-right: none;
@@ -16561,7 +16562,45 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employees-recruitment-form-slot {
-  padding-top: 4px;
+  padding-top: 0;
+}
+
+.employees-recruitment-add {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: #faf8f5;
+}
+
+.employees-recruitment-add__title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--green-900);
+}
+
+.employees-recruitment-add__lead {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.employees-recruitment-add .edit-form {
+  gap: 8px;
+}
+
+.employees-recruitment-add .edit-label {
+  font-size: 0.74rem;
+}
+
+.employees-recruitment-add .edit-form-actions {
+  margin-top: 2px;
+}
+
+.employees-recruitment-add .edit-form-actions .btn {
+  width: 100%;
 }
 
 .employee-profile-pill--ok {
@@ -16596,6 +16635,30 @@ body.rota-week-readonly .rota-builder-hint {
 
   body.admin-mobile-detail[data-mobile-detail="employees"] .employees-page-title {
     font-size: 1.35rem;
+  }
+
+  body.admin-mobile-detail[data-mobile-detail="employees"] .employees-page-header {
+    margin-bottom: 8px;
+  }
+
+  body.admin-mobile-detail[data-mobile-detail="employees"] .employees-page-lead {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  body.admin-mobile-detail[data-mobile-detail="employees"] .lifecycle-stage-rail {
+    margin-bottom: 10px;
+    padding: 10px 8px 8px;
+  }
+
+  body.admin-mobile-detail[data-mobile-detail="employees"] .employees-recruitment-add .edit-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.admin-mobile-detail[data-mobile-detail="employees"] .employees-recruitment-add .edit-field:nth-child(3),
+  body.admin-mobile-detail[data-mobile-detail="employees"] .employees-recruitment-add .edit-form-actions {
+    grid-column: 1 / -1;
   }
 
   .lifecycle-stage-rail__label {

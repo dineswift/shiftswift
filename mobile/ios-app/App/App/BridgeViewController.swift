@@ -71,7 +71,7 @@ class BridgeViewController: CAPBridgeViewController {
     """
 
     private static let embeddedPortalEndScript = """
-    (function(){try{var p=location.pathname||"";if(!(/admin\\.html$|employee\\.html$|master\\.html$/i.test(p)))return;var scheme=(window.Capacitor&&window.Capacitor.config&&window.Capacitor.config.ios&&window.Capacitor.config.ios.scheme)||"App";["native-api-fetch.js","session-auth.js","native-portal-fix.js"].forEach(function(file){if(document.querySelector('[data-sshr-ios-fix="'+file+'"]'))return;var s=document.createElement("script");s.src=scheme+"://localhost/"+file+"?v=25";s.setAttribute("data-sshr-ios-fix",file);document.head.appendChild(s);});}catch(e){}})();
+    (function(){try{var p=location.pathname||"";if(!(/admin\\.html$|employee\\.html$|master\\.html$/i.test(p)))return;var scheme=(window.Capacitor&&window.Capacitor.config&&window.Capacitor.config.ios&&window.Capacitor.config.ios.scheme)||"App";["native-api-fetch.js","session-auth.js","native-portal-fix.js"].forEach(function(file){if(document.querySelector('[data-sshr-ios-fix="'+file+'"]'))return;var s=document.createElement("script");s.src=scheme+"://localhost/"+file+"?v=26";s.setAttribute("data-sshr-ios-fix",file);document.head.appendChild(s);});}catch(e){}})();
     """
 
     private static let retryOverviewScript = """
