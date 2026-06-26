@@ -9,7 +9,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "18";
+    var version = "21";
 
     function injectHideStyles() {
       if (document.getElementById("sshr-portal-hide-loader")) return;
@@ -88,6 +88,7 @@
           function () {
             appendScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
             appendScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");
+            appendScript(assetUrl("auth-guard.js"), "data-sshr-portal-auth-guard");
             window.setTimeout(function () {
               window.ShiftSwiftNativeApiFetch?.boot?.();
               window.ShiftSwiftNativeApp?.patchNativeSignOut?.();

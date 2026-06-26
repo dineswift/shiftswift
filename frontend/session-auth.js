@@ -5,6 +5,18 @@
   const UNIFIED_LOGIN_URL = "./native-app-login.html";
   const NATIVE_UNIFIED_LOGIN_URL = "./native-app-login.html?source=native";
   const NATIVE_SESSION_KEYS = ["token", "refreshToken", "tenantId", "userRole", "masterTenantId"];
+  const IDENTITY_KEYS = [
+    "adminUsername",
+    "adminFirstName",
+    "adminDisplayName",
+    "adminMobileTab",
+    "adminTimeClockEnabled",
+    "employeeUsername",
+    "employeeFirstName",
+    "employeeDisplayName",
+    "employeeMobileTab",
+    "employeeTimeClockEnabled",
+  ];
 
   let refreshInFlight = null;
   let nativeHydrated = false;
@@ -210,14 +222,17 @@
 
   async function clearSession() {
     nativeHydrated = false;
+    const keys = [...NATIVE_SESSION_KEYS, ...IDENTITY_KEYS];
     await Promise.all(
-      NATIVE_SESSION_KEYS.map(async (key) => {
+      keys.map(async (key) => {
         try {
           localStorage.removeItem(key);
         } catch {
           /* ignore */
         }
-        await persistNativeKey(key, "");
+        if (NATIVE_SESSION_KEYS.includes(key)) {
+          await persistNativeKey(key, "");
+        }
       }),
     );
   }

@@ -3,7 +3,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "20";
+const BUNDLED_ASSET_VERSION = "21";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -320,14 +320,29 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     session.__sshrNativeSignOutPatched = true;
 
     const SESSION_KEYS = ["token", "refreshToken", "tenantId", "userRole", "masterTenantId"];
+    const LOCAL_IDENTITY_KEYS = [
+      "adminUsername",
+      "adminFirstName",
+      "adminDisplayName",
+      "adminMobileTab",
+      "adminTimeClockEnabled",
+      "employeeUsername",
+      "employeeFirstName",
+      "employeeDisplayName",
+      "employeeMobileTab",
+      "employeeTimeClockEnabled",
+      "sshrNativeApp",
+    ];
 
     async function clearNativeSessionStorage() {
-      for (const key of SESSION_KEYS) {
+      for (const key of [...SESSION_KEYS, ...LOCAL_IDENTITY_KEYS]) {
         try {
           localStorage.removeItem(key);
         } catch {
           /* ignore */
         }
+      }
+      for (const key of SESSION_KEYS) {
         try {
           const prefs = await window.Capacitor?.Plugins?.Preferences;
           if (prefs?.remove) await prefs.remove({ key: `sshr:${key}` });
@@ -357,6 +372,11 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
     session.clearSession = clearNativeSessionStorage;
     session.signOut = nativeSignOut;
+    window.ShiftSwiftAuthGuard = {
+      ...(window.ShiftSwiftAuthGuard || {}),
+      loginRedirectUrl: window.ShiftSwiftAuthGuard?.loginRedirectUrl || unifiedNativeLoginUrl,
+      signOut: () => nativeSignOut(window.ShiftSwiftAuthGuard?.loginRedirectUrl?.()),
+    };
 
     function rebindSignOut(selector, handler) {
       document.querySelectorAll(selector).forEach((el) => {
@@ -373,6 +393,22 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       nativeSignOut(window.ShiftSwiftAuthGuard?.loginRedirectUrl?.()),
     );
     rebindSignOut("[data-master-sign-out]", () => nativeSignOut(session.resolveLoginUrl?.()));
+
+    document.addEventListener(
+      "click",
+      (event) => {
+        const target = event.target?.closest?.("[data-sign-out], [data-master-sign-out]");
+        if (!target) return;
+        event.preventDefault();
+        event.stopPropagation();
+        void nativeSignOut(
+          target.hasAttribute("data-master-sign-out")
+            ? session.resolveLoginUrl?.()
+            : window.ShiftSwiftAuthGuard?.loginRedirectUrl?.(),
+        );
+      },
+      true,
+    );
   }
 
   function initNativeChrome() {

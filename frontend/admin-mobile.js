@@ -321,6 +321,9 @@
         }
 
         if (link.target === "_blank" && !href.startsWith("#")) {
+          closeMorePanel();
+          return;
+        }
 
         if (link.dataset.brandSupportMailto || href.startsWith("mailto:")) {
           closeMorePanel();
