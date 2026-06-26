@@ -547,6 +547,155 @@
     gap: 8px;
   }
 
+  body:has(#mobile-tab-bar) #global-documents.admin-section {
+    gap: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents > .section-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-bottom: 0;
+    border-radius: 12px;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents > .section-header h2 {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents > .section-header p.muted {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents > .section-header .section-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents > .section-header .section-actions .btn {
+    min-height: 36px;
+    padding: 7px 8px;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    white-space: normal;
+    text-align: center;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-documents-panel {
+    margin-top: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .templates-library-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .templates-library-toolbar .hr-section-title {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .templates-library-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .templates-filter {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .templates-filter .edit-label {
+    font-size: 0.68rem;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .templates-filter select,
+  body:has(#mobile-tab-bar) #global-documents .templates-filter input {
+    min-height: 36px;
+    padding: 7px 9px;
+    font-size: 0.78rem;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-documents-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 0;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-documents-grid > .muted {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 0.8rem;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card {
+    gap: 6px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 4px;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card__title {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card__head .status-pill {
+    font-size: 0.58rem;
+    padding: 2px 5px;
+    white-space: nowrap;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card__desc {
+    font-size: 0.68rem;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card__meta {
+    font-size: 0.64rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:has(#mobile-tab-bar) #global-documents .global-document-card__download {
+    width: 100%;
+    min-height: 34px;
+    margin-top: 0;
+    padding: 6px 8px;
+    font-size: 0.72rem;
+    justify-self: stretch;
+  }
+
   body:has(#mobile-tab-bar) .rota-admin-message--success {
     border: 1px solid rgba(15, 110, 86, 0.22);
     background: rgba(15, 110, 86, 0.06);
