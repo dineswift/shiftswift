@@ -368,12 +368,120 @@
     syncDetailLayout();
   }
 
+  function isMobileLeave() {
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function renderEmptyState(host, options, extraBind) {
+    host.innerHTML = emptyStateHtml(options);
+    bindEmptyStateActions();
+    extraBind?.();
+  }
+
+  function leaveMobileCard(item) {
+    const selected = selectedId === item.id ? " leave-mobile-card--selected" : "";
+    return `<button type="button" class="leave-mobile-card${selected}" data-leave-id="${item.id}">
+      <span class="leave-mobile-card__name">${escapeHtml(item.employee_name)}</span>
+      <span class="leave-mobile-card__meta">
+        ${leaveTypePill(item.leave_type, item.leave_type_label)}
+        <span class="leave-mobile-card__days">${escapeHtml(String(item.days_requested))}d</span>
+      </span>
+      <span class="leave-mobile-card__dates muted">${escapeHtml(formatDate(item.start_date))} – ${escapeHtml(formatDate(item.end_date))}</span>
+      <span class="leave-mobile-card__status">${statusPill(item.status)}</span>
+    </button>`;
+  }
+
+  function renderMobileGrid(items) {
+    const host = $("leave-mobile-grid");
+    const tableWrap = document.querySelector("#leave .leave-table-wrap");
+    if (!host) return;
+
+    if (!isMobileLeave()) {
+      host.hidden = true;
+      host.innerHTML = "";
+      if (tableWrap) tableWrap.hidden = false;
+      return;
+    }
+
+    host.hidden = false;
+    if (tableWrap) tableWrap.hidden = true;
+
+    if (!allRequests.length) {
+      renderEmptyState(host, {
+        icon: "calendar-off",
+        title: "No leave requests yet",
+        message: "When staff request holiday or leave in the employee portal, they appear here for approval.",
+        actionLabel: "View employees",
+        actionId: "leave-view-employees-btn",
+        compact: true,
+      });
+      return;
+    }
+
+    if (!items.length) {
+      const filterLabel = filterStatus || "matching";
+      const employeeOnly = employeeFilterId && employeeFilterName;
+      const showViewEmployees = employeeOnly || (!searchFilter.trim() && filterStatus === "pending");
+      renderEmptyState(
+        host,
+        {
+          icon: "search",
+          title: employeeOnly
+            ? `No leave requests for ${employeeFilterName}`
+            : filterStatus === "pending"
+              ? "No pending leave requests"
+              : "No leave requests",
+          message: employeeOnly
+            ? "This employee has no leave requests in this view. Try All statuses or choose another employee."
+            : searchFilter.trim()
+              ? "Try a different search or clear the filter."
+              : filterStatus === "pending"
+                ? "When staff request holiday or leave in the portal, they appear here for approval."
+                : `No ${filterLabel} leave requests in this view.`,
+          actionLabel: showViewEmployees ? "View employees" : searchFilter.trim() ? "Clear search" : "Show all",
+          actionId: showViewEmployees ? "leave-view-employees-btn" : "leave-clear-filter-btn",
+          compact: true,
+        },
+        () => {
+          document.getElementById("leave-clear-filter-btn")?.addEventListener("click", () => {
+            if (searchFilter.trim()) {
+              searchFilter = "";
+              const input = $("leave-search-input");
+              if (input) input.value = "";
+            } else if (employeeFilterId) {
+              clearEmployeeFilter();
+            } else {
+              setFilter("");
+            }
+            renderTable();
+          });
+        },
+      );
+      return;
+    }
+
+    host.innerHTML = items.map((item) => leaveMobileCard(item)).join("");
+    host.querySelectorAll(".leave-mobile-card").forEach((card) => {
+      card.addEventListener("click", () => selectRequest(Number(card.dataset.leaveId)));
+    });
+  }
+
   function renderTable() {
     const tbody = $("leave-requests-body");
     if (!tbody) return;
     syncEmployeeFilterBanner();
     const items = filteredRequests();
     renderStats(items);
+    renderMobileGrid(items);
+    if (isMobileLeave()) return;
+
+    const host = $("leave-mobile-grid");
+    if (host) {
+      host.hidden = true;
+      host.innerHTML = "";
+    }
+    const tableWrap = document.querySelector("#leave .leave-table-wrap");
+    if (tableWrap) tableWrap.hidden = false;
 
     if (!allRequests.length) {
       tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
@@ -463,7 +571,15 @@
 
   async function loadRequests() {
     const tbody = $("leave-requests-body");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading leave requests…</td></tr>`;
+    const mobileGrid = $("leave-mobile-grid");
+    if (isMobileLeave() && mobileGrid) {
+      mobileGrid.hidden = false;
+      mobileGrid.innerHTML = `<p class="muted leave-mobile-grid__loading">Loading leave requests…</p>`;
+      const tableWrap = document.querySelector("#leave .leave-table-wrap");
+      if (tableWrap) tableWrap.hidden = true;
+    } else if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading leave requests…</td></tr>`;
+    }
     try {
       const res = await apiFetch("/admin/leave/requests");
       if (!res.ok) throw new Error("Load failed");
@@ -564,6 +680,11 @@
       if (event.key !== "Escape") return;
       if ($("leave-employee-picker")?.hidden) return;
       closeEmployeePicker();
+    });
+
+    window.addEventListener("resize", () => {
+      if (!sectionReady) return;
+      renderTable();
     });
   }
 

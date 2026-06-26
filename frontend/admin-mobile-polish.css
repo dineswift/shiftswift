@@ -313,6 +313,240 @@
     border-radius: 12px;
   }
 
+  body:has(#mobile-tab-bar) #leave.admin-section {
+    gap: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #leave > .section-header {
+    padding: 10px 12px;
+    gap: 0;
+    margin-bottom: 0;
+    border-radius: 12px;
+  }
+
+  body:has(#mobile-tab-bar) #leave > .section-header h2 {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave > .section-header p.muted {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-status-workflow {
+    margin: 0;
+    gap: 4px;
+    padding: 0 2px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-status-workflow .hr-workflow-step {
+    font-size: 0.66rem;
+    padding: 3px 8px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-status-workflow .hr-workflow-arrow {
+    font-size: 0.7rem;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-stats-grid .hr-stat-card {
+    padding: 8px 8px 7px;
+    gap: 0;
+    border-radius: 10px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-stats-grid .hr-stat-card__icon {
+    margin-bottom: 2px;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-stats-grid .hr-stat-card__label {
+    font-size: 0.62rem;
+    line-height: 1.15;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-stats-grid .hr-stat-card__value {
+    font-size: 1.15rem;
+    margin: 1px 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-stats-grid .hr-stat-card__sub {
+    font-size: 0.58rem;
+    line-height: 1.2;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-register-panel {
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-guide-panel {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-register-head {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-register-head .hr-section-title {
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-register-sub {
+    font-size: 0.72rem;
+    margin-top: 2px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-register-toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-filter-tabs {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-filter-tabs .hr-filter-tab {
+    padding: 7px 6px;
+    font-size: 0.72rem;
+    border-left: none !important;
+    border-top: 1px solid var(--card-border);
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-filter-tabs .hr-filter-tab:nth-child(-n + 2) {
+    border-top: none;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-filter-tabs .hr-filter-tab:nth-child(odd) {
+    border-right: 1px solid var(--card-border);
+  }
+
+  body:has(#mobile-tab-bar) #leave #leave-browse-employees-btn {
+    min-height: 36px;
+    font-size: 0.74rem;
+    padding: 7px 8px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-search {
+    min-width: 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-search input {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 0.78rem;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-employee-filter-banner {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+    border-radius: 10px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-grid__loading,
+  body:has(#mobile-tab-bar) #leave .leave-mobile-grid .admin-empty-state {
+    grid-column: 1 / -1;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    background: #fff;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card--selected {
+    border-color: rgba(15, 110, 86, 0.45);
+    background: rgba(15, 110, 86, 0.06);
+    box-shadow: 0 0 0 1px rgba(15, 110, 86, 0.12);
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card__name {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    color: var(--green-900);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card__meta .leave-type-pill {
+    font-size: 0.62rem;
+    padding: 1px 6px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card__days {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--ink-600);
+    flex-shrink: 0;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card__dates {
+    font-size: 0.64rem;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-mobile-card__status .status-pill {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-detail-panel {
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-detail-panel__title {
+    font-size: 0.88rem;
+  }
+
+  body:has(#mobile-tab-bar) #leave .leave-workspace-layout {
+    gap: 8px;
+  }
+
   body:has(#mobile-tab-bar) .rota-admin-message--success {
     border: 1px solid rgba(15, 110, 86, 0.22);
     background: rgba(15, 110, 86, 0.06);
