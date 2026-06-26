@@ -9,7 +9,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "27";
+    var version = "28";
 
     function markNativeShell() {
       try {
@@ -125,7 +125,12 @@
     function loadBundledPortalAssets() {
       try {
         if (!window.Capacitor?.isNativePlatform?.()) return;
+        var isEmployee = /employee\.html$/i.test(path);
         appendScript(assetUrl("action-feedback.js"), "data-sshr-portal-action-feedback");
+        if (isEmployee) {
+          appendScript(assetUrl("native-geolocation.js"), "data-sshr-portal-native-geo");
+          appendScript(assetUrl("native-shift-alerts.js"), "data-sshr-portal-shift-alerts");
+        }
         appendScript(assetUrl("native-app-bootstrap.js"), "data-sshr-portal-guard-bootstrap");
         window.addEventListener(
           "load",

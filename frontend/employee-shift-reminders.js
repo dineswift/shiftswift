@@ -138,9 +138,13 @@
       };
     }
     startPolling();
+    void window.ShiftSwiftNativeShiftAlerts?.scheduleFromShifts?.(shifts, reminderConfig);
   }
 
   document.addEventListener("employee:shifts-loaded", onShiftsLoaded);
+  document.addEventListener("employee:shift-alerts-enabled", () => {
+    void window.ShiftSwiftNativeShiftAlerts?.scheduleFromShifts?.(shifts, reminderConfig);
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") evaluateReminders();
   });

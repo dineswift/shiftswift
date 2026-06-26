@@ -96,6 +96,19 @@
   }
 
   async function getStatus({ apiBase, token, tenantId }) {
+    if (window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
+      const native = await window.ShiftSwiftNativeShiftAlerts.getPermissionStatus();
+      if (native.supported) {
+        return {
+          supported: true,
+          permission: native.permission === "granted" ? "granted" : native.permission,
+          subscribed: Boolean(native.enabled),
+          serverEnabled: true,
+          nativeLocal: true,
+        };
+      }
+    }
+
     const supported =
       "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
     if (!supported) {
@@ -134,6 +147,9 @@
      * Only prompts once per device unless force=true.
      */
     async promptSubscribe({ apiBase, token, tenantId, reason, force = false }) {
+      if (window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
+        return window.ShiftSwiftNativeShiftAlerts.enableAlerts();
+      }
       if (!token || !tenantId) return { ok: false, reason: "not_signed_in" };
       if (!force && localStorage.getItem(PROMPT_KEY) === "1") {
         return { ok: false, reason: "already_prompted" };
@@ -166,6 +182,15 @@
     },
 
     async enableAlerts({ apiBase, token, tenantId }) {
+      if (window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
+        const result = await window.ShiftSwiftNativeShiftAlerts.enableAlerts();
+        if (result.ok) {
+          playAlertSound();
+          window.dispatchEvent(new CustomEvent("employee:shift-alerts-enabled"));
+        }
+        return result;
+      }
+
       const result = await window.ShiftSwiftPush.promptSubscribe({
         apiBase,
         token,

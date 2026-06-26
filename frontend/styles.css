@@ -10094,6 +10094,11 @@ body.admin-mobile-detail .sshr-action-toast-host {
   font-weight: 600;
 }
 
+.punch-work-state-label--out {
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
 .punch-geofence-row {
   display: flex;
   flex-wrap: wrap;

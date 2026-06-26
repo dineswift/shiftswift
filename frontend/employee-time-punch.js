@@ -1,9 +1,5 @@
 (function () {
   const session = window.ShiftSwiftSession;
-  const API_BASE = session.getApiBase();
-  const tenantId = localStorage.getItem("tenantId");
-
-  if (!session.hasSession() || !tenantId) return;
 
   const statusEl = document.getElementById("punch-work-state-label");
   const sitesEl = document.getElementById("punch-sites");
@@ -47,6 +43,9 @@
   let clockInCooldownSeconds = DEFAULT_COOLDOWN_SECONDS;
   let scanStream = null;
   let scanFrameHandle = null;
+  let statusTickTimer = null;
+  let API_BASE = "";
+  let tenantId = "";
 
   function authHeaders(json = true) {
     return session.authHeaders({ json, tenantId });
@@ -167,7 +166,8 @@
       clockOutBtn.hidden = onBreak;
       clockOutBtn.disabled = punchInFlight || !online || !working;
       clockOutBtn.classList.toggle("is-active-out", working && online && !punchInFlight);
-      clockOutBtn.classList.toggle("is-idle-out", !working);
+      clockOutBtn.classList.toggle("is-idle-out", !working || onBreak);
+      clockOutBtn.setAttribute("aria-pressed", working ? "true" : "false");
     }
 
     if (breakEndBtn) {
@@ -183,6 +183,7 @@
     if (outDuringBreakBtn) {
       outDuringBreakBtn.hidden = !onBreak;
       outDuringBreakBtn.disabled = punchInFlight || !online || !onBreak;
+      outDuringBreakBtn.classList.toggle("is-active-out", onBreak && online && !punchInFlight);
     }
 
     if (phaseSecondaryEl) {
@@ -215,8 +216,12 @@
       return;
     }
     if (secondsSinceClockOut != null && data?.last_punch?.punch_type === "out") {
-      statusEl.textContent = `Clocked out ${secondsSinceClockOut < 60 ? `${secondsSinceClockOut} sec` : formatDurationSince(last?.punched_at)} ago.`;
-      statusEl.className = "punch-work-state-label";
+      const ago =
+        secondsSinceClockOut < 60
+          ? `${secondsSinceClockOut} sec`
+          : formatDurationSince(last?.punched_at);
+      statusEl.textContent = `Clocked out ${ago} ago · last out at ${formatTimeShort(last?.punched_at)}.`;
+      statusEl.className = "punch-work-state-label punch-work-state-label--out";
       return;
     }
     if (geofencePreview?.within_geofence) {
@@ -275,6 +280,7 @@
       }
       updatePunchSummary(data);
       syncClockWidget();
+      startStatusTicker();
       refreshGeofencePreview();
     } catch {
       statusEl.textContent = "Could not reach the time punch service.";
@@ -441,7 +447,23 @@
     });
   }
 
+  function startStatusTicker() {
+    window.clearInterval(statusTickTimer);
+    statusTickTimer = window.setInterval(() => {
+      if (workState !== "off" || secondsSinceClockOut == null) return;
+      secondsSinceClockOut += 1;
+      updateWorkStateLabel({
+        work_state: workState,
+        last_punch: { punch_type: "out", punched_at: new Date(Date.now() - secondsSinceClockOut * 1000).toISOString() },
+        seconds_since_clock_out: secondsSinceClockOut,
+      });
+    }, 15000);
+  }
+
   async function readLocation() {
+    if (window.ShiftSwiftNativeGeo?.readLocation) {
+      return window.ShiftSwiftNativeGeo.readLocation();
+    }
     const primary = { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 };
     try {
       const pos = await readLocationOnce(primary);
@@ -476,6 +498,7 @@
   async function refreshGeofencePreview() {
     if (!geofenceEl || !navigator.onLine || siteScanReady) return;
     if (geofenceCheckInFlight) return;
+    if (workState !== "off") return;
 
     geofenceCheckInFlight = true;
     geofenceWithin = false;
@@ -603,50 +626,64 @@
     }
   }
 
-  scanBtn?.addEventListener("click", () => {
-    if (scanDialog?.showModal) scanDialog.showModal();
-    else if (scanDialog) scanDialog.open = true;
-    void startQrScanner();
-  });
-
-  scanCloseBtn?.addEventListener("click", () => {
-    stopQrScanner();
-    if (scanDialog?.close) scanDialog.close();
-  });
-
-  scanManualBtn?.addEventListener("click", () => {
-    const value = scanManualInput?.value || "";
-    validateSiteScan(value).catch((error) => {
-      if (scanMessageEl) scanMessageEl.textContent = error.message || "Could not verify code.";
+  function bindPunchUi() {
+    scanBtn?.addEventListener("click", () => {
+      if (scanDialog?.showModal) scanDialog.showModal();
+      else if (scanDialog) scanDialog.open = true;
+      void startQrScanner();
     });
-  });
 
-  scanDialog?.addEventListener("close", stopQrScanner);
+    scanCloseBtn?.addEventListener("click", () => {
+      stopQrScanner();
+      if (scanDialog?.close) scanDialog.close();
+    });
 
-  clockInBtn?.addEventListener("click", () => requestClockIn(false));
-  reclockBtn?.addEventListener("click", () => requestClockIn(false));
-  reclockDialog?.querySelector("form")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    reclockDialog?.close();
-    void submitPunch("in");
-  });
-  reclockCancelBtn?.addEventListener("click", () => reclockDialog?.close());
-  clockOutBtn?.addEventListener("click", () => submitPunch("out"));
-  breakStartBtn?.addEventListener("click", () => submitPunch("break_start"));
-  breakEndBtn?.addEventListener("click", () => submitPunch("break_end"));
-  outDuringBreakBtn?.addEventListener("click", () => submitPunch("out"));
-  window.addEventListener("online", loadStatus);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && navigator.onLine) loadStatus();
-  });
+    scanManualBtn?.addEventListener("click", () => {
+      const value = scanManualInput?.value || "";
+      validateSiteScan(value).catch((error) => {
+        if (scanMessageEl) scanMessageEl.textContent = error.message || "Could not verify code.";
+      });
+    });
 
-  window.addEventListener("employee:section", (event) => {
-    if (event.detail?.section === "time-clock") {
-      restoreSiteScanSession();
-      void loadStatus();
-    }
-  });
+    scanDialog?.addEventListener("close", stopQrScanner);
 
-  restoreSiteScanSession();
-  loadStatus();
+    clockInBtn?.addEventListener("click", () => requestClockIn(false));
+    reclockBtn?.addEventListener("click", () => requestClockIn(false));
+    reclockDialog?.querySelector("form")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      reclockDialog?.close();
+      void submitPunch("in");
+    });
+    reclockCancelBtn?.addEventListener("click", () => reclockDialog?.close());
+    clockOutBtn?.addEventListener("click", () => submitPunch("out"));
+    breakStartBtn?.addEventListener("click", () => submitPunch("break_start"));
+    breakEndBtn?.addEventListener("click", () => submitPunch("break_end"));
+    outDuringBreakBtn?.addEventListener("click", () => submitPunch("out"));
+    window.addEventListener("online", loadStatus);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && navigator.onLine) loadStatus();
+    });
+
+    window.addEventListener("employee:section", (event) => {
+      if (event.detail?.section === "time-clock") {
+        restoreSiteScanSession();
+        void loadStatus();
+        void window.ShiftSwiftNativeGeo?.requestPermission?.();
+      }
+    });
+  }
+
+  async function boot() {
+    await session?.hydrateNativeSession?.({ force: true });
+    tenantId = localStorage.getItem("tenantId") || "";
+    API_BASE = session.getApiBase();
+    if (!session.hasSession() || !tenantId || !statusEl) return;
+
+    bindPunchUi();
+    restoreSiteScanSession();
+    void window.ShiftSwiftNativeGeo?.requestPermission?.();
+    loadStatus();
+  }
+
+  void boot();
 })();

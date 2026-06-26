@@ -49,7 +49,9 @@
     if (!status.supported) {
       setBannerState({
         active: false,
-        message: "Shift alerts are not supported on this browser.",
+        message: window.ShiftSwiftNativeShiftAlerts?.isNative?.()
+          ? "Shift alerts need the latest app build. Update the app or use the installed PWA."
+          : "Shift alerts are not supported on this browser.",
         hideBanner: false,
       });
       if (enableBtn) enableBtn.disabled = true;
@@ -82,7 +84,9 @@
     if (status.subscribed) {
       setBannerState({
         active: true,
-        message: "Alerts on — bell before shift start and end, plus clock-in reminders.",
+        message: status.nativeLocal
+          ? "Alerts on — you'll get a notification before your shift starts and ends."
+          : "Alerts on — bell before shift start and end, plus clock-in reminders.",
         hideBanner: true,
       });
       return;
@@ -90,7 +94,9 @@
 
     setBannerState({
       active: false,
-      message: "Get bell alerts before your shift starts and ends, plus clock-in nudges.",
+      message: status.nativeLocal
+        ? "Turn on alerts to get a notification before your shift starts and ends."
+        : "Get bell alerts before your shift starts and ends, plus clock-in nudges.",
       hideBanner: false,
     });
   }

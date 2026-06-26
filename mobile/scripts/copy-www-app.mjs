@@ -26,6 +26,8 @@ const copies = [
   "native-api-fetch.js",
   "unified-login.js",
   "action-feedback.js",
+  "native-geolocation.js",
+  "native-shift-alerts.js",
 ];
 
 fs.mkdirSync(wwwApp, { recursive: true });

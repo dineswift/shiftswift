@@ -153,3 +153,57 @@ html.native-app.ios-device .portal-login-page--unified {
     padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 }
+
+html.native-app .punch-card--clock-widget {
+  gap: 14px;
+}
+
+html.native-app .punch-work-state-label--working {
+  color: var(--green-800, #166534);
+  font-weight: 600;
+}
+
+html.native-app .punch-work-state-label--out {
+  color: var(--text-muted, #64748b);
+}
+
+html.native-app .punch-clock-actions__phase--main {
+  display: grid;
+  gap: 10px;
+}
+
+html.native-app .punch-clock-primary--out.is-active-out:not(:disabled) {
+  background: var(--green-700, #0f6e56) !important;
+  border-color: var(--green-700, #0f6e56) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(15, 110, 86, 0.24);
+  font-weight: 700;
+  min-height: 52px;
+  font-size: 1.02rem;
+}
+
+html.native-app .punch-clock-primary--out.is-idle-out:not(:disabled),
+html.native-app .punch-clock-primary--out:disabled {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+  box-shadow: none;
+  min-height: 48px;
+}
+
+html.native-app .punch-clock-secondary--out.is-active-out:not(:disabled) {
+  background: var(--green-700, #0f6e56) !important;
+  border-color: var(--green-700, #0f6e56) !important;
+  color: #fff !important;
+}
+
+html.native-app .punch-geofence-status {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+html.native-app .employee-shift-reminder-toast {
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 1200;
+}
