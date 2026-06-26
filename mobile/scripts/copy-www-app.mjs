@@ -25,6 +25,7 @@ const copies = [
   "native-portal-fix.js",
   "native-api-fetch.js",
   "unified-login.js",
+  "action-feedback.js",
 ];
 
 fs.mkdirSync(wwwApp, { recursive: true });

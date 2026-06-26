@@ -125,6 +125,7 @@
     function loadBundledPortalAssets() {
       try {
         if (!window.Capacitor?.isNativePlatform?.()) return;
+        appendScript(assetUrl("action-feedback.js"), "data-sshr-portal-action-feedback");
         appendScript(assetUrl("native-app-bootstrap.js"), "data-sshr-portal-guard-bootstrap");
         window.addEventListener(
           "load",

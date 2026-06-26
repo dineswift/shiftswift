@@ -305,7 +305,7 @@
       }
     } catch (error) {
       if (statusEl) statusEl.textContent = "";
-      window.alert(error.message || "Could not update request.");
+      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not update request.", "error");
     } finally {
       reviewBusy = false;
     }

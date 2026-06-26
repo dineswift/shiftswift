@@ -9,7 +9,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "25";
+    var version = "26";
 
     function markNativeShell() {
       try {
@@ -29,7 +29,8 @@
       style.textContent =
         "#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important;pointer-events:none!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important;}" +
         "#portal-pwa-install-banner,.portal-pwa-install-banner,.pwa-ios-sheet,.pwa-ios-sheet-backdrop{display:none!important;visibility:hidden!important;pointer-events:none!important;}" +
-        "html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important;}";
+        "html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important;}" +
+        "html.native-app.capacitor-native .topbar.app-mobile-header,html.native-app.capacitor-native body.admin-mobile-detail .topbar,html.native-app.capacitor-native body.employee-mobile-detail .topbar{padding-top:max(12px,env(safe-area-inset-top))!important;padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important;}";
       (document.head || document.documentElement).appendChild(style);
     }
 
@@ -124,6 +125,7 @@
     function loadBundledPortalAssets() {
       try {
         if (!window.Capacitor?.isNativePlatform?.()) return;
+        appendScript(assetUrl("action-feedback.js"), "data-sshr-portal-action-feedback");
         appendScript(assetUrl("native-app-bootstrap.js"), "data-sshr-portal-guard-bootstrap");
         window.addEventListener(
           "load",

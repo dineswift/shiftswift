@@ -1657,10 +1657,12 @@
   async function saveAccountantSettings() {
     const form = $("punch-accountant-form");
     if (!form) return;
+    const btn = $("punch-accountant-save-btn");
+    const statusEl = $("punch-accountant-status");
     const email = form.querySelector('[name="payroll_accountant_email"]')?.value?.trim() || "";
     const enabled = Boolean(form.querySelector('[name="payroll_hours_report_enabled"]')?.checked);
-    setAccountantStatus("Saving…");
-    try {
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    const action = async () => {
       const res = await apiFetch("/admin/tenant-profile", {
         method: "PATCH",
         body: JSON.stringify({
@@ -1672,7 +1674,21 @@
       if (!res.ok) throw new Error(data.detail || "Save failed");
       mergeTenantProfile(data);
       renderAccountantSettings();
-      setAccountantStatus("Settings saved.", "ok");
+      return "Settings saved.";
+    };
+    if (run && btn) {
+      await run(btn, statusEl, {
+        loadingLabel: "Saving…",
+        successMessage: "Settings saved.",
+        successLabel: "Saved",
+        onAction: action,
+      });
+      return;
+    }
+    setAccountantStatus("Saving…");
+    try {
+      const message = await action();
+      setAccountantStatus(message, "ok");
     } catch (error) {
       setAccountantStatus(error.message || "Could not save settings.");
     }
@@ -1681,22 +1697,37 @@
   async function sendAccountantReportNow() {
     const form = $("punch-accountant-form");
     const email = form?.querySelector('[name="payroll_accountant_email"]')?.value?.trim() || "";
+    const btn = $("punch-accountant-send-btn");
+    const statusEl = $("punch-accountant-status");
     if (!email) {
-      setAccountantStatus("Add an accountant email first.");
+      const msg = "Add an accountant email first.";
+      setAccountantStatus(msg);
+      window.ShiftSwiftAction?.showActionToast?.(msg, "warn");
       return;
     }
-    setAccountantStatus("Sending report…");
-    try {
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    const action = async () => {
       const res = await apiFetch("/admin/payroll-export/hours/email-now", {
         method: "POST",
         body: JSON.stringify({ accountant_email: email, use_previous_month: true }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Send failed");
-      setAccountantStatus(
-        `Sent ${data.period_start} to ${data.period_end} (${data.employee_count} staff, ${Number(data.total_hours).toFixed(1)}h) to ${data.recipient_email}.`,
-        "ok"
-      );
+      return `Sent ${data.period_start} to ${data.period_end} (${data.employee_count} staff, ${Number(data.total_hours).toFixed(1)}h) to ${data.recipient_email}.`;
+    };
+    if (run && btn) {
+      await run(btn, statusEl, {
+        loadingLabel: "Sending…",
+        successMessage: "Report sent.",
+        successLabel: "Sent",
+        onAction: action,
+      });
+      return;
+    }
+    setAccountantStatus("Sending report…");
+    try {
+      const message = await action();
+      setAccountantStatus(message, "ok");
     } catch (error) {
       setAccountantStatus(error.message || "Could not send report.");
     }
@@ -1817,6 +1848,44 @@
       showPunchNote(hint, address ? "warn" : "error");
       updateSetupUi();
       return;
+    }
+    if (btn) {
+      const run = window.ShiftSwiftAction?.runButtonActionAuto;
+      const action = async () => {
+        address = await ensureRegisteredAddressSaved(address, syncCoords);
+        const syncBody = { registered_address: address };
+        const coords = resolveRegisteredCoords();
+        if (coords) {
+          syncBody.registered_latitude = coords.latitude;
+          syncBody.registered_longitude = coords.longitude;
+        }
+        const res = await apiFetch("/admin/time-punch/sites/sync-from-address", {
+          method: "POST",
+          body: JSON.stringify(syncBody),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(parseApiDetail(data, "Sync failed."));
+        localStorage.setItem("punch-last-sync-at", new Date().toISOString());
+        selectedSiteId = data.id;
+        await Promise.all([loadSites(), loadDailyPunches(todayIso(), { quiet: true }), loadWeekPunches()]);
+        const syncedSite = sites.find((site) => site.id === data.id) || data;
+        renderSiteDetail(syncedSite);
+        updatePunchStats();
+        window.setTimeout(scrollToQrGallery, 450);
+        return `Synced primary site: ${data.name}. QR codes are ready below.`;
+      };
+      if (run) {
+        showPunchNote("Syncing from pinned business address…");
+        const result = await run(btn, action, {
+          loadingLabel: "Syncing…",
+          successMessage: "Site synced.",
+          successLabel: "Synced",
+        });
+        if (result.ok) showPunchNote(result.message || "Site synced.", "ok");
+        else if (result.error) showPunchNote(result.error, "error");
+        updateSetupUi();
+        return;
+      }
     }
     if (btn) btn.disabled = true;
     showPunchNote("Syncing from pinned business address…");

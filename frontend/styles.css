@@ -8128,6 +8128,60 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   color: #fff !important;
 }
 
+.sshr-action-toast-host {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 1300;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+body:has(#mobile-tab-bar) .sshr-action-toast-host {
+  bottom: calc(78px + env(safe-area-inset-bottom));
+}
+
+body.admin-mobile-detail .sshr-action-toast-host {
+  bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+.sshr-action-toast {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 10px 28px rgba(18, 53, 44, 0.16);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sshr-action-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sshr-action-toast--success {
+  background: #edf9f3;
+  border: 1px solid rgba(15, 110, 86, 0.28);
+  color: #0f5c47;
+}
+
+.sshr-action-toast--error {
+  background: #fff4f3;
+  border: 1px solid rgba(180, 48, 40, 0.28);
+  color: #8f2a22;
+}
+
+.sshr-action-toast--warn {
+  background: #fff8eb;
+  border: 1px solid rgba(168, 112, 16, 0.28);
+  color: #7a5208;
+}
+
 .settings-doc-audience-field {
   border: none;
   margin: 0;

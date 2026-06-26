@@ -462,6 +462,8 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
         if (isActive) scheduleSplashHide();
       }).catch(() => null);
     }
+
+    window.ShiftSwiftAction?.bootNativePortal?.();
   }
 
   applyNativeClasses();

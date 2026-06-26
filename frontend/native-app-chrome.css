@@ -46,10 +46,75 @@ html.native-app .sidebar {
 }
 
 html.native-app .btn,
-html.native-app .nav-link,
-html.native-app .portal-login-submit {
-  -webkit-touch-callout: none;
+html.native-app .mobile-more-link,
+html.native-app .punch-view-tab {
   touch-action: manipulation;
+}
+
+html.native-app .btn:not(.btn--sm):not(.mobile-tab):not(.mobile-back-btn):not(.topbar-icon-btn) {
+  min-height: 42px;
+}
+
+html.native-app .btn.btn--sm {
+  min-height: 36px;
+}
+
+html.native-app .edit-form-actions .btn,
+html.native-app .section-actions .btn,
+html.native-app .hr-detail-foot .btn,
+html.native-app .employment-detail-foot .btn {
+  min-height: 40px;
+}
+
+.sshr-action-toast-host {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 1300;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+html.native-app.admin-mobile-detail .sshr-action-toast-host,
+body.admin-mobile-detail .sshr-action-toast-host {
+  bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+.sshr-action-toast {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 10px 28px rgba(18, 53, 44, 0.16);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sshr-action-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sshr-action-toast--success {
+  background: #edf9f3;
+  border: 1px solid rgba(15, 110, 86, 0.28);
+  color: #0f6e56;
+}
+
+.sshr-action-toast--error {
+  background: #fff1f1;
+  border: 1px solid rgba(198, 40, 40, 0.24);
+  color: #b42318;
+}
+
+.sshr-action-toast--warn {
+  background: #fff8e8;
+  border: 1px solid rgba(181, 71, 8, 0.22);
+  color: #b54708;
 }
 
 html.native-app .employee-portal .content,

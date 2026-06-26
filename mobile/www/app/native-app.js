@@ -11,7 +11,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "25";
+const BUNDLED_ASSET_VERSION = "26";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -462,6 +462,8 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
         if (isActive) scheduleSplashHide();
       }).catch(() => null);
     }
+
+    window.ShiftSwiftAction?.bootNativePortal?.();
   }
 
   applyNativeClasses();

@@ -54,11 +54,27 @@
         const docId = btn.getAttribute("data-download-global-doc");
         const item = listCache.find((row) => row.id === docId);
         const filename = item?.filename || `${docId}.bin`;
+        const run = window.ShiftSwiftAction?.runButtonActionAuto;
+        const action = async () => {
+          await downloadAuthenticated(`/global-documents/${docId}/download`, filename);
+          return "Download started.";
+        };
+        if (run) {
+          await run(btn, action, {
+            loadingLabel: "Downloading…",
+            successMessage: "Download started.",
+            successLabel: "Downloaded",
+          });
+          return;
+        }
         btn.disabled = true;
         try {
-          await downloadAuthenticated(`/global-documents/${docId}/download`, filename);
+          await action();
         } catch (error) {
-          window.alert(error?.message || "Could not download file. Try again.");
+          window.ShiftSwiftAction?.showActionToast?.(
+            error?.message || "Could not download file. Try again.",
+            "error",
+          );
         } finally {
           btn.disabled = false;
         }

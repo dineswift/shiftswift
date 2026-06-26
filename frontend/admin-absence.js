@@ -353,36 +353,64 @@
   async function markSmsReported() {
     if (!selectedEmployeeId) return;
     const reference = document.getElementById("absence-ho-ref-input")?.value?.trim() || null;
-    try {
+    const btn = document.getElementById("absence-mark-sms-btn");
+    const run = window.ShiftSwiftAction?.runButtonActionAuto;
+    const action = async () => {
       const res = await apiFetch(
         `/compliance/sponsor-licence/absence-monitoring/${selectedEmployeeId}/mark-sms-reported`,
         {
           method: "POST",
           body: JSON.stringify({ home_office_report_reference: reference }),
-        }
+        },
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Could not update record");
       await loadDashboard();
+      return "Marked as SMS reported.";
+    };
+    if (run && btn) {
+      await run(btn, action, {
+        loadingLabel: "Saving…",
+        successMessage: "Marked as SMS reported.",
+        successLabel: "Saved",
+      });
+      return;
+    }
+    try {
+      await action();
     } catch (error) {
-      window.alert(error.message || "Could not mark as reported.");
+      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not mark as reported.", "error");
     }
   }
 
   async function markReturned() {
     if (!selectedEmployeeId) return;
     if (!window.confirm("Mark this worker as returned and clear active absence days from the log?")) return;
-    try {
+    const btn = document.getElementById("absence-mark-returned-btn");
+    const run = window.ShiftSwiftAction?.runButtonActionAuto;
+    const action = async () => {
       const res = await apiFetch(
         `/compliance/sponsor-licence/absence-monitoring/${selectedEmployeeId}/mark-returned`,
-        { method: "POST", body: JSON.stringify({}) }
+        { method: "POST", body: JSON.stringify({}) },
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Could not update record");
       selectedEmployeeId = null;
       await loadDashboard();
+      return "Marked as returned.";
+    };
+    if (run && btn) {
+      await run(btn, action, {
+        loadingLabel: "Saving…",
+        successMessage: "Marked as returned.",
+        successLabel: "Saved",
+      });
+      return;
+    }
+    try {
+      await action();
     } catch (error) {
-      window.alert(error.message || "Could not mark returned.");
+      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not mark returned.", "error");
     }
   }
 

@@ -37,16 +37,33 @@
     return "md";
   }
 
-  async function downloadHrTemplate(templateId, variant) {
+  async function downloadHrTemplate(templateId, variant, sourceBtn) {
     const format = templateDownloadFormat();
     const ext = templateDownloadExt(format);
-    try {
+    const action = async () => {
       await downloadAuthenticated(
         `/hr-templates/${templateId}/download?variant=${variant}&format=${format}`,
         `${templateId}.${ext}`,
       );
+      return "Download started.";
+    };
+    const run = window.ShiftSwiftAction?.runButtonActionAuto;
+    if (run && sourceBtn) {
+      await run(sourceBtn, action, {
+        loadingLabel: "Downloading…",
+        successMessage: "Download started.",
+        successLabel: "Done",
+      });
+      return;
+    }
+    try {
+      await action();
+      window.ShiftSwiftAction?.showActionToast?.("Download started.", "ok");
     } catch (error) {
-      window.alert(error?.message || "Could not download template. Try again or choose another format.");
+      window.ShiftSwiftAction?.showActionToast?.(
+        error?.message || "Could not download template. Try again or choose another format.",
+        "error",
+      );
     }
   }
 
@@ -289,11 +306,11 @@
       event.stopPropagation();
       openEditor(item.id);
     });
-    content.querySelector("#templates-side-dl-platform-btn")?.addEventListener("click", () =>
-      downloadHrTemplate(item.id, "platform")
+    content.querySelector("#templates-side-dl-platform-btn")?.addEventListener("click", (event) =>
+      downloadHrTemplate(item.id, "platform", event.currentTarget),
     );
-    content.querySelector("#templates-side-dl-copy-btn")?.addEventListener("click", () =>
-      downloadHrTemplate(item.id, "effective")
+    content.querySelector("#templates-side-dl-copy-btn")?.addEventListener("click", (event) =>
+      downloadHrTemplate(item.id, "effective", event.currentTarget),
     );
   }
 
@@ -558,11 +575,11 @@
     document.getElementById("template-save-btn")?.addEventListener("click", () => saveTemplate());
     document.getElementById("template-reset-btn")?.addEventListener("click", () => resetTemplate());
     document.getElementById("template-apply-update-btn")?.addEventListener("click", () => applyPlatformUpdate());
-    document.getElementById("template-download-btn")?.addEventListener("click", () => {
-      if (selectedId) downloadHrTemplate(selectedId, "effective");
+    document.getElementById("template-download-btn")?.addEventListener("click", (event) => {
+      if (selectedId) downloadHrTemplate(selectedId, "effective", event.currentTarget);
     });
-    document.getElementById("template-download-platform-btn")?.addEventListener("click", () => {
-      if (selectedId) downloadHrTemplate(selectedId, "platform");
+    document.getElementById("template-download-platform-btn")?.addEventListener("click", (event) => {
+      if (selectedId) downloadHrTemplate(selectedId, "platform", event.currentTarget);
     });
     document.getElementById("ai-draft-btn")?.addEventListener("click", () => runAiDraft());
     document.getElementById("template-editor-close")?.addEventListener("click", () => closeEditor());

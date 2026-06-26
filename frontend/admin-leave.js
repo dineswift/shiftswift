@@ -643,7 +643,7 @@
       }
     } catch (error) {
       if (statusEl) statusEl.textContent = "";
-      window.alert(error.message || "Could not update leave request.");
+      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not update leave request.", "error");
     } finally {
       reviewBusy = false;
     }

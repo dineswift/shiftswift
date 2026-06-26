@@ -511,25 +511,43 @@
       const employeeId = form.employee_id.value;
       const templateId = form.template_id.value;
       if (!employeeId || !templateId) {
-        if (status) status.textContent = "Select an employee and template.";
+        window.ShiftSwiftAction?.setActionStatus?.(status, "Select an employee and template.", "error");
         return;
       }
       const emp = employeeOptions.find((e) => e.value === String(employeeId));
       if (!emp?.email) {
-        if (status) status.textContent = "Add an email on the employee profile before generating (required for e-signature).";
+        window.ShiftSwiftAction?.setActionStatus?.(
+          status,
+          "Add an email on the employee profile before generating (required for e-signature).",
+          "error",
+        );
         return;
       }
-      if (status) status.textContent = "Generating…";
-      try {
+      const performGenerate = async () => {
         const res = await apiFetch("/employment-contracts/generate", {
           method: "POST",
           body: JSON.stringify({ employee_id: Number(employeeId), template_id: templateId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Generation failed");
-        if (status) status.textContent = "Contract generated.";
         await loadContracts();
         if (data.contract?.id) await selectContract(data.contract.id);
+        return "Contract generated.";
+      };
+      const run = window.ShiftSwiftAction?.runFormSubmit;
+      if (run) {
+        await run(form, status, {
+          loadingLabel: "Generating…",
+          successMessage: "Contract generated.",
+          successLabel: "Generated",
+          onAction: performGenerate,
+        });
+        return;
+      }
+      if (status) status.textContent = "Generating…";
+      try {
+        const message = await performGenerate();
+        if (status) status.textContent = message;
       } catch (error) {
         if (status) status.textContent = error.message || "Generation failed";
       }

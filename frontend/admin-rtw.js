@@ -338,19 +338,28 @@
   async function sendReminder() {
     if (!selectedCheckId) return;
     const btn = document.getElementById("rtw-send-reminder-btn");
-    if (btn) btn.disabled = true;
-    try {
+    const run = window.ShiftSwiftAction?.runButtonActionAuto;
+    const action = async () => {
       const res = await apiFetch(`/compliance/sponsor-licence/rtw-checks/${selectedCheckId}/send-reminder`, {
         method: "POST",
         body: JSON.stringify({}),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Could not send reminder");
-      window.alert(data.message || "Reminder queued.");
+      return data.message || "Reminder queued.";
+    };
+    if (run && btn) {
+      await run(btn, action, {
+        loadingLabel: "Sending…",
+        successMessage: "Reminder queued.",
+        successLabel: "Sent",
+      });
+      return;
+    }
+    try {
+      await action();
     } catch (error) {
-      window.alert(error.message || "Could not send reminder.");
-    } finally {
-      if (btn) btn.disabled = false;
+      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not send reminder.", "error");
     }
   }
 

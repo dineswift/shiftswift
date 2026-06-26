@@ -1823,7 +1823,7 @@
             const message = await performDelete();
             if (actionStatus) actionStatus.textContent = message;
           } catch (error) {
-            window.alert(error.message || "Delete failed");
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Delete failed", "error");
           }
         }
       });
@@ -1855,7 +1855,7 @@
           try {
             await performDownload();
           } catch (error) {
-            window.alert(error.message || "Download failed");
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Download failed", "error");
           }
         }
       });

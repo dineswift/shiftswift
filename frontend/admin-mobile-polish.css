@@ -1068,3 +1068,22 @@ html.native-app .employee-shift-reminder-toast span,
     height: 36px;
   }
 }
+
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) .btn:not(.btn--sm):not(.mobile-tab):not(.mobile-back-btn):not(.topbar-icon-btn) {
+    min-height: 42px;
+    touch-action: manipulation;
+  }
+
+  body:has(#mobile-tab-bar) .btn.btn--sm {
+    min-height: 36px;
+  }
+
+  body:has(#mobile-tab-bar) .edit-form-actions .btn,
+  body:has(#mobile-tab-bar) .section-actions .btn,
+  body:has(#mobile-tab-bar) .hr-detail-foot .btn,
+  body:has(#mobile-tab-bar) .employment-detail-foot .btn,
+  body:has(#mobile-tab-bar) .recruitment-row-actions .btn {
+    min-height: 40px;
+  }
+}

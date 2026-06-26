@@ -520,12 +520,25 @@
         btn.addEventListener("click", async () => {
           const appId = Number(btn.dataset.appId);
           const status = btn.dataset.screenAction === "shortlist" ? "shortlisted" : "rejected";
-          btn.disabled = true;
-          try {
+          const run = window.ShiftSwiftAction?.runButtonActionAuto;
+          const action = async () => {
             const data = await patchApplication(appId, { screening_status: status });
             renderWorkspace(data);
+            return status === "shortlisted" ? "Shortlisted." : "Rejected.";
+          };
+          if (run) {
+            await run(btn, action, {
+              loadingLabel: "Saving…",
+              successMessage: status === "shortlisted" ? "Shortlisted." : "Rejected.",
+              successLabel: "Saved",
+            });
+            return;
+          }
+          btn.disabled = true;
+          try {
+            await action();
           } catch (error) {
-            alert(error.message || "Could not update applicant");
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not update applicant", "error");
             btn.disabled = false;
           }
         });
