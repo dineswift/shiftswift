@@ -878,6 +878,17 @@ window.Admin = (() => {
       if (parts.length <= 1) return;
 
       const candidates = [parts[parts.length - 1], parts.join("-"), raw.replace(/\//g, "-")];
+      const anchorAliases = { accountant: "punch-accountant-settings" };
+      for (const part of candidates) {
+        const alias = anchorAliases[part];
+        if (alias) {
+          const el = document.getElementById(alias);
+          if (el && !el.closest(".admin-section[hidden]")) {
+            window.MobileShell?.scrollToAnchor?.(alias, { block: "nearest", behavior: "auto" });
+            return;
+          }
+        }
+      }
       for (const id of candidates) {
         const el = document.getElementById(id);
         if (el && !el.closest(".admin-section[hidden]")) {

@@ -303,7 +303,7 @@
       {
         key: "accountant_email",
         label: "Add accountant email",
-        href: "#time-punch",
+        href: "#time-punch/accountant",
         detail: "Optional auto-send of monthly hours PDF",
       },
     ].filter((step) => {

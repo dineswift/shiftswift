@@ -34,6 +34,8 @@ class BridgeViewController: CAPBridgeViewController {
         )
     }
 
+    private var portalFixTicks = 0
+
     private func startPortalFixTimer() {
         portalFixTimer?.invalidate()
         portalFixTimer = Timer.scheduledTimer(withTimeInterval: 0.75, repeats: true) { [weak self] _ in
@@ -42,11 +44,21 @@ class BridgeViewController: CAPBridgeViewController {
     }
 
     private func applyPortalFixIfNeeded() {
+        portalFixTicks += 1
+        if portalFixTicks > 12 {
+            portalFixTimer?.invalidate()
+            portalFixTimer = nil
+            return
+        }
         guard let webView = webView, let url = webView.url?.absoluteString else { return }
         guard url.contains("shiftswifthr.co.uk") else { return }
         guard url.contains("admin.html") || url.contains("employee.html") || url.contains("master.html") else { return }
-        webView.evaluateJavaScript(Self.embeddedPortalEndScript, completionHandler: nil)
-        webView.evaluateJavaScript(Self.retryOverviewScript, completionHandler: nil)
+        if portalFixTicks <= 3 {
+            webView.evaluateJavaScript(Self.embeddedPortalEndScript, completionHandler: nil)
+        }
+        if portalFixTicks == 2 {
+            webView.evaluateJavaScript(Self.retryOverviewScript, completionHandler: nil)
+        }
     }
 
     /// Patch fetch before production portal scripts run — Capacitor HTTP bypasses WebView CORS.
@@ -55,14 +67,14 @@ class BridgeViewController: CAPBridgeViewController {
     """
 
     private static let embeddedHideLoaderScript = """
-    (function(){try{var p=location.pathname||"";if(!(/admin\\.html$|employee\\.html$|master\\.html$/i.test(p)))return;var id="sshr-portal-hide-loader";if(document.getElementById(id))return;var s=document.createElement("style");s.id=id;s.textContent="#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important}html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important}";(document.documentElement||document.head).appendChild(s);var l=document.getElementById("native-startup-loader");if(l)l.remove();document.documentElement.classList.remove("native-startup-active");document.body&&document.body.classList.remove("native-startup-active");}catch(e){}})();
+    (function(){try{var p=location.pathname||"";if(!(/admin\\.html$|employee\\.html$|master\\.html$/i.test(p)))return;var id="sshr-portal-hide-loader";if(document.getElementById(id))return;var s=document.createElement("style");s.id=id;s.textContent="#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important}#portal-pwa-install-banner,.portal-pwa-install-banner,.pwa-ios-sheet,.pwa-ios-sheet-backdrop{display:none!important;visibility:hidden!important;pointer-events:none!important}html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important}";(document.documentElement||document.head).appendChild(s);if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){document.documentElement.classList.add("native-app","capacitor-native");if(document.body)document.body.classList.add("native-app");}var l=document.getElementById("native-startup-loader");if(l)l.remove();document.documentElement.classList.remove("native-startup-active");document.body&&document.body.classList.remove("native-startup-active");}catch(e){}})();
     """
 
     private static let embeddedPortalEndScript = """
-    (function(){try{var p=location.pathname||"";if(!(/admin\\.html$|employee\\.html$|master\\.html$/i.test(p)))return;var scheme=(window.Capacitor&&window.Capacitor.config&&window.Capacitor.config.ios&&window.Capacitor.config.ios.scheme)||"App";["native-api-fetch.js","session-auth.js","native-portal-fix.js"].forEach(function(file){if(document.querySelector('[data-sshr-ios-fix="'+file+'"]'))return;var s=document.createElement("script");s.src=scheme+"://localhost/"+file+"?v=20";s.setAttribute("data-sshr-ios-fix",file);document.head.appendChild(s);});}catch(e){}})();
+    (function(){try{var p=location.pathname||"";if(!(/admin\\.html$|employee\\.html$|master\\.html$/i.test(p)))return;var scheme=(window.Capacitor&&window.Capacitor.config&&window.Capacitor.config.ios&&window.Capacitor.config.ios.scheme)||"App";["native-api-fetch.js","session-auth.js","native-portal-fix.js"].forEach(function(file){if(document.querySelector('[data-sshr-ios-fix="'+file+'"]'))return;var s=document.createElement("script");s.src=scheme+"://localhost/"+file+"?v=25";s.setAttribute("data-sshr-ios-fix",file);document.head.appendChild(s);});}catch(e){}})();
     """
 
     private static let retryOverviewScript = """
-    (function(){try{if(!(/admin\\.html$/i.test(location.pathname||"")))return;if(window.ShiftSwiftSession&&window.ShiftSwiftSession.hydrateNativeSession){window.ShiftSwiftSession.hydrateNativeSession({force:true}).finally(function(){window.ShiftSwiftNativeApiFetch&&window.ShiftSwiftNativeApiFetch.boot&&window.ShiftSwiftNativeApiFetch.boot();window.dispatchEvent(new CustomEvent("admin:section",{detail:{section:"overview"}}));var b=document.getElementById("overview-retry-btn");if(b)b.click();});return;}window.dispatchEvent(new CustomEvent("admin:section",{detail:{section:"overview"}}));}catch(e){}})();
+    (function(){try{if(window.__SSHR_OVERVIEW_RETRIED)return;window.__SSHR_OVERVIEW_RETRIED=1;if(!(/admin\\.html$/i.test(location.pathname||"")))return;if(window.ShiftSwiftSession&&window.ShiftSwiftSession.hydrateNativeSession){window.ShiftSwiftSession.hydrateNativeSession({force:true}).finally(function(){window.ShiftSwiftNativeApiFetch&&window.ShiftSwiftNativeApiFetch.boot&&window.ShiftSwiftNativeApiFetch.boot();var section=String(location.hash||"").replace("#","").split("/")[0]||"overview";window.dispatchEvent(new CustomEvent("admin:section",{detail:{section:section}}));if(section==="overview"){var b=document.getElementById("overview-retry-btn");if(b)b.click();}});return;}var section=String(location.hash||"").replace("#","").split("/")[0]||"overview";window.dispatchEvent(new CustomEvent("admin:section",{detail:{section:section}}));}catch(e){}})();
     """
 }

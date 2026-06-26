@@ -20,7 +20,7 @@
   }
 
   function version() {
-    return "20";
+    return "25";
   }
 
   function injectHideStyles() {
@@ -36,9 +36,34 @@
   function stripStartupLoader() {
     injectHideStyles();
     var loader = document.getElementById("native-startup-loader");
-    if (loader) loader.remove();
-    document.documentElement.classList.remove("native-startup-active");
-    if (document.body) document.body.classList.remove("native-startup-active");
+    var changed = false;
+    if (loader) {
+      loader.remove();
+      changed = true;
+    }
+    if (document.documentElement.classList.contains("native-startup-active")) {
+      document.documentElement.classList.remove("native-startup-active");
+      changed = true;
+    }
+    if (document.body && document.body.classList.contains("native-startup-active")) {
+      document.body.classList.remove("native-startup-active");
+      changed = true;
+    }
+    return changed;
+  }
+
+  function settlePortalShell() {
+    if (window.__SSHR_PORTAL_FIX_SETTLED) return;
+    window.__SSHR_PORTAL_FIX_SETTLED = true;
+    stripStartupLoader();
+    if (window.__SSHR_PORTAL_FIX_OBSERVER) {
+      window.__SSHR_PORTAL_FIX_OBSERVER.disconnect();
+      window.__SSHR_PORTAL_FIX_OBSERVER = null;
+    }
+    if (window.__SSHR_PORTAL_FIX_INTERVAL) {
+      window.clearInterval(window.__SSHR_PORTAL_FIX_INTERVAL);
+      window.__SSHR_PORTAL_FIX_INTERVAL = null;
+    }
   }
 
   function loadBundledScript(file) {
@@ -83,18 +108,32 @@
   stripStartupLoader();
 
   if (!window.__SSHR_PORTAL_FIX_OBSERVER) {
-    window.__SSHR_PORTAL_FIX_OBSERVER = new MutationObserver(stripStartupLoader);
+    window.__SSHR_PORTAL_FIX_OBSERVER = new MutationObserver(function (mutations) {
+      for (var i = 0; i < mutations.length; i += 1) {
+        if (mutations[i].type !== "childList") continue;
+        if (document.getElementById("native-startup-loader")) {
+          stripStartupLoader();
+          return;
+        }
+      }
+    });
     if (document.documentElement) {
       window.__SSHR_PORTAL_FIX_OBSERVER.observe(document.documentElement, {
         childList: true,
         subtree: true,
-        attributes: true,
-        attributeFilter: ["class"],
       });
     }
   }
 
-  window.setInterval(stripStartupLoader, 400);
+  var portalFixTicks = 0;
+  window.__SSHR_PORTAL_FIX_INTERVAL = window.setInterval(function () {
+    portalFixTicks += 1;
+    stripStartupLoader();
+    if (portalFixTicks >= 12) settlePortalShell();
+  }, 500);
+
+  window.addEventListener("shiftswift:portal-ready", settlePortalShell, { once: true });
+  window.setTimeout(settlePortalShell, 10000);
 
   if (window.Capacitor?.isNativePlatform?.()) {
     boot();

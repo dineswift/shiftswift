@@ -724,6 +724,9 @@
 
   function setActiveTab(tab) {
     activeTab = tab;
+    if (tab !== "accountant") {
+      delete document.body.dataset.punchFocus;
+    }
     document.querySelectorAll(".punch-view-tab").forEach((btn) => {
       const isActive = btn.dataset.punchTab === tab;
       btn.classList.toggle("is-active", isActive);
@@ -740,6 +743,9 @@
       void Promise.all([loadEmployeeList(), loadSites(), loadDailyPunches(punchHistoryDate)]).then(updatePunchStats);
     }
     if (tab === "log") void loadPunches();
+    if (tab === "accountant") {
+      void loadTenantProfile().then(renderAccountantSettings);
+    }
     if (tab === "summary") void loadWeekPunches().then(renderActivityChart);
     if (tab === "timesheet") loadTimesheet();
   }
@@ -1471,8 +1477,25 @@
     });
   }
 
+  function scrollToAccountantSettings() {
+    document.body.dataset.punchFocus = "accountant";
+    setActiveTab("accountant");
+    window.requestAnimationFrame(() => {
+      const card = $("punch-accountant-settings");
+      card?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const emailInput = $("punch-accountant-form")?.querySelector('[name="payroll_accountant_email"]');
+      if (emailInput instanceof HTMLInputElement) {
+        window.setTimeout(() => emailInput.focus({ preventScroll: true }), 120);
+      }
+    });
+  }
+
   function applyTimePunchRoute() {
     const path = window.location.hash.replace("#", "");
+    if (path === "time-punch/accountant") {
+      scrollToAccountantSettings();
+      return true;
+    }
     if (path === "time-punch/today" || path === "time-punch/records") {
       setActiveTab("records");
       if (applyRotaPunchPrefill()) return true;

@@ -50,7 +50,7 @@
         window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
       ) {
         const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html?build=16&v=16`;
+        return `${scheme}://localhost/index.html?build=24&v=24`;
       }
     } catch {
       /* ignore */
@@ -192,6 +192,11 @@
   }
 
   function storeSession(data) {
+    try {
+      sessionStorage.removeItem("sshrSignedOut");
+    } catch {
+      /* ignore */
+    }
     if (data.access_token) {
       localStorage.setItem("token", data.access_token);
       void persistNativeKey("token", data.access_token);
@@ -235,6 +240,11 @@
         }
       }),
     );
+    try {
+      sessionStorage.setItem("sshrSignedOut", "1");
+    } catch {
+      /* ignore */
+    }
   }
 
   async function signOut(loginUrl) {
@@ -242,9 +252,11 @@
     try {
       sessionStorage.removeItem("sshrPostLoginTransition");
       sessionStorage.removeItem("impersonationActive");
+      sessionStorage.setItem("sshrSignedOut", "1");
     } catch {
       /* ignore */
     }
+    window.ShiftSwiftNativeApp?.hideSplash?.();
     window.location.replace(loginUrl || resolveLoginUrl());
   }
 
@@ -311,6 +323,15 @@
   }
 
   async function redirectIfLoggedIn() {
+    try {
+      if (sessionStorage.getItem("sshrSignedOut") === "1") {
+        sessionStorage.removeItem("sshrSignedOut");
+        await clearSession();
+        return false;
+      }
+    } catch {
+      /* ignore */
+    }
     await hydrateNativeSession();
     if (!(await canUseStoredSession())) return false;
     await persistNativeSession();
@@ -319,7 +340,7 @@
     } catch {
       /* ignore */
     }
-    window.ShiftSwiftNativeApp?.showSplash?.();
+    window.ShiftSwiftNativeApp?.hideSplash?.();
     if (isMasterAdminSession()) {
       window.location.replace(portalUrl("master.html"));
       return true;

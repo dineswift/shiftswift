@@ -182,7 +182,7 @@
       const ok = await verifyBiometricUnlock("Sign in with Face ID");
       if (!ok) return false;
     }
-    return window.ShiftSwiftSession.redirectIfLoggedIn?.() === true;
+    return Boolean(await window.ShiftSwiftSession.redirectIfLoggedIn?.());
   }
 
   window.ShiftSwiftTrustedDevice = {

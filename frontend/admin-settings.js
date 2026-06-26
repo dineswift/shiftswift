@@ -293,7 +293,7 @@
         { key: "rtw_started", label: "Right-to-work check", href: "#compliance-rtw" },
         { key: "punch_site", label: "Time punch site", href: "#time-punch" },
         { key: "rota_published", label: "Published rota", href: "#rota" },
-        { key: "accountant_email", label: "Accountant email", href: "#time-punch" },
+        { key: "accountant_email", label: "Accountant email", href: "#time-punch/accountant" },
       ].filter((step) => {
         if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
         return true;

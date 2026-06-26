@@ -472,18 +472,19 @@
       window.setTimeout(() => loader.remove(), 320);
     }
     window.ShiftSwiftNativeStartup?.finish?.();
+    window.ShiftSwiftNativeApp?.hideSplash?.();
     window.dispatchEvent(new CustomEvent("shiftswift:startup-loader-done"));
   }
 
   async function init() {
     if (document.body.dataset.loginPage !== "unified") return;
-    revealLoginShell();
-    showLoginForm();
     showMasterLoginNotice();
     bindKeyboardScroll();
     bindUnifiedLogin();
     if (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.()) return;
     if (await window.ShiftSwiftSession?.redirectIfLoggedIn?.()) return;
+    revealLoginShell();
+    showLoginForm();
   }
 
   function bindUnifiedLogin() {

@@ -96,6 +96,43 @@
     color: #b42318;
   }
 
+  body:has(#mobile-tab-bar) #time-punch > .section-header .section-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-view-tabs {
+    gap: 4px 10px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  body:has(#mobile-tab-bar)[data-punch-focus="accountant"] #time-punch > .section-header .section-actions,
+  body:has(#mobile-tab-bar)[data-punch-focus="accountant"] #time-punch .punch-stats-grid,
+  body:has(#mobile-tab-bar)[data-punch-focus="accountant"] #time-punch .punch-view-tabs {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar)[data-punch-focus="accountant"] #time-punch > .section-header p.muted {
+    max-width: none;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-view-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-view-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   body:has(#mobile-tab-bar) .rota-admin-message--success {
     border: 1px solid rgba(15, 110, 86, 0.22);
     background: rgba(15, 110, 86, 0.06);

@@ -194,10 +194,15 @@
 
   function retryPortalData() {
     if (!isNative()) return;
+    if (window.__SSHR_PORTAL_DATA_RETRIED) return;
+    window.__SSHR_PORTAL_DATA_RETRIED = true;
     const path = String(window.location.pathname || "");
     if (/admin\.html$/i.test(path)) {
-      window.dispatchEvent(new CustomEvent("admin:section", { detail: { section: "overview" } }));
-      document.getElementById("overview-retry-btn")?.click();
+      const section = String(window.location.hash || "").replace("#", "").split("/")[0] || "overview";
+      window.dispatchEvent(new CustomEvent("admin:section", { detail: { section } }));
+      if (section === "overview") {
+        document.getElementById("overview-retry-btn")?.click();
+      }
     }
   }
 

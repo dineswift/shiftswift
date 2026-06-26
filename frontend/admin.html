@@ -16,12 +16,12 @@
           document.write(
             '<script src="' +
               scheme +
-              '://localhost/native-app-portal-guard.js?v=21"><\/script>',
+              '://localhost/native-app-portal-guard.js?v=25"><\/script>',
           );
           document.write(
             '<script src="' +
               scheme +
-              '://localhost/native-app-bootstrap.js?v=16"><\/script>',
+              '://localhost/native-app-bootstrap.js?v=25"><\/script>',
           );
         } catch (e) {
           /* ignore */
@@ -75,8 +75,8 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v136" />
-    <link rel="stylesheet" href="./admin-mobile-polish.css?v=2" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v137" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=4" />
   </head>
   <body class="admin-portal">
     <script>
@@ -1980,6 +1980,7 @@
             <button type="button" class="punch-view-tab" data-punch-tab="records" role="tab" aria-selected="false"><span aria-hidden="true">🕐</span> Punch records</button>
             <button type="button" class="punch-view-tab" data-punch-tab="log" role="tab" aria-selected="false"><span aria-hidden="true">✏️</span> Admin punch</button>
             <button type="button" class="punch-view-tab" data-punch-tab="timesheet" role="tab" aria-selected="false"><span aria-hidden="true">📋</span> Timesheets</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="accountant" role="tab" aria-selected="false"><span aria-hidden="true">✉️</span> Accountant report</button>
             <button type="button" class="punch-view-tab" data-punch-tab="summary" role="tab" aria-selected="false"><span aria-hidden="true">📊</span> Activity summary</button>
           </div>
 
@@ -2165,27 +2166,6 @@
                     <button type="button" class="btn outline punch-table-head__btn" id="punch-export-csv-btn">Export CSV</button>
                   </div>
                 </div>
-                <article class="card punch-accountant-card" id="punch-accountant-settings">
-                  <h4 class="hr-section-title">Payroll accountant report</h4>
-                  <p class="muted punch-tab-intro">
-                    Email working hours to your accountant or payroll bureau. ShiftSwift HR records clock times only — it does not calculate pay or submit to HMRC.
-                  </p>
-                  <form id="punch-accountant-form" class="edit-form edit-form--cols-2">
-                    <label class="edit-field" data-span="2">
-                      <span class="edit-label">Accountant / payroll email</span>
-                      <input type="email" name="payroll_accountant_email" placeholder="payroll@youraccountant.co.uk" autocomplete="email" />
-                    </label>
-                    <label class="edit-field signup-check punch-accountant-enable" data-span="2">
-                      <input type="checkbox" name="payroll_hours_report_enabled" />
-                      <span>Automatically email last month's hours PDF on the 1st of each month (billing email CC'd)</span>
-                    </label>
-                    <div class="edit-form-actions punch-accountant-actions" data-span="2">
-                      <button type="button" class="btn secondary" id="punch-accountant-save-btn">Save settings</button>
-                      <button type="button" class="btn ghost" id="punch-accountant-send-btn">Send last month now</button>
-                      <p class="edit-form-status muted" id="punch-accountant-status" aria-live="polite"></p>
-                    </div>
-                  </form>
-                </article>
                 <div class="punch-filters">
                   <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-filter-employee"><option value="">All employees</option></select></label>
                   <label class="edit-field"><span class="edit-label">Site</span><select id="punch-filter-site"><option value="">All sites</option></select></label>
@@ -2212,6 +2192,30 @@
                     </tbody>
                   </table>
                 </div>
+              </div>
+
+              <div id="punch-tab-accountant" class="punch-tab-panel" data-punch-panel="accountant" hidden>
+                <article class="card punch-accountant-card" id="punch-accountant-settings">
+                  <h4 class="hr-section-title">Payroll accountant report</h4>
+                  <p class="muted punch-tab-intro">
+                    Email working hours to your accountant or payroll bureau. ShiftSwift HR records clock times only — it does not calculate pay or submit to HMRC.
+                  </p>
+                  <form id="punch-accountant-form" class="edit-form edit-form--cols-2">
+                    <label class="edit-field" data-span="2">
+                      <span class="edit-label">Accountant / payroll email</span>
+                      <input type="email" name="payroll_accountant_email" placeholder="payroll@youraccountant.co.uk" autocomplete="email" />
+                    </label>
+                    <label class="edit-field signup-check punch-accountant-enable" data-span="2">
+                      <input type="checkbox" name="payroll_hours_report_enabled" />
+                      <span>Automatically email last month's hours PDF on the 1st of each month (billing email CC'd)</span>
+                    </label>
+                    <div class="edit-form-actions punch-accountant-actions" data-span="2">
+                      <button type="button" class="btn secondary" id="punch-accountant-save-btn">Save settings</button>
+                      <button type="button" class="btn ghost" id="punch-accountant-send-btn">Send last month now</button>
+                      <p class="edit-form-status muted" id="punch-accountant-status" aria-live="polite"></p>
+                    </div>
+                  </form>
+                </article>
               </div>
 
               <div id="punch-tab-timesheet" class="punch-tab-panel" data-punch-panel="timesheet" hidden>
@@ -3196,7 +3200,7 @@
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v12"></script>
     <script src="./admin-global-documents.js?v=1"></script>
-    <script src="./admin-time-punch.js?v=34"></script>
+    <script src="./admin-time-punch.js?v=35"></script>
     <script src="./admin-rota.js?v=36"></script>
     <script src="./admin-leave.js?v=admin-v5"></script>
     <script src="./admin-profile-changes.js?v=2"></script>

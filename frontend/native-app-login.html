@@ -9,8 +9,8 @@
           if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
           if (cap.config && cap.config.appId !== "co.uk.shiftswifthr.app") return;
           var scheme = (cap.config.ios && cap.config.ios.scheme) || "App";
-          var bundled = scheme + "://localhost/index.html?build=19";
-          if (!String(location.href).includes("build=19")) {
+          var bundled = scheme + "://localhost/index.html?build=24";
+          if (!String(location.href).includes("build=24")) {
             location.replace(bundled);
           }
         } catch (e) {}
@@ -31,9 +31,9 @@
       html.native-startup-active .portal-login-shell{opacity:0;visibility:hidden}
     </style>
     <script src="./native-app-startup.js?v=6"></script>
-    <script src="./native-api-fetch.js?v=19"></script>
-    <script src="./session-auth.js?v=19"></script>
-    <script src="./native-app.js?v=19"></script>
+    <script src="./native-api-fetch.js?v=24"></script>
+    <script src="./session-auth.js?v=24"></script>
+    <script src="./native-app.js?v=24"></script>
     <title>ShiftSwift HR | Sign in</title>
     <link rel="stylesheet" href="./native-app-login.css?v=12" />
   </head>
@@ -151,7 +151,7 @@
       </main>
     </div>
     <script src="./trusted-device.js?v=2"></script>
-    <script src="./unified-login.js?v=16"></script>
+    <script src="./unified-login.js?v=18"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

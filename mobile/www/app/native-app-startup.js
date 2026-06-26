@@ -183,7 +183,7 @@
     if (isLoginPage()) {
       window.setTimeout(() => {
         if (!finished) finish();
-      }, 3200);
+      }, 1200);
     }
 
     await Promise.all([delay(minMs), waitForPortalReady()]);

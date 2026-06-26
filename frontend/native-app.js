@@ -1,9 +1,17 @@
-/** Native iOS/Android shell detection (Capacitor) — same UX as installed PWA. */
 (function initNativeApp() {
+  try {
+    if (window.Capacitor?.isNativePlatform?.()) {
+      document.documentElement.classList.add("native-app", "capacitor-native");
+      if (document.body) document.body.classList.add("native-app");
+    }
+  } catch {
+    /* ignore */
+  }
+
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "21";
+const BUNDLED_ASSET_VERSION = "25";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -353,14 +361,15 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       try {
         sessionStorage.removeItem("sshrPostLoginTransition");
         sessionStorage.removeItem("impersonationActive");
+        sessionStorage.setItem("sshrSignedOut", "1");
       } catch {
         /* ignore */
       }
     }
 
     async function nativeSignOut(loginUrl) {
-      showSplash();
       await clearNativeSessionStorage();
+      forceHideSplash();
       const url =
         loginUrl ||
         window.ShiftSwiftAuthGuard?.loginRedirectUrl?.() ||
@@ -425,8 +434,10 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       sanitizeNativeApiBase();
       window.ShiftSwiftNativeApiFetch?.boot?.();
       patchNativeSignOut();
+      dismissStartupLoader();
     } else {
       window.ShiftSwiftNativeApiFetch?.boot?.();
+      forceHideSplash();
     }
     if (!onLogin) {
       window.addEventListener("load", () => window.setTimeout(patchNativeSignOut, 0), { once: true });

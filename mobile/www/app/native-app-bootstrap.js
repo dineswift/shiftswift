@@ -9,7 +9,7 @@
         : "App";
     if (!scheme) scheme = "App";
 
-    var version = "19";
+    var version = "25";
     var path = String(window.location.pathname || "");
     var onPortal =
       /admin\.html$/i.test(path) ||
@@ -34,6 +34,7 @@
       var script = document.createElement("script");
       script.src = src;
       script.setAttribute("data-sshr-native", src);
+      script.async = false;
       document.head.appendChild(script);
     }
 
@@ -43,7 +44,8 @@
       var style = document.createElement("style");
       style.id = "sshr-portal-hide-loader";
       style.textContent =
-        "#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important;pointer-events:none!important}";
+        "#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important;pointer-events:none!important}" +
+        "#portal-pwa-install-banner,.portal-pwa-install-banner,.pwa-ios-sheet,.pwa-ios-sheet-backdrop{display:none!important;visibility:hidden!important;pointer-events:none!important}";
       (document.head || document.documentElement).appendChild(style);
     }
 

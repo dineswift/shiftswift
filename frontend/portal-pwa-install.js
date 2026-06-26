@@ -21,8 +21,20 @@
 
   const ios = window.ShiftSwiftPwaIos || {};
 
+  function isNativeShell() {
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) return true;
+      if (window.ShiftSwiftNativeApp?.isCapacitorNative?.()) return true;
+      if (window.ShiftSwiftNativeApp?.isNativeApp?.()) return true;
+      if (window.ShiftSwiftBrand?.isCapacitorNative?.()) return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
   function isStandalone() {
-    if (window.ShiftSwiftNativeApp?.isNativeApp?.()) return true;
+    if (isNativeShell()) return true;
     return ios.isStandalone?.() ||
       window.matchMedia("(display-mode: standalone)").matches ||
       window.matchMedia("(display-mode: fullscreen)").matches ||
@@ -195,6 +207,7 @@
   }
 
   function registerServiceWorker() {
+    if (isNativeShell()) return;
     if (!("serviceWorker" in navigator)) return;
     if (portal === "employee" && window.ShiftSwiftEmployeePwa?.registerEmployeeSw) {
       window.ShiftSwiftEmployeePwa.registerEmployeeSw();
@@ -247,6 +260,25 @@
     link.rel = "manifest";
     link.href = manifestHref;
     document.head.appendChild(link);
+  }
+
+  function hideNativeInstallUi() {
+    hideBanner();
+    closeIosInstallSheet();
+    document.querySelectorAll(".pwa-ios-sheet, .pwa-ios-sheet-backdrop").forEach((el) => {
+      el.hidden = true;
+      el.remove();
+    });
+  }
+
+  if (isNativeShell()) {
+    hideNativeInstallUi();
+    window.ShiftSwiftPortalPwaInstall = {
+      openIosInstallSheet() {},
+      closeIosInstallSheet: hideNativeInstallUi,
+      isStandalone: () => true,
+    };
+    return;
   }
 
   registerServiceWorker();
