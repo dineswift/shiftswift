@@ -15,7 +15,7 @@ const allowNavigation = [
 
 const pluginConfig = {
   CapacitorHttp: {
-    enabled: false,
+    enabled: true,
   },
   SplashScreen: {
     launchAutoHide: false,

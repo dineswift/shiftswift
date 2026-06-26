@@ -37,15 +37,20 @@
 })();
 
 function masterSignOut() {
+  const loginUrl =
+    window.ShiftSwiftSession?.resolveLoginUrl?.() ||
+    window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
+    "./native-app-login.html";
+  if (window.ShiftSwiftSession?.signOut) {
+    void window.ShiftSwiftSession.signOut(loginUrl);
+    return;
+  }
   localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("tenantId");
   localStorage.removeItem("masterTenantId");
   localStorage.removeItem("userRole");
-  window.location.href =
-    window.ShiftSwiftSession?.resolveLoginUrl?.() ||
-    window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
-    "./native-app-login.html";
+  window.location.replace(loginUrl);
 }
 
 document.querySelectorAll("[data-master-sign-out]").forEach((el) => {

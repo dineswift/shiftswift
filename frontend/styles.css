@@ -5459,7 +5459,11 @@ body.admin-portal .absence-section-title {
 }
 
 @media (max-width: 860px) {
-  body.admin-portal .admin-section > .section-header {
+  body.admin-portal .admin-section > .section-header.section-header--desktop {
+    display: none !important;
+  }
+
+  body.admin-portal .admin-section > .section-header:not(.section-header--desktop) {
     padding: 12px 14px;
   }
 

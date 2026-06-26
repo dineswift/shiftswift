@@ -60,12 +60,18 @@
       }, timeoutMs);
     let response;
     try {
-      response = await fetch(`${getApiBase()}${path}`, {
+      const url = `${getApiBase()}${path}`;
+      const reqInit = {
         method: "POST",
         headers,
         body: body ? JSON.stringify(body) : undefined,
         signal: controller?.signal,
-      });
+      };
+      if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+        response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
+      } else {
+        response = await fetch(url, reqInit);
+      }
     } catch (error) {
       if (error?.name === "AbortError") {
         throw new Error("Request timed out");
@@ -456,8 +462,22 @@
     }
   }
 
+  function revealLoginShell() {
+    document.documentElement.classList.remove("native-startup-active");
+    document.body?.classList.remove("native-startup-active");
+    const loader = document.getElementById("native-startup-loader");
+    if (loader) {
+      loader.classList.add("is-done");
+      loader.setAttribute("aria-hidden", "true");
+      window.setTimeout(() => loader.remove(), 320);
+    }
+    window.ShiftSwiftNativeStartup?.finish?.();
+    window.dispatchEvent(new CustomEvent("shiftswift:startup-loader-done"));
+  }
+
   async function init() {
     if (document.body.dataset.loginPage !== "unified") return;
+    revealLoginShell();
     showLoginForm();
     showMasterLoginNotice();
     bindKeyboardScroll();

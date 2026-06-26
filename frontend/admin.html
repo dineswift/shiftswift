@@ -3,12 +3,45 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="./native-app-bootstrap.js?v=6"></script>
+    <script>
+      (function () {
+        try {
+          if (!window.Capacitor?.isNativePlatform?.()) return;
+          window.__SSHR_BUNDLED_NATIVE_BOOT = true;
+          var scheme =
+            window.Capacitor.config && window.Capacitor.config.ios
+              ? window.Capacitor.config.ios.scheme
+              : "App";
+          if (!scheme) scheme = "App";
+          document.write(
+            '<script src="' +
+              scheme +
+              '://localhost/native-app-portal-guard.js?v=16"><\/script>',
+          );
+          document.write(
+            '<script src="' +
+              scheme +
+              '://localhost/native-app-bootstrap.js?v=16"><\/script>',
+          );
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./native-app-bootstrap.js?v=6"><\/script>');
+      }
+    </script>
     <script src="./brand-config.js?v=brand-v8"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <meta name="theme-color" content="#0f6e56" />
     <script src="./app-icons.js?v=brandkit-v7"></script>
-    <script src="./native-app.js?v=6"></script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./native-app.js?v=6"><\/script>');
+      }
+    </script>
     <script src="./pwa-ios.js?v=1"></script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -42,8 +75,8 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v135" />
-    <link rel="stylesheet" href="./admin-mobile-polish.css?v=1" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v136" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=2" />
   </head>
   <body class="admin-portal">
     <script>

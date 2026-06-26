@@ -3,7 +3,18 @@ window.Admin = (() => {
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
     if (window.ShiftSwiftBrand?.resolveApiBase) return window.ShiftSwiftBrand.resolveApiBase();
-    return localStorage.getItem("apiBaseUrl") || "http://localhost:3000";
+    if (window.Capacitor?.isNativePlatform?.()) {
+      return window.ShiftSwiftBrand?.urls?.api || "https://api.shiftswifthr.co.uk";
+    }
+    const stored = localStorage.getItem("apiBaseUrl");
+    if (stored && /localhost|127\.0\.0\.1/.test(stored)) {
+      try {
+        localStorage.removeItem("apiBaseUrl");
+      } catch {
+        /* ignore */
+      }
+    }
+    return stored || "http://localhost:3000";
   }
 
   function isLocalDevHost() {
@@ -44,7 +55,7 @@ window.Admin = (() => {
     await window.ShiftSwiftSession?.hydrateNativeSession?.();
     if (!window.ShiftSwiftSession?.hasSession?.()) return;
     try {
-      const response = await window.ShiftSwiftSession.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE });
+      const response = await window.ShiftSwiftSession.fetchWithAuth("/auth/verify", {}, { apiBase: getApiBase() });
       if (!response.ok) return;
       const user = await response.json();
       if (user.role === "employee") {

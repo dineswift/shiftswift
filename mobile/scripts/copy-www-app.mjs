@@ -14,12 +14,16 @@ const copies = [
   "brand-config.js",
   "trusted-device.js",
   "session-auth.js",
+  "auth-guard.js",
   "native-app.js",
   "native-app-chrome.css",
   "native-app-login.css",
   "native-app-startup.css",
   "native-app-startup.js",
   "native-app-bootstrap.js",
+  "native-app-portal-guard.js",
+  "native-portal-fix.js",
+  "native-api-fetch.js",
   "unified-login.js",
 ];
 

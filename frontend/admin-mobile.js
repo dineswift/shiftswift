@@ -25,13 +25,36 @@
     return "Good evening";
   }
 
+  function usernameDisplayFallback(username) {
+    const local = (username.split("@")[0] || username || "").trim();
+    if (!local) return "there";
+    const cleaned = local.replace(/\d+$/, "") || local;
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  function applyAdminIdentity(user) {
+    if (user.username) {
+      localStorage.setItem("adminUsername", user.username);
+    }
+    const displayName =
+      (user.display_name || "").trim() ||
+      usernameDisplayFallback(user.username || "");
+    const firstName =
+      (user.first_name || "").trim() ||
+      displayName.split(/\s+/)[0] ||
+      "there";
+    localStorage.setItem("adminDisplayName", displayName);
+    localStorage.setItem("adminFirstName", firstName);
+  }
+
   function displayFirstName() {
+    const firstName = localStorage.getItem("adminFirstName") || "";
+    if (firstName) return firstName;
     const stored = localStorage.getItem("adminDisplayName") || "";
-    if (stored) return stored;
+    if (stored) return stored.split(/\s+/)[0];
     const username = localStorage.getItem("adminUsername") || "";
     if (!username) return "there";
-    const local = username.split("@")[0] || username;
-    return local.charAt(0).toUpperCase() + local.slice(1);
+    return usernameDisplayFallback(username);
   }
 
   function syncClockAvailability(enabled) {
@@ -78,10 +101,7 @@
       if (token && window.Admin?.apiFetch) {
         const res = await window.Admin.apiFetch("/auth/verify");
         if (res.ok) {
-          const user = await res.json();
-          if (user.username) {
-            localStorage.setItem("adminUsername", user.username);
-          }
+          applyAdminIdentity(await res.json());
         }
       }
     } catch {
@@ -292,10 +312,15 @@
         if (!isMobile()) return;
         const href = link.getAttribute("href") || "";
 
-        if (link.hasAttribute("data-sign-out") || (link.target === "_blank" && !href.startsWith("#"))) {
+        if (link.hasAttribute("data-sign-out")) {
+          event.preventDefault();
           closeMorePanel();
+          void (window.ShiftSwiftAuthGuard?.signOut?.() ||
+            window.ShiftSwiftSession?.signOut?.(window.ShiftSwiftAuthGuard?.loginRedirectUrl?.()));
           return;
         }
+
+        if (link.target === "_blank" && !href.startsWith("#")) {
 
         if (link.dataset.brandSupportMailto || href.startsWith("mailto:")) {
           closeMorePanel();

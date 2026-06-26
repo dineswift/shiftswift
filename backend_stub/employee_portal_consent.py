@@ -28,6 +28,17 @@ def username_display_fallback(username: str) -> str:
     return cleaned[:1].upper() + cleaned[1:]
 
 
+def _name_from_employee_record(employee: dict[str, Any]) -> tuple[str, str] | None:
+    first = str(employee.get("first_name") or "").strip()
+    last = str(employee.get("last_name") or "").strip()
+    full = f"{first} {last}".strip()
+    if full:
+        return full, first or full.split()[0]
+    if first:
+        return first, first
+    return None
+
+
 def employee_display_name(*, tenant_id: int, username: str, conn: Any) -> tuple[str, str]:
     """Return (display_name, first_name) for the signed-in employee."""
     from modules.time_punch.service import resolve_employee
@@ -37,13 +48,35 @@ def employee_display_name(*, tenant_id: int, username: str, conn: Any) -> tuple[
         fallback = username_display_fallback(username)
         return fallback, fallback.split()[0] if fallback else "there"
 
-    first = str(employee.get("first_name") or "").strip()
-    last = str(employee.get("last_name") or "").strip()
-    full = f"{first} {last}".strip()
-    if full:
-        return full, first or full.split()[0]
-    if first:
-        return first, first
+    named = _name_from_employee_record(employee)
+    if named:
+        return named
+    fallback = username_display_fallback(username)
+    return fallback, fallback.split()[0] if fallback else "there"
+
+
+def hr_display_name(*, tenant_id: int, username: str, conn: Any) -> tuple[str, str]:
+    """Return (display_name, first_name) for HR/admin portal users."""
+    from admin_service import get_tenant_profile
+    from modules.time_punch.service import resolve_employee
+
+    employee = resolve_employee(tenant_id=tenant_id, username=username, conn=conn)
+    if employee:
+        named = _name_from_employee_record(employee)
+        if named:
+            return named
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    signatory_name = str(profile.get("signatory_name") or "").strip()
+    user_lower = username.strip().lower()
+    contact_emails = {
+        str(profile.get("signatory_email") or "").strip().lower(),
+        str(profile.get("billing_email") or "").strip().lower(),
+    } - {""}
+    if signatory_name and user_lower in contact_emails:
+        parts = signatory_name.split()
+        return signatory_name, parts[0] if parts else signatory_name
+
     fallback = username_display_fallback(username)
     return fallback, fallback.split()[0] if fallback else "there"
 

@@ -174,16 +174,32 @@
       </a>`;
   }
 
+  function applyAdminIdentityFromOverview(data) {
+    const signatoryName = (data.signatory_name || "").trim();
+    if (!signatoryName) return;
+    const username = (localStorage.getItem("adminUsername") || "").trim().toLowerCase();
+    const contactEmails = [data.signatory_email, data.billing_email]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter(Boolean);
+    if (contactEmails.length && username && !contactEmails.includes(username)) return;
+    localStorage.setItem("adminDisplayName", signatoryName);
+    localStorage.setItem("adminFirstName", signatoryName.split(/\s+/)[0] || signatoryName);
+  }
+
   function updateTopbarMeta(data) {
     const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
     const avatar = document.querySelector(".topbar-user-menu__avatar");
-    const username = localStorage.getItem("username") || "Admin";
+    const displayName =
+      localStorage.getItem("adminDisplayName") ||
+      localStorage.getItem("adminFirstName") ||
+      localStorage.getItem("adminUsername") ||
+      "Admin";
     if (topbarName) topbarName.textContent = businessName;
-    if (userLabel) userLabel.textContent = username;
+    if (userLabel) userLabel.textContent = displayName;
     if (avatar) {
-      const initials = String(username)
+      const initials = String(displayName)
         .split(/\s+/)
         .filter(Boolean)
         .slice(0, 2)
@@ -350,6 +366,7 @@
       }
       const mobileBusiness = document.getElementById("mobile-business-name");
       if (mobileBusiness) mobileBusiness.textContent = businessName;
+      applyAdminIdentityFromOverview(data);
       window.AdminMobile?.refreshGreeting?.();
       updateTopbarMeta(data);
 
@@ -657,6 +674,11 @@
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "overview") loadOverview();
+  });
+
+  window.addEventListener("shiftswift:native-session-ready", () => {
+    loadOverview();
+    loadTrialBanner();
   });
 
   loadOverview();

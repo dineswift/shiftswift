@@ -9,8 +9,8 @@
           if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return;
           if (cap.config && cap.config.appId !== "co.uk.shiftswifthr.app") return;
           var scheme = (cap.config.ios && cap.config.ios.scheme) || "App";
-          var bundled = scheme + "://localhost/index.html?build=14";
-          if (!String(location.href).includes("build=14")) {
+          var bundled = scheme + "://localhost/index.html?build=19";
+          if (!String(location.href).includes("build=19")) {
             location.replace(bundled);
           }
         } catch (e) {}
@@ -22,14 +22,16 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ShiftSwift HR" />
     <script src="./brand-config.js?v=brand-v8"></script>
-    <script src="./native-app.js?v=14"></script>
-    <script src="./session-auth.js?v=11"></script><link rel="stylesheet" href="./native-app-startup.css?v=4" />
+    <link rel="stylesheet" href="./native-app-startup.css?v=4" />
     <style>
       .native-startup-loader{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#0f6e56}
       .native-startup-loader__mark{display:block;width:88px;height:auto;max-width:88px;aspect-ratio:68/72;flex-shrink:0}
       html.native-startup-active .portal-login-shell{opacity:0;visibility:hidden}
     </style>
     <script src="./native-app-startup.js?v=6"></script>
+    <script src="./native-api-fetch.js?v=19"></script>
+    <script src="./session-auth.js?v=19"></script>
+    <script src="./native-app.js?v=19"></script>
     <title>ShiftSwift HR | Sign in</title>
     <link rel="stylesheet" href="./native-app-login.css?v=12" />
   </head>

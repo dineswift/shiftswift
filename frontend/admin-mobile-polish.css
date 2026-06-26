@@ -1,63 +1,85 @@
 /* Admin mobile shell — post-login polish (native + PWA) */
 @media (max-width: 860px) {
+  body:has(#mobile-tab-bar) #overview > .section-header--desktop {
+    display: none !important;
+  }
+
+  body:has(#mobile-tab-bar)[data-mobile-tab="home"] #overview.admin-section {
+    gap: 8px;
+  }
+
   body:has(#mobile-tab-bar) .mobile-home-header {
-    margin: 0 0 18px;
-    padding: 18px 16px 16px;
-    border-radius: 18px;
-    background: linear-gradient(145deg, rgba(15, 110, 86, 0.12) 0%, rgba(255, 255, 255, 0.96) 58%);
-    border: 1px solid rgba(15, 110, 86, 0.14);
-    box-shadow: 0 10px 28px rgba(15, 110, 86, 0.08);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 8px;
+    row-gap: 2px;
+    margin: 0 0 8px;
+    padding: 10px 12px 9px;
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(15, 110, 86, 0.1) 0%, rgba(255, 255, 255, 0.98) 62%);
+    border: 1px solid rgba(15, 110, 86, 0.12);
+    box-shadow: 0 4px 14px rgba(15, 110, 86, 0.06);
   }
 
   body:has(#mobile-tab-bar) .mobile-greeting {
-    margin: 0 0 4px;
-    font-size: 1.35rem;
+    margin: 0;
+    font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: #12352c;
+    line-height: 1.2;
   }
 
   body:has(#mobile-tab-bar) .mobile-business-name {
     margin: 0;
-    font-size: 0.92rem;
+    font-size: 0.78rem;
     color: #5c6b66;
+    line-height: 1.2;
+  }
+
+  body:has(#mobile-tab-bar) .mobile-business-name:not(:empty)::before {
+    content: "·";
+    margin-right: 8px;
+    color: #8a9691;
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid {
-    gap: 10px;
-    margin-bottom: 14px;
+    gap: 6px;
+    margin-bottom: 8px;
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid .hr-stat-card {
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid rgba(15, 110, 86, 0.1);
-    box-shadow: 0 6px 18px rgba(18, 53, 44, 0.06);
-    padding: 14px 14px 12px;
-    min-height: 108px;
+    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
+    padding: 8px 8px 7px;
+    min-height: 0;
   }
 
   body:has(#mobile-tab-bar) .overview-error {
-    padding: 16px;
-    border-radius: 14px;
+    padding: 12px;
+    border-radius: 12px;
     border: 1px solid rgba(198, 40, 40, 0.18);
     background: rgba(198, 40, 40, 0.05);
     text-align: center;
   }
 
   body:has(#mobile-tab-bar) .overview-module-grid {
-    gap: 10px;
+    gap: 8px;
   }
 
   body:has(#mobile-tab-bar) .overview-module-card {
-    border-radius: 16px;
-    min-height: 118px;
-    box-shadow: 0 4px 14px rgba(18, 53, 44, 0.05);
+    border-radius: 14px;
+    min-height: 0;
+    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
   }
 
   body:has(#mobile-tab-bar) .mobile-subscription-card {
-    border-radius: 16px;
-    margin-bottom: 14px;
-    box-shadow: 0 6px 18px rgba(18, 53, 44, 0.06);
+    border-radius: 12px;
+    margin: 0 0 8px;
+    padding: 9px 11px;
+    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
   }
 
   body:has(#mobile-tab-bar) .rota-admin-message {

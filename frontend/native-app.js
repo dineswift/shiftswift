@@ -3,7 +3,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "15";
+const BUNDLED_ASSET_VERSION = "20";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -301,13 +301,101 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     );
   }
 
+  function sanitizeNativeApiBase() {
+    if (!isCapacitorNative()) return;
+    try {
+      const stored = localStorage.getItem("apiBaseUrl");
+      if (stored && /localhost|127\.0\.0\.1/.test(stored)) {
+        localStorage.removeItem("apiBaseUrl");
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function patchNativeSignOut() {
+    if (!isCapacitorNative() || !isPortalShellPage()) return;
+    const session = window.ShiftSwiftSession;
+    if (!session || session.__sshrNativeSignOutPatched) return;
+    session.__sshrNativeSignOutPatched = true;
+
+    const SESSION_KEYS = ["token", "refreshToken", "tenantId", "userRole", "masterTenantId"];
+
+    async function clearNativeSessionStorage() {
+      for (const key of SESSION_KEYS) {
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          /* ignore */
+        }
+        try {
+          const prefs = await window.Capacitor?.Plugins?.Preferences;
+          if (prefs?.remove) await prefs.remove({ key: `sshr:${key}` });
+        } catch {
+          /* ignore */
+        }
+      }
+      try {
+        sessionStorage.removeItem("sshrPostLoginTransition");
+        sessionStorage.removeItem("impersonationActive");
+      } catch {
+        /* ignore */
+      }
+    }
+
+    async function nativeSignOut(loginUrl) {
+      showSplash();
+      await clearNativeSessionStorage();
+      const url =
+        loginUrl ||
+        window.ShiftSwiftAuthGuard?.loginRedirectUrl?.() ||
+        session.unifiedNativeLoginUrl?.() ||
+        session.resolveLoginUrl?.() ||
+        unifiedNativeLoginUrl();
+      window.location.replace(url);
+    }
+
+    session.clearSession = clearNativeSessionStorage;
+    session.signOut = nativeSignOut;
+
+    function rebindSignOut(selector, handler) {
+      document.querySelectorAll(selector).forEach((el) => {
+        const node = el.cloneNode(true);
+        el.replaceWith(node);
+        node.addEventListener("click", (event) => {
+          event.preventDefault();
+          void handler();
+        });
+      });
+    }
+
+    rebindSignOut("[data-sign-out]", () =>
+      nativeSignOut(window.ShiftSwiftAuthGuard?.loginRedirectUrl?.()),
+    );
+    rebindSignOut("[data-master-sign-out]", () => nativeSignOut(session.resolveLoginUrl?.()));
+  }
+
   function initNativeChrome() {
     if (!isCapacitorNative()) return;
+    const onLogin = document.body?.classList?.contains("portal-login-page");
     void unregisterNativeServiceWorkers();
     applyNativeClasses();
-    injectBundledStylesheet("native-app-chrome.css");
+    if (!onLogin) {
+      injectBundledStylesheet("native-app-chrome.css");
+    }
     bindNavigationSplash();
     scheduleSplashHide();
+    if (!onLogin) {
+      sanitizeNativeApiBase();
+      window.ShiftSwiftNativeApiFetch?.boot?.();
+      patchNativeSignOut();
+    } else {
+      window.ShiftSwiftNativeApiFetch?.boot?.();
+    }
+    if (!onLogin) {
+      window.addEventListener("load", () => window.setTimeout(patchNativeSignOut, 0), { once: true });
+      window.addEventListener("shiftswift:portal-ready", patchNativeSignOut, { once: true });
+    }
 
     const statusBar = window.Capacitor?.Plugins?.StatusBar;
     const appPlugin = window.Capacitor?.Plugins?.App;
@@ -350,6 +438,8 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     showSplash,
     hideSplash,
     dismissStartupLoader,
+    patchNativeSignOut,
+    sanitizeNativeApiBase,
   };
 })();
 
@@ -361,7 +451,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
     const scheme = window.Capacitor.config?.ios?.scheme || "App";
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=15`;
+    script.src = `${scheme}://localhost/native-app.js?v=17`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);

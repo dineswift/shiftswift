@@ -147,11 +147,13 @@
 
   function signOut(event) {
     event.preventDefault();
-    session.clearSession();
-    localStorage.removeItem("employeeUsername");
-    localStorage.removeItem("employeeDisplayName");
-    localStorage.removeItem("employeeFirstName");
-    window.location.href = session.resolveLoginUrl();
+    void (async () => {
+      await session.clearSession();
+      localStorage.removeItem("employeeUsername");
+      localStorage.removeItem("employeeDisplayName");
+      localStorage.removeItem("employeeFirstName");
+      window.location.replace(session.resolveLoginUrl());
+    })();
   }
 
   document.querySelectorAll("[data-sign-out]").forEach((el) => {

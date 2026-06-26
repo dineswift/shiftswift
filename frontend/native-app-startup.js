@@ -180,6 +180,12 @@
 
     const maxTimer = window.setTimeout(finish, maxMs);
 
+    if (isLoginPage()) {
+      window.setTimeout(() => {
+        if (!finished) finish();
+      }, 3200);
+    }
+
     await Promise.all([delay(minMs), waitForPortalReady()]);
     window.clearTimeout(maxTimer);
     finish();

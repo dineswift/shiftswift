@@ -1366,6 +1366,9 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     return {
         "tenant_name": profile["name"],
         "trading_name": profile.get("trading_name"),
+        "signatory_name": profile.get("signatory_name"),
+        "signatory_email": profile.get("signatory_email"),
+        "billing_email": profile.get("billing_email"),
         "subscription_plan": profile["subscription_plan"],
         "plan_display_name": plan_display_name(profile["subscription_plan"]),
         "subscription_status": profile["subscription_status"],

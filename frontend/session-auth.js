@@ -38,7 +38,7 @@
         window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
       ) {
         const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html?build=14&v=14`;
+        return `${scheme}://localhost/index.html?build=16&v=16`;
       }
     } catch {
       /* ignore */
@@ -112,6 +112,14 @@
     if (window.ShiftSwiftBrand?.resolveApiBase) return window.ShiftSwiftBrand.resolveApiBase();
     if (isCapacitorNative()) {
       return window.ShiftSwiftBrand?.urls?.api || "https://api.shiftswifthr.co.uk";
+    }
+    const stored = localStorage.getItem("apiBaseUrl");
+    if (stored && /localhost|127\.0\.0\.1/.test(stored)) {
+      try {
+        localStorage.removeItem("apiBaseUrl");
+      } catch {
+        /* ignore */
+      }
     }
     return localStorage.getItem("apiBaseUrl") || "http://localhost:3000";
   }
@@ -200,11 +208,29 @@
     );
   }
 
-  function clearSession() {
-    for (const key of NATIVE_SESSION_KEYS) {
-      localStorage.removeItem(key);
-      void persistNativeKey(key, "");
+  async function clearSession() {
+    nativeHydrated = false;
+    await Promise.all(
+      NATIVE_SESSION_KEYS.map(async (key) => {
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          /* ignore */
+        }
+        await persistNativeKey(key, "");
+      }),
+    );
+  }
+
+  async function signOut(loginUrl) {
+    await clearSession();
+    try {
+      sessionStorage.removeItem("sshrPostLoginTransition");
+      sessionStorage.removeItem("impersonationActive");
+    } catch {
+      /* ignore */
     }
+    window.location.replace(loginUrl || resolveLoginUrl());
   }
 
   async function refreshAccessToken(apiBase) {
@@ -242,14 +268,36 @@
     return role === "admin" && String(tenantId) === String(masterId);
   }
 
-  async function redirectIfLoggedIn() {
-    await hydrateNativeSession();
+  async function canUseStoredSession() {
     if (!hasSession()) return false;
     const refreshed = await refreshAccessToken();
     if (!refreshed && !getToken()) {
-      clearSession();
+      await clearSession();
       return false;
     }
+    try {
+      const verifyUrl = `${getApiBase()}/auth/verify`;
+      const reqInit = { headers: authHeaders({ json: false }) };
+      let response;
+      if (isCapacitorNative() && window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+        response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(verifyUrl, reqInit);
+      } else {
+        response = await fetch(verifyUrl, reqInit);
+      }
+      if (!response.ok) {
+        await clearSession();
+        return false;
+      }
+      return true;
+    } catch {
+      if (isCapacitorNative()) return false;
+      return Boolean(getToken());
+    }
+  }
+
+  async function redirectIfLoggedIn() {
+    await hydrateNativeSession();
+    if (!(await canUseStoredSession())) return false;
     await persistNativeSession();
     try {
       sessionStorage.setItem("sshrPostLoginTransition", "1");
@@ -304,11 +352,17 @@
       ...(options.headers || {}),
     });
 
-    const request = () =>
-      fetch(`${apiBase}${path}`, {
+    const request = () => {
+      const url = `${apiBase}${path}`;
+      const reqInit = {
         ...options,
         headers: buildHeaders(),
-      });
+      };
+      if (isCapacitorNative() && window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+        return window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
+      }
+      return fetch(url, reqInit);
+    };
 
     let response;
     try {
@@ -329,8 +383,8 @@
         response = await request();
       }
       if (response.status === 401 && forceLogoutOn401) {
-        clearSession();
-        window.location.href = loginUrl;
+        await clearSession();
+        window.location.replace(loginUrl);
         throw new Error("Session expired. Please sign in again.");
       }
     }
@@ -357,6 +411,7 @@
     storeSession,
     persistNativeSession,
     clearSession,
+    signOut,
     hydrateNativeSession,
     redirectIfLoggedIn,
     refreshAccessToken,
