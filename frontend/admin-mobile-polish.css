@@ -96,20 +96,87 @@
     color: #b42318;
   }
 
+  body:has(#mobile-tab-bar) #time-punch.admin-section {
+    gap: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch > .section-header {
+    padding: 10px 12px;
+    gap: 8px;
+    margin-bottom: 0;
+    border-radius: 12px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch > .section-header h2 {
+    font-size: 1.1rem;
+    margin: 0;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch > .section-header p.muted {
+    display: none;
+  }
+
   body:has(#mobile-tab-bar) #time-punch > .section-header .section-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch > .section-header .section-actions .btn {
+    min-height: 38px;
+    padding: 7px 8px;
+    font-size: 0.76rem;
   }
 
   body:has(#mobile-tab-bar) #time-punch .punch-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid .hr-stat-card:nth-child(n + 3) {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid .hr-stat-card {
+    padding: 8px 8px 7px;
+    gap: 0;
+    border-radius: 10px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid .hr-stat-card__icon {
+    margin-bottom: 2px;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid .hr-stat-card__label {
+    font-size: 0.62rem;
+    line-height: 1.15;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid .hr-stat-card__value {
+    font-size: 1.15rem;
+    margin: 1px 0;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-stats-grid .hr-stat-card__sub {
+    font-size: 0.58rem;
+    line-height: 1.2;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-data-loaded-at {
+    margin: 0;
+    font-size: 0.68rem;
   }
 
   body:has(#mobile-tab-bar) #time-punch .punch-view-tabs {
-    gap: 4px 10px;
+    gap: 6px;
+    margin: 0;
+    padding: 0 0 2px;
     overflow-x: auto;
     flex-wrap: nowrap;
+    border-bottom: none;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -121,7 +188,11 @@
   }
 
   body:has(#mobile-tab-bar)[data-punch-focus="accountant"] #time-punch > .section-header p.muted {
+    display: block;
     max-width: none;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin: 2px 0 0;
   }
 
   body:has(#mobile-tab-bar) #time-punch .punch-view-tabs::-webkit-scrollbar {
@@ -131,6 +202,115 @@
   body:has(#mobile-tab-bar) #time-punch .punch-view-tab {
     flex: 0 0 auto;
     white-space: nowrap;
+    margin: 0;
+    padding: 6px 10px;
+    border: 1px solid rgba(15, 110, 86, 0.14);
+    border-radius: 999px;
+    background: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #3d5a50;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-view-tab > span[aria-hidden="true"] {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-view-tab.is-active {
+    border-color: rgba(15, 110, 86, 0.35);
+    background: rgba(15, 110, 86, 0.1);
+    color: #0f6e56;
+    box-shadow: none;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .hr-workspace-layout {
+    gap: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-action-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-sync-btn {
+    min-width: 0;
+    width: 100%;
+    padding: 9px 11px;
+    font-size: 0.8rem;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-action-row .btn {
+    width: 100%;
+    min-height: 38px;
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .hr-section-title {
+    font-size: 0.9rem;
+    margin: 0 0 6px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-tab-intro,
+  body:has(#mobile-tab-bar) #time-punch .punch-admin-message {
+    margin: 0 0 8px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-manual-form,
+  body:has(#mobile-tab-bar) #time-punch .punch-admin-panel,
+  body:has(#mobile-tab-bar) #time-punch .punch-accountant-card {
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-site-hero {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-site-hero__badge {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-site-hero__title {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-table-head {
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-table-head__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-table-head__btn {
+    width: 100%;
+    min-height: 36px;
+    font-size: 0.74rem;
+    padding: 7px 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-filters {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-alert {
+    padding: 10px 12px;
+    border-radius: 12px;
   }
 
   body:has(#mobile-tab-bar) .rota-admin-message--success {
