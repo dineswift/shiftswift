@@ -193,6 +193,11 @@
     if (guide) guide.hidden = hasSelection;
     const row = contracts.find((c) => c.id === selectedContractId);
     renderStatusWorkflow(row || null);
+    if (hasSelection && window.matchMedia("(max-width: 860px)").matches) {
+      window.requestAnimationFrame(() => {
+        window.MobileShell?.resetPortalScroll?.();
+      });
+    }
   }
 
   function clearSelection() {
@@ -389,7 +394,13 @@
       if (!res.ok) throw new Error("Load failed");
       const data = await res.json();
       renderDetailPanel(data);
-      if (scroll) $("employment-contracts-detail-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if (scroll) {
+        if (window.matchMedia("(max-width: 860px)").matches) {
+          window.MobileShell?.resetPortalScroll?.();
+        } else {
+          $("employment-contracts-detail-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
     } catch (error) {
       const status = $("employment-contract-action-status");
       if (status) status.textContent = error.message || "Could not load contract";
