@@ -7862,6 +7862,31 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   margin-top: 12px;
 }
 
+.settings-addons-setup-nudge {
+  margin-top: 12px;
+}
+
+.settings-feature-toggle__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settings-feature-toggle__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #666;
+  background: #eee;
+}
+
 .settings-addons-foot {
   margin-top: 16px;
   font-size: 0.82rem;

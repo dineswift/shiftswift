@@ -296,6 +296,25 @@
     }
   }
 
+  function setupStepsForChecklist(checklist, clockEnabled) {
+    return [
+      { key: "business_address", label: "Business address", href: "#settings/business" },
+      { key: "first_employee", label: "First employee", href: "#employees" },
+      { key: "rtw_started", label: "Right-to-work check", href: "#compliance-rtw" },
+      { key: "punch_site", label: "Time punch site", href: "#time-punch" },
+      { key: "rota_published", label: "Published rota", href: "#rota" },
+      { key: "accountant_email", label: "Accountant email", href: "#time-punch/accountant" },
+    ].filter((step) => {
+      if (step.key === "accountant_email" && !clockEnabled) return false;
+      return true;
+    });
+  }
+
+  function nextIncompleteSetupStep(checklist, clockEnabled) {
+    if (!checklist) return null;
+    return setupStepsForChecklist(checklist, clockEnabled).find((step) => !checklist[step.key]) || null;
+  }
+
   async function renderSettingsSetupBanner() {
     const host = document.getElementById("settings-setup-banner");
     if (!host) return;
@@ -310,18 +329,9 @@
         return;
       }
       const clockEnabled = Boolean(data.time_clock_enabled);
-      const steps = [
-        { key: "business_address", label: "Business address", href: "#settings/business" },
-        { key: "first_employee", label: "First employee", href: "#employees" },
-        { key: "rtw_started", label: "Right-to-work check", href: "#compliance-rtw" },
-        { key: "punch_site", label: "Time punch site", href: "#time-punch" },
-        { key: "rota_published", label: "Published rota", href: "#rota" },
-        { key: "accountant_email", label: "Accountant email", href: "#time-punch/accountant" },
-      ].filter((step) => {
-        if (step.key === "accountant_email" && !clockEnabled) return false;
-        return true;
-      });
+      const steps = setupStepsForChecklist(checklist, clockEnabled);
       const done = steps.filter((step) => checklist[step.key]).length;
+      const nextStep = nextIncompleteSetupStep(checklist, clockEnabled);
       host.hidden = false;
       host.innerHTML = `
         <div class="settings-setup-banner__inner">
@@ -331,7 +341,7 @@
           </div>
           <div class="settings-setup-banner__actions">
             <a class="btn outline btn-sm" href="#overview">View checklist</a>
-            <a class="btn ghost btn-sm" href="${escapeHtml(steps.find((s) => !checklist[s.key])?.href || "#settings/business")}">Next step</a>
+            <a class="btn ghost btn-sm" href="${escapeHtml(nextStep?.href || "#settings/business")}">Next step</a>
           </div>
         </div>`;
     } catch {
@@ -508,6 +518,16 @@
 
   function renderAddonToggleRow(addon, enabled, planName) {
     const locked = !enabled;
+    const action = enabled
+      ? `<label class="settings-toggle" title="Enabled on your account">
+        <input type="checkbox" data-addon-toggle="${escapeHtml(addon.id)}" checked disabled />
+        <span class="settings-toggle__track" aria-hidden="true"></span>
+        <span class="visually-hidden">Enabled</span>
+      </label>`
+      : `<div class="settings-feature-toggle__actions">
+        <span class="settings-feature-toggle__pill">Not on your plan</span>
+        <button type="button" class="btn outline btn-sm" data-settings-upgrade>View plans</button>
+      </div>`;
     return `<article class="settings-feature-toggle${locked ? " settings-feature-toggle--locked" : ""}">
       <div class="settings-feature-toggle__copy">
         <h4 class="settings-feature-toggle__title">${escapeHtml(addon.title)}</h4>
@@ -518,11 +538,7 @@
             : `<p class="muted settings-feature-toggle__help">Included on <strong>Scale</strong> plans. You are on <strong>${escapeHtml(planName)}</strong>.</p>`
         }
       </div>
-      <label class="settings-toggle" title="${enabled ? "Enabled on your account" : "Upgrade your plan to enable"}">
-        <input type="checkbox" data-addon-toggle="${escapeHtml(addon.id)}" ${enabled ? "checked" : ""} ${enabled ? "disabled" : ""} />
-        <span class="settings-toggle__track" aria-hidden="true"></span>
-        <span class="visually-hidden">${enabled ? "Enabled" : "Disabled"}</span>
-      </label>
+      ${action}
     </article>`;
   }
 
@@ -552,15 +568,27 @@
       const overviewRes = await apiFetch("/admin/overview");
       const overview = overviewRes.ok ? await overviewRes.json() : {};
       const planName = overview.plan_display_name || "Starter";
+      const checklist = overview.setup_checklist || null;
+      const setupComplete = Boolean(overview.setup_complete);
+      const clockEnabled = Boolean(overview.time_clock_enabled);
+      const setupSteps = checklist ? setupStepsForChecklist(checklist, clockEnabled) : [];
+      const setupDone = setupSteps.filter((step) => checklist[step.key]).length;
+      const nextSetup = nextIncompleteSetupStep(checklist, clockEnabled);
       const scaleLocked = !isFeatureEnabled("multi-site") && !isFeatureEnabled("api-access");
 
       host.innerHTML = `
-        <p class="muted">Use toggles to see which Scale features are active on your account. Self-service enablement is coming soon — contact support or upgrade your plan today.</p>
+        <p class="muted">Optional <strong>Scale</strong> upgrades for multi-site and API integrations. Employees, rota, time punch, and compliance work on your current <strong>${escapeHtml(planName)}</strong> plan.</p>
+        ${
+          checklist && !setupComplete && nextSetup
+            ? `<div class="alert-card settings-addons-setup-nudge">
+                <p class="alert-copy">Workspace setup is ${setupDone}/${setupSteps.length} complete. Add-ons can wait — <a href="${escapeHtml(nextSetup.href)}">${escapeHtml(nextSetup.label)}</a> is your next step.</p>
+              </div>`
+            : ""
+        }
         ${
           scaleLocked
             ? `<div class="alert-card alert-card-warning settings-addons-upgrade">
-                <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade to unlock both, or email support if you are already on Scale.</p>
-                <button type="button" class="btn outline" data-settings-upgrade>View plans</button>
+                <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade when you need them, or email support if you are already on Scale.</p>
               </div>`
             : ""
         }
@@ -569,7 +597,9 @@
         </div>
         <p class="muted settings-addons-foot">Rota add-ons (Advanced scheduling, Multi-site rota) are managed under <a href="#settings/rota">Rota scheduling</a> and <a href="#settings/billing">Billing &amp; plan</a>.</p>`;
 
-      host.querySelector("[data-settings-upgrade]")?.addEventListener("click", startUpgrade);
+      host.querySelectorAll("[data-settings-upgrade]").forEach((btn) => {
+        btn.addEventListener("click", startUpgrade);
+      });
       bindAddonToggles(host);
       window.ShiftSwiftBrand?.applyBrandDom?.(host);
       host.dataset.ready = "true";
