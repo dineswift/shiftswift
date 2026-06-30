@@ -11,9 +11,9 @@
   const STRIP_LIST_ID = "documents-strip-list";
 
   const TAB_DESCRIPTIONS = {
-    upload: "Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.",
-    distribute: "Push a file to one or all employees — it appears in their portal and can trigger an email notification.",
-    link: "Register an external URL (SharePoint, Google Drive, etc.) without uploading the file to ShiftSwift.",
+    upload: "File for all staff, one employee, or HR confidential storage.",
+    distribute: "Send a payslip or personal document to one or all employees.",
+    link: "Register an external link (SharePoint, Google Drive, etc.) without uploading the file.",
   };
 
   const DEFAULT_DOCUMENT_UPLOAD = {
@@ -714,19 +714,19 @@
 
     if (audienceCaption) {
       if (audience === "company") {
-        audienceCaption.textContent = "Company handbooks and policies for every staff member.";
+        audienceCaption.textContent = "Company-wide — handbooks, policies, and shared HR documents.";
       } else if (audience === "employee") {
-        audienceCaption.textContent = "Personal file on one employee profile only.";
+        audienceCaption.textContent = "Stored on the selected employee's record.";
       } else {
-        audienceCaption.textContent = "Stored for HR audits — never shown in the employee portal.";
+        audienceCaption.textContent = "HR confidential — not visible in the employee portal.";
       }
     }
 
     if (visibleHint) {
       if (audience === "company") {
-        visibleHint.textContent = "All staff will see this under Company documents.";
+        visibleHint.textContent = "Listed under Company documents for all staff.";
       } else if (audience === "employee") {
-        visibleHint.textContent = "Only the selected employee sees this in their portal.";
+        visibleHint.textContent = "Visible in this employee's portal only.";
       } else {
         visibleHint.textContent = "";
       }
@@ -734,8 +734,7 @@
 
     const notifyTitle = document.getElementById("document-upload-notify-title");
     if (notifyTitle) {
-      notifyTitle.textContent =
-        audience === "employee" ? "Notify employee when published" : "Notify employees when published";
+      notifyTitle.textContent = audience === "employee" ? "Portal alert" : "Portal alert (all staff)";
     }
 
     syncUploadNotify(form);
@@ -989,7 +988,7 @@
         },
         {
           name: "employee_visible",
-          label: "Visible to employee in their portal",
+          label: "Employee portal",
           type: "checkbox",
           span: 2,
         },
@@ -1043,7 +1042,7 @@
       },
       {
         name: "employee_visible",
-        label: "Visible to employee in their portal",
+        label: "Employee portal",
         type: "checkbox",
         span: 2,
       },
@@ -1293,7 +1292,7 @@
         const notified = data?.notifications?.notified_count;
         const successText =
           notified != null
-            ? `Uploaded ✓ ${notified} employee${notified === 1 ? "" : "s"} notified`
+            ? `Uploaded ✓ ${notified} staff member${notified === 1 ? "" : "s"} alerted`
             : "Uploaded ✓";
         if (status) setFormStatus(status, successText, "success");
         window.AdminSettings?.showSettingsToast?.(successText);

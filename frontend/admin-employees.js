@@ -1712,7 +1712,7 @@
           }</ul>
         </div>
         <div class="employee-record-doc-group">
-          <h5 class="employee-record-doc-group__title">Shared with employee <span class="employee-record-block__count" id="employees-side-doc-shared-count">${shared.length}</span></h5>
+          <h5 class="employee-record-doc-group__title">Employee portal <span class="employee-record-block__count" id="employees-side-doc-shared-count">${shared.length}</span></h5>
           <ul class="employee-record-doc-list" id="employees-side-doc-shared-list">${
             shared.length
               ? shared.map(renderEmployeeRecordDocItem).join("")
@@ -1743,8 +1743,8 @@
               <input class="ss-check-row__input" type="checkbox" id="employees-side-doc-share" name="employee_visible" value="true" />
               <span class="ss-check-row__box" aria-hidden="true"></span>
               <span class="ss-check-row__content">
-                <span class="ss-check-row__title">Share with employee in their portal</span>
-                <span class="ss-check-row__hint muted">Leave unchecked for HR-only documents (contracts, RTW checks, etc.).</span>
+                <span class="ss-check-row__title">Employee portal</span>
+                <span class="ss-check-row__hint muted">HR confidential if unchecked — contracts, RTW, disciplinary records, etc.</span>
               </span>
             </label>
             <div class="edit-form-actions">
@@ -2293,16 +2293,16 @@
           <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
           <span class="ss-check-row__box" aria-hidden="true"></span>
           <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Notify employee when published</span>
-            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
+            <span class="ss-check-row__title">Portal alert</span>
+            <span class="ss-check-row__hint muted">In-app alert in the employee portal. Email is optional below.</span>
           </span>
         </label>
         <label class="ss-check-row" data-span="2">
           <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
           <span class="ss-check-row__box" aria-hidden="true"></span>
           <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Email employee when notified</span>
-            <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
+            <span class="ss-check-row__title">Email copy</span>
+            <span class="ss-check-row__hint muted">Sends an email with a secure link to the document.</span>
           </span>
         </label>
         <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
@@ -2464,7 +2464,7 @@
         resetEmployeeUploadFormKeepingPreferences(uploadForm);
         const notified = data?.notifications?.notified_count;
         await refreshEmployeeDocumentStoreList(container);
-        return notified != null ? "Uploaded. Employee notified." : "Uploaded.";
+        return notified != null ? "Uploaded. Staff alerted." : "Uploaded.";
       };
 
       const run = window.ShiftSwiftAction?.runFormSubmit;
@@ -2519,7 +2519,7 @@
   }
 
   function noteVisibilityLabel(visibility) {
-    return visibility === "employee_visible" ? "Shared with employee" : "HR only";
+    return visibility === "employee_visible" ? "Employee portal" : "HR confidential";
   }
 
   async function loadEmployeeNotesList(container) {
@@ -2564,8 +2564,8 @@
         <label class="edit-field">
           <span class="edit-label">Visibility</span>
           <select name="visibility">
-            <option value="hr_internal">HR only (encrypted)</option>
-            <option value="employee_visible">Shared with employee</option>
+            <option value="hr_internal">HR confidential (encrypted)</option>
+            <option value="employee_visible">Employee portal</option>
           </select>
         </label>
         <div class="edit-form-actions" data-span="2">

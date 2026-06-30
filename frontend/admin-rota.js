@@ -2344,7 +2344,7 @@
         const unchanged = n.employees_unchanged ?? 0;
         if (n.mode === "update") {
           if (notified > 0) {
-            msg += ` · ${notified} staff notified about changes`;
+            msg += ` · ${notified} staff emailed about changes`;
             if (unchanged > 0) {
               msg += ` (${unchanged} unchanged — not emailed)`;
             }

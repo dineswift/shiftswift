@@ -2336,7 +2336,7 @@
               <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
               <label class="signup-check rota-notify-check">
                 <input type="checkbox" id="rota-notify-staff" checked />
-                <span>Notify staff by email (re-publish emails only people with changes)</span>
+                <span>Email rota to staff</span>
               </label>
               <button type="button" class="btn primary" id="rota-publish-btn">Publish rota</button>
             </div>
@@ -2413,7 +2413,7 @@
               <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-clear">Clear rota</button>
-              <button type="button" class="rota-mobile-chip rota-mobile-chip--toggle" id="rota-mobile-notify-btn" aria-pressed="true">Notify by email</button>
+              <button type="button" class="rota-mobile-chip rota-mobile-chip--toggle" id="rota-mobile-notify-btn" aria-pressed="true">Email staff</button>
             </div>
           </div>
 
@@ -2911,7 +2911,7 @@
                               <span class="settings-doc-audience-option__label">HR only</span>
                             </label>
                           </div>
-                          <p class="settings-doc-audience-caption muted" id="document-upload-audience-caption">Company handbooks and policies for every staff member.</p>
+                          <p class="settings-doc-audience-caption muted" id="document-upload-audience-caption">Company-wide — handbooks, policies, and shared HR documents.</p>
                         </fieldset>
                         <label class="edit-field" id="document-upload-employee-field" data-span="2" hidden>
                           <span class="edit-label">Employee</span>
@@ -2940,45 +2940,45 @@
                       </section>
 
                       <section class="settings-doc-upload-section" data-span="2" id="document-upload-visibility-section" aria-labelledby="document-upload-visibility-title">
-                        <h5 class="settings-doc-upload-section__title" id="document-upload-visibility-title">Visibility &amp; notifications</h5>
+                        <h5 class="settings-doc-upload-section__title" id="document-upload-visibility-title">Publishing</h5>
                         <label class="ss-check-row" id="document-upload-visible-field">
                           <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="document-upload-visible" value="true" checked />
                           <span class="ss-check-row__box" aria-hidden="true"></span>
                           <span class="ss-check-row__content">
-                            <span class="ss-check-row__title">Show in employee portal</span>
-                            <span class="ss-check-row__hint muted" id="document-upload-visible-hint">All staff will see this under Company documents.</span>
+                            <span class="ss-check-row__title">Employee portal</span>
+                            <span class="ss-check-row__hint muted" id="document-upload-visible-hint">Listed under Company documents for all staff.</span>
                           </span>
                         </label>
                         <label class="ss-check-row" id="document-upload-notify-row">
                           <input class="ss-check-row__input" type="checkbox" name="notify_employees" id="document-upload-notify" value="true" checked />
                           <span class="ss-check-row__box" aria-hidden="true"></span>
                           <span class="ss-check-row__content">
-                            <span class="ss-check-row__title" id="document-upload-notify-title">Notify employees when published</span>
-                            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
+                            <span class="ss-check-row__title" id="document-upload-notify-title">Portal alert (all staff)</span>
+                            <span class="ss-check-row__hint muted">In-app alert in the employee portal. Email is optional below.</span>
                           </span>
                         </label>
                         <div id="document-upload-notify-targets" class="settings-doc-notify-targets" hidden>
                           <fieldset class="settings-doc-notify-scope" id="document-upload-notify-scope-field">
-                            <legend class="edit-label settings-doc-notify-scope__legend">Who to notify</legend>
-                            <div class="settings-doc-choice-cards" role="radiogroup" aria-label="Who to notify">
+                            <legend class="edit-label settings-doc-notify-scope__legend">Alert recipients</legend>
+                            <div class="settings-doc-choice-cards" role="radiogroup" aria-label="Alert recipients">
                               <label class="settings-doc-choice-card">
                                 <input type="radio" name="notify_scope" value="all" checked />
                                 <span class="settings-doc-choice-card__body">
                                   <span class="settings-doc-choice-card__title">All employees</span>
-                                  <span class="settings-doc-choice-card__hint muted">Every active staff member is notified</span>
+                                  <span class="settings-doc-choice-card__hint muted">Every active staff member</span>
                                 </span>
                               </label>
                               <label class="settings-doc-choice-card">
                                 <input type="radio" name="notify_scope" value="selected" />
                                 <span class="settings-doc-choice-card__body">
-                                  <span class="settings-doc-choice-card__title">Selected employees only</span>
-                                  <span class="settings-doc-choice-card__hint muted">Choose specific staff below</span>
+                                  <span class="settings-doc-choice-card__title">Selected only</span>
+                                  <span class="settings-doc-choice-card__hint muted">Choose individuals below</span>
                                 </span>
                               </label>
                             </div>
                           </fieldset>
                           <label class="edit-field" id="document-upload-notify-select-field" hidden>
-                            <span class="edit-label">Employees to notify</span>
+                            <span class="edit-label">Staff to alert</span>
                             <select class="settings-doc-notify-select" id="document-upload-notify-employees" multiple size="6" aria-label="Employees to notify"></select>
                             <span class="muted edit-hint">Hold Cmd (Mac) or Ctrl (Windows) to select multiple staff.</span>
                           </label>
@@ -2986,8 +2986,8 @@
                             <input class="ss-check-row__input" type="checkbox" name="send_email" id="document-upload-notify-email" value="true" checked />
                             <span class="ss-check-row__box" aria-hidden="true"></span>
                             <span class="ss-check-row__content">
-                              <span class="ss-check-row__title">Email employees when notified</span>
-                              <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
+                              <span class="ss-check-row__title">Email copy</span>
+                              <span class="ss-check-row__hint muted">Sends an email with a secure link to the document.</span>
                             </span>
                           </label>
                         </div>
@@ -3022,8 +3022,8 @@
                         <input class="ss-check-row__input" type="checkbox" name="send_email" value="true" checked />
                         <span class="ss-check-row__box" aria-hidden="true"></span>
                         <span class="ss-check-row__content">
-                          <span class="ss-check-row__title">Email employees when shared</span>
-                          <span class="ss-check-row__hint muted">Sends a notification with a link to the employee portal.</span>
+                          <span class="ss-check-row__title">Email copy</span>
+                          <span class="ss-check-row__hint muted">Sends an email with a secure portal link.</span>
                         </span>
                       </label>
                       <div class="edit-form-actions settings-doc-form-actions" data-span="2">
@@ -3195,11 +3195,11 @@
     <script src="./admin-compliance-mobile.js?v=3"></script>
     <script src="./action-feedback.js?v=3"></script>
     <script src="./admin-shared.js?v=admin-v45"></script>
-    <script src="./admin-settings.js?v=34"></script>
+    <script src="./admin-settings.js?v=35"></script>
     <script src="./admin-workspace.js?v=admin-v28"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-documents.js?v=28"></script>
-    <script src="./admin-employees.js?v=30"></script>
+    <script src="./admin-documents.js?v=29"></script>
+    <script src="./admin-employees.js?v=31"></script>
     <script src="./admin-recruitment.js?v=7"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>
@@ -3212,7 +3212,7 @@
     <script src="./admin-templates.js?v=admin-v13"></script>
     <script src="./admin-global-documents.js?v=2"></script>
     <script src="./admin-time-punch.js?v=37"></script>
-    <script src="./admin-rota.js?v=36"></script>
+    <script src="./admin-rota.js?v=37"></script>
     <script src="./admin-leave.js?v=admin-v7"></script>
     <script src="./admin-profile-changes.js?v=3"></script>
     <script src="./app.js?v=admin-v6"></script>

@@ -640,18 +640,18 @@
   ];
 
   const HR_PUSH_DELIVERY = [
-    { value: "email_push", label: "Email + push alert" },
+    { value: "email_push", label: "Email and in-app" },
     { value: "email", label: "Email only" },
-    { value: "push", label: "Push alert only" },
+    { value: "push", label: "In-app only" },
     { value: "off", label: "Off" },
   ];
 
   const HR_PUSH_EVENT_IDS = new Set(["missed_punch_hr", "leave_request_hr", "rtw_expiry"]);
 
   const SIGNIN_REMINDER_DELIVERY = [
-    { value: "email_push", label: "Email + push alert" },
+    { value: "email_push", label: "Email and in-app" },
     { value: "email", label: "Email only" },
-    { value: "push", label: "Push alert only" },
+    { value: "push", label: "In-app only" },
     { value: "off", label: "Off" },
   ];
 
@@ -793,7 +793,7 @@
       </article>
       <article class="card settings-rota-reminders">
         <h4 class="hr-section-title">Rota shift reminders</h4>
-        <p class="muted settings-rota-reminders__lead">Bell alerts and push notifications before each published shift starts and ends. Applies to all employees on the rota (platform jobs cron every 15 minutes).</p>
+        <p class="muted settings-rota-reminders__lead">In-app and email reminders before each published shift starts and ends. Sent to all employees on the rota (every 15 minutes).</p>
         <div class="settings-rota-reminders__grid">
           <label class="edit-field">
             <span class="edit-label">Before shift starts (minutes)</span>
@@ -892,7 +892,7 @@
           </tbody>
         </table>
       </div>
-      <p class="muted settings-notify-foot">Rota publish emails also require the “Notify staff by email” checkbox when publishing.</p>`;
+      <p class="muted settings-notify-foot">Rota emails are sent only when <strong>Email rota to staff</strong> is ticked on publish.</p>`;
 
         host.querySelectorAll(".settings-notify-select").forEach((select) => {
           select.addEventListener("change", () => {
