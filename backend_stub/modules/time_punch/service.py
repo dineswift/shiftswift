@@ -35,7 +35,7 @@ def uk_today() -> date:
     return datetime.now(UK_TZ).date()
 
 PunchType = Literal["in", "out", "break_start", "break_end"]
-PunchMethod = Literal["gps", "site_qr", "admin", "kiosk"]
+PunchMethod = Literal["gps", "site_qr", "admin", "kiosk", "epos"]
 WorkState = Literal["off", "clocked_in", "on_break"]
 SITE_SCAN_VALID_MINUTES = 10
 RAPID_RE_PUNCH_MINUTES = int(os.getenv("PUNCH_RAPID_REPUNCH_MINUTES", "10"))
@@ -244,6 +244,8 @@ def _insert_time_punch(
     punch_method: PunchMethod,
     conn: Any,
     rapid_re_punch: bool = False,
+    external_ref: str | None = None,
+    integration_token_id: int | None = None,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -251,9 +253,10 @@ def _insert_time_punch(
             INSERT INTO time_punches (
               tenant_id, employee_id, punch_site_id, punch_type, punched_at,
               latitude, longitude, accuracy_meters, distance_meters, within_geofence,
-              app_username, ip_address, user_agent, punch_method, rapid_re_punch
+              app_username, ip_address, user_agent, punch_method, rapid_re_punch,
+              external_ref, integration_token_id
             )
-            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, punched_at
             """,
             (
@@ -270,6 +273,8 @@ def _insert_time_punch(
                 user_agent,
                 punch_method,
                 rapid_re_punch,
+                external_ref,
+                integration_token_id,
             ),
         )
         row = cur.fetchone()

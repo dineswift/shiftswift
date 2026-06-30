@@ -59,6 +59,15 @@
               New plan
               <select id="detail-change-plan-select"></select>
             </label>
+            <label class="master-change-plan__field" id="detail-change-staff-tier-wrap">
+              Staff license tier
+              <select id="detail-change-staff-tier"></select>
+            </label>
+            <label class="master-change-plan__field" id="detail-change-staff-custom-wrap" hidden>
+              Custom staff limit
+              <input id="detail-change-staff-custom" type="number" min="1" max="9999" placeholder="e.g. 25" />
+            </label>
+            <p class="muted master-create-price-hint" id="detail-change-price-hint" hidden></p>
             <label class="master-change-plan__field">
               Billing note
               <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
@@ -127,7 +136,7 @@
     <script src="./session-auth.js?v=1"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=5"></script>
-    <script src="./master-tenant-detail.js?v=5"></script>
+    <script src="./master-tenant-detail.js?v=6"></script>
     <script src="./master-tenant.js?v=2"></script>
   </body>
 </html>

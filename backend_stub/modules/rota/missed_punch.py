@@ -198,6 +198,20 @@ def evaluate_missed_punch_alerts(
                 )
             notified_hr = True
 
+        from modules.push.hr_notify import notify_hr_missed_punch
+
+        if hr_delivery != "off":
+            push_hr = notify_hr_missed_punch(
+                tenant_id=tenant_id,
+                shift_label=shift_label,
+                employee_name=shift["employee_name"],
+                shift_id=int(shift["id"]),
+                preferences=prefs,
+                conn=conn,
+            )
+            if push_hr.get("sent"):
+                notified_hr = True
+
         if (
             employee_delivery != "off"
             and shift.get("employee_email")

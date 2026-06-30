@@ -188,20 +188,25 @@
             <label>Plan
               <select name="plan_id" id="master-create-plan"></select>
             </label>
-            <label>Max employees<input name="max_employees" type="number" min="1" max="9999" placeholder="Plan default" /></label>
+            <label id="master-create-staff-tier-wrap">Staff license tier
+              <select name="staff_tier" id="master-create-staff-tier"></select>
+            </label>
+            <label id="master-create-staff-custom-wrap" hidden>Custom staff limit<input name="max_employees" type="number" min="1" max="9999" placeholder="e.g. 25" /></label>
+            <p class="muted master-create-price-hint" id="master-create-price-hint" hidden></p>
             <label>Access
               <select name="access" id="master-create-access">
                 <option value="active" selected>Active (no trial)</option>
-                <option value="trialing">Trial period</option>
+                <option value="trialing" id="master-create-access-trial-option">Trial period (Stripe only)</option>
               </select>
             </label>
-            <label id="master-create-trial-wrap" hidden>Trial days<input name="trial_days" type="number" min="1" max="90" value="14" /></label>
+            <label id="master-create-trial-wrap" hidden>Trial days<input name="trial_days" type="number" min="1" max="90" value="14" disabled /></label>
             <label>Billing
-              <select name="billing_mode">
+              <select name="billing_mode" id="master-create-billing">
                 <option value="offline" selected>Offline / invoice (recommended)</option>
                 <option value="stripe">Stripe subscription</option>
               </select>
             </label>
+            <p class="muted master-create-billing-hint" id="master-create-billing-hint">Offline billing starts active — no trial period.</p>
             <label>Billing notes<textarea name="billing_notes" rows="2" placeholder="e.g. £79/mo agreed, invoice quarterly, PO ref…"></textarea></label>
             <label class="master-check"><input type="checkbox" name="send_welcome_email" checked /> Send welcome email</label>
             <p class="master-inline-status muted" id="master-create-status" aria-live="polite"></p>
@@ -334,6 +339,15 @@
                   New plan
                   <select id="detail-change-plan-select"></select>
                 </label>
+                <label class="master-change-plan__field" id="detail-change-staff-tier-wrap">
+                  Staff license tier
+                  <select id="detail-change-staff-tier"></select>
+                </label>
+                <label class="master-change-plan__field" id="detail-change-staff-custom-wrap" hidden>
+                  Custom staff limit
+                  <input id="detail-change-staff-custom" type="number" min="1" max="9999" placeholder="e.g. 25" />
+                </label>
+                <p class="muted master-create-price-hint" id="detail-change-price-hint" hidden></p>
                 <label class="master-change-plan__field">
                   Billing note
                   <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
@@ -409,9 +423,9 @@
     <script src="./session-auth.js?v=12"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=6"></script>
-    <script src="./master-tenant-detail.js?v=5"></script>
+    <script src="./master-tenant-detail.js?v=6"></script>
     <script src="./master-tenant-contracts.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
-    <script src="./master.js?v=23"></script>
+    <script src="./master.js?v=25"></script>
   </body>
 </html>

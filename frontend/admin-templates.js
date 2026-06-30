@@ -1,6 +1,11 @@
 /** HR process templates — optional AI drafting via subscription add-on. */
 (async function initAdminTemplates() {
-  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, isAddonEnabled } = window.Admin;
+  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, isAddonEnabled, showAdminToast } = window.Admin;
+
+  function templatesToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   let controlsBound = false;
   let selectedId = null;
@@ -503,7 +508,7 @@
     const res = await apiFetch(`/hr-templates/${selectedId}/apply-platform-update`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || "Update failed");
+      templatesToast(data.detail || "Update failed", "error");
       return;
     }
     await loadTemplateList();
@@ -515,7 +520,7 @@
     const res = await apiFetch(`/hr-templates/${selectedId}/reset`, { method: "POST" });
     if (!res.ok) {
       const err = await res.json();
-      alert(err.detail || "Reset failed");
+      templatesToast(err.detail || "Reset failed", "error");
       return;
     }
     await loadTemplateList();

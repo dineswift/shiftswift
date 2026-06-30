@@ -186,6 +186,38 @@ def fetch_user_from_db(settings: Settings, username: str) -> dict[str, Any] | No
         conn.close()
 
 
+def authenticate_user_lookup(settings: Settings, username: str) -> AuthUser | None:
+    """Resolve an active user by username — no password (e.g. passkey login)."""
+    row = fetch_user_from_db(settings, username)
+    if row:
+        if not row.get("is_active"):
+            return None
+        locked_until = row.get("locked_until")
+        if locked_until and locked_until > datetime.now(timezone.utc):
+            return None
+        return AuthUser(
+            username=row["username"],
+            role=row["role"],
+            tenant_id=str(row["tenant_id"]),
+        )
+    if settings.is_production:
+        return None
+    fallback_users = development_fallback_users(master_tenant_id=settings.master_customer_id)
+    fallback = fallback_users.get(username)
+    if not fallback:
+        for key, value in fallback_users.items():
+            if key.lower() == username.lower():
+                fallback = value
+                break
+    if not fallback:
+        return None
+    return AuthUser(
+        username=username,
+        role=fallback["role"],
+        tenant_id=str(fallback["tenant_id"]),
+    )
+
+
 def authenticate_user(
     settings: Settings,
     username: str,

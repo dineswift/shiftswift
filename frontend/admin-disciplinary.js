@@ -1,6 +1,11 @@
 /** Disciplinary case management — encrypted notes and hearing outcomes. */
 (function () {
-  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection, emptyStateHtml } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection, emptyStateHtml, showAdminToast } = window.Admin;
+
+  function disciplinaryToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   let selectedCaseId = null;
   let sectionReady = false;
@@ -312,7 +317,7 @@
     });
     if (!res.ok) {
       const err = await res.json();
-      alert(err.detail || "Could not close case");
+      disciplinaryToast(err.detail || "Could not close case", "error");
       return;
     }
     await loadCases();
@@ -475,7 +480,7 @@
         `disciplinary-cases-${new Date().toISOString().slice(0, 10)}.csv`
       );
     } catch {
-      alert("Could not export cases.");
+      disciplinaryToast("Could not export cases.", "error");
     }
   });
 

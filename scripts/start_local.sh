@@ -11,7 +11,18 @@ fi
 
 source backend_stub/.venv/bin/activate
 set -a
-[ -f backend_stub/.env ] && source backend_stub/.env
+if [ -n "${CI_E2E:-}" ]; then
+  export APP_ENV="${APP_ENV:-development}"
+  export USE_DB="${USE_DB:-0}"
+  export JWT_SECRET="${JWT_SECRET:-ci-e2e-jwt-secret-not-for-production}"
+  FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+  export CORS_ALLOW_ORIGINS="${CORS_ALLOW_ORIGINS:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"
+  export TRUSTED_HOSTS="${TRUSTED_HOSTS:-localhost,127.0.0.1}"
+  export FORCE_HTTPS="${FORCE_HTTPS:-0}"
+  export ENCRYPTION_KEY="${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+elif [ -f backend_stub/.env ]; then
+  source backend_stub/.env
+fi
 set +a
 
 BACKEND_PORT="${BACKEND_PORT:-3000}"
@@ -29,7 +40,23 @@ echo "Starting ShiftSwift HR (shiftswifthr.co.uk) backend on http://127.0.0.1:${
 ) &
 BACKEND_PID=$!
 
-sleep 2
+echo "Waiting for API health on http://127.0.0.1:${BACKEND_PORT}/health …"
+for _ in $(seq 1 90); do
+  if curl -sf "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null 2>&1; then
+    break
+  fi
+  if ! kill -0 "${BACKEND_PID}" 2>/dev/null; then
+    echo "Backend exited before health check passed."
+    exit 1
+  fi
+  sleep 1
+done
+if ! curl -sf "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null 2>&1; then
+  echo "API did not become healthy within 90s."
+  exit 1
+fi
+
+sleep 1
 
 echo "Starting ShiftSwift HR frontend on http://127.0.0.1:${FRONTEND_PORT}"
 (
@@ -37,6 +64,18 @@ echo "Starting ShiftSwift HR frontend on http://127.0.0.1:${FRONTEND_PORT}"
   python3 serve_secure.py --port "${FRONTEND_PORT}"
 ) &
 FRONTEND_PID=$!
+
+echo "Waiting for frontend on http://127.0.0.1:${FRONTEND_PORT}/business-login.html …"
+for _ in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:${FRONTEND_PORT}/business-login.html" >/dev/null 2>&1; then
+    break
+  fi
+  if ! kill -0 "${FRONTEND_PID}" 2>/dev/null; then
+    echo "Frontend exited before becoming reachable."
+    exit 1
+  fi
+  sleep 1
+done
 
 echo ""
 echo "Ready:"

@@ -1,6 +1,6 @@
 /** Settings document store — upload, filters, export, edit and delete. */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, downloadAuthenticated, authHeaders, API_BASE, showAdminToast } = window.Admin;
 
   const FILTER_IDS = {
     category: "document-filter-category",
@@ -91,6 +91,158 @@
     document.querySelectorAll("#document-upload-form [data-status], #document-distribute-form [data-status]").forEach((el) => {
       setFormStatus(el, "");
     });
+  }
+
+  function readUploadFormPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector('[name="category"]')?.value || "",
+      lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      doc_audience: form.querySelector('input[name="doc_audience"]:checked')?.value || "company",
+      employee_id: form.querySelector("#document-upload-employee-id")?.value || "",
+      employee_search: form.querySelector("#document-upload-employee-search")?.value || "",
+      expires_at: form.querySelector("#document-upload-expires-at")?.value || "",
+      expiry_alert_days: form.querySelector("#document-upload-alert-days")?.value || "30",
+      employee_visible: form.querySelector("#document-upload-visible")?.checked ?? true,
+      notify: form.querySelector("#document-upload-notify")?.checked ?? true,
+      notify_email: form.querySelector("#document-upload-notify-email")?.checked ?? true,
+      notify_scope: form.querySelector('input[name="notify_scope"]:checked')?.value || "all",
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyUploadFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector('[name="category"]');
+    const stage = form.querySelector('[name="lifecycle_stage"]');
+    if (category && prefs.category) category.value = prefs.category;
+    if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    const audienceInput = form.querySelector(`input[name="doc_audience"][value="${prefs.doc_audience}"]`);
+    if (audienceInput) audienceInput.checked = true;
+    const employeeId = form.querySelector("#document-upload-employee-id");
+    const employeeSearch = form.querySelector("#document-upload-employee-search");
+    if (employeeId) employeeId.value = prefs.employee_id || "";
+    if (employeeSearch) employeeSearch.value = prefs.employee_search || "";
+    const expiresAt = form.querySelector("#document-upload-expires-at");
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    const alertDays = form.querySelector("#document-upload-alert-days");
+    if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
+    const visible = form.querySelector("#document-upload-visible");
+    if (visible) visible.checked = prefs.employee_visible;
+    const notify = form.querySelector("#document-upload-notify");
+    if (notify) notify.checked = prefs.notify;
+    const notifyEmail = form.querySelector("#document-upload-notify-email");
+    if (notifyEmail) notifyEmail.checked = prefs.notify_email;
+    const notifyScope = form.querySelector(`input[name="notify_scope"][value="${prefs.notify_scope}"]`);
+    if (notifyScope) notifyScope.checked = true;
+    const notes = form.querySelector('[name="notes"]');
+    if (notes) notes.value = prefs.notes || "";
+    syncUploadAudience(form);
+    syncExpiryFields();
+    syncUploadNotify(form);
+  }
+
+  function resetUploadFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readUploadFormPreferences(form);
+    form.reset();
+    applyUploadFormPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#document-upload-file");
+    if (fileInput) fileInput.value = "";
+    const cameraInput = form.querySelector("#document-upload-camera");
+    if (cameraInput) cameraInput.value = "";
+    const filenameEl = document.getElementById("document-upload-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function readDistributeFormPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector('[name="category"]')?.value || "",
+      employee_id: form.querySelector('[name="employee_id"]')?.value || "",
+      pay_period: form.querySelector("#document-distribute-pay-period")?.value || "",
+      send_email: form.querySelector('[name="send_email"]')?.checked ?? true,
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyDistributeFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector('[name="category"]');
+    const employee = form.querySelector('[name="employee_id"]');
+    const payPeriod = form.querySelector("#document-distribute-pay-period");
+    const sendEmail = form.querySelector('[name="send_email"]');
+    const notes = form.querySelector('[name="notes"]');
+    if (category && prefs.category) category.value = prefs.category;
+    if (employee) employee.value = prefs.employee_id || "";
+    if (payPeriod) payPeriod.value = prefs.pay_period || "";
+    if (sendEmail) sendEmail.checked = prefs.send_email;
+    if (notes) notes.value = prefs.notes || "";
+    const syncPayPeriodRequired = () => {
+      if (!payPeriod) return;
+      const isPayslip = category?.value === "payslip";
+      payPeriod.required = isPayslip;
+      payPeriod.closest(".edit-field")?.classList.toggle("edit-field--required", isPayslip);
+    };
+    syncPayPeriodRequired();
+  }
+
+  function resetDistributeFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readDistributeFormPreferences(form);
+    form.reset();
+    applyDistributeFormPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#document-distribute-file");
+    if (fileInput) fileInput.value = "";
+    const cameraInput = form.querySelector("#document-distribute-camera");
+    if (cameraInput) cameraInput.value = "";
+    const filenameEl = document.getElementById("document-distribute-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function readLinkFormPreferences(form) {
+    if (!form) return null;
+    return {
+      employee_id: form.querySelector('[name="employee_id"]')?.value || "",
+      category: form.querySelector('[name="category"]')?.value || "",
+      lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      expiry_alert_days: form.querySelector('[name="expiry_alert_days"]')?.value || "30",
+      employee_visible: form.querySelector('[name="employee_visible"]')?.checked ?? false,
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyLinkFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const employee = form.querySelector('[name="employee_id"]');
+    const category = form.querySelector('[name="category"]');
+    const stage = form.querySelector('[name="lifecycle_stage"]');
+    const expiresAt = form.querySelector('[name="expires_at"]');
+    const alertDays = form.querySelector('[name="expiry_alert_days"]');
+    const visible = form.querySelector('[name="employee_visible"]');
+    const notes = form.querySelector('[name="notes"]');
+    if (employee) employee.value = prefs.employee_id || "";
+    if (category && prefs.category) category.value = prefs.category;
+    if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
+    if (visible) visible.checked = prefs.employee_visible;
+    if (notes) notes.value = prefs.notes || "";
+    const title = form.querySelector('[name="title"]');
+    const url = form.querySelector('[name="document_url"]');
+    if (title) title.value = "";
+    if (url) url.value = "";
   }
 
   function setDocumentsPanelAlert(options) {
@@ -312,7 +464,7 @@
         const res = await apiFetch(`/admin/documents/${row.id}?${documentApiQuery(row)}`, { method: "DELETE" });
         if (!res.ok) {
           const err = await res.json();
-          alert(err.detail || "Delete failed");
+          showAdminToast?.(err.detail || "Delete failed", { variant: "error" });
           return;
         }
         await refreshDocuments();
@@ -930,7 +1082,6 @@
       panel.hidden = panel.dataset.docPanel !== target;
     });
     updateTabDescription(target);
-    clearDocumentFormStatuses();
     if (target === "link") {
       mountLinkForm();
     }
@@ -1138,11 +1289,7 @@
 
       try {
         const data = await uploadMultipart("/admin/documents/upload", fd);
-        form.reset();
-        document.getElementById("document-upload-employee-id").value = "";
-        document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
-        syncExpiryFields();
-        syncUploadAudience(form);
+        resetUploadFormKeepingPreferences(form);
         const notified = data?.notifications?.notified_count;
         const successText =
           notified != null
@@ -1230,12 +1377,7 @@
       }
       try {
         const data = await uploadMultipart("/admin/documents/distribute", fd);
-        form.reset();
-        if (filenameEl) {
-          filenameEl.hidden = true;
-          filenameEl.textContent = "";
-        }
-        syncPayPeriodRequired();
+        resetDistributeFormKeepingPreferences(form);
         if (status) {
           const emailNote =
             data.emails_sent > 0
@@ -1331,8 +1473,13 @@
     const filtersHost = document.getElementById("document-filters");
     if (!tbody && !formHost) return;
 
-    clearDocumentFormStatuses();
-    setDocumentsPanelAlert({});
+    const firstLoad = document.body.dataset.documentsReady !== "true";
+    if (firstLoad) {
+      clearDocumentFormStatuses();
+      setDocumentsPanelAlert({});
+      resetDocumentTabs();
+      document.body.dataset.documentsReady = "true";
+    }
 
     if (window.Admin.loadFormOptions) {
       await window.Admin.loadFormOptions();
@@ -1486,7 +1633,9 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Save failed");
+        const linkPrefs = readLinkFormPreferences(formHost.querySelector("form"));
         formHost.querySelector("form")?.reset();
+        applyLinkFormPreferences(formHost.querySelector("form"), linkPrefs);
         window.AdminSettings?.showSettingsToast?.("Document link saved ✓");
         await refreshDocuments();
         await refreshExpiringDocuments();

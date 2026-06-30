@@ -141,6 +141,7 @@
   }
 
   async function canUseBiometricUnlock() {
+    if (window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) return true;
     if (!isNativeShell()) return false;
     const plugin = await biometricPlugin();
     if (!plugin) return false;
@@ -175,9 +176,15 @@
   }
 
   async function tryQuickUnlock() {
-    if (!window.ShiftSwiftSession?.hydrateNativeSession) return false;
-    await window.ShiftSwiftSession.hydrateNativeSession();
-    if (!window.ShiftSwiftSession.hasSession()) return false;
+    if (window.ShiftSwiftSession?.hydrateNativeSession) {
+      await window.ShiftSwiftSession.hydrateNativeSession();
+    }
+    if (!window.ShiftSwiftSession?.hasSession?.()) {
+      if (window.ShiftSwiftPasskeyAuth?.tryAutoLogin) {
+        return Boolean(await window.ShiftSwiftPasskeyAuth.tryAutoLogin());
+      }
+      return false;
+    }
     if (isBiometricUnlockEnabled()) {
       const ok = await verifyBiometricUnlock("Sign in with Face ID");
       if (!ok) return false;

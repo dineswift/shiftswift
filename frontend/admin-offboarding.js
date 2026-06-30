@@ -1,6 +1,11 @@
 /** Offboarding workflows — leaver register with detail panel. */
 (function () {
-  const { apiFetch, escapeHtml, statusPill, parseHashBaseSection } = window.Admin;
+  const { apiFetch, escapeHtml, statusPill, parseHashBaseSection, showAdminToast } = window.Admin;
+
+  function offboardingToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   const WORKFLOW_STEPS = [
     { id: "identified", label: "Leaver identified" },
@@ -364,7 +369,7 @@
     });
     if (!res.ok) {
       const err = await res.json();
-      alert(err.detail || "Update failed");
+      offboardingToast(err.detail || "Update failed", "error");
       return;
     }
     await loadWorkflows();
@@ -376,7 +381,7 @@
     const res = await apiFetch(`/offboarding/workflows/${workflowId}/complete`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      alert(data.detail || "Could not complete workflow");
+      offboardingToast(data.detail || "Could not complete workflow", "error");
       return;
     }
     await loadWorkflows();
@@ -392,7 +397,7 @@
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      alert(data.detail || "Could not cancel workflow");
+      offboardingToast(data.detail || "Could not cancel workflow", "error");
       return;
     }
     await loadWorkflows();
@@ -446,7 +451,7 @@
       const employeeId = $("offboarding-employee")?.value;
       const reason = buildReasonPayload();
       if (!employeeId || !reason) {
-        alert("Select employee and enter a reason (at least 3 characters for Other).");
+        offboardingToast("Select employee and enter a reason (at least 3 characters for Other).", "error");
         return;
       }
       if (!window.confirm("Start offboarding for this employee? An ACAS appeal window will be recorded.")) return;
@@ -460,10 +465,10 @@
         if (res.status === 409 && detail?.existing_workflow_id) {
           await loadWorkflows();
           await selectWorkflow(Number(detail.existing_workflow_id));
-          alert(detail.message || "This employee already has an active workflow — opened existing record.");
+          offboardingToast(detail.message || "This employee already has an active workflow — opened existing record.");
           return;
         }
-        alert(typeof detail === "string" ? detail : detail?.message || "Could not start workflow");
+        offboardingToast(typeof detail === "string" ? detail : detail?.message || "Could not start workflow", "error");
         return;
       }
       $("offboarding-reason-detail").value = "";

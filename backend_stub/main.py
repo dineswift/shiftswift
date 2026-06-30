@@ -27,6 +27,7 @@ from modules.global_documents.routes import router as global_documents_router
 from modules.employees.routes import router as employees_router
 from modules.recruitment.routes import router as recruitment_router
 from modules.crm.routes import router as crm_router
+from modules.time_punch.epos_routes import router as epos_integration_router
 from modules.time_punch.routes import admin_router as time_punch_admin_router
 from modules.time_punch.routes import employee_router as time_punch_router
 from modules.time_punch.routes import kiosk_router as time_punch_kiosk_router
@@ -37,6 +38,7 @@ from modules.leave.routes import employee_router as leave_employee_router
 from modules.employees.profile_change_routes import admin_router as profile_change_admin_router
 from modules.employees.profile_change_routes import employee_router as profile_change_employee_router
 from modules.push.routes import router as push_router
+from modules.push.admin_routes import router as admin_push_router
 from modules.master.routes import router as master_router
 from modules.registry import module_catalog
 from signup_routes import router as signup_router
@@ -57,13 +59,16 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware, settings=settings)
 if settings.is_production:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_allow_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Tenant-Id", "X-User-Id"],
-)
+cors_kwargs: dict[str, object] = {
+    "allow_credentials": True,
+    "allow_methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "allow_headers": ["Authorization", "Content-Type", "X-Tenant-Id", "X-User-Id"],
+}
+if settings.is_development:
+    cors_kwargs["allow_origin_regex"] = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+else:
+    cors_kwargs["allow_origins"] = settings.cors_allow_origins
+app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 
 @app.get("/health")
@@ -131,6 +136,7 @@ app.include_router(signup_router)
 app.include_router(contracts_router)
 app.include_router(time_punch_router)
 app.include_router(time_punch_kiosk_router)
+app.include_router(epos_integration_router)
 app.include_router(employee_portal_router)
 app.include_router(employees_router)
 app.include_router(recruitment_router)
@@ -143,4 +149,5 @@ app.include_router(leave_employee_router)
 app.include_router(profile_change_admin_router)
 app.include_router(profile_change_employee_router)
 app.include_router(push_router)
+app.include_router(admin_push_router)
 app.include_router(master_router)

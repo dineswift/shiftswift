@@ -17,6 +17,117 @@
 
   const provisionPlans = [];
 
+  const billingUi = (function initMasterBillingUi() {
+    function formatGbp(amount) {
+      const n = Number(amount);
+      if (!Number.isFinite(n)) return "£0.00";
+      return `£${n.toFixed(2)}`;
+    }
+
+    function findProvisionPlan(plans, planId) {
+      return (plans || []).find((plan) => plan.id === planId) || null;
+    }
+
+    function defaultStaffTierLimit(plan, currentLimit) {
+      const tiers = plan?.staff_tiers || [];
+      if (!tiers.length) return plan?.max_employees || 20;
+      const limit = Number(currentLimit);
+      if (Number.isFinite(limit) && limit > 0) {
+        if (tiers.some((tier) => tier.max_employees === limit)) return limit;
+        const ceiling = tiers.find((tier) => tier.max_employees >= limit);
+        if (ceiling) return ceiling.max_employees;
+        return tiers[tiers.length - 1].max_employees;
+      }
+      const preferred = tiers.find((tier) => tier.max_employees === 20) || tiers[0];
+      return preferred.max_employees;
+    }
+
+    function tierOptionLabel(tier) {
+      const inc = tier.quote_gbp_inc_vat != null ? formatGbp(tier.quote_gbp_inc_vat) : "";
+      let label = `Up to ${tier.max_employees} staff — ${formatGbp(tier.quote_gbp_ex_vat)}/mo ex VAT`;
+      if (inc) label += ` (${inc} inc VAT)`;
+      if (tier.cap_applied) label += " · cap";
+      return label;
+    }
+
+    function populateStaffTierSelect(plans, planId, selectEl, { currentLimit } = {}) {
+      if (!selectEl) return null;
+      const plan = findProvisionPlan(plans, planId);
+      const tiers = plan?.staff_tiers || [];
+      const options = tiers.map(
+        (tier) =>
+          `<option value="${tier.max_employees}">${tierOptionLabel(tier)}</option>`,
+      );
+      options.push('<option value="custom">Custom limit…</option>');
+      selectEl.innerHTML = options.join("");
+
+      const limit = defaultStaffTierLimit(plan, currentLimit);
+      const hasPreset = tiers.some((tier) => tier.max_employees === limit);
+      if (hasPreset) {
+        selectEl.value = String(limit);
+        return limit;
+      }
+      if (Number.isFinite(Number(currentLimit)) && Number(currentLimit) > 0) {
+        selectEl.value = "custom";
+        return Number(currentLimit);
+      }
+      selectEl.value = tiers.length ? String(tiers[0].max_employees) : "custom";
+      return tiers.length ? tiers[0].max_employees : null;
+    }
+
+    function resolveStaffTierLimit(_plans, _planId, tierValue, customValue) {
+      if (tierValue === "custom") {
+        const n = Number(customValue);
+        return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+      }
+      const n = Number(tierValue);
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    }
+
+    function staffTierQuote(plans, planId, limit) {
+      const plan = findProvisionPlan(plans, planId);
+      return (plan?.staff_tiers || []).find((tier) => tier.max_employees === limit) || null;
+    }
+
+    function suggestedBillingNote(plans, planId, limit) {
+      const plan = findProvisionPlan(plans, planId);
+      const quote = staffTierQuote(plans, planId, limit);
+      if (!plan || !quote) return "";
+      return `${formatGbp(quote.quote_gbp_ex_vat)}/mo ex VAT (${formatGbp(quote.quote_gbp_inc_vat)} inc VAT) — up to ${limit} staff, ${plan.name}`;
+    }
+
+    function updateStaffTierPriceHint(plans, planId, tierValue, customValue, hintEl, { isOffline = true } = {}) {
+      if (!hintEl) return;
+      if (!isOffline) {
+        hintEl.hidden = true;
+        hintEl.textContent = "";
+        return;
+      }
+      const limit = resolveStaffTierLimit(plans, planId, tierValue, customValue);
+      const quote = limit ? staffTierQuote(plans, planId, limit) : null;
+      if (!quote) {
+        hintEl.hidden = true;
+        hintEl.textContent = "";
+        return;
+      }
+      hintEl.hidden = false;
+      hintEl.textContent = `List price at this tier: ${formatGbp(quote.quote_gbp_ex_vat)}/mo ex VAT (${formatGbp(quote.quote_gbp_inc_vat)} inc VAT). Adjust billing notes if you agreed a different amount.`;
+    }
+
+    return {
+      formatGbp,
+      findProvisionPlan,
+      defaultStaffTierLimit,
+      populateStaffTierSelect,
+      resolveStaffTierLimit,
+      staffTierQuote,
+      suggestedBillingNote,
+      updateStaffTierPriceHint,
+    };
+  })();
+
+  window.ShiftSwiftMasterBilling = billingUi;
+
   const els = {
     metrics: document.getElementById("master-metrics"),
     filters: document.getElementById("master-filters"),
@@ -882,18 +993,144 @@
     if (!select) return;
     try {
       const data = await apiGet("/master/plans");
-      const plans = data.plans || [];
-      select.innerHTML = plans
+      provisionPlans.splice(0, provisionPlans.length, ...(data.plans || []));
+      select.innerHTML = provisionPlans
         .map(
           (plan) =>
-            `<option value="${escapeHtml(plan.id)}">${escapeHtml(plan.name)} (up to ${plan.max_employees} staff)</option>`,
+            `<option value="${escapeHtml(plan.id)}">${escapeHtml(plan.name)}</option>`,
         )
         .join("");
-      const preferred = plans.find((plan) => plan.id === "site_medium_monthly");
+      const preferred = provisionPlans.find((plan) => plan.id === "site_medium_monthly");
       if (preferred) select.value = preferred.id;
     } catch {
       select.innerHTML = `<option value="site_medium_monthly">Compliance</option>`;
     }
+  }
+
+  function syncCreateStaffTierUi(form) {
+    const billingSelect = document.getElementById("master-create-billing");
+    const planSelect = document.getElementById("master-create-plan");
+    const tierWrap = document.getElementById("master-create-staff-tier-wrap");
+    const tierSelect = document.getElementById("master-create-staff-tier");
+    const customWrap = document.getElementById("master-create-staff-custom-wrap");
+    const customInput = form?.querySelector('input[name="max_employees"]');
+    const hint = document.getElementById("master-create-price-hint");
+    const notesInput = form?.querySelector('textarea[name="billing_notes"]');
+    const isOffline = (billingSelect?.value || "offline") === "offline";
+    const planId = planSelect?.value || "site_medium_monthly";
+
+    if (tierWrap) tierWrap.hidden = !isOffline;
+    if (!isOffline) {
+      if (customWrap) customWrap.hidden = true;
+      if (hint) {
+        hint.hidden = true;
+        hint.textContent = "";
+      }
+      return;
+    }
+
+    const resolvedLimit = billingUi.populateStaffTierSelect(provisionPlans, planId, tierSelect);
+    const isCustom = tierSelect?.value === "custom";
+    if (customWrap) customWrap.hidden = !isCustom;
+    if (isCustom && customInput && !String(customInput.value || "").trim() && resolvedLimit) {
+      customInput.value = String(resolvedLimit);
+    }
+
+    billingUi.updateStaffTierPriceHint(
+      provisionPlans,
+      planId,
+      tierSelect?.value,
+      customInput?.value,
+      hint,
+      { isOffline: true },
+    );
+
+    if (notesInput && !String(notesInput.value || "").trim()) {
+      const limit = billingUi.resolveStaffTierLimit(
+        provisionPlans,
+        planId,
+        tierSelect?.value,
+        customInput?.value,
+      );
+      if (limit) notesInput.placeholder = billingUi.suggestedBillingNote(provisionPlans, planId, limit);
+    }
+
+    const pricingNote = billingUi.findProvisionPlan(provisionPlans, planId)?.offline_pricing?.note;
+    if (hint && isOffline) {
+      const limit = billingUi.resolveStaffTierLimit(
+        provisionPlans,
+        planId,
+        tierSelect?.value,
+        customInput?.value,
+      );
+      const quote = limit ? billingUi.staffTierQuote(provisionPlans, planId, limit) : null;
+      const parts = [];
+      if (quote) {
+        parts.push(
+          `List price: ${billingUi.formatGbp(quote.quote_gbp_ex_vat)}/mo ex VAT (${billingUi.formatGbp(quote.quote_gbp_inc_vat)} inc VAT).`,
+        );
+      }
+      if (pricingNote) parts.push(pricingNote);
+      parts.push("Adjust billing notes if you agreed a different amount.");
+      hint.textContent = parts.join(" ");
+      hint.hidden = false;
+    }
+  }
+
+  function localGeneratedPassword() {
+    try {
+      const bytes = new Uint8Array(12);
+      crypto.getRandomValues(bytes);
+      const token = Array.from(bytes, (b) => b.toString(36).padStart(2, "0"))
+        .join("")
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .slice(0, 12);
+      return `Shift-${token}`;
+    } catch {
+      return `Shift-${Math.random().toString(36).slice(2, 14)}`;
+    }
+  }
+
+  async function fillGeneratedPassword(form, statusEl) {
+    const input = form?.querySelector('input[name="admin_password"]');
+    if (!input) return;
+    try {
+      const data = await apiGet("/master/tenants/generate-password");
+      if (data.password) {
+        input.value = data.password;
+        if (statusEl) statusEl.textContent = "Password generated — copy it before creating the workspace.";
+        return;
+      }
+    } catch (error) {
+      if (statusEl) statusEl.textContent = error.message || "Could not reach password API — using local generator.";
+    }
+    input.value = localGeneratedPassword();
+    if (statusEl && !statusEl.textContent) {
+      statusEl.textContent = "Password generated locally — copy it before creating the workspace.";
+    }
+  }
+
+  function syncCreateTenantBillingUi(form) {
+    const billingSelect = document.getElementById("master-create-billing");
+    const accessSelect = document.getElementById("master-create-access");
+    const trialWrap = document.getElementById("master-create-trial-wrap");
+    const trialInput = form?.querySelector('input[name="trial_days"]');
+    const hint = document.getElementById("master-create-billing-hint");
+    const trialingOption = document.getElementById("master-create-access-trial-option");
+    const isOffline = (billingSelect?.value || "offline") === "offline";
+
+    if (trialingOption) trialingOption.disabled = isOffline;
+    if (isOffline && accessSelect?.value === "trialing") accessSelect.value = "active";
+
+    const showTrial = !isOffline && accessSelect?.value === "trialing";
+    if (trialWrap) trialWrap.hidden = !showTrial;
+    if (trialInput) trialInput.disabled = !showTrial;
+    if (hint) {
+      hint.textContent = isOffline
+        ? "Offline billing starts active — pick a staff tier and adjust billing notes for agreed pricing."
+        : "Stripe billing — choose Trial period above to set trial days.";
+    }
+    syncCreateStaffTierUi(form);
   }
 
   function initCreateTenantPanel() {
@@ -902,52 +1139,85 @@
     const status = document.getElementById("master-create-status");
     const accessSelect = document.getElementById("master-create-access");
     const trialWrap = document.getElementById("master-create-trial-wrap");
+    const billingSelect = document.getElementById("master-create-billing");
     if (!panel || !form) return;
 
     document.getElementById("master-create-tenant-btn")?.addEventListener("click", () => {
       panel.hidden = false;
       status.textContent = "";
-      void loadProvisionPlans();
+      void loadProvisionPlans().then(() => {
+        syncCreateTenantBillingUi(form);
+        const passwordInput = form.querySelector('input[name="admin_password"]');
+        if (passwordInput && !String(passwordInput.value || "").trim()) {
+          void fillGeneratedPassword(form, status);
+        }
+      });
     });
     document.getElementById("master-create-cancel")?.addEventListener("click", () => {
       panel.hidden = true;
       form.reset();
-      if (trialWrap) trialWrap.hidden = true;
+      syncCreateTenantBillingUi(form);
     });
-    accessSelect?.addEventListener("change", () => {
-      if (trialWrap) trialWrap.hidden = accessSelect.value !== "trialing";
-    });
+    billingSelect?.addEventListener("change", () => syncCreateTenantBillingUi(form));
+    accessSelect?.addEventListener("change", () => syncCreateTenantBillingUi(form));
+    document.getElementById("master-create-plan")?.addEventListener("change", () => syncCreateStaffTierUi(form));
+    document.getElementById("master-create-staff-tier")?.addEventListener("change", () => syncCreateStaffTierUi(form));
+    form.querySelector('input[name="max_employees"]')?.addEventListener("input", () => syncCreateStaffTierUi(form));
     document.getElementById("master-generate-password")?.addEventListener("click", async () => {
+      const button = document.getElementById("master-generate-password");
+      if (button) button.disabled = true;
+      if (status) status.textContent = "Generating password…";
       try {
-        const data = await apiGet("/master/tenants/generate-password");
-        const input = form.querySelector('input[name="admin_password"]');
-        if (input && data.password) input.value = data.password;
-      } catch (error) {
-        if (status) status.textContent = error.message;
+        await fillGeneratedPassword(form, status);
+      } finally {
+        if (button) button.disabled = false;
       }
     });
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      syncCreateTenantBillingUi(form);
       const fd = new FormData(form);
-      const maxRaw = String(fd.get("max_employees") || "").trim();
+      const billingMode = String(fd.get("billing_mode") || "offline");
+      const access =
+        billingMode === "offline" ? "active" : String(fd.get("access") || "active");
+      const planId = String(fd.get("plan_id") || "site_medium_monthly");
+      const staffTier = String(fd.get("staff_tier") || "");
+      const customLimit = String(fd.get("max_employees") || "").trim();
       const payload = {
         business_name: String(fd.get("business_name") || "").trim(),
         billing_email: String(fd.get("billing_email") || "").trim(),
         admin_password: String(fd.get("admin_password") || ""),
-        plan_id: String(fd.get("plan_id") || "site_medium_monthly"),
-        billing_mode: String(fd.get("billing_mode") || "offline"),
-        access: String(fd.get("access") || "active"),
-        trial_days: Number(fd.get("trial_days") || 14),
+        plan_id: planId,
+        billing_mode: billingMode,
+        access,
+        trial_days: access === "trialing" ? Number(fd.get("trial_days") || 14) : 14,
         send_welcome_email: fd.get("send_welcome_email") === "on",
         billing_notes: String(fd.get("billing_notes") || "").trim() || null,
       };
-      if (maxRaw) payload.max_employees = Number(maxRaw);
+      if (billingMode === "offline") {
+        const staffLimit = billingUi.resolveStaffTierLimit(
+          provisionPlans,
+          planId,
+          staffTier,
+          customLimit,
+        );
+        if (!staffLimit) {
+          if (status) status.textContent = "Choose a staff license tier (or enter a custom limit).";
+          return;
+        }
+        payload.max_employees = staffLimit;
+        if (!payload.billing_notes) {
+          payload.billing_notes = billingUi.suggestedBillingNote(provisionPlans, planId, staffLimit) || null;
+        }
+      } else if (customLimit) {
+        payload.max_employees = Number(customLimit);
+      }
       if (status) status.textContent = "Creating workspace…";
       try {
         const result = await apiPost("/master/tenants/create", payload);
         panel.hidden = true;
         form.reset();
-        if (trialWrap) trialWrap.hidden = true;
+        syncCreateTenantBillingUi(form);
         await loadTenants();
         openTenantWindow(result.tenant_id);
         window.alert(
@@ -981,7 +1251,7 @@
       window.location.replace(
         window.ShiftSwiftSession?.resolveLoginUrl?.() ||
           window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
-          "./native-app-login.html",
+          "./sign-in.html",
       );
       return;
     }

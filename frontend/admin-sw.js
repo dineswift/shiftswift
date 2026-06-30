@@ -1,7 +1,10 @@
 /* ShiftSwift HR Admin — PWA service worker (business HR shell only). */
-const CACHE_NAME = "shiftswift-admin-v11";
+const CACHE_NAME = "shiftswift-admin-v14";
 const SHELL = [
   "./admin.html",
+  "./sign-in.html",
+  "./sign-in-manifest.webmanifest",
+  "./native-app-login.html",
   "./business-login.html",
   "./forgot-password.html",
   "./install-business.html",
@@ -12,6 +15,8 @@ const SHELL = [
   "./brand-config.js",
   "./session-auth.js",
   "./admin-pwa.js",
+  "./admin-push-alerts.js",
+  "./portal-notifications.js",
   "./login.js",
   "./auth-guard.js",
   "./portal-pwa-install.js",
@@ -25,6 +30,9 @@ const SHELL = [
   "./admin-mobile.js",
   "./admin-profile-changes.js",
   "./admin-employees.js",
+  "./unified-login.js",
+  "./trusted-device.js",
+  "./passkey-auth.js",
   "./assets/shiftswift-hr-app-icon-192.png",
   "./assets/shiftswift-hr-app-icon.png",
   "./assets/shiftswift-hr-app-icon-180.png",
@@ -64,7 +72,7 @@ function staleWhileRevalidate(event, request, cached) {
   }
   return networkFetch.then((response) => response || caches.match(fallbackDocument(request.url)));
 }
-const ADMIN_SHELL_PATHS = /\/(admin|business-login|forgot-password|reset-password|install-business)\.html$/i;
+const ADMIN_SHELL_PATHS = /\/(admin|sign-in|business-login|forgot-password|reset-password|install-business)\.html$/i;
 
 function isSameOrigin(request) {
   try {
@@ -181,13 +189,24 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
       const data = parsePushPayload(event);
+      const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of allClients) {
+        client.postMessage({
+          type: "SHIFT_ALERT",
+          title: data.title,
+          body: data.body,
+          urgent: Boolean(data.urgent),
+          alert_type: data.alert_type || "general",
+        });
+      }
       await self.registration.showNotification(data.title, {
         body: data.body,
         icon: "./assets/shiftswift-hr-app-icon-192.png",
         badge: "./assets/shiftswift-hr-app-icon-192.png",
         tag: data.tag || "shiftswift-admin",
         renotify: true,
-        data: { url: data.url || "./admin.html#time-punch" },
+        silent: false,
+        data: { url: data.url || "./admin.html#time-punch", alert_type: data.alert_type || "general" },
         actions: [
           { action: "open", title: "Open app" },
           { action: "dismiss", title: "Dismiss" },
@@ -206,7 +225,7 @@ self.addEventListener("notificationclick", (event) => {
     (async () => {
       const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of allClients) {
-        if (client.url.includes("admin.html") || client.url.includes("business-login.html")) {
+        if (client.url.includes("admin.html") || client.url.includes("sign-in.html") || client.url.includes("native-app-login.html")) {
           await client.focus();
           if ("navigate" in client) {
             try {

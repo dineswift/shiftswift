@@ -1,25 +1,52 @@
 /** Admin workspace sections — overview, employees, staff export, settings. */
 (async function initAdminWorkspace() {
+  async function ensureNativeAdminSession() {
+    if (!window.Capacitor?.isNativePlatform?.()) return;
+    if (!/\/admin\.html$/i.test(String(window.location.pathname || ""))) return;
+    window.ShiftSwiftSession?.consumeNativeSessionHandoff?.();
+    window.ShiftSwiftNativeApiFetch?.bootWhenReady?.();
+    if (window.ShiftSwiftSession?.waitForNativeSession) {
+      await window.ShiftSwiftSession.waitForNativeSession({ maxMs: 12000 });
+      return;
+    }
+    await window.ShiftSwiftSession?.hydrateNativeSession?.({ force: true });
+  }
+
+  if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+    await ensureNativeAdminSession();
+  }
+
   const {
     apiFetch,
     loadFormOptions,
     loadTenantFeatures,
+    fetchAdminOverview,
+    applyOverviewToTenantFeatures,
     applyFeatureGates,
+    friendlyNativeError,
     isFeatureEnabled,
     mountEditForm,
     renderTableBody,
     FORM_SCHEMAS,
     escapeHtml,
     statusPill,
+    showAdminToast,
   } = window.Admin;
 
-  try {
-    await loadFormOptions();
-    await loadTenantFeatures();
-    applyFeatureGates();
-  } catch (error) {
-    console.warn("Form metadata unavailable:", error.message);
+  function workspaceToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
   }
+
+  void (async () => {
+    try {
+      await loadFormOptions();
+      await loadTenantFeatures();
+      applyFeatureGates();
+    } catch (error) {
+      console.warn("Form metadata unavailable:", error.message);
+    }
+  })();
 
   window.addEventListener("admin:features-refresh", async () => {
     await loadTenantFeatures();
@@ -101,9 +128,9 @@
         window.location.href = data.checkout_url;
         return;
       }
-      alert(data.message || data.detail || "Direct Debit setup unavailable");
+      workspaceToast(data.message || data.detail || "Direct Debit setup unavailable", "error");
     } catch (error) {
-      alert(error.message || "Direct Debit setup failed");
+      workspaceToast(error.message || "Direct Debit setup failed", "error");
     }
   }
 
@@ -119,9 +146,9 @@
         return;
       }
       const support = window.ShiftSwiftBrand?.supportEmail?.() || "support";
-      alert(data.message || data.detail || `Upgrade is not available yet. Contact ${support} for billing help.`);
+      workspaceToast(data.message || data.detail || `Upgrade is not available yet. Contact ${support} for billing help.`, "error");
     } catch (error) {
-      alert(error.message || "Upgrade request failed");
+      workspaceToast(error.message || "Upgrade request failed", "error");
     }
   }
 
@@ -210,7 +237,7 @@
     }
     const badge = document.getElementById("topbar-alerts-badge");
     const count = Number(data.open_actions_count) || 0;
-    if (badge) {
+    if (badge && !document.getElementById("topbar-alerts-btn")?.dataset.notificationsBound) {
       if (count > 0) {
         badge.hidden = false;
         badge.textContent = String(count);
@@ -343,7 +370,18 @@
       </ol>`;
   }
 
-  async function loadOverview() {
+  let overviewRequestId = 0;
+
+  function overviewRenderIncomplete() {
+    const modulesHost = document.getElementById("overview-modules");
+    const grid = document.getElementById("overview-metrics");
+    const hasStats = Boolean(grid?.querySelector(".hr-stat-card"));
+    const hasModules = Boolean(modulesHost?.querySelector(".overview-module-card"));
+    const hasActions = Boolean(document.getElementById("overview-actions")?.querySelector(".overview-action"));
+    return hasStats && (!hasModules || !hasActions);
+  }
+
+  async function loadOverview(options = {}) {
     const grid = document.getElementById("overview-metrics");
     const modulesHost = document.getElementById("overview-modules");
     const actionsHost = document.getElementById("overview-actions");
@@ -351,13 +389,10 @@
     const subtitle = document.getElementById("overview-subtitle");
     const trialNote = document.getElementById("overview-trial-note");
     if (!grid) return;
+    const requestId = ++overviewRequestId;
     try {
-      await window.ShiftSwiftSession?.hydrateNativeSession?.();
-      const res = await apiFetch("/admin/overview");
-      if (!res.ok) throw new Error("Overview unavailable");
-      const data = await res.json();
-      await loadTenantFeatures();
-      applyFeatureGates();
+      const data = await fetchAdminOverview(Boolean(options.force));
+      if (requestId !== overviewRequestId) return;
       applyNavBadges(data.nav_badges);
 
       const businessName = data.trading_name || data.tenant_name || "your business";
@@ -378,6 +413,8 @@
               .map((item) => item.title)
               .join(" · ")
           : "";
+
+      if (requestId !== overviewRequestId) return;
 
       if (trialNote) {
         if (data.trial_active) {
@@ -618,6 +655,8 @@
         }
       }
 
+      if (requestId !== overviewRequestId) return;
+
       if (actionsHost) {
         const items = data.open_actions || [];
         if (actionsCount) actionsCount.textContent = String(items.length);
@@ -630,11 +669,14 @@
 
       window.dispatchEvent(new CustomEvent("admin:overview-loaded", { detail: { data } }));
       window.AdminMobile?.renderMobileCompliance?.(data);
-    } catch (error) {
-      let message = error.message || "Could not load overview.";
-      if (message === "Load failed" || message === "Failed to fetch") {
-        message = "Cannot reach the API. Check your connection and try again.";
+
+      if (window.__SSHR_BUNDLED_NATIVE_BOOT && overviewRenderIncomplete() && !options._retryScheduled) {
+        window.setTimeout(() => loadOverview({ force: true, _retryScheduled: true }), 1500);
       }
+    } catch (error) {
+      if (requestId !== overviewRequestId) return;
+      if (grid.querySelector(".hr-stat-card")) return;
+      let message = friendlyNativeError(error, "Could not load overview.");
       grid.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(message)}</p><button type="button" class="btn outline btn-sm" id="overview-retry-btn">Retry</button></div>`;
       document.getElementById("overview-retry-btn")?.addEventListener("click", () => loadOverview());
       if (modulesHost) modulesHost.innerHTML = "";
@@ -677,11 +719,28 @@
   });
 
   window.addEventListener("shiftswift:native-session-ready", () => {
+    if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
     loadOverview();
     loadTrialBanner();
   });
 
-  loadOverview();
-  loadTrialBanner();
+  async function bootWorkspace() {
+    if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
+    await ensureNativeAdminSession();
+    loadOverview();
+    loadTrialBanner();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootWorkspace, { once: true });
+  } else {
+    bootWorkspace();
+  }
   bindOverviewModuleLocks();
+
+  window.ShiftSwiftAdminWorkspace = {
+    loadOverview,
+    loadTrialBanner,
+    overviewRenderIncomplete,
+  };
 })();

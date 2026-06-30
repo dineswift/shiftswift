@@ -13,12 +13,25 @@
     <script src="./portal-sw-guard.js?v=2"></script>
     <script>
       (function () {
+        if (/[?&]legacy=1(?:&|$)/.test(location.search)) return;
+        if (/[?&]source=native(?:&|$)/.test(location.search)) return;
+        if (window.Capacitor?.isNativePlatform?.()) return;
+        var target = "./sign-in.html";
+        var qs = location.search || "";
+        if (!/[?&]portal=/.test(qs)) target += (qs ? qs + "&" : "?") + "portal=employee";
+        else target += qs;
+        location.replace(target);
+      })();
+    </script>
+    <script>
+      (function () {
         try {
-          var cap = window.Capacitor;
-          if (!cap?.isNativePlatform?.()) return;
-          if (cap.config?.appId !== "co.uk.shiftswifthr.app") return;
-          var scheme = cap.config?.ios?.scheme || "App";
-          window.location.replace(scheme + "://localhost/index.html");
+          if (!window.Capacitor?.isNativePlatform?.()) return;
+          var scheme = window.Capacitor?.config?.ios?.scheme || "App";
+          var boot = document.createElement("script");
+          boot.src = scheme + "://localhost/native-unified-login-redirect.js?v=37";
+          boot.async = false;
+          (document.head || document.documentElement).appendChild(boot);
         } catch (e) {}
       })();
     </script>
@@ -100,7 +113,7 @@
             </p>
             <p class="portal-login-alt-note">
               One login for everyone —
-              <a class="portal-login-inline-link" href="./native-app-login.html">Sign in with work email</a>
+              <a class="portal-login-inline-link" href="./sign-in.html">Sign in with work email</a>
             </p>
           </form>
 

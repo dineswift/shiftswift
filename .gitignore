@@ -30,5 +30,10 @@ backend_stub/storage/contracts/
 # Logs
 *.log
 
+# E2E
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+
 # Local strategy docs (not for repo)
 ShiftSwift_HR_Strategy_Copy.docx

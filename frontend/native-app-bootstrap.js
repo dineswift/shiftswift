@@ -3,22 +3,26 @@
   try {
     if (!window.Capacitor?.isNativePlatform?.()) return;
 
-    var scheme =
-      window.Capacitor.config && window.Capacitor.config.ios
-        ? window.Capacitor.config.ios.scheme
-        : "App";
-    if (!scheme) scheme = "App";
-
-    var version = "27";
+    var version = "52";
     var path = String(window.location.pathname || "");
+
+    function assetUrl(file) {
+      return (
+        window.ShiftSwiftNativeBundledUrl?.assetUrl?.(file, version) ||
+        (window.Capacitor?.config?.server?.iosScheme ||
+          window.Capacitor?.config?.ios?.scheme ||
+          "App") +
+          "://localhost/" +
+          file +
+          "?v=" +
+          version
+      );
+    }
+
     var onPortal =
       /admin\.html$/i.test(path) ||
       /employee\.html$/i.test(path) ||
       /master\.html$/i.test(path);
-
-    function assetUrl(file) {
-      return scheme + "://localhost/" + file + "?v=" + version;
-    }
 
     function appendStylesheet(href) {
       if (document.querySelector('link[data-sshr-native="' + href + '"]')) return;
@@ -51,6 +55,11 @@
 
     function stripStartupLoader() {
       injectHideStyles();
+      try {
+        window.Capacitor?.Plugins?.SplashScreen?.hide?.();
+      } catch (e) {
+        /* ignore */
+      }
       var loader = document.getElementById("native-startup-loader");
       if (loader) loader.remove();
       document.documentElement.classList.remove("native-startup-active");
@@ -66,7 +75,13 @@
       window.addEventListener("load", stripStartupLoader, { once: true });
 
       if (!document.querySelector("script[data-sshr-native-bootstrap]")) {
+        if (/employee\.html$/i.test(path)) {
+          appendScript(assetUrl("native-touch-rescue.js"));
+        }
         appendStylesheet(assetUrl("native-app-chrome.css"));
+        if (/employee\.html$/i.test(path)) {
+          appendStylesheet(assetUrl("employee-mobile-polish.css"));
+        }
         appendScript(assetUrl("native-app.js"));
         document
           .querySelector('script[data-sshr-native="' + assetUrl("native-app.js") + '"]')

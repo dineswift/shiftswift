@@ -862,3 +862,144 @@ def verify_auth(current_user: Annotated[AuthUser, Depends(get_current_user)]) ->
     finally:
         conn.close()
     return result
+
+
+class PasskeyStatusRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=254)
+
+
+class PasskeyRegisterVerifyRequest(BaseModel):
+    challenge_token: str = Field(min_length=10)
+    credential: dict[str, object]
+    device_label: str | None = Field(default=None, max_length=120)
+
+
+class PasskeyLoginOptionsRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=254)
+
+
+class PasskeyLoginVerifyRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=254)
+    challenge_token: str = Field(min_length=10)
+    credential: dict[str, object]
+
+
+@router.get("/passkey/status")
+def passkey_status(username: str) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        return {"available": False, "has_passkeys": False}
+    from auth_passkeys import user_has_passkeys
+
+    conn = _db_conn()
+    try:
+        has = user_has_passkeys(conn=conn, username=username)
+        return {"available": True, "has_passkeys": has}
+    finally:
+        conn.close()
+
+
+@router.post("/passkey/register/options")
+def passkey_register_options(
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
+) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_passkeys import registration_options
+
+    device_label = request.headers.get("User-Agent", "")[:120]
+    conn = _db_conn()
+    try:
+        return registration_options(
+            settings,
+            conn=conn,
+            username=current_user.username,
+            device_label=device_label,
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/passkey/register/verify")
+def passkey_register_verify(
+    payload: PasskeyRegisterVerifyRequest,
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
+) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_passkeys import complete_registration
+
+    conn = _db_conn()
+    try:
+        result = complete_registration(
+            settings,
+            conn=conn,
+            username=current_user.username,
+            challenge_token=payload.challenge_token,
+            credential=payload.credential,
+            device_label=payload.device_label or "",
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/passkey/login/options")
+def passkey_login_options(payload: PasskeyLoginOptionsRequest) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_passkeys import authentication_options
+
+    conn = _db_conn()
+    try:
+        return authentication_options(settings, conn=conn, username=payload.username)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.post("/passkey/login/verify")
+def passkey_login_verify(request: Request, payload: PasskeyLoginVerifyRequest) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_passkeys import complete_authentication
+
+    ip = client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    conn = _db_conn()
+    try:
+        result = complete_authentication(
+            settings,
+            conn=conn,
+            username=payload.username,
+            challenge_token=payload.challenge_token,
+            credential=payload.credential,
+        )
+        conn.commit()
+        log_security_event(
+            settings,
+            event_type="passkey_login_success",
+            username=str(result.get("username") or payload.username),
+            tenant_id=str(result.get("tenant_id") or ""),
+            ip_address=ip,
+            user_agent=user_agent,
+            success=True,
+            detail="passkey",
+        )
+        return result
+    except ValueError as exc:
+        log_security_event(
+            settings,
+            event_type="passkey_login_failed",
+            username=payload.username,
+            tenant_id=None,
+            ip_address=ip,
+            user_agent=user_agent,
+            success=False,
+            detail=str(exc),
+        )
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    finally:
+        conn.close()

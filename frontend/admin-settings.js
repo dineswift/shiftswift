@@ -180,7 +180,6 @@
       void loadRotaPanel();
     }
     if (panelId === "documents") {
-      window.AdminDocuments?.resetDocumentTabs?.();
       void window.AdminDocuments?.loadSettingsDocuments?.();
     }
     if (panelId === "notifications") {
@@ -376,11 +375,43 @@
     host.innerHTML = '<p class="muted">Loading business details…</p>';
 
     let values = {};
+    let loadError = null;
     try {
       const res = await apiFetch("/admin/tenant-profile");
-      if (res.ok) values = await res.json();
-    } catch {
-      /* optional */
+      if (res.ok) {
+        values = await res.json();
+      } else {
+        loadError = "Could not load business profile.";
+      }
+    } catch (error) {
+      loadError = error?.message || "Could not load business profile.";
+    }
+    if (!Object.keys(values).length && window.Admin?.fetchAdminOverview) {
+      try {
+        const overview = await window.Admin.fetchAdminOverview(false);
+        values = {
+          name: overview.tenant_name || overview.trading_name || "",
+          trading_name: overview.trading_name || overview.tenant_name || "",
+          billing_email: overview.billing_email || "",
+          signatory_name: overview.signatory_name || "",
+          signatory_email: overview.signatory_email || "",
+          signatory_title: overview.signatory_title || "Director",
+          registered_address: overview.registered_address || "",
+          registered_latitude: overview.registered_latitude ?? null,
+          registered_longitude: overview.registered_longitude ?? null,
+        };
+        loadError = null;
+      } catch {
+        /* keep profile error */
+      }
+    }
+    if (loadError && !Object.keys(values).length) {
+      host.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(loadError)}</p><button type="button" class="btn outline btn-sm" id="business-profile-retry-btn">Retry</button></div>`;
+      host.querySelector("#business-profile-retry-btn")?.addEventListener("click", () => {
+        host.innerHTML = "";
+        void loadBusinessPanel();
+      });
+      return;
     }
     cacheRegisteredAddress(values);
 
@@ -599,13 +630,23 @@
   }
 
   const NOTIFICATION_EVENTS = [
-    { id: "rtw_expiry", label: "RTW expiry approaching", default: "email" },
+    { id: "rtw_expiry", label: "RTW expiry approaching", default: "email_push" },
     { id: "absence_day5", label: "Absence day-5 warning", default: "email" },
     { id: "absence_day9", label: "Absence day-9 alert", default: "email_sms" },
     { id: "rota_published", label: "Rota published", default: "email" },
-    { id: "missed_punch_hr", label: "Missed clock-in (HR alert)", default: "email" },
+    { id: "missed_punch_hr", label: "Missed clock-in (HR alert)", default: "email_push" },
+    { id: "leave_request_hr", label: "New leave request (HR alert)", default: "email_push" },
     { id: "missed_punch_employee", label: "Missed clock-in (employee reminder)", default: "email" },
   ];
+
+  const HR_PUSH_DELIVERY = [
+    { value: "email_push", label: "Email + push alert" },
+    { value: "email", label: "Email only" },
+    { value: "push", label: "Push alert only" },
+    { value: "off", label: "Off" },
+  ];
+
+  const HR_PUSH_EVENT_IDS = new Set(["missed_punch_hr", "leave_request_hr", "rtw_expiry"]);
 
   const SIGNIN_REMINDER_DELIVERY = [
     { value: "email_push", label: "Email + push alert" },
@@ -825,6 +866,17 @@
             ${events.map((ev) => {
               const fallback = NOTIFICATION_EVENTS.find((item) => item.id === ev.id)?.default || "email";
               const current = prefs[ev.id] || fallback;
+              if (HR_PUSH_EVENT_IDS.has(ev.id)) {
+                return `
+              <tr>
+                <td>${escapeHtml(ev.label)}</td>
+                <td>
+                  <select class="settings-notify-select" data-notify-id="${escapeHtml(ev.id)}">
+                    ${HR_PUSH_DELIVERY.map((opt) => `<option value="${opt.value}" ${current === opt.value ? "selected" : ""}>${escapeHtml(opt.label)}</option>`).join("")}
+                  </select>
+                </td>
+              </tr>`;
+              }
               return `
               <tr>
                 <td>${escapeHtml(ev.label)}</td>
@@ -1475,15 +1527,28 @@
       return;
     }
     sectionReady = true;
-    window.Admin.loadFormOptions()
-      .then(initSettingsSection)
-      .catch((error) => {
+    void (async () => {
+      try {
+        await window.Admin.loadFormOptions();
+      } catch {
+        /* business profile can still load without metadata */
+      }
+      try {
+        await initSettingsSection();
+      } catch (error) {
         const host = document.getElementById("tenant-profile-form");
         if (host && !businessFormMounted()) {
           host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load settings.")}</p>`;
         }
-      });
+      }
+    })();
   }
+
+  window.addEventListener("admin:portal-native-retry", () => {
+    if (parseHashPath(window.location.hash).baseSection === "settings") {
+      bootstrapSettingsSection();
+    }
+  });
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "settings") {
@@ -1504,5 +1569,5 @@
     bootstrapSettingsSection();
   }
 
-  window.AdminSettings = { showSettingsToast, startUpgrade };
+  window.AdminSettings = { showSettingsToast, startUpgrade, bootstrapSettingsSection };
 })();

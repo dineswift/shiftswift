@@ -185,6 +185,25 @@ def create_my_leave_request(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    else:
+        try:
+            from admin_service import get_notification_preferences
+            from modules.push.hr_notify import notify_hr_leave_request
+
+            pref_row = get_notification_preferences(tenant_id=tenant_id, conn=conn)
+            employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip() or "Employee"
+            notify_hr_leave_request(
+                tenant_id=tenant_id,
+                employee_name=employee_name,
+                leave_type=item.get("leave_type") or payload.leave_type,
+                start_date=str(item.get("start_date") or payload.start_date),
+                end_date=str(item.get("end_date") or payload.end_date),
+                request_id=int(item["id"]),
+                preferences=pref_row["preferences"],
+                conn=conn,
+            )
+        except Exception:
+            pass
     finally:
         conn.close()
     return item

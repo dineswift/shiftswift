@@ -52,7 +52,8 @@ NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
     "absence_day5": "email",
     "absence_day9": "email_sms",
     "rota_published": "email",
-    "missed_punch_hr": "email",
+    "missed_punch_hr": "email_push",
+    "leave_request_hr": "email_push",
     "missed_punch_employee": "email",
     "employee_signin_reminder": "email_push",
 }
@@ -63,11 +64,14 @@ NOTIFICATION_PREF_EVENTS = (
     {"id": "absence_day9", "label": "Absence day-9 alert"},
     {"id": "rota_published", "label": "Rota published"},
     {"id": "missed_punch_hr", "label": "Missed clock-in (HR alert)"},
+    {"id": "leave_request_hr", "label": "New leave request (HR alert)"},
     {"id": "missed_punch_employee", "label": "Missed clock-in (employee reminder)"},
     {"id": "employee_signin_reminder", "label": "Employee sign-in reminder (to staff)"},
 )
 
 VALID_NOTIFICATION_DELIVERY = frozenset({"email", "email_sms", "off"})
+VALID_HR_PUSH_DELIVERY = frozenset({"email", "email_push", "push", "off"})
+HR_PUSH_PREF_KEYS = frozenset({"missed_punch_hr", "leave_request_hr", "rtw_expiry"})
 VALID_SIGNIN_REMINDER_DELIVERY = frozenset({"email", "push", "email_push", "off"})
 SIGNIN_REMINDER_DEFAULT_INTERVAL_DAYS = 30
 SIGNIN_REMINDER_DEFAULT_HOUR_UK = 9
@@ -405,6 +409,8 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
     for key, value in (stored or {}).items():
         if key == "employee_signin_reminder" and value in VALID_SIGNIN_REMINDER_DELIVERY:
             preferences[key] = value
+        elif key in HR_PUSH_PREF_KEYS and value in VALID_HR_PUSH_DELIVERY:
+            preferences[key] = value
         elif key in NOTIFICATION_PREF_DEFAULTS and value in VALID_NOTIFICATION_DELIVERY:
             preferences[key] = value
     if not notify_on_rota_publish:
@@ -577,6 +583,77 @@ def list_employees(*, tenant_id: int, conn: Any, limit: int = 200) -> list[dict[
         )
         enriched.append({**item, **summary})
     return enrich_employees_portal_status(tenant_id=tenant_id, employees=enriched, conn=conn)
+
+
+def list_employee_register_stubs(*, tenant_id: int, conn: Any, limit: int = 200) -> list[dict[str, Any]]:
+    """Minimal employee rows for mobile overview + register fallback."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, first_name, last_name, email, job_title, department, status,
+                   COALESCE(is_sponsored, FALSE), employment_type, start_date
+            FROM employees
+            WHERE tenant_id = %s
+            ORDER BY last_name, first_name
+            LIMIT %s
+            """,
+            (tenant_id, limit),
+        )
+        rows = cur.fetchall()
+    stubs: list[dict[str, Any]] = []
+    for row in rows:
+        stubs.append(
+            {
+                "id": row[0],
+                "first_name": row[1],
+                "last_name": row[2],
+                "email": row[3],
+                "job_title": row[4],
+                "department": row[5],
+                "status": row[6] or "active",
+                "is_sponsored": bool(row[7]),
+                "employment_type": row[8],
+                "start_date": row[9].isoformat() if isinstance(row[9], (date, datetime)) else (str(row[9]) if row[9] is not None else None),
+                "completion_pct": 0,
+                "next_section": None,
+            }
+        )
+    return stubs
+
+
+def list_employees_register(*, tenant_id: int, conn: Any, limit: int = 200) -> list[dict[str, Any]]:
+    """Slim employee list for mobile register views — omits heavy profile fields."""
+    from modules.documents.service import fetch_document_categories_by_employee
+    from modules.employees.portal_invites import enrich_employees_portal_status
+
+    items = list_employee_summaries(tenant_id=tenant_id, conn=conn, limit=limit)
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    payroll_enabled = bool(profile.get("payroll_enabled"))
+    categories_by_employee = fetch_document_categories_by_employee(tenant_id=tenant_id, conn=conn)
+    slim: list[dict[str, Any]] = []
+    for item in items:
+        summary = list_completion_summary(
+            item,
+            payroll_enabled=payroll_enabled,
+            document_categories=categories_by_employee.get(item["id"], []),
+        )
+        slim.append(
+            {
+                "id": item["id"],
+                "first_name": item["first_name"],
+                "last_name": item["last_name"],
+                "email": item.get("email"),
+                "job_title": item.get("job_title"),
+                "department": item.get("department"),
+                "status": item.get("status"),
+                "is_sponsored": item.get("is_sponsored"),
+                "employment_type": item.get("employment_type"),
+                "start_date": item.get("start_date"),
+                "completion_pct": summary["completion_pct"],
+                "next_section": summary["next_section"],
+            }
+        )
+    return enrich_employees_portal_status(tenant_id=tenant_id, employees=slim, conn=conn)
 
 
 def create_employee(
@@ -1363,6 +1440,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     if punch_sites > 0:
         required_setup.append(setup_checklist["punch_site"])
 
+    employee_register = list_employee_register_stubs(tenant_id=tenant_id, conn=conn)
+
     return {
         "tenant_name": profile["name"],
         "trading_name": profile.get("trading_name"),
@@ -1393,6 +1472,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                 "onboarding": onboarding_employees,
                 "portal_setup_pending": portal_setup_pending,
                 "limit": profile["max_employees"],
+                "register": employee_register,
             },
             "recruitment": {
                 "open_vacancies": open_vacancies,

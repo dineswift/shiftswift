@@ -14,13 +14,14 @@
     <script src="./portal-sw-guard.js?v=2"></script>
     <script>
       (function () {
-        try {
-          var cap = window.Capacitor;
-          if (!cap?.isNativePlatform?.()) return;
-          if (cap.config?.appId !== "co.uk.shiftswifthr.app") return;
-          var scheme = cap.config?.ios?.scheme || "App";
-          window.location.replace(scheme + "://localhost/index.html?build=14");
-        } catch (e) {}
+        if (/[?&]legacy=1(?:&|$)/.test(location.search)) return;
+        if (/[?&]source=native(?:&|$)/.test(location.search)) return;
+        if (window.Capacitor?.isNativePlatform?.()) return;
+        var target = "./sign-in.html";
+        var qs = location.search || "";
+        if (!/[?&]portal=/.test(qs)) target += (qs ? qs + "&" : "?") + "portal=business";
+        else target += qs;
+        location.replace(target);
       })();
     </script>
     <script src="./brand-config.js?v=brand-v7"></script>
@@ -34,7 +35,7 @@
   <body class="portal-login-page portal-login-page--streamlined" data-login-page="business">
     <div class="portal-login-shell portal-login-shell--streamlined">
       <header class="portal-login-brand portal-login-brand--streamlined">
-        <a href="./native-app-login.html">
+        <a href="./sign-in.html">
           <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" width="44" height="44" />
         </a>
         <p class="portal-login-brand-copy">HR admin</p>
@@ -84,7 +85,7 @@
 
           <p class="portal-login-alt-note portal-login-alt-note--compact">
             Prefer one login for staff and managers?
-            <a class="portal-login-inline-link" href="./native-app-login.html">Sign in with work email</a>
+            <a class="portal-login-inline-link" href="./sign-in.html">Sign in with work email</a>
             ·
             <a class="portal-login-inline-link" href="./signup.html">Start free trial</a>
           </p>

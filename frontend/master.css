@@ -762,12 +762,18 @@ body.master-app textarea {
 .master-create-form label:nth-child(1),
 .master-create-form label:nth-child(2),
 .master-create-form label:nth-child(3),
-.master-create-form label:nth-child(8),
-.master-create-form label:nth-child(9),
+.master-create-form label:nth-child(10),
+.master-create-form label:nth-child(11),
 .master-create-form .master-check,
 .master-create-form .master-create-form__actions,
-.master-create-form #master-create-status {
+.master-create-form #master-create-status,
+.master-create-form .master-create-billing-hint {
   grid-column: 1 / -1;
+}
+
+.master-create-billing-hint {
+  margin: -0.15rem 0 0.15rem;
+  font-size: 0.78rem;
 }
 
 .master-create-form label {

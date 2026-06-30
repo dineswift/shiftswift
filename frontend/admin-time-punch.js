@@ -30,6 +30,7 @@
   let punchHistoryDate = todayIso();
   let punchRefreshTimer = null;
   let exportPreset = "week";
+  const siteQrCache = new Map();
 
   function formatDayLabel(iso) {
     if (!iso) return "";
@@ -975,6 +976,12 @@
           <div id="punch-clock-qr-body" class="punch-clock-qr-body muted">Loading QR…</div>
         </article>
 
+        <article class="card punch-epos-card" id="punch-epos-card">
+          <h4 class="punch-site-section-title">EPOS / till integration</h4>
+          <p class="muted punch-tab-intro punch-site-section-lead">Generate a device token for DineSwift EPOS or another till. Staff enter employee number + kiosk PIN — the till calls the punch API (no portal login).</p>
+          <div id="punch-epos-tokens-body" class="punch-epos-tokens-body muted">Loading integration tokens…</div>
+        </article>
+
         ${alertsHtml}
 
         <div id="punch-edit-form-wrap" hidden></div>
@@ -990,6 +997,7 @@
     content.querySelector("#punch-edit-site-btn")?.addEventListener("click", () => showEditSiteForm(site));
     wireGeofenceSettings(site);
     loadSiteClockQr(site.id);
+    loadSiteEposTokens(site.id);
     updateSetupUi();
   }
 
@@ -1002,7 +1010,254 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(parseApiDetail(data, "Could not load QR"));
     if (!qrImageSrc(data)) throw new Error("QR image was empty — try syncing the site again.");
+    siteQrCache.set(siteId, data);
     return data;
+  }
+
+  function downloadDataUriAsFile(dataUri, filename) {
+    const [header, encoded] = String(dataUri || "").split(",");
+    if (!encoded) throw new Error("QR image data is missing.");
+    const mime = header.match(/data:(.*?);/)?.[1] || "image/png";
+    const binary = atob(encoded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function loadSiteClockQr(siteId) {
+    const host = $("punch-clock-qr-body");
+    if (!host) return;
+    host.textContent = "Loading QR…";
+    try {
+      const data = await fetchSiteClockQr(siteId);
+      const qrSrc = qrImageSrc(data);
+      host.innerHTML = `
+        <div class="punch-clock-qr-layout">
+          <img src="${escapeHtml(qrSrc)}" width="200" height="200" alt="Premises clock-in QR for ${escapeHtml(data.site_name)}" class="punch-clock-qr-image" />
+          <div class="punch-clock-qr-meta">
+            <p class="punch-clock-qr-site-name"><strong>${escapeHtml(data.site_name || "Work site")}</strong></p>
+            ${portalLinksMarkup({ includeMaster: false })}
+            <p class="muted punch-clock-qr-note">Staff scan this QR in the Time Clock app — no need to type the link.</p>
+            <div class="punch-clock-qr-actions">
+              <button type="button" class="btn outline" id="punch-copy-clock-url">Copy premises link</button>
+              <button type="button" class="btn outline" id="punch-download-clock-qr">Download QR PNG</button>
+              <button type="button" class="btn outline" id="punch-print-clock-card">Print QR card</button>
+              <button type="button" class="btn outline" id="punch-print-tent-card">Print tent card</button>
+              <button type="button" class="btn outline" id="punch-open-kiosk-btn">Open kiosk</button>
+              <button type="button" class="btn ghost" id="punch-rotate-clock-token">Rotate QR</button>
+            </div>
+          </div>
+        </div>`;
+      host.querySelector("#punch-copy-clock-url")?.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(data.clock_url);
+          showPunchNote("Premises clock link copied.", "ok");
+        } catch {
+          showPunchNote("Could not copy link.", "error");
+        }
+      });
+      host.querySelector("#punch-download-clock-qr")?.addEventListener("click", (event) => {
+        const button = event.currentTarget;
+        void runQrDownload(button, () =>
+          downloadSiteClockQr(siteId, data.site_name).catch((error) => {
+            showPunchNote(friendlyQrDownloadError(error), "error");
+          }),
+        );
+      });
+      host.querySelector("#punch-print-clock-card")?.addEventListener("click", () => {
+        openPunchCardPage("pocket", data);
+      });
+      host.querySelector("#punch-print-tent-card")?.addEventListener("click", () => {
+        openPunchCardPage("tent", data);
+      });
+      host.querySelector("#punch-open-kiosk-btn")?.addEventListener("click", () => {
+        const url =
+          data.kiosk_url ||
+          `./punch-kiosk.html?clock=${encodeURIComponent(data.clock_token || "")}`;
+        window.open(new URL(url, window.location.href).toString(), "_blank", "noopener");
+      });
+      host.querySelector("#punch-rotate-clock-token")?.addEventListener("click", async () => {
+        if (!window.confirm("Rotate this QR code? Old printed codes will stop working.")) return;
+        showPunchNote("Rotating premises QR…");
+        try {
+          const rotateRes = await apiFetch(`/admin/time-punch/sites/${siteId}/rotate-clock-token`, {
+            method: "POST",
+          });
+          const rotateData = await rotateRes.json().catch(() => ({}));
+          if (!rotateRes.ok) throw new Error(rotateData.detail || "Rotate failed");
+          showPunchNote("Premises QR rotated. Reprint the code at this site.", "ok");
+          await loadSiteClockQr(siteId);
+        } catch (error) {
+          showPunchNote(error.message || "Could not rotate QR.", "error");
+        }
+      });
+    } catch (error) {
+      host.textContent = error.message || "Could not load premises QR.";
+    }
+  }
+
+  async function loadSiteEposTokens(siteId) {
+    const host = document.getElementById("punch-epos-tokens-body");
+    if (!host) return;
+    host.textContent = "Loading integration tokens…";
+    try {
+      const res = await apiFetch(`/admin/time-punch/sites/${siteId}/epos-tokens`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not load EPOS tokens"));
+      const items = data.items || [];
+      const rows = items.length
+        ? items
+            .map(
+              (item) => `
+          <tr>
+            <td>${escapeHtml(item.label)}</td>
+            <td><code>${escapeHtml(item.token_prefix)}…</code></td>
+            <td>${item.is_active ? "Active" : "Revoked"}</td>
+            <td class="muted">${escapeHtml(item.last_used_at ? formatWhen(item.last_used_at) : "Never")}</td>
+            <td>
+              ${item.is_active ? `<button type="button" class="btn ghost btn-sm" data-revoke-epos-token="${item.id}">Revoke</button>` : ""}
+            </td>
+          </tr>`,
+            )
+            .join("")
+        : `<tr><td colspan="5" class="muted">No till tokens yet — create one for EPOS or a shared clock terminal.</td></tr>`;
+      host.innerHTML = `
+        <div class="punch-epos-create">
+          <label class="edit-field">
+            <span class="edit-label">Till / integration name</span>
+            <input type="text" id="punch-epos-token-label" maxlength="120" placeholder="e.g. Bar till 1" />
+          </label>
+          <button type="button" class="btn outline" id="punch-create-epos-token-btn">Create device token</button>
+        </div>
+        <div class="hr-table-wrap punch-epos-table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Token</th>
+                <th>Status</th>
+                <th>Last used</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p class="muted punch-epos-hint">API: <code>POST /integrations/v1/epos/punch</code> with <code>Authorization: Bearer …</code>. Copy the token when created — it is shown only once.</p>
+        <div id="punch-epos-token-reveal" class="punch-epos-token-reveal" hidden></div>`;
+      host.querySelector("#punch-create-epos-token-btn")?.addEventListener("click", async () => {
+        const label = host.querySelector("#punch-epos-token-label")?.value?.trim();
+        if (!label) {
+          showPunchNote("Enter a name for this till or integration.", "error");
+          return;
+        }
+        showPunchNote("Creating device token…");
+        try {
+          const createRes = await apiFetch(`/admin/time-punch/sites/${siteId}/epos-tokens`, {
+            method: "POST",
+            body: JSON.stringify({ label }),
+          });
+          const created = await createRes.json().catch(() => ({}));
+          if (!createRes.ok) throw new Error(parseApiDetail(created, "Could not create token"));
+          const reveal = host.querySelector("#punch-epos-token-reveal");
+          if (reveal) {
+            reveal.hidden = false;
+            reveal.innerHTML = `
+              <p class="punch-epos-token-reveal__warn"><strong>Copy this token now</strong> — it will not be shown again.</p>
+              <code class="punch-epos-token-reveal__code">${escapeHtml(created.token || "")}</code>
+              <button type="button" class="btn outline btn-sm" id="punch-copy-epos-token">Copy token</button>`;
+            reveal.querySelector("#punch-copy-epos-token")?.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(created.token || "");
+                showPunchNote("EPOS token copied.", "ok");
+              } catch {
+                showPunchNote("Could not copy token.", "error");
+              }
+            });
+          }
+          showPunchNote("Device token created.", "ok");
+          const labelInput = host.querySelector("#punch-epos-token-label");
+          if (labelInput) labelInput.value = "";
+          const tbody = host.querySelector(".punch-epos-table-wrap tbody");
+          if (tbody) {
+            const emptyRow = tbody.querySelector("td[colspan='5']");
+            emptyRow?.closest("tr")?.remove();
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+            <td>${escapeHtml(created.label || label)}</td>
+            <td><code>${escapeHtml(created.token_prefix || "")}…</code></td>
+            <td>Active</td>
+            <td class="muted">Never</td>
+            <td><button type="button" class="btn ghost btn-sm" data-revoke-epos-token="${created.id}">Revoke</button></td>`;
+            tbody.prepend(tr);
+            tr.querySelector("[data-revoke-epos-token]")?.addEventListener("click", async () => {
+              if (!window.confirm("Revoke this till token? EPOS devices using it will stop working.")) return;
+              try {
+                const revokeRes = await apiFetch(`/admin/time-punch/epos-tokens/${created.id}`, { method: "DELETE" });
+                if (!revokeRes.ok) throw new Error("Could not revoke token");
+                showPunchNote("Till token revoked.", "ok");
+                await loadSiteEposTokens(siteId);
+              } catch (error) {
+                showPunchNote(error.message || "Could not revoke token.", "error");
+              }
+            });
+          }
+        } catch (error) {
+          showPunchNote(error.message || "Could not create token.", "error");
+        }
+      });
+      host.querySelectorAll("[data-revoke-epos-token]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const tokenId = btn.getAttribute("data-revoke-epos-token");
+          if (!tokenId || !window.confirm("Revoke this till token? EPOS devices using it will stop working.")) return;
+          try {
+            const revokeRes = await apiFetch(`/admin/time-punch/epos-tokens/${tokenId}`, { method: "DELETE" });
+            if (!revokeRes.ok) {
+              const err = await revokeRes.json().catch(() => ({}));
+              throw new Error(parseApiDetail(err, "Could not revoke token"));
+            }
+            showPunchNote("Till token revoked.", "ok");
+            await loadSiteEposTokens(siteId);
+          } catch (error) {
+            showPunchNote(error.message || "Could not revoke token.", "error");
+          }
+        });
+      });
+    } catch (error) {
+      host.textContent = error.message || "Could not load EPOS integration tokens.";
+    }
+  }
+
+  async function runQrDownload(button, action) {
+    const label = button?.textContent || "";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Downloading…";
+    }
+    try {
+      await action();
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = label;
+      }
+    }
+  }
+
+  function friendlyQrDownloadError(error) {
+    const message = String(error?.message || error || "").trim();
+    if (message === "Load failed" || message === "Failed to fetch") {
+      return "Could not download the QR image. Check your connection and try again.";
+    }
+    return message || "Could not download QR.";
   }
 
   function storePunchCardPayload(payload) {
@@ -1058,10 +1313,13 @@
   }
 
   function bindQrGalleryTile(siteId, data) {
-    document.querySelector(`[data-gallery-download="${siteId}"]`)?.addEventListener("click", () => {
-      void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
-        showPunchNote(error.message || "Could not download QR.", "error");
-      });
+    document.querySelector(`[data-gallery-download="${siteId}"]`)?.addEventListener("click", (event) => {
+      const button = event.currentTarget;
+      void runQrDownload(button, () =>
+        downloadSiteClockQr(siteId, data.site_name).catch((error) => {
+          showPunchNote(friendlyQrDownloadError(error), "error");
+        }),
+      );
     });
     document.querySelector(`[data-gallery-print-card="${siteId}"]`)?.addEventListener("click", () => {
       openPunchCardPage("pocket", data);
@@ -1155,10 +1413,18 @@
       .replace(/[^\w\s-]+/g, "")
       .replace(/\s+/g, "-")
       .toLowerCase();
-    await downloadAuthenticated(
-      `/admin/time-punch/sites/${siteId}/clock-qr.png`,
-      `premises-clock-qr-${safeName || "site"}.png`,
-    );
+    const filename = `premises-clock-qr-${safeName || "site"}.png`;
+    let data = siteQrCache.get(siteId);
+    if (!data) {
+      data = await fetchSiteClockQr(siteId);
+    }
+    const dataUri = qrImageSrc(data);
+    if (dataUri.startsWith("data:image/")) {
+      downloadDataUriAsFile(dataUri, filename);
+      showPunchNote("Premises QR downloaded.", "ok");
+      return;
+    }
+    await downloadAuthenticated(`/admin/time-punch/sites/${siteId}/clock-qr.png`, filename);
     showPunchNote("Premises QR downloaded.", "ok");
   }
 
@@ -1175,75 +1441,6 @@
           `<li><strong>${escapeHtml(p.label)}</strong> <span class="punch-portal-links__url">${escapeHtml(p.display)}</span></li>`,
       )
       .join("")}</ul>`;
-  }
-
-  async function loadSiteClockQr(siteId) {
-    const host = $("punch-clock-qr-body");
-    if (!host) return;
-    host.textContent = "Loading QR…";
-    try {
-      const data = await fetchSiteClockQr(siteId);
-      const qrSrc = qrImageSrc(data);
-      host.innerHTML = `
-        <div class="punch-clock-qr-layout">
-          <img src="${escapeHtml(qrSrc)}" width="200" height="200" alt="Premises clock-in QR for ${escapeHtml(data.site_name)}" class="punch-clock-qr-image" />
-          <div class="punch-clock-qr-meta">
-            <p class="punch-clock-qr-site-name"><strong>${escapeHtml(data.site_name || "Work site")}</strong></p>
-            ${portalLinksMarkup({ includeMaster: false })}
-            <p class="muted punch-clock-qr-note">Staff scan this QR in the Time Clock app — no need to type the link.</p>
-            <div class="punch-clock-qr-actions">
-              <button type="button" class="btn outline" id="punch-copy-clock-url">Copy premises link</button>
-              <button type="button" class="btn outline" id="punch-download-clock-qr">Download QR PNG</button>
-              <button type="button" class="btn outline" id="punch-print-clock-card">Print QR card</button>
-              <button type="button" class="btn outline" id="punch-print-tent-card">Print tent card</button>
-              <button type="button" class="btn outline" id="punch-open-kiosk-btn">Open kiosk</button>
-              <button type="button" class="btn ghost" id="punch-rotate-clock-token">Rotate QR</button>
-            </div>
-          </div>
-        </div>`;
-      host.querySelector("#punch-copy-clock-url")?.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(data.clock_url);
-          showPunchNote("Premises clock link copied.", "ok");
-        } catch {
-          showPunchNote("Could not copy link.", "error");
-        }
-      });
-      host.querySelector("#punch-download-clock-qr")?.addEventListener("click", () => {
-        void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
-          showPunchNote(error.message || "Could not download QR.", "error");
-        });
-      });
-      host.querySelector("#punch-print-clock-card")?.addEventListener("click", () => {
-        openPunchCardPage("pocket", data);
-      });
-      host.querySelector("#punch-print-tent-card")?.addEventListener("click", () => {
-        openPunchCardPage("tent", data);
-      });
-      host.querySelector("#punch-open-kiosk-btn")?.addEventListener("click", () => {
-        const url =
-          data.kiosk_url ||
-          `./punch-kiosk.html?clock=${encodeURIComponent(data.clock_token || "")}`;
-        window.open(new URL(url, window.location.href).toString(), "_blank", "noopener");
-      });
-      host.querySelector("#punch-rotate-clock-token")?.addEventListener("click", async () => {
-        if (!window.confirm("Rotate this QR code? Old printed codes will stop working.")) return;
-        showPunchNote("Rotating premises QR…");
-        try {
-          const rotateRes = await apiFetch(`/admin/time-punch/sites/${siteId}/rotate-clock-token`, {
-            method: "POST",
-          });
-          const rotateData = await rotateRes.json().catch(() => ({}));
-          if (!rotateRes.ok) throw new Error(rotateData.detail || "Rotate failed");
-          showPunchNote("Premises QR rotated. Reprint the code at this site.", "ok");
-          await loadSiteClockQr(siteId);
-        } catch (error) {
-          showPunchNote(error.message || "Could not rotate QR.", "error");
-        }
-      });
-    } catch (error) {
-      host.textContent = error.message || "Could not load premises QR.";
-    }
   }
 
   function showEditSiteForm(site) {
@@ -1378,9 +1575,11 @@
         event.stopPropagation();
         const site = sites.find((item) => item.id === Number(btn.dataset.siteQrDownload));
         if (!site) return;
-        void downloadSiteClockQr(site.id, site.name).catch((error) => {
-          showPunchNote(error.message || "Could not download QR.", "error");
-        });
+        void runQrDownload(btn, () =>
+          downloadSiteClockQr(site.id, site.name).catch((error) => {
+            showPunchNote(friendlyQrDownloadError(error), "error");
+          }),
+        );
       });
     });
     tbody.querySelectorAll("[data-site-qr-print]").forEach((btn) => {

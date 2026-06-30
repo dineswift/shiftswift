@@ -1,6 +1,11 @@
 /** Employee workspace — lifecycle flow aligned to HR chart (recruitment → off-boarding). */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE, readApiError, friendlyNativeError, normalizeEmployeeListPayload, verifyAdminSession, getAdminOverviewCache, parseApiJson, fetchEmployeesList, peekEmployeesListCache, showAdminToast } = window.Admin;
+
+  function employeesToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   const DEFAULT_DOCUMENT_UPLOAD = {
     accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
@@ -312,6 +317,40 @@
     return employeesCache;
   }
 
+  function autoExpandLifecycleStage(items = employeesCache) {
+    const buckets = bucketEmployeesByStage(items);
+    const order = ["active", "onboarding", "recruitment", "offboarding"];
+    const pick = order.find((key) => (buckets[key] || []).length) || "recruitment";
+    lifecycleHubExpanded = { recruitment: false, onboarding: false, active: false, offboarding: false };
+    lifecycleHubExpanded[pick] = true;
+    lifecycleHubOpenStage = pick;
+  }
+
+  function renderLifecycleHubLoadError(message) {
+    const hub = $("employees-lifecycle-hub");
+    if (!hub || !isMobileEmployeesHub()) return;
+    hub.hidden = false;
+    hub.innerHTML = `<div class="overview-error" style="padding:16px 0;margin-bottom:12px">
+      <p class="muted">${escapeHtml(message)}</p>
+      <button type="button" class="btn outline btn-sm" id="employees-hub-retry-btn">Retry</button>
+    </div>`;
+    hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
+      void initEmployeesSection();
+    });
+  }
+
+  function syncEmployeesPresentation() {
+    if (!employeesCache.length) {
+      renderEmployeeSidePanel(null);
+      renderLifecycleHub([]);
+      renderEmployeeMobileCards([]);
+      return;
+    }
+    autoExpandLifecycleStage(employeesCache);
+    renderLifecycleHub(employeesCache);
+    renderEmployeeMobileCards(getFilteredEmployees());
+  }
+
   function renderEmployeeRegisterFilterBanner() {
     const banner = $("employees-register-filter-banner");
     if (!banner) return;
@@ -339,23 +378,31 @@
   }
 
   function renderEmployeeRegister() {
-    const tbody = $("employees-table-body");
-    if (!tbody) return;
-
     renderEmployeeRegisterFilterBanner();
     const rows = getFilteredEmployees();
+    const tbody = $("employees-table-body");
 
     if (!employeesCache.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No employees yet. Add your first team member above.</td></tr>';
-      renderEmployeeSidePanel(null);
-      renderLifecycleHub([]);
+      if (tbody) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="muted">No employees yet. Add your first team member above.</td></tr>';
+      }
+      syncEmployeesPresentation();
       return;
     }
 
     if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      if (tbody) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      }
+      renderEmployeeSidePanel(null);
+      syncEmployeesPresentation();
+      return;
+    }
+
+    if (!tbody) {
+      syncEmployeesPresentation();
       return;
     }
 
@@ -398,7 +445,37 @@
       selectedEmployeeId = null;
       renderEmployeeSidePanel(null);
     }
-    renderLifecycleHub(employeesCache);
+    syncEmployeesPresentation();
+  }
+
+  function renderEmployeeMobileCards(rows = getFilteredEmployees()) {
+    const host = $("employees-mobile-cards");
+    const hub = $("employees-lifecycle-hub");
+    if (!host || !isMobileEmployeesHub()) return;
+    if (hub && !hub.hidden && hub.querySelector(".lifecycle-hub-section")) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    if (!employeesCache.length) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = rows.length
+      ? rows
+          .map(
+            (row) => `<button type="button" class="lifecycle-employee-card" data-employee-id="${row.id}">
+              <span class="lifecycle-employee-card__name">${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</span>
+              <span class="lifecycle-employee-card__meta muted">${escapeHtml(row.job_title || row.department || "Employee")} · ${escapeHtml(row.status || "active")}</span>
+            </button>`,
+          )
+          .join("")
+      : `<p class="muted">No employees match this filter.</p>`;
+    host.querySelectorAll("[data-employee-id]").forEach((card) => {
+      card.addEventListener("click", () => openEmployee(Number(card.dataset.employeeId)));
+    });
   }
 
   function applyEmployeesListRoute() {
@@ -553,6 +630,12 @@
   function renderLifecycleHub(items = employeesCache) {
     const hub = $("employees-lifecycle-hub");
     if (!hub) return;
+    try {
+    const overviewActive = Number(getAdminOverviewCache?.()?.modules?.employees?.active ?? 0);
+    const mismatchBanner =
+      !items.length && overviewActive > 0
+        ? `<div class="overview-error" style="margin-bottom:10px"><p class="muted">Your dashboard shows ${overviewActive} active employee${overviewActive === 1 ? "" : "s"}, but the register is still empty. Tap Retry below or pull to refresh.</p><button type="button" class="btn outline btn-sm" id="employees-hub-retry-btn">Retry</button></div>`
+        : "";
     const buckets = bucketEmployeesByStage(items);
     const selected =
       selectedEmployeeId && items.length ? items.find((row) => row.id === selectedEmployeeId) || null : null;
@@ -567,7 +650,7 @@
     hub.hidden = false;
     const icon = (name) => window.AdminIcons?.svg?.(name) || "";
 
-    hub.innerHTML = LIFECYCLE_STAGES.map((stage) => {
+    hub.innerHTML = mismatchBanner + LIFECYCLE_STAGES.map((stage) => {
       const rows = buckets[stage.id] || [];
       const isOpen = Boolean(lifecycleHubExpanded[stage.id]);
       const showAll = Boolean(lifecycleHubShowAll[stage.id]);
@@ -624,6 +707,10 @@
       relocateQuickAddForm(document.querySelector(".employees-quick-add-panel"));
     }
 
+    hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
+      void initEmployeesSection();
+    });
+
     hub.querySelectorAll("[data-lifecycle-toggle]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const stageId = btn.dataset.lifecycleToggle;
@@ -647,6 +734,15 @@
     hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => focusRecruitmentAddForm());
 
     $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
+    } catch (error) {
+      console.error("Employee lifecycle hub render failed:", error);
+      if (!isMobileEmployeesHub()) return;
+      hub.hidden = false;
+      hub.innerHTML = `<div class="overview-error"><p class="muted">Could not display employees.</p><button type="button" class="btn outline btn-sm" id="employees-hub-render-retry">Retry</button></div>`;
+      hub.querySelector("#employees-hub-render-retry")?.addEventListener("click", () => {
+        void refreshEmployeesTable();
+      });
+    }
   }
 
   function focusRecruitmentAddForm() {
@@ -701,6 +797,39 @@
   let sidePanelExpandedSection = null;
   let sidePanelRenderRequest = 0;
   let employeesCache = [];
+  let employeesRefreshGeneration = 0;
+  let employeesRefreshInflight = null;
+
+  function employeesFromFormOptions() {
+    const options = window.Admin?.formOptions?.employees || [];
+    return options.map((row) => ({
+      id: row.id,
+      first_name: row.first_name || String(row.label || "").split(",")[0]?.trim() || "Employee",
+      last_name: row.last_name || "",
+      job_title: row.job_title || "",
+      department: row.department || "",
+      status: row.status || "active",
+      email: row.email || "",
+      completion_pct: row.completion_pct ?? 0,
+      next_section: row.next_section ?? null,
+    }));
+  }
+
+  function applyEmployeesCache(items, meta = {}) {
+    employeesCache = items;
+    try {
+      window.__SSHR_LAST_API = {
+        ...(window.__SSHR_LAST_API || {}),
+        path: "/admin/employees",
+        count: items.length,
+        tenantId: meta.tenantId || localStorage.getItem("tenantId"),
+        at: Date.now(),
+      };
+    } catch {
+      /* ignore */
+    }
+    renderEmployeeRegister();
+  }
   let employeeRegisterFilter = null;
   let activeSection = "recruitment";
   let workspaceCache = null;
@@ -1303,7 +1432,7 @@
       if (status) status.textContent = `Kiosk PIN set to ${pin} — share it with the employee privately.`;
     } catch (error) {
       if (host) host.innerHTML = `<span class="muted">Could not generate PIN</span>`;
-      alert(error.message || "Could not generate PIN");
+      employeesToast(error.message || "Could not generate PIN", "error");
     }
   }
 
@@ -1669,6 +1798,211 @@
     return `${summary}<ul class="employee-doc-checklist">${list}</ul>`;
   }
 
+  function readEmployeeUploadPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector("#employee-document-upload-category")?.value || "",
+      pay_period: form.querySelector("#employee-document-upload-pay-period")?.value || "",
+      expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      notify_employee: form.querySelector("#employee-document-upload-notify")?.checked ?? true,
+      send_email: form.querySelector("#employee-document-upload-email")?.checked ?? true,
+    };
+  }
+
+  function applyEmployeeUploadPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector("#employee-document-upload-category");
+    const payPeriod = form.querySelector("#employee-document-upload-pay-period");
+    const payPeriodField = form.querySelector("#employee-document-upload-pay-period-field");
+    const expiresAt = form.querySelector('[name="expires_at"]');
+    const notify = form.querySelector("#employee-document-upload-notify");
+    const sendEmail = form.querySelector("#employee-document-upload-email");
+    if (category && prefs.category) category.value = prefs.category;
+    if (payPeriod) payPeriod.value = prefs.pay_period || "";
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (notify) notify.checked = prefs.notify_employee;
+    if (sendEmail) sendEmail.checked = prefs.send_email;
+    const isPayslip = category?.value === "payslip";
+    if (payPeriodField) payPeriodField.hidden = !isPayslip;
+    if (payPeriod) payPeriod.required = isPayslip;
+  }
+
+  function resetEmployeeUploadFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readEmployeeUploadPreferences(form);
+    form.reset();
+    applyEmployeeUploadPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#employee-document-upload-file");
+    if (fileInput) fileInput.value = "";
+  }
+
+  async function refreshEmployeeDocumentStoreList(container) {
+    if (!container || !activeEmployeeId) return;
+    const res = await apiFetch(`/admin/employees/${activeEmployeeId}/workspace`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not refresh documents");
+    workspaceCache = data;
+    const intro = container.querySelector(".employee-section-intro");
+    if (intro) {
+      const section = (data.sections || []).find((item) => item.key === "document_store");
+      intro.innerHTML = `
+        <h4>${escapeHtml(section?.label || "Document store")}</h4>
+        <p class="muted">${escapeHtml(section?.description || "")}</p>
+        ${renderRequirementsChecklist(data.document_requirements || {})}`;
+    }
+    const tbody = container.querySelector("#employee-documents-body");
+    if (!tbody) return;
+    renderTableBody(tbody, {
+      emptyMessage: "No documents recorded yet.",
+      columns: [
+        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+        { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
+        { key: "expires_at", render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set") },
+        { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
+        {
+          key: "signing_status",
+          render: (row) => {
+            if (row.signing_status === "signed") return '<span class="badge">Signed</span>';
+            if (row.signing_status === "sent") return '<span class="badge pill">Awaiting signature</span>';
+            return "";
+          },
+        },
+        {
+          key: "actions",
+          render: (row) => {
+            const canSign =
+              row.has_file &&
+              row.category !== "payslip" &&
+              row.signing_status !== "signed";
+            return `<div class="table-actions">
+              ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
+              ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
+              ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
+              <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
+            </div>`;
+          },
+        },
+      ],
+      rows: data.documents || [],
+    });
+    bindEmployeeDocumentTableActions(container, data.documents || []);
+  }
+
+  function bindEmployeeDocumentTableActions(container, docs) {
+    container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!window.confirm("Remove this document record?")) return;
+        const actionStatus = container.querySelector("#employee-document-action-status");
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performDelete = async () => {
+          const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${btn.dataset.deleteDoc}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Delete failed");
+          }
+          await refreshEmployeeDocumentStoreList(container);
+          return "Removed.";
+        };
+        if (run) {
+          await run(btn, actionStatus, {
+            loadingLabel: "Removing…",
+            successMessage: "Removed.",
+            errorMessage: "Remove failed.",
+            successLabel: "Removed",
+            onAction: performDelete,
+          });
+        } else {
+          try {
+            if (actionStatus) actionStatus.textContent = "Removing…";
+            const message = await performDelete();
+            if (actionStatus) actionStatus.textContent = message;
+          } catch (error) {
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Delete failed", "error");
+          }
+        }
+      });
+    });
+
+    container.querySelectorAll("[data-download-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const actionStatus = container.querySelector("#employee-document-action-status");
+        const row = docs.find((item) => String(item.id) === btn.dataset.downloadDoc);
+        const name = row?.original_filename || `${row?.title || "document"}.bin`;
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performDownload = async () => {
+          await downloadAuthenticated(
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.downloadDoc}/file`,
+            name,
+          );
+          return "Download started.";
+        };
+        if (run) {
+          await run(btn, actionStatus, {
+            loadingLabel: "Downloading…",
+            successMessage: "Download started.",
+            errorMessage: "Download failed.",
+            successLabel: "Done",
+            clearStatusAfterMs: 3000,
+            onAction: performDownload,
+          });
+        } else {
+          try {
+            await performDownload();
+          } catch (error) {
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Download failed", "error");
+          }
+        }
+      });
+    });
+
+    container.querySelectorAll("[data-send-sign-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const signingStatus = container.querySelector("#employee-document-signing-status");
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performSend = async () => {
+          const res = await apiFetch(
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
+            {
+              method: "POST",
+              body: JSON.stringify({ frontend_base: window.location.origin }),
+            },
+          );
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Send failed");
+          const linkBox = container.querySelector("#employee-document-signing-link");
+          if (linkBox && data.signing_url) {
+            linkBox.hidden = false;
+            linkBox.innerHTML = `<p><strong>Signing link</strong> (also emailed to employee):</p>
+              <input type="text" readonly value="${escapeHtml(data.signing_url)}" style="width:100%;" onclick="this.select()" />`;
+          }
+          await refreshEmployeeDocumentStoreList(container);
+          return `Sent for signature · ${data.reference_code}`;
+        };
+        if (run) {
+          await run(btn, signingStatus, {
+            loadingLabel: "Sending…",
+            successMessage: "Sent for signature.",
+            errorMessage: "Send failed.",
+            successLabel: "Sent",
+            onAction: performSend,
+          });
+        } else {
+          if (signingStatus) signingStatus.textContent = "Sending signing link…";
+          try {
+            const message = await performSend();
+            if (signingStatus) signingStatus.textContent = message;
+          } catch (error) {
+            if (signingStatus) signingStatus.textContent = error.message || "Send failed";
+          }
+        }
+      });
+    });
+  }
+
   function renderDocumentStorePanel(workspace, container) {
     const section = (workspace.sections || []).find((item) => item.key === "document_store");
     const requirements = workspace.document_requirements || {};
@@ -1747,7 +2081,7 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Save failed");
-        await openEmployee(activeEmployeeId, "document_store");
+        await refreshEmployeeDocumentStoreList(container);
         if (workspaceCache?.document_requirements?.complete && workspaceCache.next_section) {
           const next = workspaceCache.next_section;
           if (next !== "document_store") {
@@ -1793,114 +2127,7 @@
       rows: docs,
     });
 
-    container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!window.confirm("Remove this document record?")) return;
-        const actionStatus = container.querySelector("#employee-document-action-status");
-        const run = window.ShiftSwiftAction?.runButtonAction;
-        const performDelete = async () => {
-          const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${btn.dataset.deleteDoc}`, {
-            method: "DELETE",
-          });
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "Delete failed");
-          }
-          await openEmployee(activeEmployeeId, "document_store");
-          return "Removed.";
-        };
-        if (run) {
-          await run(btn, actionStatus, {
-            loadingLabel: "Removing…",
-            successMessage: "Removed.",
-            errorMessage: "Remove failed.",
-            successLabel: "Removed",
-            onAction: performDelete,
-          });
-        } else {
-          try {
-            if (actionStatus) actionStatus.textContent = "Removing…";
-            const message = await performDelete();
-            if (actionStatus) actionStatus.textContent = message;
-          } catch (error) {
-            window.ShiftSwiftAction?.showActionToast?.(error.message || "Delete failed", "error");
-          }
-        }
-      });
-    });
-
-    container.querySelectorAll("[data-download-doc]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const actionStatus = container.querySelector("#employee-document-action-status");
-        const row = docs.find((item) => String(item.id) === btn.dataset.downloadDoc);
-        const name = row?.original_filename || `${row?.title || "document"}.bin`;
-        const run = window.ShiftSwiftAction?.runButtonAction;
-        const performDownload = async () => {
-          await downloadAuthenticated(
-            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.downloadDoc}/file`,
-            name
-          );
-          return "Download started.";
-        };
-        if (run) {
-          await run(btn, actionStatus, {
-            loadingLabel: "Downloading…",
-            successMessage: "Download started.",
-            errorMessage: "Download failed.",
-            successLabel: "Done",
-            clearStatusAfterMs: 3000,
-            onAction: performDownload,
-          });
-        } else {
-          try {
-            await performDownload();
-          } catch (error) {
-            window.ShiftSwiftAction?.showActionToast?.(error.message || "Download failed", "error");
-          }
-        }
-      });
-    });
-
-    container.querySelectorAll("[data-send-sign-doc]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const signingStatus = container.querySelector("#employee-document-signing-status");
-        const run = window.ShiftSwiftAction?.runButtonAction;
-        const performSend = async () => {
-          const res = await apiFetch(
-            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
-            {
-              method: "POST",
-              body: JSON.stringify({ frontend_base: window.location.origin }),
-            }
-          );
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "Send failed");
-          pendingDocumentSigningUi = {
-            signing_url: data.signing_url,
-            reference_code: data.reference_code,
-          };
-          await openEmployee(activeEmployeeId, "document_store");
-          return `Sent for signature · ${data.reference_code}`;
-        };
-        if (run) {
-          await run(btn, signingStatus, {
-            loadingLabel: "Sending…",
-            successMessage: "Sent for signature.",
-            errorMessage: "Send failed.",
-            successLabel: "Sent",
-            onAction: performSend,
-          });
-        } else {
-          if (signingStatus) signingStatus.textContent = "Sending signing link…";
-          try {
-            const message = await performSend();
-            if (signingStatus) signingStatus.textContent = message;
-          } catch (error) {
-            if (signingStatus) signingStatus.textContent = error.message || "Send failed";
-          }
-        }
-      });
-    });
+    bindEmployeeDocumentTableActions(container, docs);
 
     const uploadForm = container.querySelector("#employee-document-upload-form");
     const uploadCategory = container.querySelector("#employee-document-upload-category");
@@ -1916,6 +2143,9 @@
       uploadCategory.innerHTML = categories
         .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
         .join("");
+      if (categories.some((item) => item.value === "payslip")) {
+        uploadCategory.value = "payslip";
+      }
       if (!uploadCategory.dataset.ready) {
         const syncPayPeriod = () => {
           const isPayslip = uploadCategory.value === "payslip";
@@ -1963,12 +2193,9 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
-        uploadForm.reset();
-        if (uploadCategory) {
-          uploadCategory.dispatchEvent(new Event("change"));
-        }
+        resetEmployeeUploadFormKeepingPreferences(uploadForm);
         const notified = data?.notifications?.notified_count;
-        await openEmployee(activeEmployeeId, "document_store");
+        await refreshEmployeeDocumentStoreList(container);
         return notified != null ? "Uploaded. Employee notified." : "Uploaded.";
       };
 
@@ -2262,7 +2489,7 @@
     if (requestId !== openEmployeeRequest) return;
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || "Could not load employee");
+      employeesToast(data.detail || "Could not load employee", "error");
       showListView();
       return;
     }
@@ -2271,29 +2498,64 @@
     renderWorkspace(data);
   }
 
-  async function refreshEmployeesTable() {
-    const tbody = $("employees-table-body");
-    if (!tbody) return;
-
-    try {
-      const res = await apiFetch("/admin/employees");
-      if (!res.ok) {
-        let detail = "Load failed";
-        try {
-          const err = await res.json();
-          detail = err.detail || err.message || detail;
-        } catch {
-          /* ignore */
-        }
-        throw new Error(typeof detail === "string" ? detail : "Load failed");
-      }
-      const data = await res.json();
-      employeesCache = data.items || [];
-      renderEmployeeRegister();
-    } catch (error) {
-      const message = escapeHtml(error?.message || "Could not load employees.");
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
+  async function refreshEmployeesTable(options = {}) {
+    const force = Boolean(options.force);
+    if (!force && employeesRefreshInflight) {
+      return employeesRefreshInflight;
     }
+    const requestId = ++employeesRefreshGeneration;
+    const tbody = $("employees-table-body");
+    const mobileCards = $("employees-mobile-cards");
+
+    const run = async () => {
+      try {
+        const tenantId = window.ShiftSwiftSession?.readTokenTenantId?.() || localStorage.getItem("tenantId");
+        const items = await fetchEmployeesList({ force: Boolean(options.force) });
+        if (requestId !== employeesRefreshGeneration) return;
+        applyEmployeesCache(items, { tenantId, status: 200 });
+
+        const overview = getAdminOverviewCache?.();
+        const activeCount = Number(overview?.modules?.employees?.active ?? 0);
+        if (!items.length && activeCount > 0) {
+          const hub = $("employees-lifecycle-hub");
+          if (hub && isMobileEmployeesHub()) {
+            hub.insertAdjacentHTML(
+              "afterbegin",
+              `<div class="overview-error" style="margin-bottom:10px"><p class="muted">Your dashboard shows ${activeCount} active employee${activeCount === 1 ? "" : "s"}, but the register returned none (tenant ${escapeHtml(tenantId || "?")}). Tap Retry or sign out and sign in again.</p></div>`,
+            );
+          }
+        }
+      } catch (error) {
+        if (requestId !== employeesRefreshGeneration) return;
+        const fallback = employeesFromFormOptions();
+        if (fallback.length) {
+          applyEmployeesCache(fallback);
+          return;
+        }
+        if (employeesCache.length) {
+          renderEmployeeRegister();
+          return;
+        }
+        employeesCache = [];
+        const message = friendlyNativeError(error, "Could not load employees.");
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(message)} Try again or check your connection.</td></tr>`;
+        }
+        if (mobileCards) {
+          mobileCards.hidden = false;
+          mobileCards.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(message)}</p><button type="button" class="btn outline btn-sm" id="employees-retry-btn">Retry</button></div>`;
+          mobileCards.querySelector("#employees-retry-btn")?.addEventListener("click", () => {
+            void initEmployeesSection();
+          });
+        }
+        renderLifecycleHubLoadError(`${message} Try again or check your connection.`);
+      }
+    };
+
+    employeesRefreshInflight = run().finally(() => {
+      employeesRefreshInflight = null;
+    });
+    return employeesRefreshInflight;
   }
 
   async function renderEmployeeSidePanel(row) {
@@ -2405,7 +2667,7 @@
         const deleteRes = await apiFetch(`/admin/employees/${employee.id}`, { method: "DELETE" });
         if (!deleteRes.ok) {
           const err = await deleteRes.json();
-          alert(err.detail || "Delete failed");
+          employeesToast(err.detail || "Delete failed", "error");
           return;
         }
         selectedEmployeeId = null;
@@ -2457,23 +2719,78 @@
     });
   }
 
+  function showEmployeesLoadingState() {
+    if (!isMobileEmployeesHub()) return;
+    const hub = $("employees-lifecycle-hub");
+    const cards = $("employees-mobile-cards");
+    if (hub) {
+      hub.hidden = false;
+      hub.innerHTML = '<p class="muted" style="padding:12px 0">Loading employees…</p>';
+    }
+    if (cards) {
+      cards.hidden = false;
+      cards.innerHTML = '<p class="muted">Loading employees…</p>';
+    }
+    const tbody = $("employees-table-body");
+    if (tbody && !employeesCache.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading employees…</td></tr>';
+    }
+  }
+
   async function initEmployeesSection() {
+    const warmed = peekEmployeesListCache?.();
+    if (warmed?.length && !employeesCache.length) {
+      applyEmployeesCache(warmed);
+    }
+    showEmployeesLoadingState();
     if (!sectionLoaded) {
       sectionLoaded = true;
-      await loadFormOptions();
       mountQuickAddForm();
       mountKioskPinForm();
       bindChangeHistoryPanel();
       document.getElementById("employees-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites());
-      window.addEventListener("resize", () => renderLifecycleHub(employeesCache));
+      window.addEventListener("resize", () => {
+        renderLifecycleHub(employeesCache);
+        renderEmployeeMobileCards(getFilteredEmployees());
+      });
     }
-    await refreshEmployeesTable();
+    try {
+      const warmed = peekEmployeesListCache?.();
+      const needsForce = !warmed?.length && !employeesCache.length;
+      await Promise.race([
+        refreshEmployeesTable({ force: needsForce }),
+        new Promise((_, reject) =>
+          window.setTimeout(() => reject(new Error("Request timed out")), 45000),
+        ),
+      ]);
+    } catch (error) {
+      if (!employeesCache.length) {
+        renderLifecycleHubLoadError(
+          `${friendlyNativeError(error, "Could not load employees.")} Tap Retry or check your connection.`,
+        );
+      }
+    }
+    if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      void loadFormOptions().catch(() => null);
+    }
+  }
+
+  async function prefetchEmployeesTable() {
+    try {
+      await refreshEmployeesTable();
+    } catch {
+      /* warm cache — section open will retry */
+    }
   }
 
   $("employee-back-btn")?.addEventListener("click", showListView);
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section !== "employees") return;
+    showEmployeesLoadingState();
+    if (employeesCache.length) {
+      renderEmployeeRegister();
+    }
     void (async () => {
       await initEmployeesSection();
 
@@ -2486,6 +2803,19 @@
         applyEmployeesListRoute();
       }
     })();
+  });
+
+  window.addEventListener("admin:employees-cache-ready", () => {
+    const warmed = peekEmployeesListCache?.();
+    if (warmed?.length && !employeesCache.length) {
+      applyEmployeesCache(warmed);
+    }
+  });
+
+  window.addEventListener("admin:deferred-ready", () => {
+    const active = document.getElementById("employees")?.classList.contains("admin-section--active");
+    const onEmployees = /#employees/i.test(window.location.hash) || active;
+    if (onEmployees) void initEmployeesSection();
   });
 
   window.addEventListener("hashchange", () => {
@@ -2515,4 +2845,33 @@
     }
     void openEmployee(id, section);
   });
+
+  window.addEventListener("admin:portal-native-retry", () => {
+    const active =
+      document.getElementById("employees")?.classList.contains("admin-section--active") ||
+      /#employees/i.test(window.location.hash);
+    if (active) void initEmployeesSection();
+  });
+
+  window.addEventListener("admin:overview-loaded", () => {
+    void prefetchEmployeesTable();
+  });
+
+  window.addEventListener("shiftswift:portal-ready", () => {
+    if (/#employees/i.test(window.location.hash)) void initEmployeesSection();
+  });
+
+  if (
+    /#employees/i.test(window.location.hash) ||
+    document.getElementById("employees")?.classList.contains("admin-section--active")
+  ) {
+    void initEmployeesSection();
+  }
+
+  window.ShiftSwiftAdminEmployees = {
+    initEmployeesSection,
+    refreshEmployeesTable,
+    prefetchEmployeesTable,
+    getEmployeesCount: () => employeesCache.length,
+  };
 })();

@@ -1,0 +1,28 @@
+{
+  "name": "shiftswifthr-iphone-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "ShiftSwift HR — unified iPhone app (bundled login + employee portal)",
+  "scripts": {
+    "sync:www": "node scripts/sync-www.mjs",
+    "sync:ios": "npm run sync:www && npx cap sync ios",
+    "brand:ios": "node scripts/apply-branding.mjs",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npx cap run ios",
+    "ios:deploy": "npm run sync:ios && npm run brand:ios && npx cap run ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.7",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/ios": "^7.6.7",
+    "@capacitor/local-notifications": "^7.0.6",
+    "@capacitor/preferences": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.7",
+    "typescript": "^6.0.3"
+  }
+}

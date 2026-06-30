@@ -114,9 +114,13 @@
     if (!token) return;
 
     try {
-      const response = await fetch(`${getApiBase()}/auth/verify`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response =
+        window.ShiftSwiftSession?.fetchWithAuth
+          ? await window.ShiftSwiftSession.fetchWithAuth("/auth/verify", {}, { forceLogoutOn401: false })
+          : await (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch || fetch)(
+              `${getApiBase()}/auth/verify`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
       if (!response.ok) return;
       const user = await response.json();
       if (!user.impersonating && !stored) return;

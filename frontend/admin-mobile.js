@@ -292,6 +292,14 @@
     }
   }
 
+  function isNativeShell() {
+    return Boolean(
+      window.Capacitor?.isNativePlatform?.() ||
+        window.__SSHR_BUNDLED_NATIVE_BOOT ||
+        document.documentElement.classList.contains("native-app"),
+    );
+  }
+
   function init() {
     const bar = document.getElementById("mobile-tab-bar");
     if (!bar) return;
@@ -352,7 +360,9 @@
       exitDetailView();
     });
 
-    document.getElementById("topbar-alerts-btn")?.addEventListener("click", () => {
+    document.getElementById("topbar-alerts-btn")?.addEventListener("click", (event) => {
+      if (document.getElementById("topbar-alerts-btn")?.dataset.notificationsBound) return;
+      event.preventDefault();
       window.location.hash = "overview";
       if (isMobile()) {
         setTab("home");
@@ -394,9 +404,21 @@
       syncComplianceDrill();
     });
 
+    window.addEventListener("admin:deferred-ready", () => {
+      if (!isMobile()) return;
+      syncTabUi(currentTab);
+      syncComplianceDrill();
+    });
+
     window.addEventListener("admin:overview-loaded", (event) => {
       if (event.detail?.data) renderMobileCompliance(event.detail.data);
       finishStartup(Boolean(event.detail?.data?.time_clock_enabled));
+      if (isMobile()) syncTabUi(currentTab);
+    });
+
+    window.addEventListener("admin:portal-native-retry", () => {
+      if (!isMobile()) return;
+      syncTabUi(currentTab);
     });
 
     window.addEventListener("resize", () => {
@@ -417,10 +439,14 @@
     if (startupResolved) return;
 
     if (isMobile()) {
-      document.body.classList.add("portal-startup-pending");
-      window.setTimeout(() => {
-        if (!startupResolved) finishStartup(clockEnabled);
-      }, 4000);
+      if (isNativeShell()) {
+        finishStartup(clockEnabled);
+      } else {
+        document.body.classList.add("portal-startup-pending");
+        window.setTimeout(() => {
+          if (!startupResolved) finishStartup(clockEnabled);
+        }, 1200);
+      }
       syncComplianceDrill();
     } else {
       delete document.body.dataset.mobileTab;
@@ -432,6 +458,7 @@
         dispatchPortalReady();
       }
     }
+    window.__SSHR_PORTAL_HANDLERS_READY = true;
   }
 
   window.AdminMobile = {

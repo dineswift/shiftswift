@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en" data-app-icon="employee" data-pwa-portal="employee">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f6e56" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Employee" />
+    <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
+    <title>ShiftSwift HR | Employee Portal</title>
+    <script>
+(function(){try{var p=new URLSearchParams(location.search);var h=p.get("sshr_handoff");if(h){var d=JSON.parse(atob(h.replace(/-/g,"+").replace(/_/g,"/")));if(d&&d.ts&&Date.now()-d.ts<12e4){["token","refreshToken","tenantId","userRole","masterTenantId"].forEach(function(k){if(d[k])localStorage.setItem(k,d[k]);});window.__SSHR_HANDOFF_CONSUMED=1;p.delete("sshr_handoff");var q=p.toString();history.replaceState(null,"",location.pathname+(q?"?"+q:"")+location.hash);return;}}var r=sessionStorage.getItem("sshrNativeSessionBridge");if(!r)return;var d=JSON.parse(r);if(!d||!d.ts||Date.now()-d.ts>12e4)return;["token","refreshToken","tenantId","userRole","masterTenantId"].forEach(function(k){if(d[k])localStorage.setItem(k,d[k]);});sessionStorage.removeItem("sshrNativeSessionBridge");}catch(e){}})();
+</script>
+    <link rel="stylesheet" href="./theme.css?v=bundled" />
+    <link rel="stylesheet" href="./native-app-chrome.css?v=bundled" />
+    <link rel="stylesheet" href="./styles.css?v=bundled" />
+    <link rel="stylesheet" href="./employee-mobile-polish.css?v=bundled" />
+    <script src="./native-bundled-url.js?v=bundled"></script>
+    <script src="./native-api-fetch.js?v=bundled"></script>
+    <script src="./session-auth.js?v=bundled"></script>
+    <script src="./native-app.js?v=bundled"></script>
+    <script src="./brand-config.js?v=bundled"></script>
+    <script src="./app-icons.js?v=bundled"></script>
+    <script src="./native-employee-boot.js?v=bundled"></script>
+  </head>
+  <body class="employee-portal native-app capacitor-native portal-startup-ready">
+    <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+    <div class="app employee-app">
+      <aside class="sidebar" id="app-sidebar">
+        <div class="sidebar-head">
+          <a class="brand" href="./index.html">
+            <img class="brand-logo brand-logo--compact app-mark app-mark--chrome" src="./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6" alt="ShiftSwift Employee" />
+          </a>
+          <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
+        </div>
+        <nav class="nav">
+          <a class="nav-link active" href="#overview" data-section="overview">Overview</a>
+          <a class="nav-link" href="#time-clock" data-section="time-clock" data-requires-clock>Time clock</a>
+          <a class="nav-link" href="#my-shifts" data-section="my-shifts">My shifts</a>
+          <a class="nav-link" href="#leave" data-section="leave">Leave</a>
+          <a class="nav-link" href="#my-details" data-section="my-details">My details</a>
+          <a class="nav-link" href="#documents" data-section="documents">My documents</a>
+          <a class="nav-link" href="#notes" data-section="notes">Notes from HR</a>
+          <a class="nav-link" href="#payslips" data-section="payslips">Payslips</a>
+          <a class="nav-link" href="#security" data-section="security">Security</a>
+          <button type="button" class="nav-link nav-link--signout" data-sign-out>Sign out</button>
+        </nav>
+        <div class="badge pill">Employee portal</div>
+      </aside>
+      <main class="content">
+        <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
+          <div class="portal-pwa-install-banner__copy">
+            <strong id="portal-pwa-install-title">Download app</strong>
+            <p id="portal-pwa-install-copy">Install the ShiftSwift Employee app on this device for quick access.</p>
+          </div>
+          <div class="portal-pwa-install-banner__actions">
+            <button type="button" class="btn primary" id="portal-pwa-install-btn">Install app</button>
+            <button type="button" class="btn ghost portal-pwa-install-dismiss" id="portal-pwa-install-dismiss">Not now</button>
+          </div>
+        </div>
+
+        <div class="topbar app-mobile-header">
+          <div class="topbar-main">
+            <button type="button" class="mobile-back-btn" id="mobile-back-btn" aria-label="Go back" hidden>← Back</button>
+            <button
+              type="button"
+              class="sidebar-toggle sidebar-toggle--menu"
+              id="sidebar-toggle"
+              aria-label="Open menu"
+              aria-expanded="false"
+              aria-controls="app-sidebar"
+            >
+              <span class="sidebar-toggle__bar" aria-hidden="true"></span>
+              <span class="sidebar-toggle__bar" aria-hidden="true"></span>
+              <span class="sidebar-toggle__bar" aria-hidden="true"></span>
+            </button>
+            <a class="topbar-brand" href="#overview">
+              <img
+                class="topbar-brand__logo app-mark app-mark--chrome"
+                src="./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6"
+                alt=""
+              />
+              <span class="topbar-brand__text">
+                <span class="topbar-brand__name" id="topbar-employer-name">Employee portal</span>
+                <span class="topbar-brand__app muted">Employee</span>
+              </span>
+            </a>
+          </div>
+          <div class="stack topbar-actions topbar-actions--desktop">
+            <a class="btn ghost" href="#" data-sign-out>Sign out</a>
+          </div>
+          <button type="button" class="btn ghost btn-sm topbar-signout-btn topbar-signout-btn--mobile" data-sign-out>Sign out</button>
+          <button
+            type="button"
+            class="employee-topbar-alerts-btn"
+            id="employee-topbar-alerts-btn"
+            aria-label="Turn on shift alerts"
+            title="Shift alerts"
+          >
+            <span class="employee-topbar-alerts-btn__icon" data-icon="bell" aria-hidden="true"></span>
+            <span class="employee-topbar-alerts-btn__badge" id="employee-topbar-alerts-badge" hidden>0</span>
+          </button>
+        </div>
+
+        <div id="mobile-more-panel" class="mobile-more-panel" hidden>
+          <h2 class="mobile-panel-title">More</h2>
+          <nav class="mobile-more-menu" aria-label="More options">
+            <a class="mobile-more-link" href="#my-details">My details</a>
+            <a class="mobile-more-link" href="#payslips">Payslips</a>
+            <a class="mobile-more-link" href="#documents">My documents</a>
+            <a class="mobile-more-link" href="#notes">Notes from HR</a>
+            <a class="mobile-more-link" href="#security">Security</a>
+            <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
+            <a class="mobile-more-link mobile-more-link--signout" href="#" data-sign-out>Sign out</a>
+          </nav>
+        </div>
+
+        <section id="overview" class="admin-section">
+          <div class="employee-home">
+            <header class="employee-home-hero">
+              <p class="employee-home-greeting" id="mobile-greeting">Good afternoon</p>
+              <p class="employee-home-name" id="employee-display-name">Loading…</p>
+              <div class="employee-home-meta">
+                <p class="employee-home-employer" id="mobile-employer-subtitle">Your employer</p>
+                <span class="employee-home-role-pill">Employee</span>
+              </div>
+              <p class="sr-only" id="employee-welcome">Loading your account…</p>
+            </header>
+
+            <div class="employee-desktop-top">
+              <div class="employee-alerts-banner" id="employee-alerts-banner">
+                <span class="employee-alerts-banner__icon" data-icon="bell" aria-hidden="true"></span>
+                <div class="employee-alerts-banner__copy">
+                  <strong class="employee-alerts-banner__title">Shift alerts</strong>
+                  <p class="employee-alerts-banner__text" id="employee-alerts-status">
+                    Get a bell alert 10 minutes before your shift and if you forget to clock in.
+                  </p>
+                </div>
+                <button type="button" class="btn primary btn-sm employee-alerts-banner__btn" id="employee-enable-alerts-btn">
+                  Turn on alerts
+                </button>
+              </div>
+
+              <div class="employee-home-quick">
+                <a class="employee-quick-btn employee-quick-btn--primary" href="#time-clock" data-requires-clock>
+                  <span class="employee-quick-btn__icon" aria-hidden="true"></span>
+                  <span class="employee-quick-btn__label">Clock in / out</span>
+                </a>
+                <a class="employee-quick-btn" href="#my-shifts">
+                  <span class="employee-quick-btn__icon" aria-hidden="true"></span>
+                  <span class="employee-quick-btn__label">My shifts</span>
+                </a>
+              </div>
+            </div>
+
+            <h2 class="employee-home-section-title">Your workplace</h2>
+            <div class="employee-home-grid" id="employee-home-grid">
+              <a class="employee-home-card employee-home-card--clock" href="#time-clock" data-requires-clock>
+                <span class="employee-home-card__icon" data-icon="clock" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Time clock</span>
+                  <span class="employee-home-card__value" id="employee-punch-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--shifts" href="#my-shifts">
+                <span class="employee-home-card__icon" data-icon="calendar" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">My shifts</span>
+                  <span class="employee-home-card__value" id="employee-shifts-summary">View this week&apos;s rota</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--docs" href="#documents">
+                <span class="employee-home-card__icon" data-icon="file" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">My documents</span>
+                  <span class="employee-home-card__value" id="employee-docs-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--payslips" href="#payslips">
+                <span class="employee-home-card__icon" data-icon="card" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Payslips</span>
+                  <span class="employee-home-card__value" id="employee-payslips-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--notes" href="#notes">
+                <span class="employee-home-card__icon" data-icon="bell" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Notes from HR</span>
+                  <span class="employee-home-card__value" id="employee-notes-summary">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+              <a class="employee-home-card employee-home-card--leave" href="#leave">
+                <span class="employee-home-card__icon" data-icon="beach" aria-hidden="true"></span>
+                <span class="employee-home-card__body">
+                  <span class="employee-home-card__title">Leave balance</span>
+                  <span class="employee-home-card__value" data-mirror="employee-leave-balance">Loading…</span>
+                </span>
+                <span class="employee-home-card__chevron" aria-hidden="true"></span>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section id="time-clock" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Time clock</h2>
+              <p class="muted">Clock in and out when you are at an assigned work site. Location access is required.</p>
+            </div>
+          </header>
+          <article class="card punch-card punch-card--clock-widget">
+            <div id="employee-expected-shift" class="punch-expected-shift" hidden></div>
+            <p id="punch-work-state-label" class="punch-work-state-label muted" aria-live="polite">Loading…</p>
+            <div class="punch-geofence-row">
+              <div id="punch-geofence-status" class="punch-geofence-status punch-geofence-status--loading" aria-live="polite">
+                Getting your location…
+              </div>
+              <button type="button" class="btn outline btn-sm punch-geofence-qr" id="punch-scan-btn">Scan premises QR</button>
+            </div>
+            <p id="punch-site-scan-status" class="punch-site-scan-status muted" hidden aria-live="polite"></p>
+
+            <div class="punch-clock-actions" id="punch-clock-actions">
+              <div class="punch-clock-actions__primary">
+                <button type="button" class="btn primary punch-clock-primary" id="punch-in-btn">Clock in</button>
+                <button type="button" class="btn outline punch-clock-secondary punch-clock-secondary--cooldown" id="punch-reclock-btn" hidden>
+                  Clock in again?
+                </button>
+              </div>
+              <p id="punch-cooldown-note" class="punch-cooldown-note muted" hidden></p>
+              <div class="punch-clock-actions__phase punch-clock-actions__phase--main">
+                <button type="button" class="btn outline punch-clock-primary punch-clock-primary--out" id="punch-out-btn" disabled>Clock out</button>
+                <button type="button" class="btn primary punch-clock-primary" id="punch-break-end-btn" hidden disabled>End break</button>
+              </div>
+              <div class="punch-clock-actions__phase punch-clock-actions__phase--secondary" id="punch-phase-secondary" hidden>
+                <button type="button" class="btn outline punch-clock-secondary" id="punch-break-start-btn" hidden disabled>Start break</button>
+                <button type="button" class="btn outline punch-clock-secondary punch-clock-secondary--out" id="punch-out-during-break-btn" hidden disabled>Clock out</button>
+              </div>
+            </div>
+
+            <p id="punch-message" class="punch-message" aria-live="polite"></p>
+            <h3 class="punch-sites-heading">Your punch sites</h3>
+            <ul id="punch-sites" class="punch-site-list muted">
+              <li>Loading…</li>
+            </ul>
+          </article>
+
+          <dialog id="punch-reclock-dialog" class="punch-reclock-dialog">
+            <form method="dialog" class="punch-reclock-dialog__card">
+              <h3>Clock in again?</h3>
+              <p id="punch-reclock-dialog-copy" class="muted">You clocked out recently. Only continue if this is intentional.</p>
+              <footer class="punch-reclock-dialog__foot">
+                <button type="button" class="btn ghost" id="punch-reclock-cancel">Cancel</button>
+                <button type="submit" class="btn primary" id="punch-reclock-confirm">Yes, clock in</button>
+              </footer>
+            </form>
+          </dialog>
+
+          <article class="card employee-timesheet-card">
+            <div class="employee-timesheet__head">
+              <div>
+                <h3 class="employee-timesheet__title">My hours this week</h3>
+                <p class="employee-timesheet__lead muted">Your punch record for this rota week (read-only).</p>
+              </div>
+              <div class="employee-timesheet__nav">
+                <button type="button" class="btn ghost btn-sm" id="employee-timesheet-prev" aria-label="Previous week">‹</button>
+                <span class="employee-timesheet__week" id="employee-timesheet-week-label">Loading…</span>
+                <button type="button" class="btn ghost btn-sm" id="employee-timesheet-next" aria-label="Next week">›</button>
+              </div>
+            </div>
+            <div class="employee-timesheet-summary" id="employee-timesheet-summary"></div>
+            <div id="employee-timesheet-days" class="employee-timesheet-days">
+              <p class="employee-timesheet-placeholder muted">Loading your hours…</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="my-shifts" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>My shifts</h2>
+              <p class="muted">Published rota from your manager. Request cover if you cannot work a shift.</p>
+            </div>
+          </header>
+          <article class="card employee-shifts-card">
+            <div id="employee-shift-reminders-info" class="employee-shift-alerts-banner" hidden></div>
+            <p id="employee-shifts-week-label" class="employee-shifts-week muted" hidden></p>
+            <div id="employee-week-shifts" class="employee-shifts-list">
+              <p class="employee-shifts-placeholder muted">Loading shifts…</p>
+            </div>
+            <p id="employee-shift-message" class="employee-shifts-message muted" aria-live="polite"></p>
+          </article>
+        </section>
+
+        <section id="leave" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Leave &amp; holiday</h2>
+              <p class="muted">Request time off — HR approves in the admin console. Days are counted Mon–Fri.</p>
+            </div>
+          </header>
+          <article class="card employee-leave-shell">
+            <div class="employee-leave-balance-panel" id="employee-leave-balance-panel">
+              <p class="employee-leave-balance-panel__label">Annual leave balance</p>
+              <p class="employee-leave-balance-panel__value" id="employee-leave-balance" data-mirror="employee-leave-balance">
+                Loading balance…
+              </p>
+            </div>
+
+            <h3 class="employee-leave-section-title">New request</h3>
+            <form id="employee-leave-form" class="employee-leave-form">
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Leave type</span>
+                <select name="leave_type" required>
+                  <option value="annual">Annual leave</option>
+                  <option value="sick">Sick leave</option>
+                  <option value="unpaid">Unpaid leave</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <div class="employee-leave-dates">
+                <label class="employee-leave-field">
+                  <span class="employee-leave-label">From</span>
+                  <input type="date" name="start_date" required />
+                </label>
+                <label class="employee-leave-field">
+                  <span class="employee-leave-label">To</span>
+                  <input type="date" name="end_date" required />
+                </label>
+              </div>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Reason <span class="employee-leave-label__optional">(optional)</span></span>
+                <textarea name="reason" rows="3" maxlength="2000" placeholder="Brief note for HR"></textarea>
+              </label>
+              <div class="employee-leave-form-foot">
+                <button type="submit" class="btn primary employee-leave-submit">Submit request</button>
+                <p class="employee-leave-status muted" id="employee-leave-status" aria-live="polite"></p>
+              </div>
+            </form>
+
+            <h3 class="employee-leave-section-title">Your requests</h3>
+            <div id="employee-leave-list" class="employee-leave-list-wrap">
+              <p class="employee-leave-placeholder muted">Loading leave requests…</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="my-details" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>My contact details</h2>
+              <p class="muted">Update your phone, home address, or emergency contact. Changes need HR approval before they appear on your record.</p>
+            </div>
+          </header>
+          <article class="card employee-leave-shell">
+            <p id="employee-details-pending-banner" class="employee-details-pending-banner" hidden role="status"></p>
+
+            <h3 class="employee-leave-section-title">Proposed update</h3>
+            <form id="employee-details-form" class="employee-leave-form">
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Telephone</span>
+                <input type="tel" name="phone" maxlength="32" autocomplete="tel" />
+              </label>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Home address</span>
+                <textarea name="home_address" rows="3" maxlength="500" autocomplete="street-address"></textarea>
+              </label>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Emergency contact name</span>
+                <input type="text" name="emergency_contact_name" maxlength="120" autocomplete="name" />
+              </label>
+              <label class="employee-leave-field">
+                <span class="employee-leave-label">Emergency contact phone</span>
+                <input type="tel" name="emergency_contact_phone" maxlength="32" autocomplete="tel" />
+              </label>
+              <label class="employee-leave-field">
+                <span class="employee-leave-label">Relationship</span>
+                <input type="text" name="emergency_contact_relationship" maxlength="80" />
+              </label>
+              <label class="employee-leave-field employee-leave-field--full">
+                <span class="employee-leave-label">Note for HR <span class="employee-leave-label__optional">(optional)</span></span>
+                <textarea name="employee_note" rows="2" maxlength="2000" placeholder="Brief note if helpful"></textarea>
+              </label>
+              <div class="employee-leave-form-foot">
+                <button type="submit" class="btn primary employee-leave-submit">Submit for HR approval</button>
+                <p class="employee-leave-status muted" id="employee-details-status" aria-live="polite"></p>
+              </div>
+            </form>
+
+            <h3 class="employee-leave-section-title">Your update requests</h3>
+            <div id="employee-details-list" class="employee-leave-list-wrap">
+              <p class="employee-leave-placeholder muted">Loading…</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="documents" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>My documents</h2>
+              <p class="muted">Company handbooks and policies, plus files HR has shared with you personally. Sensitive HR records (RTW copies, etc.) stay on the HR side only.</p>
+            </div>
+          </header>
+          <article class="card">
+            <div id="employee-company-docs" class="employee-doc-section" hidden>
+              <h3 class="employee-doc-section__title">Company documents</h3>
+              <p class="muted employee-doc-section__lead">Handbooks, policies, and notices shared with all staff.</p>
+              <div id="employee-company-docs-cards" class="employee-doc-cards"></div>
+            </div>
+            <div id="employee-personal-docs" class="employee-doc-section" hidden>
+              <h3 class="employee-doc-section__title">Your documents</h3>
+              <p class="muted employee-doc-section__lead">Files shared with you personally — contracts, training, and general HR documents.</p>
+              <div id="employee-documents-cards" class="employee-doc-cards"></div>
+            </div>
+            <div class="hr-table-wrap employee-desktop-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Added</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="employee-documents-body">
+                  <tr><td colspan="4" class="muted">Loading documents…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="muted" id="employee-documents-message" aria-live="polite"></p>
+          </article>
+        </section>
+
+        <section id="notes" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Notes from HR</h2>
+              <p class="muted">Messages your employer has shared with you. HR-only records are not shown here.</p>
+            </div>
+          </header>
+          <article class="card">
+            <div id="employee-notes-list" class="employee-notes-list">
+              <p class="muted">Loading notes…</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="payslips" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Payslips</h2>
+              <p class="muted">Payslips shared by HR appear here, grouped by pay period.</p>
+            </div>
+          </header>
+          <article class="card">
+            <div id="employee-payslips-list" class="employee-payslips-list">
+              <p class="muted">Loading payslips…</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="security" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Security</h2>
+              <p class="muted">Protect your employee account with an authenticator app.</p>
+            </div>
+          </header>
+          <article class="card">
+            <div id="employee-security-content">
+              <p class="muted">Loading security settings…</p>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Main navigation">
+      <button type="button" class="mobile-tab mobile-tab--active" data-mobile-tab="home" data-tab-icon="home">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
+        <span class="mobile-tab__label">Home</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="shifts" data-tab-icon="calendar">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
+        <span class="mobile-tab__label">Shifts</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="clock" data-tab-icon="clock" data-requires-clock>
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
+        <span class="mobile-tab__label">Clock</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="leave" data-tab-icon="beach">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
+        <span class="mobile-tab__label">Leave</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="more" data-tab-icon="menu">
+        <span class="mobile-tab__icon-wrap" aria-hidden="true"></span>
+        <span class="mobile-tab__label">More</span>
+      </button>
+    </nav>
+
+    <div id="employee-gdpr-modal" class="employee-gdpr-modal" hidden role="dialog" aria-modal="true" aria-labelledby="employee-gdpr-title">
+      <div class="employee-gdpr-modal__backdrop"></div>
+      <div class="employee-gdpr-modal__panel">
+        <h2 id="employee-gdpr-title">Privacy notice</h2>
+        <p>
+          <strong id="employee-gdpr-employer">Your employer</strong> is responsible for managing your personal data,
+          workplace privacy notices, and UK GDPR obligations for your employment records. ShiftSwift HR provides the
+          software platform only.
+        </p>
+        <p class="muted">
+          Please confirm you understand this before using the employee portal. You can also read our
+          <a href="./privacy-policy.html" target="_blank" rel="noopener">privacy policy</a>.
+        </p>
+        <label class="employee-gdpr-modal__check">
+          <input type="checkbox" id="employee-gdpr-checkbox" />
+          <span>
+            I understand my employer manages my employment data and I agree to the
+            <a href="./privacy-policy.html" target="_blank" rel="noopener">privacy policy</a>.
+          </span>
+        </label>
+        <p id="employee-gdpr-status" class="form-error-message" hidden></p>
+        <div class="employee-gdpr-modal__actions">
+          <button type="button" class="btn ghost" data-sign-out>Sign out</button>
+          <button type="button" class="btn primary" id="employee-gdpr-submit">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <dialog id="punch-scan-dialog" class="punch-scan-dialog">
+      <form method="dialog" class="punch-scan-dialog__inner">
+        <header class="punch-scan-dialog__head">
+          <h2>Scan premises QR</h2>
+          <button type="button" class="btn ghost" id="punch-scan-close" aria-label="Close">Close</button>
+        </header>
+        <p class="muted">Point your camera at the QR code at your work site, or paste the premises link below.</p>
+        <video id="punch-scan-video" class="punch-scan-video" playsinline muted></video>
+        <p id="punch-scan-message" class="punch-message" aria-live="polite"></p>
+        <label class="edit-field">
+          <span class="edit-label">Paste QR link or code</span>
+          <input type="text" id="punch-scan-manual" placeholder="Paste QR link or code" autocomplete="off" />
+        </label>
+        <button type="button" class="btn primary" id="punch-scan-manual-btn">Verify code</button>
+      </form>
+    </dialog>
+  </body>
+</html>

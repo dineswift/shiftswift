@@ -101,3 +101,74 @@ def push_unsubscribe(
     finally:
         conn.close()
     return {"ok": True, "removed": removed}
+
+
+@router.get("/notifications")
+def list_employee_notifications(
+    current_user: Annotated[AuthUser, Depends(get_employee_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    unread_only: bool = False,
+    limit: int = 40,
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        items = push_service.list_in_app_notifications(
+            tenant_id=tenant_id,
+            audience="employee",
+            recipient_username=current_user.username,
+            conn=conn,
+            limit=min(max(limit, 1), 100),
+            unread_only=unread_only,
+        )
+        unread = push_service.count_unread_in_app(
+            tenant_id=tenant_id,
+            audience="employee",
+            recipient_username=current_user.username,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    return {"items": items, "unread_count": unread}
+
+
+@router.post("/notifications/{notification_id}/read")
+def mark_employee_notification_read(
+    notification_id: int,
+    current_user: Annotated[AuthUser, Depends(get_employee_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        ok = push_service.mark_in_app_read(
+            tenant_id=tenant_id,
+            audience="employee",
+            recipient_username=current_user.username,
+            notification_id=notification_id,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    if not ok:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"ok": True}
+
+
+@router.post("/notifications/read-all")
+def mark_all_employee_notifications_read(
+    current_user: Annotated[AuthUser, Depends(get_employee_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        count = push_service.mark_all_in_app_read(
+            tenant_id=tenant_id,
+            audience="employee",
+            recipient_username=current_user.username,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    return {"ok": True, "marked": count}

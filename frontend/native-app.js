@@ -34,7 +34,12 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   }
 
   function isUnifiedNativeApp() {
-    return isCapacitorNative() && getNativeAppId() === UNIFIED_APP_ID;
+    if (isCapacitorNative() && getNativeAppId() === UNIFIED_APP_ID) return true;
+    try {
+      return localStorage.getItem("sshrUnifiedNativeApp") === "1";
+    } catch {
+      return false;
+    }
   }
 
   function isNativeSource() {
@@ -62,8 +67,21 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     }
   }
 
+  function getCapacitorScheme() {
+    try {
+      const scheme =
+        window.Capacitor?.config?.server?.iosScheme ||
+        window.Capacitor?.config?.ios?.scheme;
+      if (scheme) return String(scheme);
+      if (window.Capacitor?.isNativePlatform?.()) return "App";
+    } catch {
+      /* ignore */
+    }
+    return "capacitor";
+  }
+
   function capacitorAssetUrl(filename) {
-    const scheme = window.Capacitor?.config?.ios?.scheme || "App";
+    const scheme = getCapacitorScheme();
     const raw = String(filename || "");
     const [path, query = ""] = raw.split("?");
     const params = new URLSearchParams(query);
@@ -85,24 +103,27 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (isCapacitorNative()) {
       return capacitorAssetUrl(BUNDLED_LOGIN_PAGE);
     }
-    return "./native-app-login.html?source=native";
+    return "./sign-in.html?source=native";
   }
 
   function redirectUnifiedAppToBundledLogin() {
-    if (!isUnifiedNativeApp() || isBundledNativeShell()) return;
-    try {
-      const href = window.location.href || "";
-      if (!href.includes("app.shiftswifthr.co.uk")) return;
-      const path = window.location.pathname || "";
-      if (!/(login|native-app-login|business-login|employee-login)/i.test(path)) return;
-      window.location.replace(unifiedNativeLoginUrl());
-    } catch {
-      /* ignore */
-    }
+    /* Unified app uses production or bundled business-login — never force bundled index tabs. */
   }
 
   function resolveNativeLoginUrl() {
-    if (isUnifiedNativeApp()) return unifiedNativeLoginUrl();
+    if (isUnifiedNativeApp()) {
+      if (isBundledNativeShell()) {
+        try {
+          if (localStorage.getItem("userRole") === "employee") {
+            return capacitorAssetUrl("employee-login.html?source=native");
+          }
+        } catch {
+          /* ignore */
+        }
+        return capacitorAssetUrl("index.html?source=native");
+      }
+      return productionBusinessLoginUrl();
+    }
     const appId = getNativeAppId();
     if (appId === EMPLOYEE_APP_ID) return "./employee-login.html?source=native";
     if (appId === HR_ADMIN_APP_ID) return "./business-login.html?source=native";
@@ -141,27 +162,40 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     document.head.appendChild(link);
   }
 
+  function productionBusinessLoginUrl() {
+    return "https://app.shiftswifthr.co.uk/business-login.html?source=native";
+  }
+
   function redirectLegacyLoginPages() {
     if (!isCapacitorNative()) return;
     const path = window.location.pathname || "";
     const href = window.location.href || "";
 
     if (isUnifiedNativeApp()) {
-      if (
-        path.includes("native-app-login") ||
-        path.includes("employee-login") ||
-        path.includes("business-login") ||
-        (path.endsWith("/login.html") && !path.includes("native-app-login"))
-      ) {
-        window.location.replace(unifiedNativeLoginUrl());
-        return;
+      if (/app\.shiftswifthr\.co\.uk/i.test(href)) {
+        if (
+          /\/business-login\.html$/i.test(path) ||
+          /\/admin\.html$/i.test(path) ||
+          /\/employee\.html$/i.test(path) ||
+          /\/master\.html$/i.test(path)
+        ) {
+          return;
+        }
       }
-      if (href.includes("app.shiftswifthr.co.uk") && !href.includes("source=native")) {
-        const onPortal =
-          path.endsWith("/admin.html") ||
-          path.endsWith("/employee.html") ||
-          path.endsWith("/master.html");
-        if (onPortal) return;
+      if (/\/\/localhost\//i.test(href)) {
+        if (
+          /index\.html$/i.test(path) ||
+          /business-login\.html$/i.test(path) ||
+          /employee-login\.html$/i.test(path) ||
+          /admin\.html$/i.test(path) ||
+          /employee\.html$/i.test(path)
+        ) {
+          return;
+        }
+      }
+      if (path.includes("native-app-login") || path.includes("sign-in")) {
+        window.location.replace(capacitorAssetUrl("index.html?source=native"));
+        return;
       }
       return;
     }
@@ -169,7 +203,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     const onDedicatedLogin =
       path.includes("employee-login") ||
       path.includes("business-login") ||
-      (path.endsWith("/login.html") && !path.includes("native-app-login"));
+      (path.endsWith("/login.html") && !path.includes("sign-in") && !path.includes("native-app-login"));
     if (!onDedicatedLogin) return;
 
     const appId = getNativeAppId();
@@ -185,6 +219,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   }
 
   function showSplash() {
+    if (isPortalShellPage()) return;
     const splash = splashPlugin();
     if (splash?.show) {
       splash.show({ autoHide: false, showDuration: 0 }).catch(() => null);
@@ -212,28 +247,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   }
 
   function bindNavigationSplash() {
-    if (!isCapacitorNative()) return;
-
-    document.addEventListener(
-      "click",
-      (event) => {
-        const link = event.target.closest?.("a[href]");
-        if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
-        if (!isInternalNavigation(link.getAttribute("href") || "")) return;
-        showSplash();
-      },
-      true,
-    );
-
-    document.addEventListener(
-      "submit",
-      (event) => {
-        const form = event.target;
-        if (form?.id === "portal-login-form" || form?.id === "mfa-form") return;
-        showSplash();
-      },
-      true,
-    );
+    /* Disabled — showSplash() sets isUserInteractionEnabled=false on the native root view. */
   }
 
   async function unregisterNativeServiceWorkers() {
@@ -246,7 +260,11 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     }
   }
 
+  let splashHidden = false;
+
   function forceHideSplash() {
+    if (splashHidden) return;
+    splashHidden = true;
     hideSplash();
     try {
       window.Capacitor?.Plugins?.SplashScreen?.hide?.()?.catch?.(() => null);
@@ -272,6 +290,12 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   }
 
   function scheduleSplashHide() {
+    const onLogin = document.body?.classList?.contains("portal-login-page");
+    if (onLogin) {
+      window.addEventListener("shiftswift:startup-loader-done", () => forceHideSplash(), { once: true });
+      return;
+    }
+
     const hide = () => window.setTimeout(forceHideSplash, 80);
 
     if (document.getElementById("native-startup-loader")) {
@@ -280,7 +304,6 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
         () => window.setTimeout(forceHideSplash, 40),
         { once: true },
       );
-      window.setTimeout(forceHideSplash, 4500);
       return;
     }
 
@@ -296,17 +319,6 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       hide();
     }
     window.addEventListener("load", hide, { once: true });
-    window.setTimeout(forceHideSplash, 4000);
-
-    document.addEventListener(
-      "touchstart",
-      () => {
-        const loader = document.getElementById("native-startup-loader");
-        if (loader && !loader.classList.contains("is-done")) return;
-        forceHideSplash();
-      },
-      { once: true, passive: true },
-    );
   }
 
   function sanitizeNativeApiBase() {
@@ -420,8 +432,13 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     );
   }
 
+  function redirectProductionPortalToBundle() {
+    /* Unified iPhone app keeps business admin on app.shiftswifthr.co.uk (same as website login). */
+  }
+
   function initNativeChrome() {
     if (!isCapacitorNative()) return;
+    redirectProductionPortalToBundle();
     const onLogin = document.body?.classList?.contains("portal-login-page");
     const onEmployeePortal = document.body?.classList?.contains("employee-portal");
     void unregisterNativeServiceWorkers();
@@ -463,7 +480,8 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
     if (appPlugin?.addListener) {
       appPlugin.addListener("appStateChange", ({ isActive }) => {
-        if (isActive) scheduleSplashHide();
+        if (!isActive || document.body?.classList?.contains("portal-login-page")) return;
+        if (isPortalShellPage()) forceHideSplash();
       }).catch(() => null);
     }
 
@@ -486,6 +504,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     isCapacitorNative,
     isUnifiedNativeApp,
     unifiedNativeLoginUrl,
+    productionBusinessLoginUrl,
     resolveNativeLoginUrl,
     capacitorAssetUrl,
     showSplash,

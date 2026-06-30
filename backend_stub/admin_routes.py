@@ -55,6 +55,7 @@ from admin_service import (
     get_tenant_profile,
     list_documents,
     list_employees,
+    list_employees_register,
     get_notification_preferences,
     update_notification_preferences,
     update_document,
@@ -359,11 +360,15 @@ def patch_tenant_profile(
 def read_employees(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    view: Annotated[str | None, Query()] = None,
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
-        items = list_employees(tenant_id=tenant_id, conn=conn)
+        if view == "register":
+            items = list_employees_register(tenant_id=tenant_id, conn=conn)
+        else:
+            items = list_employees(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
     return {"items": items, "count": len(items)}

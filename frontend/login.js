@@ -178,9 +178,11 @@ function friendlyLoginError(message, endpoint, username) {
 }
 
 async function postJson(path, body) {
+  const url = `${getApiBase()}${path}`;
+  window.ShiftSwiftNativeApiFetch?.boot?.();
   let response;
   try {
-    response = await fetch(`${getApiBase()}${path}`, {
+    response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -213,10 +215,38 @@ function storeSession(data) {
 
 async function storeSessionAndGo(data, url) {
   storeSession(data);
-  if (window.ShiftSwiftSession?.persistNativeSession) {
-    await window.ShiftSwiftSession.persistNativeSession();
+  try {
+    sessionStorage.setItem("sshrPostLoginTransition", "1");
+  } catch {
+    /* ignore */
   }
-  window.location.replace(url);
+  try {
+    window.Capacitor?.Plugins?.SplashScreen?.hide?.();
+    window.ShiftSwiftNativeApp?.hideSplash?.();
+    window.ShiftSwiftNativeApp?.dismissStartupLoader?.();
+    document.getElementById("native-startup-loader")?.remove();
+    document.documentElement.classList.remove("native-startup-active");
+    document.body?.classList.remove("native-startup-active");
+  } catch {
+    /* ignore */
+  }
+  if (window.ShiftSwiftSession?.persistNativeSession) {
+    await Promise.race([
+      window.ShiftSwiftSession.persistNativeSession(),
+      new Promise((resolve) => window.setTimeout(resolve, 2000)),
+    ]);
+  }
+  window.location.replace(withNativeSource(url || "./admin.html"));
+}
+
+function withNativeSource(path) {
+  try {
+    const parsed = new URL(String(path || "./admin.html"), window.location.href);
+    if (!parsed.searchParams.get("source")) parsed.searchParams.set("source", "native");
+    return `${parsed.pathname}?${parsed.searchParams.toString()}${parsed.hash}`;
+  } catch {
+    return String(path || "./admin.html?source=native");
+  }
 }
 
 function redirectForRole(data, fallback) {
@@ -503,8 +533,16 @@ function redirectIfBusinessSession() {
 
 function initLoginPage() {
   if (window.ShiftSwiftNativeApp?.isUnifiedNativeApp?.()) {
-    window.location.replace(window.ShiftSwiftNativeApp.unifiedNativeLoginUrl());
-    return;
+    const onBundledLogin =
+      /\/\/localhost\//i.test(window.location.href) &&
+      /(index|business-login|employee-login)\.html$/i.test(window.location.pathname || "");
+    const onProductionApp = /(^|\.)app\.shiftswifthr\.co\.uk$/i.test(window.location.hostname);
+    if (!onBundledLogin && !onProductionApp) {
+      window.location.replace(
+        window.ShiftSwiftNativeApp?.capacitorAssetUrl?.("index.html?source=native") || "./index.html",
+      );
+      return;
+    }
   }
   if (redirectIfUnifiedSession()) return;
   if (redirectIfEmployeeSession()) return;

@@ -251,7 +251,7 @@
             </a>
           </div>
           <div class="topbar-tools">
-            <button type="button" class="topbar-icon-btn" id="topbar-alerts-btn" aria-label="Open actions">
+            <button type="button" class="topbar-icon-btn" id="topbar-alerts-btn" aria-label="Notifications">
               <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 3 6v3l2 2H5l2-2v-3a7 7 0 0 1 3-6"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
               <span class="topbar-icon-btn__badge" id="topbar-alerts-badge" hidden>0</span>
             </button>
@@ -263,7 +263,7 @@
               <div class="topbar-user-menu__panel">
                 <p class="topbar-user-menu__label muted" id="topbar-user-label">Admin account</p>
                 <a class="topbar-user-menu__link" href="#settings">Settings</a>
-                <a class="topbar-user-menu__link topbar-user-menu__link--signout" href="./business-login.html" data-sign-out>Sign out</a>
+                <a class="topbar-user-menu__link topbar-user-menu__link--signout" href="./sign-in.html" data-sign-out>Sign out</a>
               </div>
             </details>
           </div>
@@ -297,7 +297,7 @@
             <p class="mobile-more-group">Support</p>
             <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
             <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
-            <a class="mobile-more-link mobile-more-link--signout" href="./business-login.html" data-sign-out>Sign out</a>
+            <a class="mobile-more-link mobile-more-link--signout" href="./sign-in.html" data-sign-out>Sign out</a>
           </nav>
         </div>
 
@@ -3168,6 +3168,16 @@
     <script src="./auth-guard.js?v=security-v5"></script>
     <script src="./portal-pwa-stability.js?v=3"></script>
     <script src="./admin-pwa.js?v=12"></script>
+    <script src="./push-notifications.js?v=6"></script>
+    <script src="./admin-push-alerts.js?v=1"></script>
+    <script src="./portal-notifications.js?v=1"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        window.ShiftSwiftAdminPwa?.registerAdminSw?.();
+        window.ShiftSwiftAdminPush?.bindBell?.();
+        window.ShiftSwiftPortalNotifications?.bindAdmin?.();
+      });
+    </script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>
@@ -3201,7 +3211,7 @@
     <script src="./admin-offboarding.js?v=admin-v7"></script>
     <script src="./admin-templates.js?v=admin-v13"></script>
     <script src="./admin-global-documents.js?v=2"></script>
-    <script src="./admin-time-punch.js?v=36"></script>
+    <script src="./admin-time-punch.js?v=37"></script>
     <script src="./admin-rota.js?v=36"></script>
     <script src="./admin-leave.js?v=admin-v7"></script>
     <script src="./admin-profile-changes.js?v=3"></script>

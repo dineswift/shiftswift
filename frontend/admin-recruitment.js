@@ -1,6 +1,11 @@
 /** Recruitment pipeline — 10-step vacancy flow with pipeline cards and side panel. */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, loadFormOptions } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, loadFormOptions, showAdminToast } = window.Admin;
+
+  function recruitmentToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   const PIPELINE_SHORT = {
     vacancy_identified: "Vacancy",
@@ -360,7 +365,7 @@
     const res = await apiFetch(`/admin/recruitment/vacancies/${vacancyId}/close`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json();
-      alert(data.detail || "Could not close vacancy");
+      recruitmentToast(data.detail || "Could not close vacancy", "error");
       return;
     }
     selectedVacancyId = null;
@@ -746,7 +751,7 @@
         const status = container.querySelector("#recruitment-offer-status");
         if (status) status.textContent = "Saved as draft.";
       } catch (error) {
-        alert(error.message || "Could not save offer");
+        recruitmentToast(error.message || "Could not save offer", "error");
       }
     });
 
@@ -756,7 +761,7 @@
         const status = container.querySelector("#recruitment-offer-status");
         if (status) status.textContent = "Offer marked as sent.";
       } catch (error) {
-        alert(error.message || "Could not send offer");
+        recruitmentToast(error.message || "Could not send offer", "error");
       }
     });
   }
@@ -946,7 +951,7 @@
     if (requestId !== openVacancyRequest) return;
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || "Could not load vacancy");
+      recruitmentToast(data.detail || "Could not load vacancy", "error");
       showListView();
       return;
     }

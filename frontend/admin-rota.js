@@ -1,6 +1,6 @@
 /** Admin — weekly rota: grid, attendance, copy week, shift requests. */
 (async function initAdminRota() {
-  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated, emptyStateHtml } = window.Admin;
+  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated, emptyStateHtml, parseApiJson, readApiError, friendlyNativeError, fetchEmployeesList, peekEmployeesListCache } = window.Admin;
 
   let sectionReady = false;
   let rotaDataLoadPromise = null;
@@ -1878,8 +1878,8 @@
     if (!tbody) return;
     try {
       const res = await apiFetch("/admin/rota/shift-requests?status=pending");
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error("load failed");
+      const data = await parseApiJson(res);
+      if (!res.ok) throw new Error(await readApiError(res, "Could not load shift requests"));
       const rows = data.items || [];
       pendingRequestCount = rows.length;
       renderRotaStats();
@@ -1987,10 +1987,19 @@
     }).join("");
   }
 
+  async function ensureRotaSession() {
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    await window.ShiftSwiftSession?.hydrateNativeSession?.({ force: true });
+    if (window.ShiftSwiftSession?.refreshAccessToken) {
+      await window.ShiftSwiftSession.refreshAccessToken();
+    }
+  }
+
   async function reloadRotaData() {
     if (rotaDataLoadPromise) return rotaDataLoadPromise;
     rotaDataLoadPromise = (async () => {
       try {
+        await ensureRotaSession();
         await ensureWeekStartAligned();
         await loadEmployeesList();
         await loadWeek();
@@ -2012,11 +2021,12 @@
       void reloadRotaData();
     }
   }
-  async function loadWeek({ retryAfterAlign = true } = {}) {
+  async function loadWeek({ retryAfterAlign = true, attempt = 0 } = {}) {
     setMessage("Loading rota…");
+    const weekPath = `/admin/rota/weeks/${currentWeekStart}${templateQuerySuffix() ? `?${templateQuerySuffix().slice(1)}` : ""}`;
     try {
-      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}?include_attendance=true${templateQuerySuffix()}`);
-      const data = await res.json().catch(() => ({}));
+      const res = await apiFetch(weekPath);
+      const data = await parseApiJson(res);
       if (!res.ok) {
         const message = parseRotaApiDetail(data, "Could not load rota.");
         if (
@@ -2070,34 +2080,35 @@
         setMessage("Unsaved changes? Save draft, then publish when ready.");
       }
     } catch (error) {
+      if (attempt < 2) {
+        await ensureRotaSession();
+        await new Promise((resolve) => window.setTimeout(resolve, 450 * (attempt + 1)));
+        return loadWeek({ retryAfterAlign, attempt: attempt + 1 });
+      }
       shifts = [];
       renderAll();
-      setMessage(
-        error.message === "Load failed" || error.message === "Failed to fetch"
-          ? "Cannot reach the API. Check your connection and try again."
-          : error.message || "Could not load rota.",
-        "error",
-      );
+      setMessage(friendlyNativeError(error, "Could not load rota."), "error");
     }
   }
 
   async function loadEmployeesList() {
     try {
-      const res = await apiFetch("/admin/employees");
-      if (!res.ok) {
-        let detail = "Could not load employees";
-        try {
-          const err = await res.json();
-          detail = err.detail || err.message || detail;
-        } catch {
-          detail = res.statusText || detail;
-        }
-        throw new Error(typeof detail === "string" ? detail : "Could not load employees");
+      const cached = peekEmployeesListCache?.();
+      const overview = window.Admin?.getAdminOverviewCache?.();
+      const activeCount = Number(overview?.modules?.employees?.active ?? 0);
+      const needsForce = Boolean(cached?.length) === false && activeCount > 0;
+      employees = await fetchEmployeesList(needsForce ? { force: true } : {});
+      if (!employees.length && cached?.length) {
+        employees = cached;
       }
-      employees = (await res.json()).items || [];
     } catch (error) {
+      const cached = peekEmployeesListCache?.();
+      if (cached?.length) {
+        employees = cached;
+        return;
+      }
       employees = [];
-      setMessage(error?.message || "Could not load employees for rota.", "error");
+      setMessage(friendlyNativeError(error, "Could not load employees for rota."), "error");
     }
     populateEmployeeSelect();
     populateRoleSuggestions();
@@ -2604,24 +2615,41 @@
     await reloadRotaData();
   }
 
-  window.addEventListener("admin:rota-mobile-open", () => {
-    if (sectionReady) renderAll();
-  });
+  function bootRotaSection() {
+    if (!sectionReady) {
+      sectionReady = true;
+      void initSection().catch((error) => {
+        console.error("Rota init failed:", error);
+        setMessage(friendlyNativeError(error, "Could not load rota."), "error");
+      });
+      return;
+    }
+    void refreshRotaSection();
+  }
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section !== "rota") return;
-    if (!sectionReady) {
-      sectionReady = true;
-      initSection();
-      return;
+    bootRotaSection();
+  });
+
+  window.addEventListener("admin:rota-mobile-open", () => {
+    if (sectionReady) renderAll();
+    else bootRotaSection();
+  });
+
+  window.addEventListener("admin:deferred-ready", () => {
+    if (document.body.dataset.mobileTab === "rota" || /#rota/i.test(window.location.hash)) {
+      bootRotaSection();
     }
-    refreshRotaSection();
+  });
+
+  window.addEventListener("admin:portal-native-retry", () => {
+    if (document.body.dataset.mobileTab === "rota" || /#rota/i.test(window.location.hash)) {
+      bootRotaSection();
+    }
   });
 
   if (parseHashBaseSection(window.location.hash) === "rota") {
-    if (!sectionReady) {
-      sectionReady = true;
-      initSection();
-    }
+    bootRotaSection();
   }
 })();

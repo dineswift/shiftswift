@@ -752,6 +752,20 @@
 
   window.refreshSponsorComplianceOverview = refreshSponsorOverview;
 
+  window.addEventListener("admin:deferred-ready", () => {
+    if (
+      document.body.dataset.mobileTab === "compliance" ||
+      /#compliance/i.test(window.location.hash)
+    ) {
+      if (!complianceReady) {
+        complianceReady = true;
+        initComplianceTools();
+        return;
+      }
+      refreshSponsorOverview();
+    }
+  });
+
   window.addEventListener("admin:compliance-refresh", () => {
     refreshSponsorOverview();
   });
