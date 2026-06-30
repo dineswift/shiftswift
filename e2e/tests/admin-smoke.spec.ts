@@ -11,23 +11,53 @@ async function dismissCookieBanner(page: import("@playwright/test").Page) {
   }
 }
 
-async function seedHrSession(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext) {
-  const res = await request.post(`${API_BASE}/auth/business-login`, {
-    headers: { "Content-Type": "application/json" },
-    data: { username: HR_USER, password: HR_PASSWORD },
-  });
-  expect(res.ok(), `HR login API failed (${res.status()}) — check dev seed / credentials`).toBeTruthy();
-  const data = await res.json();
-  await page.goto("/admin.html");
-  await page.evaluate((session) => {
-    if (session.access_token) localStorage.setItem("token", session.access_token);
-    if (session.refresh_token) localStorage.setItem("refreshToken", session.refresh_token);
-    if (session.role) localStorage.setItem("userRole", session.role);
-    if (session.tenant_id != null) {
-      localStorage.setItem("tenantId", String(session.tenant_id));
-      localStorage.setItem("masterTenantId", String(session.tenant_id));
+async function applyLocalApi(page: import("@playwright/test").Page) {
+  await page.evaluate((apiUrl) => {
+    if (window.ShiftSwiftBrand?.urls && apiUrl) {
+      window.ShiftSwiftBrand.urls.localApi = apiUrl;
     }
-  }, data);
+    localStorage.removeItem("apiBaseUrl");
+    const passkey = document.getElementById("login-use-passkey");
+    if (passkey instanceof HTMLInputElement) passkey.checked = false;
+  }, API_BASE);
+}
+
+async function storeSession(page: import("@playwright/test").Page, session: Record<string, unknown>) {
+  await page.evaluate((data) => {
+    if (data.access_token) localStorage.setItem("token", String(data.access_token));
+    if (data.refresh_token) localStorage.setItem("refreshToken", String(data.refresh_token));
+    if (data.role) localStorage.setItem("userRole", String(data.role));
+    if (data.tenant_id != null) {
+      localStorage.setItem("tenantId", String(data.tenant_id));
+      localStorage.setItem("masterTenantId", String(data.tenant_id));
+    }
+  }, session);
+}
+
+async function loginViaApi(request: import("@playwright/test").APIRequestContext) {
+  const endpoints = ["/auth/unified-login", "/auth/business-login"];
+  let lastStatus = 0;
+  let lastBody = "";
+
+  for (const endpoint of endpoints) {
+    const res = await request.post(`${API_BASE}${endpoint}`, {
+      headers: { "Content-Type": "application/json" },
+      data: { username: HR_USER, password: HR_PASSWORD },
+    });
+    lastStatus = res.status();
+    lastBody = await res.text();
+    if (!res.ok()) continue;
+    const data = JSON.parse(lastBody) as Record<string, unknown>;
+    if (data.access_token) return data;
+  }
+
+  throw new Error(`HR login API failed (${lastStatus}) — ${lastBody || "check dev seed / credentials"}`);
+}
+
+async function seedHrSession(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext) {
+  const data = await loginViaApi(request);
+  await page.goto("/admin.html");
+  await storeSession(page, data);
   await page.reload();
   await dismissCookieBanner(page);
 }
@@ -47,18 +77,16 @@ test.beforeAll(async ({ request }) => {
   throw new Error(`API not reachable at ${API_BASE}/health — ${lastError}`);
 });
 
-async function prepareLoginPage(page: import("@playwright/test").Page) {
-  await page.goto("/business-login.html");
-  await page.evaluate((apiUrl) => {
-    if (window.ShiftSwiftBrand?.urls && apiUrl) {
-      window.ShiftSwiftBrand.urls.localApi = apiUrl;
-    }
-  }, API_BASE);
+async function prepareSignInPage(page: import("@playwright/test").Page) {
+  await page.goto("/sign-in.html");
+  await page.waitForURL(/sign-in\.html/, { timeout: 15_000 });
+  await page.waitForSelector("#portal-login-form", { state: "visible" });
+  await applyLocalApi(page);
 }
 
 test.describe("HR admin smoke", () => {
-  test("business login form reaches admin overview", async ({ page }) => {
-    await prepareLoginPage(page);
+  test("unified sign-in reaches admin overview", async ({ page }) => {
+    await prepareSignInPage(page);
     await dismissCookieBanner(page);
     await page.locator('input[name="username"]').fill(HR_USER);
     await page.locator('input[name="password"]').fill(HR_PASSWORD);

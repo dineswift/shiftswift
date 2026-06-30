@@ -14,7 +14,10 @@ set -a
 if [ -n "${CI_E2E:-}" ]; then
   export APP_ENV="${APP_ENV:-development}"
   export USE_DB="${USE_DB:-0}"
+  export DATABASE_URL=""
   export JWT_SECRET="${JWT_SECRET:-ci-e2e-jwt-secret-not-for-production}"
+  export DEV_TENANT_USERNAME="${DEV_TENANT_USERNAME:-hr@shiftswifthr.co.uk}"
+  export DEV_TENANT_PASSWORD="${DEV_TENANT_PASSWORD:-ShiftswiftHR-Tenant-2026}"
   FRONTEND_PORT="${FRONTEND_PORT:-5173}"
   export CORS_ALLOW_ORIGINS="${CORS_ALLOW_ORIGINS:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"
   export TRUSTED_HOSTS="${TRUSTED_HOSTS:-localhost,127.0.0.1}"

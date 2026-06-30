@@ -21,8 +21,17 @@ export default defineConfig({
     : {
         command: "bash scripts/start_local.sh",
         cwd: "..",
-        url: `${baseURL}/business-login.html`,
+        url: `${baseURL}/sign-in.html`,
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
+        env: {
+          ...process.env,
+          CI_E2E: "1",
+          USE_DB: "0",
+          APP_ENV: "development",
+          DATABASE_URL: "",
+          DEV_TENANT_USERNAME: process.env.E2E_HR_USER || "hr@shiftswifthr.co.uk",
+          DEV_TENANT_PASSWORD: process.env.E2E_HR_PASSWORD || "ShiftswiftHR-Tenant-2026",
+        },
       },
 });
