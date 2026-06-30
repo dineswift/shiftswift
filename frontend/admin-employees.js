@@ -2106,6 +2106,27 @@
     if (fileInput) fileInput.value = "";
   }
 
+  function renderEmployeeDocumentActions(row) {
+    const canSign =
+      row.has_file &&
+      row.category !== "payslip" &&
+      row.signing_status !== "signed";
+    const parts = [];
+    if (row.has_file) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
+    }
+    if (canSign) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-send-sign-doc="${row.id}">E-sign</button>`);
+    }
+    if (row.document_url) {
+      parts.push(
+        `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`,
+      );
+    }
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}">Remove</button>`);
+    return `<div class="table-actions">${parts.join("")}</div>`;
+  }
+
   async function refreshEmployeeDocumentStoreList(container) {
     if (!container || !activeEmployeeId) return;
     const res = await apiFetch(`/admin/employees/${activeEmployeeId}/workspace`);
@@ -2139,18 +2160,7 @@
         },
         {
           key: "actions",
-          render: (row) => {
-            const canSign =
-              row.has_file &&
-              row.category !== "payslip" &&
-              row.signing_status !== "signed";
-            return `<div class="table-actions">
-              ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
-              ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
-              ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
-              <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
-            </div>`;
-          },
+          render: (row) => renderEmployeeDocumentActions(row),
         },
       ],
       rows: data.documents || [],
@@ -2312,7 +2322,7 @@
       <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th></th></tr></thead>
+          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th>Actions</th></tr></thead>
           <tbody id="employee-documents-body"></tbody>
         </table>
       </div>`;
@@ -2378,18 +2388,7 @@
         },
         {
           key: "actions",
-          render: (row) => {
-            const canSign =
-              row.has_file &&
-              row.category !== "payslip" &&
-              row.signing_status !== "signed";
-            return `<div class="table-actions">
-              ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
-              ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
-              ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
-              <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
-            </div>`;
-          },
+          render: (row) => renderEmployeeDocumentActions(row),
         },
       ],
       rows: docs,

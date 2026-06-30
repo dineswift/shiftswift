@@ -109,12 +109,12 @@
     const actions = [];
     if (row.has_file) {
       actions.push(
-        `<button type="button" class="btn ghost" data-download-doc="${escapeHtml(row.id)}" data-download-scope="${escapeHtml(row.scope || "employee")}">Download</button>`
+        `<button type="button" class="btn ghost btn-sm" data-download-doc="${escapeHtml(row.id)}" data-download-scope="${escapeHtml(row.scope || "employee")}">Download</button>`
       );
     }
     if (row.document_url) {
       actions.push(
-        `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
+        `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`
       );
     }
     return actions.join(" ");

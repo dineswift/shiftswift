@@ -5166,8 +5166,7 @@ html.pwa-standalone .mobile-tab-bar {
     flex-wrap: wrap;
   }
   .link-row,
-  .employees-register-actions,
-  .table-actions {
+  .employees-register-actions {
     flex-wrap: wrap;
   }
   body:has(#mobile-tab-bar) .admin-section,
@@ -8149,22 +8148,22 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .settings-doc-strip__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
   align-items: center;
 }
 
 .settings-doc-strip__actions .table-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 4px;
 }
 
 .settings-doc-strip__actions .btn {
-  min-height: 34px;
-  padding: 5px 10px;
-  font-size: 0.8rem;
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 0.75rem;
 }
 
 @media (max-width: 720px) {
@@ -10069,9 +10068,43 @@ body.admin-mobile-detail .sshr-action-toast-host {
 }
 
 .table-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: nowrap;
+  vertical-align: middle;
+  max-width: 100%;
+}
+
+.table-actions .btn,
+.table-actions a.btn {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.data-table tbody td:has(> .table-actions),
+.data-table tbody td:last-child:has(.table-actions) {
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: middle;
+  text-align: right;
+}
+
+.data-table thead th:last-child {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.hr-workspace .data-table tbody td:has(> .table-actions),
+.hr-table-wrap .data-table tbody td:has(> .table-actions) {
+  vertical-align: middle;
 }
 
 .signing-link-box { margin-top: 8px; }
@@ -16526,10 +16559,18 @@ body.rota-week-readonly .rota-builder-hint {
 .employee-record-doc-item__actions {
   grid-column: 2;
   grid-row: 1 / span 2;
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.employee-record-doc-item__actions .btn {
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .employee-record-doc-empty {

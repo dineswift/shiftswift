@@ -367,9 +367,9 @@
     host.innerHTML = rows
       .map((row) => {
         const fileAction = row.has_file
-          ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
+          ? `<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
           : row.document_url
-            ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
+            ? `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`
             : "";
         return `<article class="settings-doc-strip">
           <div class="settings-doc-strip__main">
@@ -655,8 +655,8 @@
 
   function documentActionsMarkup(row) {
     return `<div class="table-actions">
-      <button type="button" class="btn ghost" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
-      <button type="button" class="btn ghost" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
+      <button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
+      <button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
     </div>`;
   }
 

@@ -590,8 +590,8 @@
             key: "actions",
             render: (r) =>
               `<div class="table-actions">
-                <button type="button" class="btn ghost" data-ack="${r.id}">Acknowledge</button>
-                <button type="button" class="btn ghost" data-report="${r.id}">Mark reported</button>
+                <button type="button" class="btn ghost btn-sm" data-ack="${r.id}">Acknowledge</button>
+                <button type="button" class="btn ghost btn-sm" data-report="${r.id}">Reported</button>
               </div>`,
           },
         ],
