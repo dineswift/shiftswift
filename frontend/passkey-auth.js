@@ -291,33 +291,60 @@
     return true;
   }
 
+  async function refreshPasskeyButton(email) {
+    const button = document.getElementById("login-passkey-btn");
+    if (!button || !canUsePasskeys()) {
+      if (button) button.hidden = true;
+      return;
+    }
+    const normalized = normalizeEmail(email) || lastLoginEmail();
+    if (!normalized) {
+      button.hidden = true;
+      return;
+    }
+    button.hidden = !(await hasPasskeys(normalized));
+  }
+
   function bindPasskeyUi() {
     const wrap = document.getElementById("login-passkey-wrap");
     const checkbox = document.getElementById("login-use-passkey");
     const button = document.getElementById("login-passkey-btn");
+    const emailInput = document.getElementById("login-email");
     const supported = canUsePasskeys();
     if (wrap) wrap.hidden = !supported;
     if (button) {
-      button.hidden = !supported;
+      button.hidden = true;
       button.addEventListener("click", async () => {
-        const email = normalizeEmail(document.getElementById("login-email")?.value || lastLoginEmail());
+        const email = normalizeEmail(emailInput?.value || lastLoginEmail());
         if (!email) {
           document.getElementById("login-status").textContent = "Enter your work email first.";
           return;
         }
         button.disabled = true;
+        const status = document.getElementById("login-status");
         try {
-          const ok = await tryAutoLogin(email);
-          if (!ok) {
-            const status = document.getElementById("login-status");
+          if (!(await hasPasskeys(email))) {
             if (status) {
               status.hidden = false;
               status.textContent =
-                "Face ID sign-in is not set up yet. Sign in with your password once, keep “Use Face ID next time” checked, or use Face ID when two-factor is requested.";
+                "Face ID is not set up on this account yet. Sign in with your password once — keep “Use Face ID next time” checked to register this device.";
             }
+            return;
+          }
+          if (status) {
+            status.hidden = true;
+            status.textContent = "";
+          }
+          const data = await loginWithPasskey(email, { silent: false });
+          if (data?.access_token) {
+            await finishPasskeyLogin(data, email);
+            return;
+          }
+          if (status) {
+            status.hidden = false;
+            status.textContent = "Face ID sign-in was cancelled.";
           }
         } catch (error) {
-          const status = document.getElementById("login-status");
           if (status) {
             status.hidden = false;
             status.textContent = error instanceof Error ? error.message : "Face ID sign-in failed";
@@ -342,6 +369,16 @@
         /* ignore */
       }
     }
+    let refreshTimer = null;
+    const schedulePasskeyButtonRefresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        void refreshPasskeyButton(emailInput?.value);
+      }, 280);
+    };
+    emailInput?.addEventListener("input", schedulePasskeyButtonRefresh);
+    emailInput?.addEventListener("blur", schedulePasskeyButtonRefresh);
+    void refreshPasskeyButton(emailInput?.value || lastLoginEmail());
   }
 
   window.ShiftSwiftPasskeyAuth = {
@@ -355,6 +392,7 @@
     verifyMfaWithPasskey,
     enrollMfaWithPasskey,
     tryAutoLogin,
+    refreshPasskeyButton,
     bindPasskeyUi,
   };
 })();
