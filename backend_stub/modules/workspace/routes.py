@@ -12,7 +12,12 @@ from auth_service import AuthUser
 from config import load_settings
 from core.permissions import check_permission
 from deps import client_ip, get_hr_user, require_tenant_subscription, resolve_tenant_id
-from modules.workspace.service import invite_workspace_user, list_workspace_users, update_workspace_user
+from modules.workspace.service import (
+    invite_workspace_user,
+    list_workspace_users,
+    sync_workspace_users_from_logins,
+    update_workspace_user,
+)
 from rbac import WORKSPACE_ROLE_LABELS, WORKSPACE_ROLES, effective_role, has_permission
 
 router = APIRouter(prefix="/admin/workspace", tags=["Workspace users"])
@@ -50,9 +55,13 @@ def get_workspace_users(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
+        sync_workspace_users_from_logins(tenant_id=tenant_id, conn=conn)
         users = list_workspace_users(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
+    can_manage = has_permission(effective_role(current_user), "workspace.users.manage")
+    if not can_manage and current_user.role == "admin" and not current_user.workspace_role:
+        can_manage = True
     return {
         "users": users,
         "roles": [
@@ -62,10 +71,7 @@ def get_workspace_users(
         ],
         "current_user": current_user.username,
         "current_workspace_role": current_user.workspace_role or "hr_manager",
-        "can_manage_users": has_permission(
-            effective_role(current_user),
-            "workspace.users.manage",
-        ),
+        "can_manage_users": can_manage,
     }
 
 

@@ -89,6 +89,7 @@ PERMISSIONS: dict[str, set[str]] = {
         "billing.read",
         "billing.write",
         "audit.read",
+        "workspace.users.manage",
     },
 }
 

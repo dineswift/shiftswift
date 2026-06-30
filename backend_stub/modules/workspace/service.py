@@ -26,6 +26,62 @@ def ensure_workspace_owner(*, conn: Any, tenant_id: int, username: str) -> None:
         )
 
 
+def sync_workspace_users_from_logins(*, tenant_id: int, conn: Any) -> int:
+    """Backfill tenant_users from active HR app_users (e.g. before migration 095 or missed backfill)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 FROM tenant_users
+            WHERE tenant_id = %s AND role = 'owner' AND is_active = TRUE
+            LIMIT 1
+            """,
+            (tenant_id,),
+        )
+        has_owner = cur.fetchone() is not None
+
+        cur.execute(
+            """
+            SELECT u.username
+            FROM app_users u
+            WHERE u.tenant_id = %s
+              AND u.role = 'hr'
+              AND COALESCE(u.login_portal, 'business') = 'business'
+              AND u.is_active = TRUE
+            ORDER BY u.created_at ASC, lower(u.username)
+            """,
+            (tenant_id,),
+        )
+        hr_logins = [str(row[0]) for row in cur.fetchall()]
+
+        inserted = 0
+        for username in hr_logins:
+            cur.execute(
+                """
+                SELECT 1 FROM tenant_users
+                WHERE tenant_id = %s AND lower(username) = lower(%s)
+                LIMIT 1
+                """,
+                (tenant_id, username),
+            )
+            if cur.fetchone():
+                continue
+            role = "owner" if not has_owner else "hr_manager"
+            if role == "owner":
+                has_owner = True
+            cur.execute(
+                """
+                INSERT INTO tenant_users (tenant_id, username, role, is_active)
+                VALUES (%s, %s, %s, TRUE)
+                """,
+                (tenant_id, username, role),
+            )
+            inserted += 1
+
+    if inserted:
+        conn.commit()
+    return inserted
+
+
 def list_workspace_users(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(
