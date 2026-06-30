@@ -72,9 +72,6 @@
   function finishStartup(enabled) {
     syncClockAvailability(enabled);
     const hashSection = window.location.hash.replace("#", "").split("/")[0];
-    if (hashSection === "time-punch" && !clockEnabled) {
-      window.location.hash = "overview";
-    }
     if (startupResolved) return;
     startupResolved = true;
     document.body.classList.remove("portal-startup-pending");

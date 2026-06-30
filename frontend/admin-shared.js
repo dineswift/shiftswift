@@ -941,7 +941,6 @@ window.Admin = (() => {
     if (baseSection === "payroll" || baseSection === "export") return "overview";
     if (baseSection === "overview-actions") return "overview";
     if (baseSection.startsWith("compliance")) return "compliance";
-    if (baseSection === "time-punch" && !tenantFeatures.time_clock_enabled) return "overview";
     if (baseSection === "promotions" && !isPlatformAdmin()) return "overview";
     const sectionEl = document.getElementById(baseSection);
     const feature = sectionEl?.dataset?.feature;
@@ -1415,16 +1414,18 @@ window.Admin = (() => {
           if (feature) showAdminToast(featureUpgradeMessage(feature));
           return;
         }
-        const target = link.dataset.section;
-        if (target === "promotions" && !isPlatformAdmin()) {
+        const href = link.getAttribute("href") || "";
+        const hashTarget = (href.startsWith("#") ? href.slice(1) : "") || link.dataset.section || "overview";
+        const targetSection = hashTarget.split("/")[0] || "overview";
+        if (targetSection === "promotions" && !isPlatformAdmin()) {
           window.location.hash = "overview";
           return;
         }
-        const current = parseHashPath(window.location.hash).baseSection;
-        if (current === target) {
+        const current = parseHashPath(window.location.hash).path;
+        if (current === hashTarget) {
           routeFromHash();
         } else {
-          window.location.hash = target;
+          window.location.hash = hashTarget;
         }
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();

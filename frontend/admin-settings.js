@@ -304,7 +304,7 @@
         { key: "rota_published", label: "Published rota", href: "#rota" },
         { key: "accountant_email", label: "Accountant email", href: "#time-punch/accountant" },
       ].filter((step) => {
-        if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
+        if (step.key === "accountant_email" && !clockEnabled) return false;
         return true;
       });
       const done = steps.filter((step) => checklist[step.key]).length;

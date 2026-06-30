@@ -323,7 +323,7 @@
         detail: "Optional auto-send of monthly hours PDF",
       },
     ].filter((step) => {
-      if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
+      if (step.key === "accountant_email" && !clockEnabled) return false;
       return true;
     });
     const visibleSteps = steps;

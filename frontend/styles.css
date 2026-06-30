@@ -1371,38 +1371,35 @@ textarea:focus {
 
 body.admin-portal.admin-clock-disabled .nav-link--clock-stub {
   display: flex !important;
+  align-items: center;
+  gap: 8px;
 }
 
 body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   display: flex !important;
 }
 
-.nav-link--clock-stub .nav-link__label {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  min-width: 0;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: unset;
-  line-height: 1.15;
+.nav-link--clock-stub .nav-link__setup {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--green-800, #2d6a4f);
+  background: rgba(255, 255, 255, 0.92);
 }
 
-.nav-link--clock-stub .nav-link__label-main {
-  font-size: 0.875rem;
-  font-weight: 600;
+.nav-link--clock-stub.active .nav-link__setup {
+  color: var(--green-900, #1b4332);
+  background: rgba(255, 255, 255, 0.95);
 }
 
-.nav-link--clock-stub .nav-link__label-sub {
-  font-size: 0.6875rem;
+.mobile-more-link__setup {
+  font-size: 0.8125rem;
   font-weight: 500;
-  color: #888;
-  line-height: 1.2;
-}
-
-.nav-link--clock-stub.active .nav-link__label-sub {
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 @media (max-width: 860px) {
