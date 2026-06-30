@@ -63,6 +63,10 @@
     if (!items.length) {
       list.innerHTML = "";
       empty.hidden = false;
+      if (!empty.dataset.defaultMessage) {
+        empty.dataset.defaultMessage = empty.textContent || "No notifications yet.";
+      }
+      empty.textContent = empty.dataset.defaultMessage;
       return;
     }
     empty.hidden = true;
@@ -98,6 +102,16 @@
     return data;
   }
 
+  function showFeedError(panel, badgeEl, message) {
+    renderList(panel, []);
+    updateBadge(badgeEl, 0);
+    const empty = panel.querySelector("[data-notifications-empty]");
+    if (empty) {
+      empty.hidden = false;
+      empty.textContent = message || "Could not load notifications.";
+    }
+  }
+
   function bind(config) {
     const { bellBtn, badgeEl, audience } = config;
     if (!bellBtn || bellBtn.dataset.notificationsBound) return;
@@ -113,8 +127,8 @@
       if (!open) {
         try {
           await loadFeed({ ...config, panel, badgeEl });
-        } catch {
-          renderList(panel, []);
+        } catch (error) {
+          showFeedError(panel, badgeEl, error.message || "Could not load notifications.");
         }
       }
     });
@@ -156,9 +170,13 @@
       panel.hidden = true;
     });
 
-    loadFeed({ ...config, panel, badgeEl }).catch(() => null);
+    loadFeed({ ...config, panel, badgeEl }).catch((error) => {
+      showFeedError(panel, badgeEl, error.message);
+    });
     window.setInterval(() => {
-      loadFeed({ ...config, panel, badgeEl }).catch(() => null);
+      loadFeed({ ...config, panel, badgeEl }).catch(() => {
+        updateBadge(badgeEl, 0);
+      });
     }, 60_000);
   }
 

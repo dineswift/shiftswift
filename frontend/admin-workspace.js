@@ -235,17 +235,6 @@
         .toUpperCase();
       avatar.textContent = initials || "HR";
     }
-    const badge = document.getElementById("topbar-alerts-badge");
-    const count = Number(data.open_actions_count) || 0;
-    if (badge && !document.getElementById("topbar-alerts-btn")?.dataset.notificationsBound) {
-      if (count > 0) {
-        badge.hidden = false;
-        badge.textContent = String(count);
-      } else {
-        badge.hidden = true;
-        badge.textContent = "0";
-      }
-    }
   }
 
   function applyNavBadges(badges) {
