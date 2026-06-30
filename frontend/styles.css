@@ -5524,10 +5524,10 @@ body.admin-portal .admin-section > .section-header.employees-page-header {
   align-items: flex-start;
 }
 
-body.admin-portal .card .section-header--compact,
-body.admin-portal .hr-workspace .section-header--compact,
-body.admin-portal .hr-main-pane .section-header--compact,
-body.admin-portal .employee-workspace .section-header--compact {
+body.admin-portal .card .section-header--compact:not(.hr-workspace-header):not(.rtw-workspace-header):not(.absence-workspace-header),
+body.admin-portal .hr-workspace .section-header--compact:not(.hr-workspace-header):not(.rtw-workspace-header):not(.absence-workspace-header),
+body.admin-portal .hr-main-pane .section-header--compact:not(.hr-workspace-header):not(.rtw-workspace-header):not(.absence-workspace-header),
+body.admin-portal .employee-workspace .section-header--compact:not(.hr-workspace-header):not(.rtw-workspace-header):not(.absence-workspace-header) {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -5552,18 +5552,19 @@ body.admin-portal .rtw-workspace-header,
 body.admin-portal .absence-workspace-header,
 body.admin-portal .rota-builder-header,
 body.admin-portal .sponsor-ack-card__header {
-  padding: 14px 16px;
+  padding: 16px 18px 14px;
   gap: 10px 14px;
+  overflow: visible;
 }
 
 body.admin-portal .hr-workspace-header h2,
 body.admin-portal .hr-workspace-header h3,
 body.admin-portal .rtw-workspace-header h3,
 body.admin-portal .absence-workspace-header h3 {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   font-size: 0.98rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 body.admin-portal .hr-workspace-header .muted,
@@ -6408,6 +6409,7 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .rtw-workspace-header h3,
 .absence-workspace-header h3 {
   margin: 0 0 4px;
+  line-height: 1.35;
 }
 
 .hr-workspace-body {
