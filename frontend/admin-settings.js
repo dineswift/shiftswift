@@ -8,9 +8,23 @@
     mountEditForm,
     FORM_SCHEMAS,
     emptyStateHtml,
-    parseApiJson,
-    readApiError,
   } = window.Admin;
+
+  async function readApiFailure(res, fallback) {
+    if (window.Admin?.readApiError) return window.Admin.readApiError(res, fallback);
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string") return data.detail;
+    } catch {
+      /* ignore */
+    }
+    return fallback;
+  }
+
+  async function readApiSuccess(res) {
+    if (window.Admin?.parseApiJson) return window.Admin.parseApiJson(res);
+    return res.json();
+  }
 
   const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "addons"];
   const PANEL_ICONS = {
@@ -1399,8 +1413,8 @@
     host.innerHTML = `<p class="muted">Loading workspace users…</p>`;
     try {
       const res = await apiFetch("/admin/workspace/users");
-      if (!res.ok) throw new Error(await readApiError(res, "Could not load workspace users."));
-      const data = await parseApiJson(res);
+      if (!res.ok) throw new Error(await readApiFailure(res, "Could not load workspace users."));
+      const data = await readApiSuccess(res);
       const users = Array.isArray(data.users) ? data.users : [];
       const roles = Array.isArray(data.roles) ? data.roles : [];
       const canManage = Boolean(data.can_manage_users);
@@ -1501,8 +1515,8 @@
               method: "POST",
               body: JSON.stringify(payload),
             });
-            if (!res.ok) throw new Error(await readApiError(res, "Invite failed"));
-            const result = await parseApiJson(res);
+            if (!res.ok) throw new Error(await readApiFailure(res, "Invite failed"));
+            const result = await readApiSuccess(res);
             if (status) status.textContent = result.message || "Invite sent.";
             inviteDialog?.close();
             form.reset();
@@ -1527,7 +1541,7 @@
                 display_name: payload.display_name || "",
               }),
             });
-            if (!res.ok) throw new Error(await readApiError(res, "Update failed"));
+            if (!res.ok) throw new Error(await readApiFailure(res, "Update failed"));
             editDialog?.close();
             await renderUsersPanel(host);
           } catch (error) {
@@ -1557,7 +1571,7 @@
             method: "PATCH",
             body: JSON.stringify({ is_active: isActive }),
           });
-          if (!res.ok) throw new Error(await readApiError(res, `${label} failed`));
+          if (!res.ok) throw new Error(await readApiFailure(res, `${label} failed`));
           await renderUsersPanel(host);
         };
 
