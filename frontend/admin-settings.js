@@ -1,6 +1,16 @@
 /** Settings workspace — left nav, plan badge, business profile, billing, notifications. */
 (function initAdminSettings() {
-  const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS, emptyStateHtml } = window.Admin;
+  const {
+    apiFetch,
+    escapeHtml,
+    isFeatureEnabled,
+    parseHashPath,
+    mountEditForm,
+    FORM_SCHEMAS,
+    emptyStateHtml,
+    parseApiJson,
+    readApiError,
+  } = window.Admin;
 
   const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "addons"];
   const PANEL_ICONS = {
@@ -1388,7 +1398,9 @@
   async function renderUsersPanel(host) {
     host.innerHTML = `<p class="muted">Loading workspace users…</p>`;
     try {
-      const data = await window.Admin.apiFetch("/admin/workspace/users");
+      const res = await apiFetch("/admin/workspace/users");
+      if (!res.ok) throw new Error(await readApiError(res, "Could not load workspace users."));
+      const data = await parseApiJson(res);
       const users = Array.isArray(data.users) ? data.users : [];
       const roles = Array.isArray(data.roles) ? data.roles : [];
       const canManage = Boolean(data.can_manage_users);
@@ -1485,10 +1497,12 @@
           const payload = Object.fromEntries(new FormData(form));
           if (status) status.textContent = "Sending invite…";
           try {
-            const result = await window.Admin.apiFetch("/admin/workspace/users/invite", {
+            const res = await apiFetch("/admin/workspace/users/invite", {
               method: "POST",
               body: JSON.stringify(payload),
             });
+            if (!res.ok) throw new Error(await readApiError(res, "Invite failed"));
+            const result = await parseApiJson(res);
             if (status) status.textContent = result.message || "Invite sent.";
             inviteDialog?.close();
             form.reset();
@@ -1506,13 +1520,14 @@
           const username = String(payload.username || "");
           if (status) status.textContent = "Saving…";
           try {
-            await window.Admin.apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
+            const res = await apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
               method: "PATCH",
               body: JSON.stringify({
                 role: payload.role,
                 display_name: payload.display_name || "",
               }),
             });
+            if (!res.ok) throw new Error(await readApiError(res, "Update failed"));
             editDialog?.close();
             await renderUsersPanel(host);
           } catch (error) {
@@ -1538,10 +1553,11 @@
         const toggleActive = async (username, isActive) => {
           const label = isActive ? "Reactivate" : "Deactivate";
           if (!window.confirm(`${label} ${username}?`)) return;
-          await window.Admin.apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
+          const res = await apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
             method: "PATCH",
             body: JSON.stringify({ is_active: isActive }),
           });
+          if (!res.ok) throw new Error(await readApiError(res, `${label} failed`));
           await renderUsersPanel(host);
         };
 
