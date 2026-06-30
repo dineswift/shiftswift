@@ -179,6 +179,26 @@ def begin_mfa_setup(*, conn: Any, username: str) -> dict[str, str]:
     }
 
 
+def enable_mfa_with_passkey(*, conn: Any, username: str) -> None:
+    """Mark MFA active when the user enrolled with Face ID / Touch ID (WebAuthn)."""
+    with conn.cursor() as cur:
+        user = fetch_user_mfa(cur, username)
+        if not user:
+            raise LookupError("user not found")
+        cur.execute(
+            """
+            UPDATE app_users
+            SET mfa_enabled = TRUE,
+                mfa_enabled_at = NOW(),
+                totp_secret = NULL,
+                updated_at = NOW()
+            WHERE lower(username) = lower(%s)
+            """,
+            (username,),
+        )
+    conn.commit()
+
+
 def confirm_mfa_setup(*, conn: Any, username: str, code: str) -> None:
     with conn.cursor() as cur:
         user = fetch_user_mfa(cur, username)

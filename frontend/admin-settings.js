@@ -1381,28 +1381,184 @@
 
   function loadUsersPanel() {
     const host = document.getElementById("settings-users-content");
-    if (!host || host.dataset.ready === "true") return;
-    const username = localStorage.getItem("username") || "Admin";
-    const role = localStorage.getItem("userRole") || "hr";
-    const tenantId = window.Admin?.TENANT_ID || localStorage.getItem("tenantId") || "—";
-    const roleLabel = role === "admin" ? "Platform admin" : role === "hr" ? "HR admin" : role;
+    if (!host) return;
+    void renderUsersPanel(host);
+  }
 
-    host.innerHTML = `
-      <p class="muted">People who can sign in to this ShiftSwift HR workspace.</p>
-      <p class="muted">Workspace ID <strong>#${escapeHtml(tenantId)}</strong> · your sign-in email is your HR username.</p>
-      <div class="settings-user-card">
-        <div class="settings-user-card__main">
-          <strong>${escapeHtml(username)}</strong>
-          <span class="settings-user-badge">Owner</span>
+  async function renderUsersPanel(host) {
+    host.innerHTML = `<p class="muted">Loading workspace users…</p>`;
+    try {
+      const data = await window.Admin.apiFetch("/admin/workspace/users");
+      const users = Array.isArray(data.users) ? data.users : [];
+      const roles = Array.isArray(data.roles) ? data.roles : [];
+      const canManage = Boolean(data.can_manage_users);
+      const currentUser = data.current_user || localStorage.getItem("employeeUsername") || "";
+      const tenantId = window.Admin?.TENANT_ID || localStorage.getItem("tenantId") || "—";
+
+      const rows = users
+        .map((user) => {
+          const isYou = user.username === currentUser;
+          const status = user.is_active ? "" : ' <span class="settings-user-badge settings-user-badge--muted">Inactive</span>';
+          const actions =
+            canManage && !isYou
+              ? `<div class="table-actions">
+                  <button type="button" class="btn ghost btn-sm" data-workspace-edit="${escapeHtml(user.username)}">Edit</button>
+                  ${
+                    user.is_active
+                      ? `<button type="button" class="btn ghost btn-sm" data-workspace-deactivate="${escapeHtml(user.username)}">Deactivate</button>`
+                      : `<button type="button" class="btn ghost btn-sm" data-workspace-activate="${escapeHtml(user.username)}">Reactivate</button>`
+                  }
+                </div>`
+              : "";
+          return `<tr>
+            <td><strong>${escapeHtml(user.display_name || user.username)}</strong>${isYou ? ' <span class="muted">(you)</span>' : ""}<br><span class="muted">${escapeHtml(user.username)}</span></td>
+            <td>${escapeHtml(user.role_label || user.role)}${status}</td>
+            <td>${actions}</td>
+          </tr>`;
+        })
+        .join("");
+
+      const roleOptions = roles
+        .map((role) => `<option value="${escapeHtml(role.id)}">${escapeHtml(role.label)}</option>`)
+        .join("");
+
+      host.innerHTML = `
+        <p class="muted">People who sign in to this workspace — separate from employees on the staff portal.</p>
+        <p class="muted">Workspace <strong>#${escapeHtml(tenantId)}</strong></p>
+        <div class="settings-users-table-wrap">
+          <table class="data-table settings-users-table">
+            <thead><tr><th>User</th><th>Role</th><th></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="3" class="muted">No users yet.</td></tr>'}</tbody>
+          </table>
         </div>
-        <span class="muted">${escapeHtml(roleLabel)} · you</span>
-      </div>
-      <div class="settings-form-actions">
-        <a class="btn outline" href="#" data-brand-support-mailto="Invite manager to ShiftSwift HR">Invite manager</a>
-      </div>
-      <p class="muted">Multi-user roles and manager invites are set up by support. Email us to add HR managers or site leads.</p>`;
-    window.ShiftSwiftBrand?.applyBrandDom?.(host);
-    host.dataset.ready = "true";
+        ${
+          canManage
+            ? `<div class="settings-form-actions">
+                <button type="button" class="btn outline" id="workspace-user-invite-open">Invite user</button>
+              </div>
+              <dialog class="settings-dialog" id="workspace-user-invite-dialog">
+                <form method="dialog" class="settings-dialog-form" id="workspace-user-invite-form">
+                  <h3>Invite workspace user</h3>
+                  <p class="muted">Contractors and agents can use <strong>Document manager</strong> for employee files only.</p>
+                  <label class="edit-field">Work email<input type="email" name="email" required autocomplete="email" placeholder="agent@company.co.uk" /></label>
+                  <label class="edit-field">Display name (optional)<input type="text" name="display_name" maxlength="120" placeholder="e.g. Acme Payroll" /></label>
+                  <label class="edit-field">Role
+                    <select name="role" required>${roleOptions}</select>
+                  </label>
+                  <p class="muted" id="workspace-user-invite-status" aria-live="polite"></p>
+                  <div class="settings-form-actions">
+                    <button type="button" class="btn ghost" id="workspace-user-invite-cancel">Cancel</button>
+                    <button type="submit" class="btn">Send invite</button>
+                  </div>
+                </form>
+              </dialog>
+              <dialog class="settings-dialog" id="workspace-user-edit-dialog">
+                <form method="dialog" class="settings-dialog-form" id="workspace-user-edit-form">
+                  <h3>Edit workspace user</h3>
+                  <input type="hidden" name="username" />
+                  <p class="muted" id="workspace-user-edit-email"></p>
+                  <label class="edit-field">Display name<input type="text" name="display_name" maxlength="120" /></label>
+                  <label class="edit-field">Role
+                    <select name="role" required>${roleOptions}</select>
+                  </label>
+                  <p class="muted" id="workspace-user-edit-status" aria-live="polite"></p>
+                  <div class="settings-form-actions">
+                    <button type="button" class="btn ghost" id="workspace-user-edit-cancel">Cancel</button>
+                    <button type="submit" class="btn">Save</button>
+                  </div>
+                </form>
+              </dialog>`
+            : `<p class="muted">Only owners and HR managers can invite or edit workspace users.</p>`
+        }`;
+
+      if (canManage) {
+        const inviteDialog = host.querySelector("#workspace-user-invite-dialog");
+        const editDialog = host.querySelector("#workspace-user-edit-dialog");
+        host.querySelector("#workspace-user-invite-open")?.addEventListener("click", () => inviteDialog?.showModal());
+        host.querySelector("#workspace-user-invite-cancel")?.addEventListener("click", () => inviteDialog?.close());
+        host.querySelector("#workspace-user-edit-cancel")?.addEventListener("click", () => editDialog?.close());
+
+        host.querySelector("#workspace-user-invite-form")?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const status = host.querySelector("#workspace-user-invite-status");
+          const payload = Object.fromEntries(new FormData(form));
+          if (status) status.textContent = "Sending invite…";
+          try {
+            const result = await window.Admin.apiFetch("/admin/workspace/users/invite", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+            if (status) status.textContent = result.message || "Invite sent.";
+            inviteDialog?.close();
+            form.reset();
+            await renderUsersPanel(host);
+          } catch (error) {
+            if (status) status.textContent = error.message || "Invite failed";
+          }
+        });
+
+        host.querySelector("#workspace-user-edit-form")?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const status = host.querySelector("#workspace-user-edit-status");
+          const payload = Object.fromEntries(new FormData(form));
+          const username = String(payload.username || "");
+          if (status) status.textContent = "Saving…";
+          try {
+            await window.Admin.apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                role: payload.role,
+                display_name: payload.display_name || "",
+              }),
+            });
+            editDialog?.close();
+            await renderUsersPanel(host);
+          } catch (error) {
+            if (status) status.textContent = error.message || "Update failed";
+          }
+        });
+
+        host.querySelectorAll("[data-workspace-edit]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const username = button.getAttribute("data-workspace-edit") || "";
+            const user = users.find((item) => item.username === username);
+            if (!user || !editDialog) return;
+            const form = host.querySelector("#workspace-user-edit-form");
+            form.username.value = user.username;
+            form.display_name.value = user.display_name || "";
+            form.role.value = user.role;
+            host.querySelector("#workspace-user-edit-email").textContent = user.username;
+            host.querySelector("#workspace-user-edit-status").textContent = "";
+            editDialog.showModal();
+          });
+        });
+
+        const toggleActive = async (username, isActive) => {
+          const label = isActive ? "Reactivate" : "Deactivate";
+          if (!window.confirm(`${label} ${username}?`)) return;
+          await window.Admin.apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
+            method: "PATCH",
+            body: JSON.stringify({ is_active: isActive }),
+          });
+          await renderUsersPanel(host);
+        };
+
+        host.querySelectorAll("[data-workspace-deactivate]").forEach((button) => {
+          button.addEventListener("click", () => {
+            void toggleActive(button.getAttribute("data-workspace-deactivate") || "", false);
+          });
+        });
+        host.querySelectorAll("[data-workspace-activate]").forEach((button) => {
+          button.addEventListener("click", () => {
+            void toggleActive(button.getAttribute("data-workspace-activate") || "", true);
+          });
+        });
+      }
+    } catch (error) {
+      host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load workspace users.")}</p>`;
+    }
   }
 
   async function loadSecurityPanel() {

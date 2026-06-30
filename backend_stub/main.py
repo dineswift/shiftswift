@@ -25,6 +25,7 @@ from modules.employee_contracts.routes import router as employment_contracts_rou
 from modules.hr_templates.routes import router as hr_templates_router
 from modules.global_documents.routes import router as global_documents_router
 from modules.employees.routes import router as employees_router
+from modules.workspace.routes import router as workspace_router
 from modules.recruitment.routes import router as recruitment_router
 from modules.crm.routes import router as crm_router
 from modules.time_punch.epos_routes import router as epos_integration_router
@@ -139,6 +140,7 @@ app.include_router(time_punch_kiosk_router)
 app.include_router(epos_integration_router)
 app.include_router(employee_portal_router)
 app.include_router(employees_router)
+app.include_router(workspace_router)
 app.include_router(recruitment_router)
 app.include_router(crm_router)
 app.include_router(time_punch_admin_router)

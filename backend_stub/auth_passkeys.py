@@ -65,11 +65,25 @@ def passkey_origins() -> list[str]:
     raw = os.getenv("PASSKEY_ORIGINS", "")
     if raw.strip():
         return [part.strip().rstrip("/") for part in raw.split(",") if part.strip()]
-    app_url = (os.getenv("APP_URL") or "https://app.shiftswifthr.co.uk").rstrip("/")
-    origins = {app_url}
-    if "localhost" not in app_url:
-        origins.add("http://localhost:8080")
-        origins.add("http://127.0.0.1:8080")
+    origins: set[str] = set()
+    for env_name in ("APP_URL", "LOCAL_APP_URL"):
+        value = (os.getenv(env_name) or "").strip().rstrip("/")
+        if value.startswith("http"):
+            origins.add(value)
+    for part in os.getenv("CORS_ALLOW_ORIGINS", "").split(","):
+        value = part.strip().rstrip("/")
+        if value.startswith("http"):
+            origins.add(value)
+    if not origins:
+        origins.add("https://app.shiftswifthr.co.uk")
+    origins.update(
+        {
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+        }
+    )
     return sorted(origins)
 
 

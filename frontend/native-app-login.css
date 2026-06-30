@@ -1,17 +1,24 @@
 /* Unified native app sign-in — ShiftSwift HR */
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap");
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   --native-pine: #0a2219;
   --native-green: #0f6e56;
   --native-verdant: #1d9e75;
   --native-sage: #eaf3de;
-  --native-paper: #f9f8f4;
-  --native-ink: #111111;
-  --native-muted: #5f5e5a;
-  --native-border: #d3d1c7;
+  --native-paper: #f4f3ef;
+  --native-ink: #141413;
+  --native-muted: #6b6a65;
+  --native-border: #dddcd6;
+  --native-field: #f7f6f2;
   --native-white: #ffffff;
-  --native-radius: 24px;
+  --native-radius: 28px;
   --native-font: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
   --native-heading: "Sora", "Manrope", sans-serif;
 }
@@ -23,6 +30,7 @@
   font-family: var(--native-font);
   color: var(--native-ink);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html.native-app body.portal-login-page--unified {
@@ -43,6 +51,8 @@ html.native-app body.portal-login-page--unified {
   background: var(--native-paper);
 }
 
+/* ── Hero ─────────────────────────────────────────────────────────────── */
+
 .native-login-hero {
   position: relative;
   flex: 0 0 auto;
@@ -53,13 +63,13 @@ html.native-app body.portal-login-page--unified {
   text-align: center;
   overflow: hidden;
   padding:
-    max(44px, calc(env(safe-area-inset-top) + 24px))
-    20px
-    32px;
+    max(48px, calc(env(safe-area-inset-top) + 28px))
+    24px
+    40px;
   background:
-    radial-gradient(ellipse 80% 60% at 80% 10%, rgba(29, 158, 117, 0.28), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 10% 90%, rgba(15, 110, 86, 0.35), transparent 55%),
-    linear-gradient(168deg, #071912 0%, var(--native-pine) 28%, var(--native-green) 72%, #0a5c47 100%);
+    radial-gradient(ellipse 90% 70% at 75% 0%, rgba(93, 202, 165, 0.22), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 15% 100%, rgba(15, 110, 86, 0.3), transparent 50%),
+    linear-gradient(165deg, #061410 0%, var(--native-pine) 32%, var(--native-green) 100%);
   color: var(--native-white);
 }
 
@@ -67,39 +77,38 @@ html.native-app body.portal-login-page--unified {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.14;
+  opacity: 0.1;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 85%);
+    linear-gradient(rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.45) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 80%);
   pointer-events: none;
 }
 
 .native-login-hero::after {
   content: "";
   position: absolute;
-  top: -40px;
-  right: -30px;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(93, 202, 165, 0.22), transparent 68%);
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(180deg, transparent, rgba(7, 25, 18, 0.18));
   pointer-events: none;
 }
 
 .native-login-hero__logo-wrap {
   position: relative;
   z-index: 1;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .native-login-hero__logo-wrap::before {
   content: "";
   position: absolute;
-  inset: -12px;
-  border-radius: 28px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
+  inset: -16px;
+  border-radius: 32px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 72%);
   pointer-events: none;
 }
 
@@ -108,16 +117,16 @@ html.native-app body.portal-login-page--unified {
   position: relative;
   z-index: 1;
   display: block;
-  width: 80px;
-  height: 80px;
+  width: 76px;
+  height: 76px;
   flex-shrink: 0;
   aspect-ratio: 1;
   object-fit: contain;
   object-position: center;
   border-radius: 20px;
   box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 255, 255, 0.12);
+    0 20px 40px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .native-login-hero__mark {
@@ -135,37 +144,49 @@ html.native-app body.portal-login-page--unified {
   z-index: 1;
   margin: 0;
   font-family: var(--native-heading);
-  font-size: 1.75rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 
 .native-login-hero__tagline {
   position: relative;
   z-index: 1;
   margin: 10px 0 0;
-  max-width: 300px;
-  font-size: 0.96rem;
+  max-width: 280px;
+  font-size: 0.94rem;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.86);
+  color: rgba(255, 255, 255, 0.8);
   font-weight: 500;
 }
+
+/* ── Sheet (form card) ────────────────────────────────────────────────── */
 
 .portal-login-page--unified .native-login-sheet {
   position: relative;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  margin-top: -18px;
+  margin-top: -24px;
   padding:
-    10px 20px
-    max(24px, calc(env(safe-area-inset-bottom) + 16px));
+    6px 22px
+    max(28px, calc(env(safe-area-inset-bottom) + 20px));
   background: var(--native-white);
   border-radius: var(--native-radius) var(--native-radius) 0 0;
   box-shadow:
-    0 -12px 40px rgba(7, 25, 18, 0.1),
-    0 -1px 0 rgba(255, 255, 255, 0.6) inset;
+    0 -16px 48px rgba(7, 25, 18, 0.08),
+    0 -1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.native-login-sheet::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 24px;
+  border-radius: 999px;
+  background: #d8d6ce;
 }
 
 .portal-login-page--unified #login-shell[hidden],
@@ -195,11 +216,259 @@ html.native-app body.portal-login-page--unified {
   flex-direction: column;
 }
 
+.portal-login-page--unified .portal-login-card {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.portal-login-page--unified .portal-login-role-banner {
+  display: none;
+}
+
+/* ── Form head ────────────────────────────────────────────────────────── */
+
+.portal-login-page--unified .portal-login-card-head {
+  margin-bottom: 26px;
+}
+
+.portal-login-page--unified .portal-login-card-head h1 {
+  margin: 0 0 8px;
+  font-family: var(--native-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--native-pine);
+  letter-spacing: -0.025em;
+}
+
+.portal-login-page--unified .portal-login-card-lead {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--native-muted);
+  font-weight: 500;
+}
+
+.portal-login-page--unified .portal-login-card-body {
+  padding: 0;
+}
+
+/* ── Form fields ──────────────────────────────────────────────────────── */
+
 .portal-login-page--unified .portal-login-form {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
+}
+
+.portal-login-page--unified .portal-login-form > label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 18px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--native-muted);
+}
+
+.portal-login-page--unified .portal-login-password-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-transform: uppercase;
+}
+
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  padding: 14px 16px;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--native-ink);
+  background: var(--native-field);
+  -webkit-appearance: none;
+  appearance: none;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input::placeholder,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input::placeholder {
+  color: #a8a7a0;
+  font-weight: 400;
+}
+
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input:focus,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input:focus {
+  outline: none;
+  background: var(--native-white);
+  border-color: rgba(29, 158, 117, 0.55);
+  box-shadow: 0 0 0 4px rgba(29, 158, 117, 0.12);
+}
+
+.portal-login-page--unified .portal-login-forgot {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--native-green);
+  text-decoration: none;
+}
+
+.portal-login-page--unified .portal-login-forgot:hover {
+  text-decoration: underline;
+}
+
+/* ── Options group ───────────────────────────────────────────────────── */
+
+.native-login-options {
+  display: grid;
+  gap: 0;
+  margin: 4px 0 22px;
+  padding: 4px 0;
+  border-top: 1px solid #eceae4;
+  border-bottom: 1px solid #eceae4;
+}
+
+.unified-login-remember-device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 13px 2px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--native-ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.unified-login-remember-device + .unified-login-remember-device {
+  border-top: 1px solid #f0eeea;
+}
+
+.unified-login-remember-device input[type="checkbox"] {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid #c8c6be;
+  border-radius: 6px;
+  background: var(--native-white);
+  flex-shrink: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  accent-color: transparent;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.unified-login-remember-device input[type="checkbox"]:checked {
+  border-color: var(--native-green);
+  background: var(--native-green);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.unified-login-remember-device input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.unified-login-remember-device input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 158, 117, 0.2);
+}
+
+.portal-login-page--unified.login-step-email .native-login-options {
+  display: none;
+}
+
+/* ── Submit button ────────────────────────────────────────────────────── */
+
+.portal-login-page--unified .portal-login-submit,
+.portal-login-page--unified .btn.portal-login-submit {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 0;
+  border: none;
+  border-radius: 14px;
+  background: var(--native-green);
+  color: var(--native-white);
+  font-family: var(--native-font);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow:
+    0 10px 24px rgba(15, 110, 86, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  transition:
+    background-color 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+}
+
+.portal-login-page--unified .portal-login-submit:hover {
+  background: #0d624c;
+}
+
+.portal-login-page--unified .portal-login-submit:active {
+  transform: translateY(1px);
+  box-shadow: 0 5px 14px rgba(15, 110, 86, 0.22);
+}
+
+/* ── Footer note ──────────────────────────────────────────────────────── */
+
+.portal-login-page--unified .portal-login-secure-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 20px 0 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--native-muted);
+}
+
+.portal-login-page--unified .portal-login-secure-note::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: currentColor;
+  opacity: 0.5;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 1 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 1 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .portal-login-page--unified.login-step-email .portal-login-secure-note {
@@ -207,11 +476,27 @@ html.native-app body.portal-login-page--unified {
   padding-top: 18px;
 }
 
+/* ── Errors & misc ────────────────────────────────────────────────────── */
+
+.portal-login-page--unified .form-error-message {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.portal-login-page--unified .portal-login-brand {
+  display: none;
+}
+
 .unified-login-portal-badge {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   padding: 6px 12px;
   border-radius: 999px;
   background: rgba(15, 110, 86, 0.1);
@@ -232,35 +517,44 @@ html.native-app body.portal-login-page--unified {
   color: var(--native-pine);
 }
 
-.native-login-sheet::before {
-  content: "";
-  display: block;
-  width: 40px;
-  height: 4px;
-  margin: 4px auto 20px;
-  border-radius: 999px;
-  background: var(--native-border);
-  opacity: 0.85;
+.unified-login-account {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--native-sage);
+  color: var(--native-ink);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
-.portal-login-page--unified .portal-login-card {
-  border: none;
-  box-shadow: none;
-  background: transparent;
-  border-radius: 0;
-  overflow: visible;
+.unified-login-account strong {
+  font-weight: 700;
+  word-break: break-all;
 }
 
-.portal-login-page--unified .portal-login-role-banner {
-  display: none;
+.unified-login-back {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--native-green);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
+
+/* ── Password step (compact hero) ───────────────────────────────────── */
 
 .portal-login-page--unified.login-step-password .native-login-hero {
   flex-shrink: 0;
   padding:
-    max(18px, calc(env(safe-area-inset-top) + 10px))
+    max(20px, calc(env(safe-area-inset-top) + 12px))
     24px
-    28px;
+    32px;
 }
 
 .portal-login-page--unified.login-step-password .native-login-hero__logo-wrap {
@@ -269,13 +563,13 @@ html.native-app body.portal-login-page--unified {
 
 .portal-login-page--unified.login-step-password .native-login-hero__logo,
 .portal-login-page--unified.login-step-password .native-login-hero__mark {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: 14px;
 }
 
 .portal-login-page--unified.login-step-password .native-login-hero__title {
-  font-size: 1.35rem;
+  font-size: 1.3rem;
 }
 
 .portal-login-page--unified.login-step-password .native-login-hero__tagline,
@@ -284,11 +578,11 @@ html.native-app body.portal-login-page--unified {
 }
 
 .portal-login-page--unified.login-step-password .native-login-sheet {
-  margin-top: -18px;
+  margin-top: -20px;
 }
 
 .portal-login-page--unified.login-step-password .portal-login-card-head h1 {
-  font-size: 1.35rem;
+  font-size: 1.3rem;
 }
 
 .native-login-roles {
@@ -328,222 +622,10 @@ html.native-app body.portal-login-page--unified {
   background: linear-gradient(145deg, #fafaf8 0%, #f1efe8 100%);
 }
 
-.portal-login-page--unified .portal-login-card-head {
-  margin-bottom: 22px;
-}
-
-.portal-login-page--unified .portal-login-card-head h1 {
-  margin: 0 0 6px;
-  font-family: var(--native-heading);
-  font-size: 1.55rem;
-  font-weight: 700;
-  color: var(--native-pine);
-  letter-spacing: -0.02em;
-}
-
-.portal-login-page--unified .portal-login-card-lead {
-  margin: 0;
-  font-size: 0.93rem;
-  line-height: 1.55;
-  color: var(--native-muted);
-}
-
-.portal-login-page--unified .portal-login-card-body {
-  padding: 0;
-}
-
-.portal-login-page--unified .portal-login-form > label {
-  display: grid;
-  gap: 8px;
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--native-ink);
-}
-
-.portal-login-page--unified .portal-login-password-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input,
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input {
-  width: 100%;
-  min-height: 50px;
-  padding: 13px 15px;
-  border: 1.5px solid var(--native-border);
-  border-radius: 14px;
-  font: inherit;
-  font-size: 1rem;
-  color: var(--native-ink);
-  background: var(--native-white);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input::placeholder,
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input::placeholder {
-  color: #9a9890;
-}
-
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input:focus,
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input:focus {
-  outline: none;
-  border-color: var(--native-verdant);
-  box-shadow: 0 0 0 4px rgba(29, 158, 117, 0.16);
-}
-
-.portal-login-page--unified .portal-login-forgot {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--native-green);
-  text-decoration: none;
-}
-
-.portal-login-page--unified .portal-login-forgot:hover {
-  text-decoration: underline;
-}
-
-.portal-login-page--unified .portal-login-submit,
-.portal-login-page--unified .btn.portal-login-submit {
-  width: 100%;
-  min-height: 52px;
-  margin-top: 2px;
-  border: none;
-  border-radius: 15px;
-  background: linear-gradient(180deg, #22a87f 0%, var(--native-green) 48%, #0b5a45 100%);
-  color: var(--native-white);
-  font-family: var(--native-font);
-  font-size: 1.02rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  box-shadow:
-    0 12px 28px rgba(15, 110, 86, 0.32),
-    0 1px 0 rgba(255, 255, 255, 0.15) inset;
-}
-
-.portal-login-page--unified .portal-login-submit:active {
-  transform: translateY(1px);
-  box-shadow: 0 6px 16px rgba(15, 110, 86, 0.26);
-}
-
-.portal-login-page--unified .portal-login-secure-note {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 6px 0 0;
-  font-size: 0.76rem;
-  color: var(--native-muted);
-}
-
-.portal-login-page--unified .portal-login-secure-note::before {
-  content: "";
-  width: 12px;
-  height: 12px;
-  background: currentColor;
-  opacity: 0.55;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 1 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 1 1 8 0v3'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.portal-login-page--unified .form-error-message {
-  margin: 0;
-  padding: 11px 13px;
-  border-radius: 12px;
-  background: #fef2f2;
-  color: #b42318;
-  font-size: 0.86rem;
-  line-height: 1.4;
-}
-
-.portal-login-page--unified .portal-login-brand {
-  display: none;
-}
-
-.unified-login-remember-device {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.45;
-  color: var(--native-muted);
-}
-
-.unified-login-remember-device input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  min-height: 18px;
-  min-width: 18px;
-  margin: 2px 0 0;
-  padding: 0;
-  border-radius: 5px;
-  flex-shrink: 0;
-  accent-color: var(--native-green);
-}
-
-.portal-login-page--unified.login-step-email .unified-login-remember-device {
-  display: none;
-}
-
-.unified-login-account {
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--native-sage);
-  color: var(--native-ink);
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
-
-.unified-login-account strong {
-  font-weight: 700;
-  word-break: break-all;
-}
-
-.unified-login-back {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--native-green);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 .native-login-role-chip.is-active {
   border-color: var(--native-green);
   background: rgba(15, 110, 86, 0.08);
   box-shadow: inset 0 0 0 1px rgba(15, 110, 86, 0.18);
-}
-
-@media (min-width: 520px) {
-  .portal-login-page--unified .portal-login-shell {
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .portal-login-page--unified .native-login-hero {
-    border-radius: var(--native-radius) var(--native-radius) 0 0;
-    max-width: 420px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .portal-login-page--unified .native-login-sheet {
-    max-width: 420px;
-    width: 100%;
-    margin: -22px auto 0;
-    border-radius: 0 0 var(--native-radius) var(--native-radius);
-    box-shadow: 0 20px 52px rgba(7, 25, 18, 0.14);
-  }
 }
 
 .portal-login-submit--secondary {
@@ -552,4 +634,43 @@ html.native-app body.portal-login-page--unified {
   color: var(--portal-login-accent, #0f6e56);
   border: 1.5px solid currentColor;
   box-shadow: none;
+}
+
+.portal-login-submit--secondary:hover {
+  background: rgba(15, 110, 86, 0.06);
+}
+
+.native-login-mfa-divider {
+  margin: 2px 0 14px;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+/* ── Desktop card layout ──────────────────────────────────────────────── */
+
+@media (min-width: 520px) {
+  .portal-login-page--unified .portal-login-shell {
+    justify-content: center;
+    padding: 32px 24px;
+  }
+
+  .portal-login-page--unified .native-login-hero {
+    border-radius: var(--native-radius) var(--native-radius) 0 0;
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    padding-bottom: 44px;
+  }
+
+  .portal-login-page--unified .native-login-sheet {
+    max-width: 400px;
+    width: 100%;
+    margin: -26px auto 0;
+    border-radius: 0 0 var(--native-radius) var(--native-radius);
+    box-shadow:
+      0 24px 56px rgba(7, 25, 18, 0.12),
+      0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    padding-left: 28px;
+    padding-right: 28px;
+  }
 }

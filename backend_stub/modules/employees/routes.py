@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr, Field
 from auth_service import AuthUser
 from config import load_settings
 from core.database import get_connection
+from core.permissions import check_permission
 from deps import client_ip, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from employee_audit import log_employee_data_event
 from modules.employees.constants import DOCUMENT_SECTIONS, LINK_ONLY_SECTIONS, SECTION_ORDER
@@ -332,6 +333,7 @@ async def upload_employee_document(
     from modules.documents.storage import read_validated_upload, write_document_file
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
     normalized_pay_period = (pay_period or "").strip() or None
     if category == "payslip" and not normalized_pay_period:
@@ -491,6 +493,7 @@ def send_employee_document_for_signature(
     from modules.document_signing.service import send_document_for_signature
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     frontend_base = (payload.frontend_base or str(request.base_url)).rstrip("/")
     if frontend_base.endswith("/admin/employees"):
         frontend_base = frontend_base.rsplit("/admin", 1)[0]
@@ -537,6 +540,7 @@ def add_employee_document(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     conn = get_connection()
     try:
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
@@ -570,6 +574,7 @@ def patch_employee_document(
         updates["pay_period"] = (updates["pay_period"] or "").strip() or None
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     conn = get_connection()
     try:
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
@@ -618,6 +623,7 @@ def remove_employee_document(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, str]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     conn = get_connection()
     try:
         delete_employee_document(

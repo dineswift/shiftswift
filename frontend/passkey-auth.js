@@ -192,9 +192,61 @@
       });
       rememberLastEmail(normalized);
       return data;
-    } catch {
+    } catch (error) {
+      if (!silent) throw error;
       return null;
     }
+  }
+
+  async function verifyMfaWithPasskey(mfaChallengeToken, email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized || !canUsePasskeys() || !mfaChallengeToken) {
+      throw new Error("Face ID is not available on this device");
+    }
+    const begin = await fetchJson("/auth/mfa/passkey/options", {
+      method: "POST",
+      body: { challenge_token: mfaChallengeToken, username: normalized },
+    });
+    const credential = await navigator.credentials.get({
+      publicKey: decodeOptions(begin.options),
+      mediation: "required",
+    });
+    if (!credential) throw new Error("Face ID verification was cancelled");
+    return fetchJson("/auth/mfa/passkey/verify", {
+      method: "POST",
+      body: {
+        challenge_token: mfaChallengeToken,
+        username: normalized,
+        passkey_challenge_token: begin.challenge_token,
+        credential: credentialToJson(credential),
+        remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
+        device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || undefined,
+      },
+    });
+  }
+
+  async function enrollMfaWithPasskey(enrollmentToken) {
+    if (!canUsePasskeys() || !enrollmentToken) {
+      throw new Error("Face ID is not available on this device");
+    }
+    const begin = await fetchJson("/auth/mfa/passkey/enroll/options", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${enrollmentToken}` },
+    });
+    const credential = await navigator.credentials.create({
+      publicKey: decodeOptions(begin.options),
+    });
+    if (!credential) throw new Error("Face ID setup was cancelled");
+    return fetchJson("/auth/mfa/passkey/enroll/verify", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${enrollmentToken}` },
+      body: {
+        challenge_token: begin.challenge_token,
+        credential: credentialToJson(credential),
+        device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || "Face ID / Touch ID",
+        remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
+      },
+    });
   }
 
   async function tryAutoLogin(email) {
@@ -257,8 +309,18 @@
         try {
           const ok = await tryAutoLogin(email);
           if (!ok) {
-            document.getElementById("login-status").textContent =
-              "Face ID sign-in is not available. Use your password or set up Face ID after signing in once.";
+            const status = document.getElementById("login-status");
+            if (status) {
+              status.hidden = false;
+              status.textContent =
+                "Face ID sign-in is not set up yet. Sign in with your password once, keep “Use Face ID next time” checked, or use Face ID when two-factor is requested.";
+            }
+          }
+        } catch (error) {
+          const status = document.getElementById("login-status");
+          if (status) {
+            status.hidden = false;
+            status.textContent = error instanceof Error ? error.message : "Face ID sign-in failed";
           }
         } finally {
           button.disabled = false;
@@ -290,6 +352,8 @@
     hasPasskeys,
     registerPasskey,
     loginWithPasskey,
+    verifyMfaWithPasskey,
+    enrollMfaWithPasskey,
     tryAutoLogin,
     bindPasskeyUi,
   };

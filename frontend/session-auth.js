@@ -340,6 +340,10 @@
       localStorage.setItem("userRole", data.role);
       void persistNativeKey("userRole", data.role);
     }
+    if (data.workspace_role) {
+      localStorage.setItem("workspaceRole", String(data.workspace_role));
+      void persistNativeKey("workspaceRole", String(data.workspace_role));
+    }
     if (data.tenant_id != null) {
       const tid = String(data.tenant_id);
       localStorage.setItem("tenantId", tid);

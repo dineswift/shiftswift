@@ -206,6 +206,7 @@ def _login_response(
 
     mfa_required = False
     mfa_enabled = False
+    passkey_available = False
     if settings.use_db and settings.database_url:
         conn = _db_conn()
         try:
@@ -213,15 +214,18 @@ def _login_response(
                 row = fetch_user_mfa(cur, user.username)
             mfa_enabled = bool(row and row.get("mfa_enabled"))
             mfa_required = mfa_enabled
+            from auth_passkeys import user_has_passkeys
+
+            passkey_available = user_has_passkeys(conn=conn, username=user.username)
         finally:
             conn.close()
 
     enrollment_portal: Literal["master", "business"] = portal
     must_enroll = False
-    if portal == "master" and enforce_master_mfa and not mfa_enabled:
+    if portal == "master" and enforce_master_mfa and not mfa_enabled and not passkey_available:
         must_enroll = True
         enrollment_portal = "master"
-    elif portal == "business" and require_mfa_enrollment and not mfa_enabled:
+    elif portal == "business" and require_mfa_enrollment and not mfa_enabled and not passkey_available:
         must_enroll = True
         enrollment_portal = "business"
 
@@ -253,7 +257,8 @@ def _login_response(
             "tenant_id": tenant_id,
             "role": user.role,
             "expires_in": MFA_ENROLLMENT_MINUTES * 60,
-            "message": "Set up your authenticator app to continue.",
+            "passkey_available": passkey_available,
+            "message": "Secure your account with Face ID / Touch ID or an authenticator app.",
         }
 
     if mfa_required:
@@ -305,7 +310,12 @@ def _login_response(
             "portal": portal,
             "username": user.username,
             "tenant_id": tenant_id,
-            "message": "Enter the 6-digit code from your authenticator app.",
+            "passkey_available": passkey_available,
+            "message": (
+                "Verify with Face ID / Touch ID or enter your authenticator code."
+                if passkey_available
+                else "Enter the 6-digit code from your authenticator app."
+            ),
         }
 
     clear_login_attempts(ip, payload.username)
@@ -882,6 +892,235 @@ class PasskeyLoginVerifyRequest(BaseModel):
     username: str = Field(min_length=3, max_length=254)
     challenge_token: str = Field(min_length=10)
     credential: dict[str, object]
+
+
+class MfaPasskeyOptionsRequest(BaseModel):
+    challenge_token: str = Field(min_length=10)
+    username: str = Field(min_length=3, max_length=254)
+
+
+class MfaPasskeyVerifyRequest(BaseModel):
+    challenge_token: str = Field(min_length=10)
+    username: str = Field(min_length=3, max_length=254)
+    passkey_challenge_token: str = Field(min_length=10)
+    credential: dict[str, object]
+    remember_device: bool = False
+    device_label: str | None = Field(default=None, max_length=120)
+
+
+class MfaPasskeyEnrollVerifyRequest(BaseModel):
+    challenge_token: str = Field(min_length=10)
+    credential: dict[str, object]
+    device_label: str | None = Field(default=None, max_length=120)
+    remember_device: bool = False
+
+
+@router.post("/mfa/passkey/options")
+def mfa_passkey_options(payload: MfaPasskeyOptionsRequest) -> dict[str, object]:
+    """Begin Face ID / Touch ID verification during MFA (after password)."""
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="MFA requires database")
+    try:
+        challenge = decode_mfa_challenge_token(settings, payload.challenge_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    if challenge["sub"].strip().lower() != payload.username.strip().lower():
+        raise HTTPException(status_code=403, detail="Account mismatch")
+
+    from auth_passkeys import authentication_options
+
+    conn = _db_conn()
+    try:
+        return authentication_options(settings, conn=conn, username=challenge["sub"])
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.post("/mfa/passkey/verify")
+def mfa_passkey_verify(request: Request, payload: MfaPasskeyVerifyRequest) -> dict[str, object]:
+    """Complete MFA with Face ID / Touch ID instead of an authenticator code."""
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="MFA requires database")
+
+    ip = client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    try:
+        challenge = decode_mfa_challenge_token(settings, payload.challenge_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    if challenge["sub"].strip().lower() != payload.username.strip().lower():
+        raise HTTPException(status_code=403, detail="Account mismatch")
+
+    from auth_passkeys import complete_authentication
+
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            user = fetch_user_mfa(cur, challenge["sub"])
+        if not user or not user.get("mfa_enabled"):
+            raise HTTPException(status_code=403, detail="MFA is not enabled for this account")
+        if not portal_allows_user(
+            portal=challenge["portal"],
+            role=user["role"],
+            login_portal=user.get("login_portal"),
+        ):
+            raise HTTPException(status_code=403, detail="Portal access denied")
+
+        complete_authentication(
+            settings,
+            conn=conn,
+            username=challenge["sub"],
+            challenge_token=payload.passkey_challenge_token,
+            credential=payload.credential,
+        )
+        conn.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+    clear_login_attempts(ip, challenge["sub"])
+    user_obj = AuthUser(
+        username=challenge["sub"],
+        role=challenge["role"],
+        tenant_id=str(challenge["tenant_id"]),
+    )
+    tokens = create_token_pair(settings, user_obj)
+    log_security_event(
+        settings,
+        event_type="login_success",
+        username=user_obj.username,
+        tenant_id=user_obj.tenant_id,
+        ip_address=ip,
+        user_agent=user_agent,
+        success=True,
+        detail=f"portal={challenge['portal']};mfa=passkey",
+    )
+    response: dict[str, object] = {
+        **tokens.__dict__,
+        "portal": challenge["portal"],
+        "role": user_obj.role,
+        "mfa_required": False,
+    }
+    if payload.remember_device:
+        conn = _db_conn()
+        try:
+            device_token = issue_trusted_device(
+                conn=conn,
+                username=user_obj.username,
+                user_agent=user_agent,
+                ip_address=ip,
+                device_label=payload.device_label,
+            )
+            response["device_token"] = device_token
+            response["device_trust_days"] = MFA_TRUSTED_DEVICE_DAYS
+        finally:
+            conn.close()
+    return response
+
+
+@router.post("/mfa/passkey/enroll/options")
+def mfa_passkey_enroll_options(
+    identity: Annotated[tuple[AuthUser, Literal["session", "enrollment"]], Depends(get_mfa_setup_user)],
+) -> dict[str, object]:
+    """Register Face ID / Touch ID to satisfy mandatory MFA enrollment."""
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="MFA requires database")
+    current_user, mode = identity
+    if mode != "enrollment":
+        raise HTTPException(status_code=400, detail="Passkey MFA enrollment requires an active enrollment session")
+
+    from auth_passkeys import registration_options
+
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            user = fetch_user_mfa(cur, current_user.username)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user.get("mfa_enabled"):
+            raise HTTPException(status_code=400, detail="MFA is already enabled")
+        return registration_options(
+            settings,
+            conn=conn,
+            username=current_user.username,
+            device_label="Face ID / Touch ID",
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/mfa/passkey/enroll/verify")
+def mfa_passkey_enroll_verify(
+    payload: MfaPasskeyEnrollVerifyRequest,
+    request: Request,
+    identity: Annotated[tuple[AuthUser, Literal["session", "enrollment"]], Depends(get_mfa_setup_user)],
+) -> dict[str, object]:
+    """Finish MFA enrollment with Face ID / Touch ID and sign in."""
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="MFA requires database")
+    current_user, mode = identity
+    if mode != "enrollment":
+        raise HTTPException(status_code=400, detail="Passkey MFA enrollment requires an active enrollment session")
+
+    from auth_mfa import enable_mfa_with_passkey
+    from auth_passkeys import complete_registration
+
+    conn = _db_conn()
+    try:
+        complete_registration(
+            settings,
+            conn=conn,
+            username=current_user.username,
+            challenge_token=payload.challenge_token,
+            credential=payload.credential,
+            device_label=payload.device_label or "Face ID / Touch ID",
+        )
+        enable_mfa_with_passkey(conn=conn, username=current_user.username)
+        conn.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+    ip = client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    tokens = create_token_pair(settings, current_user)
+    portal = "master" if current_user.role == "admin" else "business"
+    log_security_event(
+        settings,
+        event_type="business_mfa_enrollment_completed",
+        username=current_user.username,
+        tenant_id=current_user.tenant_id,
+        ip_address=ip,
+        user_agent=user_agent,
+        success=True,
+        detail="passkey",
+    )
+    response: dict[str, object] = {
+        **tokens.__dict__,
+        "portal": portal,
+        "role": current_user.role,
+        "username": current_user.username,
+        "redirect_url": "master.html" if portal == "master" else "admin.html",
+    }
+    if payload.remember_device:
+        conn = _db_conn()
+        try:
+            device_token = issue_trusted_device(
+                conn=conn,
+                username=current_user.username,
+                user_agent=user_agent,
+                ip_address=ip,
+                device_label=payload.device_label,
+            )
+            response["device_token"] = device_token
+            response["device_trust_days"] = MFA_TRUSTED_DEVICE_DAYS
+        finally:
+            conn.close()
+    return response
 
 
 @router.get("/passkey/status")

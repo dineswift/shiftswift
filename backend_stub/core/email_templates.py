@@ -334,6 +334,37 @@ def password_reset_email(*, role_label: str, reset_url: str, reset_hours: int) -
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def workspace_user_invite_email(
+    *,
+    role_label: str,
+    setup_url: str,
+    login_url: str,
+    reset_hours: int,
+) -> EmailContent:
+    subject = f"{APP_NAME} — you have been invited to the HR workspace"
+    text = (
+        f"Hello,\n\n"
+        f"You have been invited to {APP_NAME} as a {role_label}.\n\n"
+        f"Set your password to sign in (link expires in {reset_hours} hours):\n"
+        f"{setup_url}\n\n"
+        f"After setup, sign in at:\n{login_url}\n\n"
+        f"{APP_NAME}\n"
+        f"Reply: {SUPPORT_EMAIL}\n"
+    )
+    html = render_email(
+        preheader=f"You have been invited as {role_label}.",
+        title="Workspace invitation",
+        intro=f"You have been invited to <strong>{APP_NAME}</strong> as a <strong>{role_label}</strong>.",
+        paragraphs=[
+            f"Set your password using the button below. The link expires in {reset_hours} hours.",
+            f"After setup, sign in at {login_url}.",
+        ],
+        cta_url=setup_url,
+        cta_label="Set password and sign in",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def contract_signing_email(
     *,
     signatory_name: str | None,

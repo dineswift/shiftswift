@@ -99,6 +99,7 @@
     if (data.access_token) localStorage.setItem("token", data.access_token);
     if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
     if (data.role) localStorage.setItem("userRole", data.role);
+    if (data.workspace_role) localStorage.setItem("workspaceRole", data.workspace_role);
     if (data.tenant_id) {
       localStorage.setItem("masterTenantId", data.tenant_id);
       localStorage.setItem("tenantId", data.tenant_id);
@@ -333,7 +334,7 @@
     setStatus("");
   }
 
-  function showMfaStep(username) {
+  function showMfaStep(username, passkeyAvailable = false) {
     pendingEmail = username || pendingEmail || normalizeEmail(getEmailInput()?.value);
     const loginShell = document.getElementById("login-shell");
     const mfaPanel = document.getElementById("mfa-panel");
@@ -345,6 +346,20 @@
       mfaPanel.hidden = false;
       const userLabel = mfaPanel.querySelector("[data-mfa-user]");
       if (userLabel) userLabel.textContent = username;
+      const lead = mfaPanel.querySelector(".portal-login-card-lead");
+      if (lead) {
+        lead.textContent = passkeyAvailable
+          ? "Verify with Face ID / Touch ID or enter your authenticator code."
+          : "Enter the 6-digit code from your authenticator app.";
+      }
+      const passkeyBtn = document.getElementById("mfa-passkey-btn");
+      if (passkeyBtn) {
+        passkeyBtn.hidden = !(passkeyAvailable && window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+      }
+      const divider = document.getElementById("mfa-passkey-divider");
+      if (divider) {
+        divider.hidden = !(passkeyAvailable && window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+      }
       mfaPanel.querySelector('input[name="code"]')?.focus();
     }
   }
@@ -410,6 +425,10 @@
     if (userLabel) userLabel.textContent = `Account: ${data.username || "your account"}`;
 
     setEnrollmentStatus("Preparing authenticator…");
+    const passkeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
+    if (passkeyBtn) {
+      passkeyBtn.hidden = !window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.();
+    }
     try {
       const setup = await postJson("/auth/mfa/setup", null, pendingEnrollmentToken);
       const secretEl = document.getElementById("mfa-enrollment-secret");
@@ -449,6 +468,56 @@
           await finishAuthSuccess(data, pendingEmail, redirectForRole(data, pendingRedirect));
         } catch (error) {
           setStatus(error.message || "Verification failed");
+        }
+      });
+    }
+
+    const mfaPasskeyBtn = document.getElementById("mfa-passkey-btn");
+    if (mfaPasskeyBtn && !mfaPasskeyBtn.dataset.boundUnified) {
+      mfaPasskeyBtn.dataset.boundUnified = "1";
+      mfaPasskeyBtn.addEventListener("click", async () => {
+        if (!pendingChallenge) {
+          setStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setStatus("Waiting for Face ID…");
+        mfaPasskeyBtn.disabled = true;
+        try {
+          const data = await window.ShiftSwiftPasskeyAuth.verifyMfaWithPasskey(
+            pendingChallenge,
+            pendingEmail || normalizeEmail(getEmailInput()?.value),
+          );
+          await finishAuthSuccess(data, pendingEmail, redirectForRole(data, pendingRedirect));
+        } catch (error) {
+          setStatus(error.message || "Face ID verification failed");
+        } finally {
+          mfaPasskeyBtn.disabled = false;
+        }
+      });
+    }
+
+    const enrollPasskeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
+    if (enrollPasskeyBtn && !enrollPasskeyBtn.dataset.boundUnified) {
+      enrollPasskeyBtn.dataset.boundUnified = "1";
+      enrollPasskeyBtn.addEventListener("click", async () => {
+        if (!pendingEnrollmentToken) {
+          setEnrollmentStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setEnrollmentStatus("Setting up Face ID…");
+        enrollPasskeyBtn.disabled = true;
+        try {
+          const data = await window.ShiftSwiftPasskeyAuth.enrollMfaWithPasskey(pendingEnrollmentToken);
+          await finishAuthSuccess(
+            data,
+            pendingEmail || data.username || "",
+            portalUrl(data.redirect_url || pendingRedirect),
+          );
+        } catch (error) {
+          setEnrollmentStatus(error.message || "Could not enable Face ID — try the authenticator app instead");
+          enrollPasskeyBtn.disabled = false;
         }
       });
     }
@@ -575,7 +644,7 @@
           pendingChallenge = data.challenge_token;
           pendingEmail = email;
           setStatus("");
-          showMfaStep(data.username || email);
+          showMfaStep(data.username || email, Boolean(data.passkey_available));
           return;
         }
         if (data.mfa_enrollment_required && data.enrollment_token) {
