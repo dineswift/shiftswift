@@ -326,6 +326,51 @@ def save_internal_notes(
     return {"tenant_id": tenant_id, "internal_notes": clean}
 
 
+def update_tenant_workspace(
+    *,
+    conn: Any,
+    tenant_id: int,
+    master_tenant_id: int,
+    business_name: str,
+    trading_name: str | None = None,
+    registered_address: str | None = None,
+) -> dict[str, Any]:
+    row = _get_tenant_row(conn, tenant_id, master_tenant_id)
+    if not row:
+        raise LookupError("Tenant not found")
+    if row[4]:
+        raise ValueError("Cannot edit a deleted tenant")
+
+    clean_name = (business_name or "").strip()
+    if len(clean_name) < 2:
+        raise ValueError("Business name must be at least 2 characters")
+    if len(clean_name) > 200:
+        raise ValueError("Business name must be 200 characters or fewer")
+
+    clean_trading = (trading_name or "").strip()[:200]
+    clean_address = (registered_address or "").strip()[:500]
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE tenants
+            SET name = %s,
+                trading_name = %s,
+                registered_address = %s,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (clean_name, clean_trading or None, clean_address or None, tenant_id),
+        )
+
+    return {
+        "tenant_id": tenant_id,
+        "name": clean_name,
+        "trading_name": clean_trading,
+        "registered_address": clean_address,
+    }
+
+
 def email_tenant_contact(
     *,
     conn: Any,

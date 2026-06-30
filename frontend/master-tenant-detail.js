@@ -238,6 +238,19 @@
           kvRow("Last active", escapeHtml(tenant.last_active?.label || "—")),
         ].join(""),
       ),
+      isDeleted
+        ? ""
+        : detailSection(
+            "Edit workspace",
+            `<form id="detail-workspace-form" class="master-workspace-form">
+              <label class="master-change-plan__field">Business name<input name="business_name" required maxlength="200" value="${escapeHtml(tenant.name || "")}" autocomplete="organization" /></label>
+              <label class="master-change-plan__field">Trading name <span class="muted">(optional)</span><input name="trading_name" maxlength="200" value="${escapeHtml(tenant.trading_name || "")}" autocomplete="organization" /></label>
+              <label class="master-change-plan__field">Registered address<textarea name="registered_address" rows="3" maxlength="500" placeholder="Street, town, postcode">${escapeHtml(tenant.registered_address || "")}</textarea></label>
+              <p class="muted master-workspace-form__hint">Updates the customer workspace profile — same fields they see in HR Settings.</p>
+              <button type="submit" class="master-btn master-btn--ghost">Save workspace</button>
+              <p class="master-inline-status muted" id="detail-workspace-status" aria-live="polite"></p>
+            </form>`,
+          ),
     ].join("");
 
     const billingEmailValue = billingEmail
@@ -690,6 +703,32 @@
         if (statusEl) statusEl.textContent = error.message;
       }
     };
+
+    const workspaceForm = document.getElementById("detail-workspace-form");
+    if (workspaceForm && !isDeleted) {
+      workspaceForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const statusEl = document.getElementById("detail-workspace-status");
+        const fd = new FormData(workspaceForm);
+        const payload = {
+          business_name: String(fd.get("business_name") || "").trim(),
+          trading_name: String(fd.get("trading_name") || "").trim() || null,
+          registered_address: String(fd.get("registered_address") || "").trim() || null,
+        };
+        if (!payload.business_name) {
+          if (statusEl) statusEl.textContent = "Business name is required.";
+          return;
+        }
+        if (statusEl) statusEl.textContent = "Saving…";
+        try {
+          await apiPut(`/master/tenants/${tenant.id}/workspace`, payload);
+          if (statusEl) statusEl.textContent = "Workspace saved.";
+          await refresh();
+        } catch (error) {
+          if (statusEl) statusEl.textContent = error.message || "Could not save workspace.";
+        }
+      });
+    }
   }
 
   global.ShiftSwiftMasterTenantDetail = {

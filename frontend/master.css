@@ -1100,7 +1100,8 @@ body.master-app textarea {
 }
 
 .master-change-plan__field select,
-.master-change-plan__field input {
+.master-change-plan__field input,
+.master-change-plan__field textarea {
   width: 100%;
   border: 1px solid var(--master-border);
   border-radius: 0.55rem;
@@ -1112,6 +1113,11 @@ body.master-app textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.master-workspace-form__hint {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
 }
 
 .master-detail-actions {

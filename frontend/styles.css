@@ -16239,7 +16239,8 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .employee-record-field input,
-.employee-record-field select {
+.employee-record-field select,
+.employee-record-field textarea {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--card-border);
@@ -16388,6 +16389,133 @@ body.rota-week-readonly .rota-builder-hint {
   border: 1.5px solid var(--ink-400);
   border-top: none;
   border-radius: 0 0 8px 8px;
+}
+
+.employee-record-sections {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.employee-record-block {
+  border: 1px solid var(--card-border);
+  border-radius: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  background: #fafbfc;
+}
+
+.employee-record-block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.employee-record-block__head h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.employee-record-block__count {
+  font-size: 0.78rem;
+  color: var(--ink-500);
+}
+
+.employee-record-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem 0.75rem;
+}
+
+.employee-record-grid .employee-record-field--full {
+  grid-column: 1 / -1;
+}
+
+.employee-record-grid textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.employee-record-doc-group + .employee-record-doc-group {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--card-border);
+}
+
+.employee-record-doc-group__title {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.employee-record-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.employee-record-doc-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: #fff;
+  border: 1px solid var(--card-border);
+}
+
+.employee-record-doc-item__title {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.employee-record-doc-item__meta {
+  grid-column: 1;
+  font-size: 0.75rem;
+}
+
+.employee-record-doc-item__actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.employee-record-doc-empty {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.employee-record-doc-upload {
+  margin-top: 0.75rem;
+}
+
+.employee-record-doc-upload summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--green-800);
+}
+
+.employee-record-upload-form {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+
+.employee-record-upload-form .edit-form-actions {
+  margin-top: 0.15rem;
+}
+
+.employee-record-lifecycle-link {
+  margin-top: 0.35rem;
+  text-align: right;
 }
 
 .employee-register-progress {

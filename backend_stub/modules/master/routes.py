@@ -27,6 +27,7 @@ from modules.master.platform_ops import (
     soft_delete_tenant,
     suspend_tenant,
     unsuspend_tenant,
+    update_tenant_workspace,
 )
 from modules.master.tenant_provision import (
     create_tenant_manually,
@@ -92,6 +93,12 @@ class ExtendTrialRequest(BaseModel):
 
 class InternalNotesRequest(BaseModel):
     notes: str = Field(default="", max_length=8000)
+
+
+class UpdateTenantWorkspaceRequest(BaseModel):
+    business_name: str = Field(min_length=2, max_length=200)
+    trading_name: str | None = Field(default=None, max_length=200)
+    registered_address: str | None = Field(default=None, max_length=500)
 
 
 class EmailTenantRequest(BaseModel):
@@ -728,6 +735,46 @@ def master_extend_trial(
             conn=conn,
             target_tenant_id=tenant_id,
             detail={"days": payload.days},
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.put("/tenants/{tenant_id}/workspace")
+def master_update_tenant_workspace(
+    tenant_id: int,
+    payload: UpdateTenantWorkspaceRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    conn = _db_conn()
+    try:
+        try:
+            result = update_tenant_workspace(
+                conn=conn,
+                tenant_id=tenant_id,
+                master_tenant_id=int(settings.master_customer_id),
+                business_name=payload.business_name,
+                trading_name=payload.trading_name,
+                registered_address=payload.registered_address,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Tenant not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _audit(
+            request=request,
+            current_user=current_user,
+            action="UPDATE_TENANT_WORKSPACE",
+            conn=conn,
+            target_tenant_id=tenant_id,
+            detail={
+                "name": result.get("name"),
+                "trading_name": result.get("trading_name"),
+                "registered_address": result.get("registered_address"),
+            },
         )
         conn.commit()
         return result

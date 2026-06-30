@@ -82,6 +82,7 @@ class EmployeeDocumentCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
+    employee_visible: bool | None = None
 
 
 class EmployeeDocumentUpdate(BaseModel):
@@ -315,6 +316,7 @@ async def upload_employee_document(
     notes: str | None = Form(default=None),
     expires_at: date | None = Form(default=None),
     pay_period: str | None = Form(default=None),
+    employee_visible: bool = Form(default=False),
     notify_employee: bool = Form(default=True),
     send_email: bool = Form(default=True),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
@@ -349,6 +351,7 @@ async def upload_employee_document(
                 "expires_at": expires_at,
                 "original_filename": file.filename,
                 "pay_period": normalized_pay_period,
+                "employee_visible": employee_visible,
             },
             uploaded_by=current_user.username,
             conn=conn,
