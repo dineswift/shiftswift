@@ -93,6 +93,8 @@ class EmployeeDocumentUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
+    pay_period: str | None = Field(default=None, max_length=64)
+    employee_visible: bool | None = None
 
 
 class BulkPortalInviteRequest(BaseModel):
@@ -564,12 +566,34 @@ def patch_employee_document(
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if "pay_period" in updates:
+        updates["pay_period"] = (updates["pay_period"] or "").strip() or None
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
             raise HTTPException(status_code=404, detail="employee not found")
+        next_category = updates.get("category")
+        if next_category == "payslip":
+            next_pay_period = updates.get("pay_period")
+            if next_pay_period is None and "pay_period" not in updates:
+                from modules.documents.service import get_employee_document
+
+                existing = get_employee_document(
+                    tenant_id=tenant_id,
+                    employee_id=employee_id,
+                    document_id=document_id,
+                    conn=conn,
+                )
+                if not existing:
+                    raise HTTPException(status_code=404, detail="document not found")
+                next_pay_period = (existing.get("pay_period") or "").strip() or None
+            if not next_pay_period:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Pay period is required when category is payslip (e.g. 2026-04 or April 2026)",
+                )
         return update_employee_document(
             tenant_id=tenant_id,
             employee_id=employee_id,

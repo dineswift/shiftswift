@@ -38,6 +38,24 @@
       .replace(/"/g, "&quot;");
   }
 
+  function ensureNotificationsHost(bellBtn) {
+    if (!bellBtn) return null;
+    const parent = bellBtn.parentElement;
+    if (parent?.classList.contains("topbar-notifications-wrap")) return parent;
+    const wrap = document.createElement("div");
+    wrap.className = "topbar-notifications-wrap";
+    parent?.insertBefore(wrap, bellBtn);
+    wrap.appendChild(bellBtn);
+    return wrap;
+  }
+
+  function setPanelOpen(bellBtn, panel, open) {
+    panel.hidden = !open;
+    bellBtn?.setAttribute("aria-expanded", open ? "true" : "false");
+    bellBtn?.classList.toggle("topbar-icon-btn--active", open);
+    bellBtn?.classList.toggle("employee-topbar-alerts-btn--active", open);
+  }
+
   function ensurePanel(host) {
     let panel = host.querySelector(".portal-notifications-panel");
     if (panel) return panel;
@@ -53,6 +71,7 @@
       <p class="portal-notifications-panel__empty muted" data-notifications-empty hidden>No notifications yet.</p>
     `;
     host.appendChild(panel);
+    panel.hidden = true;
     return panel;
   }
 
@@ -116,15 +135,18 @@
     const { bellBtn, badgeEl, audience } = config;
     if (!bellBtn || bellBtn.dataset.notificationsBound) return;
     bellBtn.dataset.notificationsBound = "1";
-    const host = bellBtn.closest(".topbar-tools, .topbar") || bellBtn.parentElement;
+    const host = ensureNotificationsHost(bellBtn) || bellBtn.closest(".topbar-tools, .topbar") || bellBtn.parentElement;
     const panel = ensurePanel(host);
+    bellBtn.setAttribute("aria-haspopup", "true");
+    bellBtn.setAttribute("aria-expanded", "false");
+    setPanelOpen(bellBtn, panel, false);
 
     bellBtn.addEventListener("click", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const open = !panel.hidden;
-      panel.hidden = open;
-      if (!open) {
+      const opening = panel.hidden;
+      setPanelOpen(bellBtn, panel, opening);
+      if (opening) {
         try {
           await loadFeed({ ...config, panel, badgeEl });
         } catch (error) {
@@ -145,7 +167,7 @@
       const id = itemBtn.getAttribute("data-notification-id");
       const url = itemBtn.getAttribute("data-notification-url");
       await apiFetch(`${config.readPathPrefix}/${id}/read`, { method: "POST" }).catch(() => null);
-      panel.hidden = true;
+      setPanelOpen(bellBtn, panel, false);
       if (url) {
         try {
           const parsed = new URL(url, window.location.href);
@@ -167,7 +189,7 @@
     document.addEventListener("click", (event) => {
       if (panel.hidden) return;
       if (panel.contains(event.target) || bellBtn.contains(event.target)) return;
-      panel.hidden = true;
+      setPanelOpen(bellBtn, panel, false);
     });
 
     loadFeed({ ...config, panel, badgeEl }).catch((error) => {

@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v143" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v148" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=10" />
   </head>
   <body class="admin-portal">
@@ -423,6 +423,24 @@
                   <p class="employee-progress-next" id="employee-progress-next">Next step</p>
                 </div>
               </div>
+              <nav class="employee-workflows-bar" id="employee-advanced-links" hidden aria-label="Related workflows">
+                <p class="employee-workflows-bar__label">Related workflows</p>
+                <div class="employee-workflows-bar__actions" id="employee-advanced-link-row"></div>
+              </nav>
+              <article class="card edit-panel employee-history-panel" id="employee-history-panel" hidden>
+                <div class="employee-history-panel__head">
+                  <div class="employee-history-panel__tabs" role="tablist" aria-label="Employee history">
+                    <button type="button" class="employee-history-tab is-active" data-history-tab="changes" role="tab" aria-selected="true" id="employee-history-tab-changes">Change history</button>
+                    <button type="button" class="employee-history-tab" data-history-tab="leave" role="tab" aria-selected="false" id="employee-history-tab-leave">Leave history</button>
+                  </div>
+                  <button type="button" class="btn ghost btn-sm" id="employee-history-panel-close">Close</button>
+                </div>
+                <p class="muted employee-history-panel__lead" id="employee-history-panel-lead">Previous values are kept when you update contact details, job information, and other profile fields.</p>
+                <div id="employee-leave-history-summary" class="employee-leave-history-summary" hidden></div>
+                <div id="employee-history-panel-body" class="employee-change-history-list">
+                  <p class="muted employee-history-panel__placeholder">Select an employee, then open change or leave history.</p>
+                </div>
+              </article>
               <div class="lifecycle-accordion" id="employee-lifecycle-accordion" aria-label="Employee lifecycle"></div>
               <article class="card edit-panel" id="employee-kiosk-pin-panel" hidden>
                 <h4>Time clock kiosk PIN</h4>
@@ -442,40 +460,6 @@
                     <p class="edit-form-status muted" id="employee-kiosk-pin-save-status" aria-live="polite"></p>
                   </div>
                 </form>
-              </article>
-              <article class="card edit-panel" id="employee-change-history-panel" hidden>
-                <div class="employee-change-history__head">
-                  <div>
-                    <h4>Change history</h4>
-                    <p class="muted employee-section-hint">Previous values are kept when you update contact details, job information, and other profile fields.</p>
-                  </div>
-                  <button type="button" class="btn ghost btn-sm" id="employee-change-history-close">Close</button>
-                </div>
-                <div id="employee-change-history-list" class="employee-change-history-list">
-                  <p class="muted">Loading history…</p>
-                </div>
-              </article>
-              <article class="card edit-panel" id="employee-leave-history-panel" hidden>
-                <div class="employee-change-history__head">
-                  <div>
-                    <h4>Leave history</h4>
-                    <p class="muted employee-section-hint">Holiday and absence requests submitted by this employee, including pending and past decisions.</p>
-                  </div>
-                  <button type="button" class="btn ghost btn-sm" id="employee-leave-history-close">Close</button>
-                </div>
-                <div id="employee-leave-history-summary" class="employee-leave-history-summary" hidden></div>
-                <div id="employee-leave-history-list" class="employee-change-history-list">
-                  <p class="muted">Loading leave history…</p>
-                </div>
-              </article>
-              <article class="card edit-panel" id="employee-advanced-links" hidden>
-                <h4>Related workflows</h4>
-                <p class="link-row" id="employee-advanced-link-row">
-                  <a href="#grievance" class="btn ghost">Grievance cases</a>
-                  <a href="#offboarding" class="btn ghost">Offboarding</a>
-                  <a href="#time-punch" class="btn ghost" data-requires-clock>Time punch</a>
-                  <a href="#rota" class="btn ghost">Rota</a>
-                </p>
               </article>
             </article>
           </div>
@@ -3170,7 +3154,7 @@
     <script src="./admin-pwa.js?v=12"></script>
     <script src="./push-notifications.js?v=6"></script>
     <script src="./admin-push-alerts.js?v=1"></script>
-    <script src="./portal-notifications.js?v=2"></script>
+    <script src="./portal-notifications.js?v=3"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
         window.ShiftSwiftAdminPwa?.registerAdminSw?.();
@@ -3198,8 +3182,8 @@
     <script src="./admin-settings.js?v=35"></script>
     <script src="./admin-workspace.js?v=admin-v28"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-documents.js?v=30"></script>
-    <script src="./admin-employees.js?v=32"></script>
+    <script src="./admin-documents.js?v=31"></script>
+    <script src="./admin-employees.js?v=36"></script>
     <script src="./admin-recruitment.js?v=7"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>

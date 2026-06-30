@@ -1133,18 +1133,57 @@
     </ul>`;
   }
 
-  function hideEmployeeHistoryPanels() {
-    $("employee-change-history-panel")?.setAttribute("hidden", "");
-    $("employee-leave-history-panel")?.setAttribute("hidden", "");
+  const HISTORY_PANEL_LEADS = {
+    changes:
+      "Previous values are kept when you update contact details, job information, and other profile fields.",
+    leave: "Holiday and absence requests submitted by this employee, including pending and past decisions.",
+  };
+
+  function hideEmployeeHistoryPanel() {
+    const panel = $("employee-history-panel");
+    if (panel) panel.hidden = true;
+  }
+
+  function setEmployeeHistoryTab(tab) {
+    const lead = $("employee-history-panel-lead");
+    document.querySelectorAll(".employee-history-tab").forEach((btn) => {
+      const active = btn.dataset.historyTab === tab;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    if (lead) lead.textContent = HISTORY_PANEL_LEADS[tab] || "";
+    const summary = $("employee-leave-history-summary");
+    if (summary && tab !== "leave") {
+      summary.hidden = true;
+      summary.innerHTML = "";
+    }
   }
 
   function bindChangeHistoryPanel() {
-    $("employee-change-history-close")?.addEventListener("click", () => {
-      $("employee-change-history-panel")?.setAttribute("hidden", "");
+    $("employee-history-panel-close")?.addEventListener("click", hideEmployeeHistoryPanel);
+    document.getElementById("employee-history-tab-changes")?.addEventListener("click", () => {
+      if (activeEmployeeId) void showEmployeeHistory("changes", activeEmployeeId);
     });
-    $("employee-leave-history-close")?.addEventListener("click", () => {
-      $("employee-leave-history-panel")?.setAttribute("hidden", "");
+    document.getElementById("employee-history-tab-leave")?.addEventListener("click", () => {
+      if (activeEmployeeId) void showEmployeeHistory("leave", activeEmployeeId);
     });
+  }
+
+  async function showEmployeeHistory(tab, employeeId) {
+    const panel = $("employee-history-panel");
+    const body = $("employee-history-panel-body");
+    if (!panel || !body || !employeeId) return;
+
+    panel.hidden = false;
+    setEmployeeHistoryTab(tab);
+    body.innerHTML = `<p class="muted employee-history-panel__loading">Loading…</p>`;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    if (tab === "leave") {
+      await loadEmployeeLeaveHistory(employeeId, body);
+      return;
+    }
+    await loadEmployeeChangeHistory(employeeId, body);
   }
 
   function formatLeaveDate(iso) {
@@ -1179,14 +1218,8 @@
       </p>`;
   }
 
-  async function loadEmployeeLeaveHistory(employeeId) {
-    const panel = $("employee-leave-history-panel");
-    const list = $("employee-leave-history-list");
-    if (!panel || !list || !employeeId) return;
-
-    hideEmployeeHistoryPanels();
-    panel.hidden = false;
-    list.innerHTML = `<p class="muted">Loading leave history…</p>`;
+  async function loadEmployeeLeaveHistory(employeeId, list = $("employee-history-panel-body")) {
+    if (!list || !employeeId) return;
     renderLeaveHistorySummary(null);
 
     try {
@@ -1234,14 +1267,8 @@
     }
   }
 
-  async function loadEmployeeChangeHistory(employeeId) {
-    const panel = $("employee-change-history-panel");
-    const list = $("employee-change-history-list");
-    if (!panel || !list || !employeeId) return;
-
-    hideEmployeeHistoryPanels();
-    panel.hidden = false;
-    list.innerHTML = `<p class="muted">Loading history…</p>`;
+  async function loadEmployeeChangeHistory(employeeId, list = $("employee-history-panel-body")) {
+    if (!list || !employeeId) return;
 
     try {
       const res = await apiFetch(`/admin/employees/${employeeId}/history`);
@@ -1278,18 +1305,18 @@
     const sponsored = Boolean(employee?.is_sponsored);
     const employeeId = employee?.id || activeEmployeeId;
     host.innerHTML = `
-      <button type="button" class="btn ghost" id="employee-change-history-btn">Change history</button>
-      <button type="button" class="btn ghost" id="employee-leave-history-btn">Leave history</button>
-      ${sponsored ? '<a href="#compliance" class="btn ghost">Sponsor compliance</a>' : ""}
-      <a href="#grievance" class="btn ghost">Grievance cases</a>
-      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
-      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost">Off-boarding workflow</a>
-      <a href="#time-punch" class="btn ghost">Time punch</a>`;
+      <button type="button" class="btn ghost btn-sm" id="employee-change-history-btn">Change history</button>
+      <button type="button" class="btn ghost btn-sm" id="employee-leave-history-btn">Leave history</button>
+      ${sponsored ? '<a href="#compliance" class="btn ghost btn-sm">Sponsor compliance</a>' : ""}
+      <a href="#grievance" class="btn ghost btn-sm">Grievance cases</a>
+      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost btn-sm">Employment contract</a>
+      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost btn-sm">Off-boarding workflow</a>
+      <a href="#time-punch" class="btn ghost btn-sm">Time punch</a>`;
     host.querySelector("#employee-change-history-btn")?.addEventListener("click", () => {
-      if (employeeId) void loadEmployeeChangeHistory(employeeId);
+      if (employeeId) void showEmployeeHistory("changes", employeeId);
     });
     host.querySelector("#employee-leave-history-btn")?.addEventListener("click", () => {
-      if (employeeId) void loadEmployeeLeaveHistory(employeeId);
+      if (employeeId) void showEmployeeHistory("leave", employeeId);
     });
   }
 
@@ -1589,6 +1616,13 @@
     if (fileInput) fileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
     if (hint) hint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
 
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: document.getElementById("employees-side-doc-dropzone"),
+      fileInput,
+      filenameEl: document.getElementById("employees-side-doc-filename"),
+      cameraInput: document.getElementById("employees-side-doc-camera"),
+    });
+
     if (categorySelect) {
       const categories = window.Admin.formOptions?.employee_document_categories || [];
       categorySelect.innerHTML = categories
@@ -1633,6 +1667,11 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         form.reset();
+        const filenameEl = document.getElementById("employees-side-doc-filename");
+        if (filenameEl) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        }
         if (categorySelect) categorySelect.dispatchEvent(new Event("change"));
         await refreshEmployeeRecordDocuments(employeeId);
         if (statusEl) statusEl.textContent = "Document uploaded.";
@@ -1723,13 +1762,18 @@
           <summary>Upload document</summary>
           <form id="employees-side-doc-upload" class="employee-record-upload-form" enctype="multipart/form-data">
             <label class="employee-record-field employee-record-field--full">
-              <span class="employee-record-field__label">Title</span>
-              <input type="text" name="title" required placeholder="e.g. Signed contract" />
+              <span class="employee-record-field__label">File</span>
+              <div class="doc-upload-dropzone doc-upload-dropzone--compact employee-record-upload-dropzone" id="employees-side-doc-dropzone">
+                <input type="file" name="file" id="employees-side-doc-file" required hidden />
+                <input type="file" id="employees-side-doc-camera" accept="image/*" capture="environment" hidden />
+                <p class="doc-upload-dropzone__lead">Drop file here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">photo</button></p>
+                <p class="doc-upload-dropzone__hint muted" id="employees-side-doc-upload-hint">${escapeHtml(DEFAULT_DOCUMENT_UPLOAD.hint)}</p>
+                <p class="doc-upload-filename" id="employees-side-doc-filename" hidden></p>
+              </div>
             </label>
             <label class="employee-record-field employee-record-field--full">
-              <span class="employee-record-field__label">File</span>
-              <input type="file" name="file" id="employees-side-doc-file" required />
-              <span class="muted edit-hint" id="employees-side-doc-upload-hint">${escapeHtml(DEFAULT_DOCUMENT_UPLOAD.hint)}</span>
+              <span class="employee-record-field__label">Title</span>
+              <input type="text" name="title" required placeholder="e.g. Signed contract" />
             </label>
             <label class="employee-record-field">
               <span class="employee-record-field__label">Category</span>
@@ -1739,7 +1783,7 @@
               <span class="employee-record-field__label">Pay period</span>
               <input type="text" name="pay_period" id="employees-side-doc-pay-period" placeholder="e.g. 2026-04" />
             </label>
-            <label class="ss-check-row employee-record-field--full">
+            <label class="ss-check-row ss-check-row--compact employee-record-field--full">
               <input class="ss-check-row__input" type="checkbox" id="employees-side-doc-share" name="employee_visible" value="true" />
               <span class="ss-check-row__box" aria-hidden="true"></span>
               <span class="ss-check-row__content">
@@ -1747,8 +1791,8 @@
                 <span class="ss-check-row__hint muted">HR confidential if unchecked — contracts, RTW, disciplinary records, etc.</span>
               </span>
             </label>
-            <div class="edit-form-actions">
-              <button type="submit" class="btn outline btn-sm">Upload</button>
+            <div class="edit-form-actions employee-record-field--full">
+              <button type="submit" class="btn btn-sm">Upload</button>
             </div>
           </form>
         </details>
@@ -2104,6 +2148,129 @@
     if (title) title.value = "";
     const fileInput = form.querySelector("#employee-document-upload-file");
     if (fileInput) fileInput.value = "";
+    const filenameEl = form.querySelector("#employee-document-upload-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function renderEmployeeDocumentCategoryOptions(selected = "") {
+    const categories = window.Admin.formOptions?.employee_document_categories || [];
+    return categories
+      .map(
+        (item) =>
+          `<option value="${escapeHtml(item.value)}"${item.value === selected ? " selected" : ""}>${escapeHtml(item.label)}</option>`,
+      )
+      .join("");
+  }
+
+  function closeEmployeeDocumentEditPanel(container) {
+    const panel = container?.querySelector("#employee-document-edit-panel");
+    if (panel) panel.hidden = true;
+  }
+
+  function syncEmployeeDocumentEditPayPeriod(form) {
+    const categorySelect = form?.querySelector("#employee-document-edit-category");
+    const payPeriodField = form?.querySelector("#employee-document-edit-pay-period-field");
+    const payPeriodInput = form?.querySelector("#employee-document-edit-pay-period");
+    const isPayslip = categorySelect?.value === "payslip";
+    if (payPeriodField) payPeriodField.hidden = !isPayslip;
+    if (payPeriodInput) payPeriodInput.required = isPayslip;
+  }
+
+  function openEmployeeDocumentEditPanel(row, container) {
+    if (!row || !container) return;
+    const panel = container.querySelector("#employee-document-edit-panel");
+    const form = container.querySelector("#employee-document-edit-form");
+    if (!panel || !form) return;
+
+    const categorySelect = form.querySelector("#employee-document-edit-category");
+    if (categorySelect) {
+      categorySelect.innerHTML = renderEmployeeDocumentCategoryOptions(row.category);
+    }
+    const titleInput = form.querySelector('[name="title"]');
+    if (titleInput) titleInput.value = row.title || "";
+    const payPeriodInput = form.querySelector("#employee-document-edit-pay-period");
+    if (payPeriodInput) payPeriodInput.value = row.pay_period || "";
+    const expiresInput = form.querySelector('[name="expires_at"]');
+    if (expiresInput) expiresInput.value = (row.expires_at || "").slice(0, 10);
+    const visibleInput = form.querySelector("#employee-document-edit-visible");
+    if (visibleInput) visibleInput.checked = Boolean(row.employee_visible);
+    syncEmployeeDocumentEditPayPeriod(form);
+
+    form.dataset.documentId = String(row.id);
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    titleInput?.focus();
+  }
+
+  function bindEmployeeDocumentEditForm(container) {
+    const form = container?.querySelector("#employee-document-edit-form");
+    if (!form || form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
+
+    form.querySelector("#employee-document-edit-category")?.addEventListener("change", () => {
+      syncEmployeeDocumentEditPayPeriod(form);
+    });
+    form.querySelector("[data-cancel-doc-edit]")?.addEventListener("click", () => {
+      closeEmployeeDocumentEditPanel(container);
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const docId = form.dataset.documentId;
+      if (!docId || !activeEmployeeId) return;
+      const status = form.querySelector("[data-edit-status]");
+      const category = form.querySelector("#employee-document-edit-category")?.value || "";
+      const payPeriod = form.querySelector("#employee-document-edit-pay-period")?.value?.trim() || "";
+      if (category === "payslip" && !payPeriod) {
+        if (status) status.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      const payload = {
+        title: form.querySelector('[name="title"]')?.value?.trim(),
+        category,
+        expires_at: form.querySelector('[name="expires_at"]')?.value || null,
+        employee_visible: form.querySelector("#employee-document-edit-visible")?.checked ?? false,
+      };
+      if (category === "payslip") payload.pay_period = payPeriod;
+
+      const performSave = async () => {
+        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${docId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        closeEmployeeDocumentEditPanel(container);
+        await refreshEmployeeDocumentStoreList(container);
+        const sideHost = document.getElementById("employees-side-documents");
+        if (sideHost && workspaceCache) {
+          renderEmployeeRecordDocumentLists(workspaceCache);
+          bindEmployeeRecordDocumentActions(sideHost, workspaceCache);
+        }
+        return "Document updated.";
+      };
+
+      const run = window.ShiftSwiftAction?.runFormSubmit;
+      if (run) {
+        await run(form, status, {
+          loadingLabel: "Saving…",
+          successMessage: "Document updated.",
+          errorMessage: "Update failed.",
+          successLabel: "Saved",
+          onAction: performSave,
+        });
+        return;
+      }
+      if (status) status.textContent = "Saving…";
+      try {
+        const message = await performSave();
+        if (status) status.textContent = message;
+      } catch (error) {
+        if (status) status.textContent = error.message || "Update failed";
+      }
+    });
   }
 
   function renderEmployeeDocumentActions(row) {
@@ -2112,6 +2279,7 @@
       row.category !== "payslip" &&
       row.signing_status !== "signed";
     const parts = [];
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}">Edit</button>`);
     if (row.has_file) {
       parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
     }
@@ -2169,6 +2337,13 @@
   }
 
   function bindEmployeeDocumentTableActions(container, docs) {
+    container.querySelectorAll("[data-edit-doc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = docs.find((item) => String(item.id) === btn.dataset.editDoc);
+        if (row) openEmployeeDocumentEditPanel(row, container);
+      });
+    });
+
     container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!window.confirm("Remove this document record?")) return;
@@ -2293,31 +2468,82 @@
         ${renderRequirementsChecklist(requirements)}
       </div>
       <div id="employee-document-form"></div>
-      <form id="employee-document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data" style="margin-bottom:1rem;">
-        <label class="edit-field"><span class="edit-label">Upload title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
-        <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /><span class="muted edit-hint" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</span></label>
-        <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
-        <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-        <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint">Set for food hygiene, first aid, and other renewable certificates.</span></label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Portal alert</span>
-            <span class="ss-check-row__hint muted">In-app alert in the employee portal. Email is optional below.</span>
-          </span>
-        </label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Email copy</span>
-            <span class="ss-check-row__hint muted">Sends an email with a secure link to the document.</span>
-          </span>
-        </label>
-        <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
-      </form>
+      <article class="employee-doc-upload-panel">
+        <h5 class="employee-doc-upload-panel__title">Upload file</h5>
+        <form id="employee-document-upload-form" class="edit-form edit-form--cols-2 employee-doc-upload-form" enctype="multipart/form-data">
+          <section class="employee-doc-upload-section" aria-label="Document details">
+            <label class="edit-field" data-span="2">
+              <span class="edit-label">File</span>
+              <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="employee-document-upload-dropzone">
+                <input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+                <input type="file" id="employee-document-upload-camera" accept="image/*" capture="environment" hidden />
+                <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+                <p class="doc-upload-dropzone__hint muted" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</p>
+                <p class="doc-upload-filename" id="employee-document-upload-filename" hidden></p>
+              </div>
+            </label>
+            <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
+            <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
+            <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+            <label class="edit-field"><span class="edit-label">Expiry date <span class="muted">(optional)</span></span><input name="expires_at" type="date" /><span class="muted edit-hint">Renewable certificates only.</span></label>
+          </section>
+          <section class="employee-doc-upload-section employee-doc-upload-section--delivery" aria-label="Employee notification">
+            <h6 class="employee-doc-upload-section__title">Employee notification</h6>
+            <div class="employee-doc-upload-notify">
+              <label class="ss-check-row ss-check-row--compact">
+                <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Portal alert</span>
+                  <span class="ss-check-row__hint muted">In-app alert in the employee portal.</span>
+                </span>
+              </label>
+              <label class="ss-check-row ss-check-row--compact">
+                <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Email copy</span>
+                  <span class="ss-check-row__hint muted">Secure link by email.</span>
+                </span>
+              </label>
+            </div>
+          </section>
+          <div class="edit-form-actions employee-doc-upload-actions" data-span="2">
+            <button class="btn" type="submit">Upload file</button>
+            <p class="edit-form-status muted" data-upload-status></p>
+          </div>
+        </form>
+      </article>
+      <details class="employee-doc-link-add">
+        <summary>Add external link (no file)</summary>
+        <div id="employee-document-link-form"></div>
+      </details>
       <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
+      <div id="employee-document-edit-panel" class="employee-doc-edit-panel" hidden>
+        <div class="employee-doc-edit-panel__head">
+          <h5>Amend document</h5>
+          <p class="muted employee-doc-edit-panel__lead">Correct the category, title, or visibility if a file was filed incorrectly.</p>
+        </div>
+        <form id="employee-document-edit-form" class="edit-form edit-form--cols-2 employee-doc-edit-form">
+          <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
+          <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-edit-category"></select></label>
+          <label class="edit-field" id="employee-document-edit-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-edit-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+          <label class="edit-field"><span class="edit-label">Expiry date <span class="muted">(optional)</span></span><input name="expires_at" type="date" /></label>
+          <label class="ss-check-row ss-check-row--compact" data-span="2">
+            <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="employee-document-edit-visible" value="true" />
+            <span class="ss-check-row__box" aria-hidden="true"></span>
+            <span class="ss-check-row__content">
+              <span class="ss-check-row__title">Employee portal</span>
+              <span class="ss-check-row__hint muted">Visible in the employee portal when checked.</span>
+            </span>
+          </label>
+          <div class="edit-form-actions employee-doc-edit-actions" data-span="2">
+            <button class="btn" type="submit">Save changes</button>
+            <button class="btn ghost" type="button" data-cancel-doc-edit>Cancel</button>
+            <p class="edit-form-status muted" data-edit-status></p>
+          </div>
+        </form>
+      </div>
       <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
       <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
       <div class="table-wrap">
@@ -2327,7 +2553,7 @@
         </table>
       </div>`;
 
-    mountEditForm(container.querySelector("#employee-document-form"), {
+    mountEditForm(container.querySelector("#employee-document-link-form"), {
       id: "employee-document",
       columns: 2,
       submitLabel: "Add document",
@@ -2395,6 +2621,7 @@
     });
 
     bindEmployeeDocumentTableActions(container, docs);
+    bindEmployeeDocumentEditForm(container);
 
     const uploadForm = container.querySelector("#employee-document-upload-form");
     const uploadCategory = container.querySelector("#employee-document-upload-category");
@@ -2405,6 +2632,12 @@
     const uploadPolicy = documentUploadPolicy();
     if (uploadFileInput) uploadFileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
     if (uploadHint) uploadHint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: container.querySelector("#employee-document-upload-dropzone"),
+      fileInput: uploadFileInput,
+      filenameEl: container.querySelector("#employee-document-upload-filename"),
+      cameraInput: container.querySelector("#employee-document-upload-camera"),
+    });
     if (uploadCategory) {
       const categories = window.Admin.formOptions?.employee_document_categories || [];
       uploadCategory.innerHTML = categories
@@ -2749,7 +2982,7 @@
       window.location.hash = desired;
     }
     activeEmployeeId = employeeId;
-    hideEmployeeHistoryPanels();
+    hideEmployeeHistoryPanel();
     showDetailView();
     const accordion = lifecycleAccordionHost();
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;

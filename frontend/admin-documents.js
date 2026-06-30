@@ -1643,5 +1643,5 @@
     formHost.dataset.ready = "1";
   }
 
-  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm };
+  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm, bindFileDropzone };
 })();
