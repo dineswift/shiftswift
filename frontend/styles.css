@@ -5495,7 +5495,7 @@ body.admin-portal .admin-section > .section-header h2 {
   margin: 0;
   font-size: 1.12rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.35;
   color: var(--ink-900);
   letter-spacing: -0.01em;
 }
@@ -5540,13 +5540,13 @@ body.admin-portal .employee-workspace .section-header--compact:not(.hr-workspace
   box-shadow: none;
 }
 
-body.admin-portal .hr-status-workflow,
-body.admin-portal .recruitment-pipeline-stepper,
-body.admin-portal .grievance-status-workflow,
-body.admin-portal .contracts-status-workflow {
-  margin-bottom: 0;
-}
-
+/* Workspace card headers — never zero padding; shared across Compliance, RTW, Absence, Sponsor, Rota, Settings */
+body.admin-portal .hr-workspace > header,
+body.admin-portal .rtw-workspace > header,
+body.admin-portal .absence-workspace > header,
+body.admin-portal .card.hr-workspace > header,
+body.admin-portal .card.rtw-workspace > header,
+body.admin-portal .card.absence-workspace > header,
 body.admin-portal .hr-workspace-header,
 body.admin-portal .rtw-workspace-header,
 body.admin-portal .absence-workspace-header,
@@ -5554,7 +5554,15 @@ body.admin-portal .rota-builder-header,
 body.admin-portal .sponsor-ack-card__header {
   padding: 16px 18px 14px;
   gap: 10px 14px;
+  margin-bottom: 0;
   overflow: visible;
+}
+
+body.admin-portal .hr-status-workflow,
+body.admin-portal .recruitment-pipeline-stepper,
+body.admin-portal .grievance-status-workflow,
+body.admin-portal .contracts-status-workflow {
+  margin-bottom: 0;
 }
 
 body.admin-portal .hr-workspace-header h2,
@@ -5572,7 +5580,29 @@ body.admin-portal .rtw-workspace-header .muted,
 body.admin-portal .absence-workspace-header .muted {
   margin: 0;
   font-size: 0.8rem;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+/* Shared workspace / surface panel titles — consistent readable line height */
+body.admin-portal .hr-workspace h3,
+body.admin-portal .rtw-workspace h3,
+body.admin-portal .absence-workspace h3,
+body.admin-portal .hr-workspace-header h2,
+body.admin-portal .hr-workspace-header h3,
+body.admin-portal .rtw-workspace-header h3,
+body.admin-portal .absence-workspace-header h3,
+body.admin-portal .sponsor-ack-card__header h3,
+body.admin-portal .rota-builder-header h2,
+body.admin-portal .hr-surface-panel__head h4,
+body.admin-portal .hr-surface-panel > .hr-section-title,
+body.admin-portal .hr-section-title,
+body.admin-portal .promo-validator-surface__title,
+body.admin-portal .promo-catalog-card__head h4,
+body.admin-portal .rota-advanced-card h4,
+body.admin-portal .hr-detail-panel__head h4,
+body.admin-portal .rtw-detail-panel__head h4,
+body.admin-portal .absence-detail-panel__head h4 {
+  line-height: 1.35;
 }
 
 body.admin-portal .hr-workspace-body {
@@ -6376,9 +6406,12 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .hr-workspace,
 .rtw-workspace,
 .absence-workspace,
-.card.hr-workspace {
+.card.hr-workspace,
+.card.rtw-workspace,
+.card.absence-workspace,
+.card.sponsor-ack-card {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .hr-workspace-header,
@@ -7127,6 +7160,7 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .rtw-add-panel__head h4,
 .absence-log-panel__head h4 {
   margin: 0;
+  line-height: 1.35;
 }
 
 .hr-detail-panel,
@@ -7159,6 +7193,15 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   gap: 10px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--card-border);
+  overflow: visible;
+}
+
+.hr-detail-panel__head h4,
+.rtw-detail-panel__head h4,
+.absence-detail-panel__head h4,
+.rota-shift-panel__head h4 {
+  margin: 0;
+  line-height: 1.35;
 }
 
 .hr-detail-panel__foot,
