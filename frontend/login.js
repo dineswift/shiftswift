@@ -113,9 +113,9 @@ function syncLoginPanels(step) {
   resetLoginScroll();
 
   if (isNativeLoginApp()) {
-    if (loginShell) loginShell.hidden = false;
-    if (enrollmentPanel) enrollmentPanel.hidden = false;
-    if (mfaPanel) mfaPanel.hidden = false;
+    if (loginShell) loginShell.hidden = step !== "signin";
+    if (enrollmentPanel) enrollmentPanel.hidden = step !== "enroll";
+    if (mfaPanel) mfaPanel.hidden = step !== "mfa";
     if (loginTabs) loginTabs.hidden = step !== "signin";
     if (loginFeatures) loginFeatures.hidden = step !== "signin";
     setLoginStep(step);
@@ -203,7 +203,10 @@ async function startMfaEnrollment(data, redirectUrl) {
     const qrWrap = document.getElementById("mfa-enrollment-qr-wrap");
     if (secretEl) secretEl.textContent = setup.manual_secret || "";
     if (qrImg && setup.otpauth_uri) {
-      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setup.otpauth_uri)}`;
+      const qrSize = isNativeLoginApp() ? 128 : 200;
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(setup.otpauth_uri)}`;
+      qrImg.width = qrSize;
+      qrImg.height = qrSize;
     }
     if (qrWrap) qrWrap.hidden = !setup.otpauth_uri;
     setEnrollmentStatus("");
@@ -717,6 +720,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
   const form = document.getElementById(formId);
   if (!form) return;
 
+  initNativeLoginStability();
   bindMfaForm();
   bindMfaEnrollmentHandlers();
 

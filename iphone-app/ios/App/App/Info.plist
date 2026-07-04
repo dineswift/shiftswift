@@ -51,5 +51,7 @@
 	<string>Verify you are at your work site when clocking in.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Verify you are at your work site when clocking in.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

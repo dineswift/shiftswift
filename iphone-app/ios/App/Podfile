@@ -26,4 +26,16 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  installer.pods_project.targets.each do |target|
+    next unless target.is_a?(Xcodeproj::Project::Object::PBXNativeTarget)
+    next unless target.product_type == 'com.apple.product-type.framework'
+    next if target.shell_script_build_phases.any? { |p| p.name == 'Strip xattrs for CodeSign' }
+    strip = target.new_shell_script_build_phase('Strip xattrs for CodeSign')
+    strip.shell_script = <<~'SCRIPT'
+      FW="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.framework"
+      if [ -d "$FW" ]; then
+        xattr -cr "$FW" 2>/dev/null || true
+      fi
+    SCRIPT
+  end
 end

@@ -230,11 +230,6 @@ const chooserHtml = `<!doctype html>
         color: #0f6e56;
         opacity: 0.85;
       }
-      .iphone-chooser__build {
-        margin-top: 22px;
-        font-size: 11px;
-        opacity: 0.5;
-      }
     </style>
   </head>
   <body class="portal-login-page">
@@ -259,8 +254,8 @@ const chooserHtml = `<!doctype html>
           <span>HR admin, employees, rota &amp; compliance</span>
         </a>
       </div>
-      <p class="iphone-chooser__build">Build 63 · split login</p>
     </main>
+    <p class="native-login-build" style="margin:16px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 67 · compact MFA</p>
     <script>
       (function () {
         try {
@@ -294,12 +289,47 @@ const chooserHtml = `<!doctype html>
 fs.writeFileSync(path.join(www, "index.html"), chooserHtml);
 console.log("wrote www/index.html (employee / business chooser)");
 
+const COMPACT_NATIVE_MFA_PANEL = `        <div id="mfa-enrollment-panel" class="portal-login-card-body mfa-enrollment--native" hidden>
+          <div class="portal-login-card-head mfa-enrollment-head">
+            <h1>Authenticator</h1>
+            <p class="portal-login-card-lead">Optional — scan QR, enter a code, or skip below.</p>
+          </div>
+          <div class="mfa-enrollment-scroll">
+            <p id="mfa-enrollment-user" class="mfa-enrollment-user muted"></p>
+            <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
+              <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="128" height="128" />
+            </div>
+            <details class="mfa-enrollment-manual">
+              <summary>Manual key</summary>
+              <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
+            </details>
+            <label class="mfa-enrollment-code-label">
+              6-digit code
+              <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
+            </label>
+            <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
+          </div>
+          <div class="mfa-enrollment-actions">
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
+            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+          </div>
+        </div>`;
+
+function compactNativeMfaPanel(html) {
+  return html.replace(
+    /<div id="mfa-enrollment-panel"[\s\S]*?<\/div>\s*\n\s*<div id="mfa-panel"/,
+    `${COMPACT_NATIVE_MFA_PANEL}\n\n        <div id="mfa-panel"`,
+  );
+}
+
 // --- Bundled business login (same form as website; post-login → bundled admin) ---
 let businessLoginHtml = fs.readFileSync(path.join(frontend, "business-login.html"), "utf8");
 for (const pattern of [
   /<link rel="canonical"[^>]*>\s*/i,
   /<script src="\.\/portal-sw-guard\.js[^"]*"><\/script>\s*/i,
   /<script src="\.\/cookie-consent\.js[^"]*"><\/script>\s*/i,
+  /<script>\s*\(function \(\) \{[\s\S]*?portal=employee[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
+  /<p class="portal-login-alt-note[\s\S]*?<\/p>\s*/i,
 ]) {
   businessLoginHtml = businessLoginHtml.replace(pattern, "");
 }
@@ -312,8 +342,8 @@ businessLoginHtml = businessLoginHtml.replace(
   'href="./index.html"',
 );
 businessLoginHtml = businessLoginHtml.replace(
-  'href="./native-app-login.html"',
-  'href="./index.html"',
+  /<script src="\.\/login\.js[^"]*"><\/script>/,
+  '<script src="./login.js"></script>',
 );
 businessLoginHtml = businessLoginHtml.replace(
   '<header class="portal-login-brand portal-login-brand--streamlined">',
@@ -321,7 +351,7 @@ businessLoginHtml = businessLoginHtml.replace(
 );
 businessLoginHtml = businessLoginHtml.replace(
   '<p class="portal-login-secure-note">',
-  '<p class="native-login-build" style="margin:10px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 63 · business</p>\n        <p class="portal-login-secure-note">',
+  '<p class="native-login-build" style="margin:10px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 67 · compact MFA</p>\n            <p class="portal-login-secure-note">',
 );
 businessLoginHtml = businessLoginHtml.replace(
   "</head>",
@@ -335,6 +365,7 @@ businessLoginHtml = businessLoginHtml.replace(
   "<html",
   '<html class="native-app capacitor-native iphone-app"',
 );
+businessLoginHtml = compactNativeMfaPanel(businessLoginHtml);
 fs.writeFileSync(path.join(www, "business-login.html"), businessLoginHtml);
 console.log("wrote www/business-login.html");
 
@@ -343,7 +374,12 @@ let employeeLoginHtml = fs.readFileSync(path.join(frontend, "employee-login.html
 for (const pattern of [
   /<link rel="canonical"[^>]*>\s*/i,
   /<script src="\.\/portal-sw-guard\.js[^"]*"><\/script>\s*/i,
+  /<script>\s*\(function \(\) \{[\s\S]*?sign-in\.html[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
   /<script>\s*\(function \(\) \{[\s\S]*?native-unified-login-redirect[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
+  /<div id="portal-pwa-install-banner"[\s\S]*?<\/div>\s*/i,
+  /<script src="\.\/portal-pwa-install\.js[^"]*"[\s\S]*?<\/script>\s*/i,
+  /<p class="portal-login-alt-note">[\s\S]*?<\/p>\s*/i,
+  /<p class="portal-login-footnote[\s\S]*?<\/p>\s*/i,
   /<script src="\.\/cookie-consent\.js[^"]*"><\/script>\s*/i,
 ]) {
   employeeLoginHtml = employeeLoginHtml.replace(pattern, "");
@@ -353,8 +389,12 @@ employeeLoginHtml = employeeLoginHtml.replace(
   '<script src="./native-api-fetch.js"></script>\n    <script src="./brand-config.js?v=brand-v7"></script>',
 );
 employeeLoginHtml = employeeLoginHtml.replace(
+  /<script src="\.\/login\.js[^"]*"><\/script>/,
+  '<script src="./login.js"></script>',
+);
+employeeLoginHtml = employeeLoginHtml.replace(
   '<p class="portal-login-secure-note">',
-  '<p class="native-login-build" style="margin:10px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 63 · employee</p>\n              <p class="portal-login-secure-note">',
+  '<p class="native-login-build" style="margin:10px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 67 · compact MFA</p>\n            <p class="portal-login-secure-note">',
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   "</head>",
@@ -372,6 +412,7 @@ employeeLoginHtml = employeeLoginHtml.replace(
   '<header class="portal-login-brand">',
   '<header class="portal-login-brand"><p style="margin:0 0 12px"><a href="./index.html" style="color:inherit;font-size:13px;opacity:.75;text-decoration:none">← Back</a></p>',
 );
+employeeLoginHtml = compactNativeMfaPanel(employeeLoginHtml);
 fs.writeFileSync(path.join(www, "employee-login.html"), employeeLoginHtml);
 console.log("wrote www/employee-login.html");
 

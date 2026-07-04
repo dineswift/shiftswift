@@ -3,7 +3,7 @@
  * Bundled App://localhost only.
  */
 (function iphoneAdminPortalBoot() {
-  const BUILD = "63";
+  const BUILD = "64";
 
   const SCRIPTS = [
     "auth-guard.js",
@@ -119,32 +119,6 @@
     }
   }
 
-  function paintBuildBanner() {
-    if (document.getElementById("sshr-native-build-banner")) return;
-    const banner = document.createElement("div");
-    banner.id = "sshr-native-build-banner";
-    banner.style.cssText =
-      "position:fixed;top:max(6px,env(safe-area-inset-top));right:8px;z-index:99999;padding:4px 8px;border-radius:999px;background:rgba(15,110,86,0.92);color:#fff;font:600 10px/1.2 system-ui,-apple-system,sans-serif;cursor:pointer";
-    banner.textContent = `Build ${BUILD}`;
-    banner.title = "ShiftSwift native build — tap for API debug";
-    document.body?.appendChild(banner);
-    banner.addEventListener("click", () => {
-      const last = window.__SSHR_LAST_API;
-      const tenant = sessionStorage.getItem("sshrVerifiedTenantId") || localStorage.getItem("tenantId") || "?";
-      const scriptErrors = (window.__SSHR_ADMIN_SCRIPT_ERRORS || []).length;
-      const transport = window.__SSHR_LAST_TRANSPORT
-        || (window.ShiftSwiftSession?.canUseProductionWebApiFetch?.("https://api.shiftswifthr.co.uk")
-          ? "production-web"
-          : window.ShiftSwiftNativeApiFetch?.isCapacitorHttpEnabled?.()
-            ? "CapacitorHttp"
-            : "custom");
-      const host = window.location.hostname || "?";
-      const msg = last
-        ? `Host: ${host}\nTransport: ${last.transport || transport}\nLast API: ${last.path}\nStatus: ${last.status}\nCount: ${last.count ?? "?"}\nTenant: ${tenant}${last.error ? `\nError: ${last.error}` : ""}${scriptErrors ? `\nScript errors: ${scriptErrors}` : ""}`
-        : `Host: ${host}\nTransport: ${transport}\nTenant: ${tenant}\nNo API trace yet${scriptErrors ? `\nScript errors: ${scriptErrors}` : ""}`;
-      window.alert(msg);
-    });
-  }
 
   function applyPortalShellClasses() {
     const root = document.documentElement;
@@ -166,7 +140,6 @@
     window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
     const clockEnabled = localStorage.getItem("adminTimeClockEnabled") === "true";
     window.AdminMobile?.finishStartup?.(clockEnabled);
-    paintBuildBanner();
   }
 
   async function ensureSession() {
