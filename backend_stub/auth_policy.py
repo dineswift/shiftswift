@@ -15,8 +15,8 @@ def _env_flag(name: str, *, default: bool) -> bool:
 
 
 def business_require_mfa_hr(settings: Settings) -> bool:
-    """Require HR admins to use TOTP — defaults on in production."""
-    return _env_flag("BUSINESS_REQUIRE_MFA", default=settings.is_production)
+    """Require HR admins to enroll in TOTP at sign-in — off unless BUSINESS_REQUIRE_MFA=1."""
+    return _env_flag("BUSINESS_REQUIRE_MFA", default=False)
 
 
 def employee_require_mfa(settings: Settings) -> bool:

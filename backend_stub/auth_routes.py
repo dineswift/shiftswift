@@ -654,6 +654,67 @@ def mfa_enable(
     return {"status": "enabled", "message": "Two-factor authentication is now active on your account."}
 
 
+_MFA_SKIP_PORTALS = frozenset({"business", "master"})
+
+
+@router.post("/mfa/skip-enrollment")
+def mfa_skip_enrollment(
+    request: Request,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> dict[str, object]:
+    """Issue session tokens without enabling MFA (optional business/master enrollment)."""
+    token = _extract_bearer(authorization)
+    try:
+        claims = decode_mfa_enrollment_token(settings, token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    portal = str(claims.get("portal") or "").strip().lower()
+    if portal not in _MFA_SKIP_PORTALS:
+        raise HTTPException(
+            status_code=403,
+            detail="MFA enrollment is required for this account and cannot be skipped",
+        )
+
+    user = AuthUser(
+        username=str(claims["sub"]),
+        role=str(claims["role"]),
+        tenant_id=str(claims["tenant_id"]),
+    )
+    ip = client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    tokens = create_token_pair(settings, user)
+    event_type = "master_mfa_enrollment_skipped" if portal == "master" else "business_mfa_enrollment_skipped"
+    log_security_event(
+        settings,
+        event_type=event_type,
+        username=user.username,
+        tenant_id=user.tenant_id,
+        ip_address=ip,
+        user_agent=user_agent,
+        success=True,
+        detail=f"portal={portal};skipped=1",
+    )
+
+    if user.role == "employee":
+        redirect_hint = "./employee.html"
+    elif portal == "master":
+        redirect_hint = "./master.html"
+    else:
+        redirect_hint = "./admin.html"
+
+    return {
+        **tokens.__dict__,
+        "portal": portal,
+        "role": user.role,
+        "username": user.username,
+        "tenant_id": user.tenant_id,
+        "mfa_required": False,
+        "redirect_url": redirect_hint,
+        "message": "Continuing without two-factor authentication.",
+    }
+
+
 @router.post("/mfa/disable")
 def mfa_disable(
     payload: MfaDisableRequest,

@@ -694,6 +694,54 @@
       }
     };
 
+    const resetHrBtn = document.getElementById("detail-reset-hr-password");
+    if (resetHrBtn) {
+      resetHrBtn.hidden = isDeleted;
+      resetHrBtn.onclick = async () => {
+        closeActionsMenu();
+        const hrEmail = tenant.hr_login_email || tenant.billing_email || "the primary HR login";
+        if (!window.confirm(`Send a password reset / setup email to ${hrEmail}?`)) return;
+        try {
+          const data = await apiPost(`/master/tenants/${tenant.id}/reset-hr-password`, {
+            send_email: true,
+            set_temporary_password: false,
+          });
+          alert(`Reset link sent to ${data.hr_username || hrEmail}.`);
+        } catch (error) {
+          alert(error.message);
+        }
+      };
+    }
+
+    const tempHrBtn = document.getElementById("detail-set-temp-hr-password");
+    if (tempHrBtn) {
+      tempHrBtn.hidden = isDeleted;
+      tempHrBtn.onclick = async () => {
+        closeActionsMenu();
+        const hrEmail = tenant.hr_login_email || tenant.billing_email || "the primary HR login";
+        if (
+          !window.confirm(
+            `Set a temporary password for ${hrEmail}?\n\nThe password will be shown once — copy it now. Do not share it in chat logs.`
+          )
+        ) {
+          return;
+        }
+        try {
+          const data = await apiPost(`/master/tenants/${tenant.id}/reset-hr-password`, {
+            send_email: false,
+            set_temporary_password: true,
+          });
+          const password = data.temporary_password || "";
+          window.prompt(
+            `Temporary password for ${data.hr_username || hrEmail} (copy now — shown once):`,
+            password
+          );
+        } catch (error) {
+          alert(error.message);
+        }
+      };
+    }
+
     document.getElementById("detail-save-notes").onclick = async () => {
       const statusEl = document.getElementById("detail-notes-status");
       try {

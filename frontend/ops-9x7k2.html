@@ -54,7 +54,7 @@
           <div class="portal-login-card-head">
             <h1>Set up authenticator</h1>
             <p class="portal-login-card-lead">
-              Production requires MFA for master admin. Scan the code below, then enter a 6-digit code to finish.
+              Recommended for platform security. Scan the code below, then enter a 6-digit code — or skip and enable two-factor authentication later in Master account settings.
             </p>
           </div>
           <div class="portal-login-form">
@@ -70,6 +70,7 @@
             </label>
             <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
             <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
           </div>
         </div>
 
@@ -89,6 +90,6 @@
       </section>
     </div>
     <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./login.js?v=brandkit-v17"></script>
+    <script src="./login.js?v=brandkit-v20"></script>
   </body>
 </html>

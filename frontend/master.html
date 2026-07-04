@@ -3,38 +3,6 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script>
-      (function () {
-        try {
-          if (!window.Capacitor?.isNativePlatform?.()) return;
-          window.__SSHR_BUNDLED_NATIVE_BOOT = true;
-          var scheme =
-            window.Capacitor.config && window.Capacitor.config.ios
-              ? window.Capacitor.config.ios.scheme
-              : "App";
-          if (!scheme) scheme = "App";
-          document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-portal-guard.js?v=16"><\/script>',
-          );
-          document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-bootstrap.js?v=16"><\/script>',
-          );
-        } catch (e) {
-          /* ignore */
-        }
-      })();
-    </script>
-    <script>
-      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
-        document.write('<script src="./native-app-bootstrap.js?v=6"><\/script>');
-      }
-    </script>
-    <script src="./brand-config.js?v=brand-v5"></script>
-    <script src="./app-host-guard.js?v=1"></script>
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#142033" />
     <script src="./app-icons.js?v=brandkit-v5"></script>
@@ -63,9 +31,10 @@
     <aside class="master-sidebar" id="master-sidebar">
       <div class="master-sidebar__head">
         <div class="master-brand">
-          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" class="master-brand__logo" />
-          <span class="master-badge master-badge--admin">Master admin</span>
+          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v4" alt="ShiftSwift" class="master-brand__logo app-mark app-mark--chrome" />
+          <span class="master-badge master-badge--ops">OPS</span>
         </div>
+        <span class="master-badge master-badge--admin">Master Admin</span>
         <button type="button" class="master-sidebar__close" id="master-sidebar-close" aria-label="Close menu">×</button>
       </div>
 
@@ -335,6 +304,15 @@
               <div id="detail-billing-sections"></div>
               <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
                 <h3>Change plan</h3>
+                <label class="master-change-plan__field" id="detail-change-staff-tier-wrap">
+                  Staff license tier
+                  <select id="detail-change-staff-tier"></select>
+                </label>
+                <label class="master-change-plan__field" id="detail-change-staff-custom-wrap" hidden>
+                  Custom staff limit
+                  <input id="detail-change-staff-custom" type="number" min="1" max="9999" placeholder="e.g. 25" />
+                </label>
+                <p class="muted master-create-price-hint" id="detail-change-price-hint" hidden></p>
                 <label class="master-change-plan__field">
                   New plan
                   <select id="detail-change-plan-select"></select>
@@ -401,6 +379,8 @@
                   <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-action-change-plan">Change plan</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-email-tenant">Email tenant</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-reset-hr-password">Send HR reset email</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-set-temp-hr-password">Set temporary HR password</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
                 </div>
                 <div class="master-tenant-actions__secondary">
@@ -423,7 +403,7 @@
     <script src="./session-auth.js?v=12"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=6"></script>
-    <script src="./master-tenant-detail.js?v=7"></script>
+    <script src="./master-tenant-detail.js?v=8"></script>
     <script src="./master-tenant-contracts.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
     <script src="./master.js?v=25"></script>

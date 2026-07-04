@@ -123,7 +123,7 @@
           <div class="portal-login-card-head">
             <h1>Set up authenticator</h1>
             <p class="portal-login-card-lead">
-              Two-factor authentication is required. Scan the QR code in Google Authenticator, Authy, or Microsoft Authenticator, then enter a 6-digit code.
+              Recommended for account security. Scan the QR code in Google Authenticator, Authy, or Microsoft Authenticator, then enter a 6-digit code. You can set this up now or skip and enable it later in settings.
             </p>
           </div>
           <div class="portal-login-form">
@@ -139,6 +139,7 @@
             </label>
             <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
             <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
           </div>
         </div>
 
@@ -152,6 +153,7 @@
               Authenticator code
               <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
             </label>
+            <p id="mfa-verify-status" class="form-error-message" hidden></p>
             <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
           </form>
         </div>
@@ -166,7 +168,7 @@
     <script src="./session-auth.js?v=3"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./employee-pwa.js?v=7"></script>
-    <script src="./login.js?v=brandkit-v17"></script>
+    <script src="./login.js?v=brandkit-v20"></script>
     <script>
       window.ShiftSwiftEmployeePwa?.registerEmployeeSw?.();
     </script>

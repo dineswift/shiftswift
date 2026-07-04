@@ -86,6 +86,11 @@
     if (!response.ok) {
       const detail = data.detail;
       const message = typeof detail === "string" ? detail : Array.isArray(detail) ? detail[0]?.msg : null;
+      if (response.status === 404 && String(path).includes("skip-enrollment")) {
+        throw new Error(
+          "Skip MFA is not available on this server yet. Enter a code from your authenticator app, or deploy the latest API.",
+        );
+      }
       throw new Error(message || data.message || "Request failed");
     }
     return data;
@@ -552,6 +557,34 @@
         } catch (error) {
           setEnrollmentStatus(error.message || "Invalid code — try again");
           enrollBtn.disabled = false;
+        }
+      });
+    }
+
+    const skipBtn = document.getElementById("mfa-enrollment-skip");
+    if (skipBtn && !skipBtn.dataset.boundUnified) {
+      skipBtn.dataset.boundUnified = "1";
+      skipBtn.addEventListener("click", async () => {
+        if (!pendingEnrollmentToken) {
+          setEnrollmentStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setEnrollmentStatus("Continuing without MFA…");
+        skipBtn.disabled = true;
+        const enableBtn = document.getElementById("mfa-enrollment-submit");
+        if (enableBtn) enableBtn.disabled = true;
+        try {
+          const data = await postJson("/auth/mfa/skip-enrollment", null, pendingEnrollmentToken);
+          await finishAuthSuccess(
+            data,
+            pendingEmail || data.username || "",
+            portalUrl(data.redirect_url || pendingRedirect),
+          );
+        } catch (error) {
+          setEnrollmentStatus(error.message || "Could not skip MFA setup");
+          skipBtn.disabled = false;
+          if (enableBtn) enableBtn.disabled = false;
         }
       });
     }

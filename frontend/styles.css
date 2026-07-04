@@ -784,6 +784,19 @@ body.employee-gdpr-locked .sidebar {
   gap: 10px;
 }
 
+.portal-login-submit--secondary {
+  margin-top: 0.75rem;
+  background: transparent;
+  color: var(--text, #0f3d32);
+  border: 1px solid rgba(15, 61, 50, 0.25);
+  box-shadow: none;
+}
+
+.portal-login-submit--secondary:hover,
+.portal-login-submit--secondary:focus-visible {
+  background: rgba(15, 110, 86, 0.06);
+}
+
 .portal-login-secure-note {
   display: inline-flex;
   align-items: center;

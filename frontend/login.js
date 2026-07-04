@@ -34,9 +34,130 @@ const LOGIN_MODES = {
 let pendingEnrollmentToken = null;
 let pendingChallenge = null;
 
+function isNativeLoginApp() {
+  try {
+    return Boolean(
+      document.documentElement.classList.contains("native-app") ||
+        document.documentElement.classList.contains("iphone-app") ||
+        window.Capacitor?.isNativePlatform?.(),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function loginCardEl() {
+  return document.getElementById("portal-login-card");
+}
+
+function setLoginStep(step) {
+  const steps = ["login-step-signin", "login-step-mfa", "login-step-enroll"];
+  const target = step === "mfa" ? "login-step-mfa" : step === "enroll" ? "login-step-enroll" : "login-step-signin";
+  document.body.classList.remove(...steps);
+  loginCardEl()?.classList.remove(...steps);
+  document.body.classList.add(target);
+  loginCardEl()?.classList.add(target);
+}
+
+function blurLoginFocus() {
+  try {
+    if (document.activeElement && document.activeElement !== document.body) {
+      document.activeElement.blur();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function resetLoginScroll() {
+  if (!isNativeLoginApp()) return;
+  const shell = document.querySelector(".portal-login-shell");
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  if (shell) shell.scrollTop = 0;
+}
+
+function focusLoginInput(element) {
+  if (!element) return;
+  window.setTimeout(() => {
+    try {
+      element.focus({ preventScroll: true });
+    } catch {
+      element.focus();
+    }
+  }, isNativeLoginApp() ? 120 : 0);
+}
+
+function setNativeStatusMessage(element, message) {
+  if (!element) return;
+  element.textContent = message || "";
+  if (isNativeLoginApp()) {
+    element.hidden = false;
+    element.classList.toggle("is-empty", !message);
+    element.setAttribute("aria-hidden", message ? "false" : "true");
+    return;
+  }
+  element.hidden = !message;
+  element.classList.remove("is-empty");
+}
+
+function syncLoginPanels(step) {
+  const loginShell = document.getElementById("login-shell");
+  const enrollmentPanel = document.getElementById("mfa-enrollment-panel");
+  const mfaPanel = document.getElementById("mfa-panel");
+  const loginTabs = document.getElementById("login-tabs");
+  const loginFeatures = document.getElementById("login-features");
+
+  blurLoginFocus();
+  resetLoginScroll();
+
+  if (isNativeLoginApp()) {
+    if (loginShell) loginShell.hidden = false;
+    if (enrollmentPanel) enrollmentPanel.hidden = false;
+    if (mfaPanel) mfaPanel.hidden = false;
+    if (loginTabs) loginTabs.hidden = step !== "signin";
+    if (loginFeatures) loginFeatures.hidden = step !== "signin";
+    setLoginStep(step);
+    window.requestAnimationFrame(resetLoginScroll);
+    return;
+  }
+
+  if (loginShell) loginShell.hidden = step !== "signin";
+  if (enrollmentPanel) enrollmentPanel.hidden = step !== "enroll";
+  if (mfaPanel) mfaPanel.hidden = step !== "mfa";
+  if (loginTabs) loginTabs.hidden = step !== "signin";
+  if (loginFeatures) loginFeatures.hidden = step !== "signin";
+  setLoginStep(step);
+}
+
+function bindNativeKeyboardInset() {
+  if (!isNativeLoginApp() || window.__SSHR_LOGIN_KEYBOARD_BOUND__) return;
+  window.__SSHR_LOGIN_KEYBOARD_BOUND__ = true;
+  const viewport = window.visualViewport;
+  if (!viewport) return;
+  const root = document.documentElement;
+  const adjust = () => {
+    const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+    root.style.setProperty("--native-keyboard-inset", `${inset}px`);
+  };
+  viewport.addEventListener("resize", adjust);
+  viewport.addEventListener("scroll", adjust);
+  adjust();
+}
+
+function initNativeLoginStability() {
+  if (!isNativeLoginApp() || !document.querySelector(".portal-login-page")) return;
+  document.body.classList.add("portal-login-page--native-stable");
+  loginCardEl()?.classList.add("login-steps-host");
+  syncLoginPanels("signin");
+  bindNativeKeyboardInset();
+}
+
 async function postJsonAuth(path, body, bearerToken) {
   const headers = { "Content-Type": "application/json" };
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
+  window.ShiftSwiftNativeApiFetch?.boot?.();
   let response;
   try {
     response = await fetch(`${getApiBase()}${path}`, {
@@ -51,37 +172,25 @@ async function postJsonAuth(path, body, bearerToken) {
   if (!response.ok) {
     const detail = data.detail;
     const message = typeof detail === "string" ? detail : Array.isArray(detail) ? detail[0]?.msg : null;
+    if (response.status === 404 && String(path).includes("skip-enrollment")) {
+      throw new Error(
+        "Skip MFA needs a server update. Deploy the latest API, or enter a code from your authenticator app.",
+      );
+    }
     throw new Error(message || data.message || "Request failed");
   }
   return data;
 }
 
 function setEnrollmentStatus(message) {
-  const status = document.getElementById("mfa-enrollment-status");
-  if (!status) return;
-  if (message) {
-    status.textContent = message;
-    status.hidden = false;
-  } else {
-    status.textContent = "";
-    status.hidden = true;
-  }
+  setNativeStatusMessage(document.getElementById("mfa-enrollment-status"), message);
 }
 
 async function startMfaEnrollment(data, redirectUrl) {
   pendingEnrollmentToken = data.enrollment_token;
   pendingRedirect = data.redirect_url || redirectUrl;
 
-  const loginShell = document.getElementById("login-shell");
-  const enrollmentPanel = document.getElementById("mfa-enrollment-panel");
-  const mfaPanel = document.getElementById("mfa-panel");
-  const loginTabs = document.getElementById("login-tabs");
-  const loginFeatures = document.getElementById("login-features");
-  if (loginShell) loginShell.hidden = true;
-  if (mfaPanel) mfaPanel.hidden = true;
-  if (loginTabs) loginTabs.hidden = true;
-  if (loginFeatures) loginFeatures.hidden = true;
-  if (enrollmentPanel) enrollmentPanel.hidden = false;
+  syncLoginPanels("enroll");
 
   const userLabel = document.getElementById("mfa-enrollment-user");
   if (userLabel) userLabel.textContent = `Account: ${data.username || "master admin"}`;
@@ -98,7 +207,7 @@ async function startMfaEnrollment(data, redirectUrl) {
     }
     if (qrWrap) qrWrap.hidden = !setup.otpauth_uri;
     setEnrollmentStatus("");
-    document.getElementById("mfa-enrollment-code")?.focus();
+    focusLoginInput(document.getElementById("mfa-enrollment-code"));
   } catch (error) {
     setEnrollmentStatus(error.message || "Could not start MFA setup");
   }
@@ -129,6 +238,36 @@ function bindMfaEnrollmentSubmit() {
     }
   });
 }
+
+function bindMfaEnrollmentSkip() {
+  const btn = document.getElementById("mfa-enrollment-skip");
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = "1";
+  btn.addEventListener("click", async () => {
+    if (!pendingEnrollmentToken) {
+      setEnrollmentStatus("Session expired. Sign in again.");
+      return;
+    }
+    setEnrollmentStatus("Continuing without MFA…");
+    btn.disabled = true;
+    const enableBtn = document.getElementById("mfa-enrollment-submit");
+    if (enableBtn) enableBtn.disabled = true;
+    try {
+      const data = await postJsonAuth("/auth/mfa/skip-enrollment", null, pendingEnrollmentToken);
+      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
+    } catch (error) {
+      setEnrollmentStatus(error.message || "Could not skip MFA setup");
+      btn.disabled = false;
+      if (enableBtn) enableBtn.disabled = false;
+    }
+  });
+}
+
+function bindMfaEnrollmentHandlers() {
+  bindMfaEnrollmentSubmit();
+  bindMfaEnrollmentSkip();
+}
+
 let pendingRedirect = "./admin.html";
 let activeLoginMode = "business";
 
@@ -141,16 +280,30 @@ function secureHostLabel() {
   return "shiftswifthr.co.uk";
 }
 
+function activeLoginStep() {
+  if (document.body.classList.contains("login-step-enroll")) return "enroll";
+  if (document.body.classList.contains("login-step-mfa")) return "mfa";
+  return "signin";
+}
+
 function setStatus(message) {
-  const status = document.getElementById("login-status");
-  if (!status) return;
-  if (message) {
-    status.textContent = message;
-    status.hidden = false;
-  } else {
-    status.textContent = "";
-    status.hidden = true;
+  if (activeLoginStep() === "mfa") {
+    let status = document.getElementById("mfa-verify-status");
+    if (!status) {
+      const mfaPanel = document.getElementById("mfa-panel");
+      status = document.createElement("p");
+      status.id = "mfa-verify-status";
+      status.className = "form-error-message";
+      mfaPanel?.querySelector(".portal-login-form, form")?.prepend(status);
+    }
+    setNativeStatusMessage(status, message);
+    return;
   }
+  if (activeLoginStep() === "enroll") {
+    setEnrollmentStatus(message);
+    return;
+  }
+  setNativeStatusMessage(document.getElementById("login-status"), message);
 }
 
 function friendlyLoginError(message, endpoint, username) {
@@ -255,20 +408,12 @@ function redirectForRole(data, fallback) {
 }
 
 function showMfaStep(username) {
-  const loginTabs = document.getElementById("login-tabs");
-  const loginShell = document.getElementById("login-shell");
-  const loginFeatures = document.getElementById("login-features");
+  syncLoginPanels("mfa");
   const mfaPanel = document.getElementById("mfa-panel");
-
-  if (loginTabs) loginTabs.hidden = true;
-  if (loginShell) loginShell.hidden = true;
-  if (loginFeatures) loginFeatures.hidden = true;
   if (mfaPanel) {
-    mfaPanel.hidden = false;
     const userLabel = mfaPanel.querySelector("[data-mfa-user]");
     if (userLabel) userLabel.textContent = username;
-    const codeInput = mfaPanel.querySelector('input[name="code"]');
-    if (codeInput) codeInput.focus();
+    focusLoginInput(mfaPanel.querySelector('input[name="code"]'));
   }
 }
 
@@ -370,9 +515,10 @@ function switchLoginMode(nextMode) {
 function initDedicatedLogin(mode) {
   if (!LOGIN_MODES[mode]) return;
   activeLoginMode = mode;
+  initNativeLoginStability();
   switchLoginMode(mode);
   bindPortalLogin();
-  bindMfaEnrollmentSubmit();
+  bindMfaEnrollmentHandlers();
 }
 
 function initBusinessLoginTabs() {
@@ -391,9 +537,10 @@ function initBusinessLoginTabs() {
     });
   });
 
+  initNativeLoginStability();
   switchLoginMode("business");
   bindPortalLogin();
-  bindMfaEnrollmentSubmit();
+  bindMfaEnrollmentHandlers();
 }
 
 function redirectIfEmployeeSession() {
@@ -467,7 +614,7 @@ function bindUnifiedLogin() {
   form.dataset.boundUnified = "1";
 
   bindMfaForm();
-  bindMfaEnrollmentSubmit();
+  bindMfaEnrollmentHandlers();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -507,7 +654,7 @@ function initUnifiedNativeLogin() {
     return;
   }
   bindUnifiedLogin();
-  bindMfaEnrollmentSubmit();
+  bindMfaEnrollmentHandlers();
 }
 
 function redirectIfBusinessSession() {
@@ -571,7 +718,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
   if (!form) return;
 
   bindMfaForm();
-  bindMfaEnrollmentSubmit();
+  bindMfaEnrollmentHandlers();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -600,6 +747,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
 }
 
 function showLocalDevHints() {
+  if (isNativeLoginApp()) return;
   const host = window.location.hostname;
   if (host !== "localhost" && host !== "127.0.0.1") return;
 

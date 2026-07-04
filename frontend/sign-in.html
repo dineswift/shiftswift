@@ -83,7 +83,7 @@
           <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
             <div class="portal-login-card-head">
               <h1>Secure your account</h1>
-              <p class="portal-login-card-lead">Use Face ID / Touch ID or set up an authenticator app.</p>
+              <p class="portal-login-card-lead">Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings.</p>
             </div>
             <div class="portal-login-form">
               <p id="mfa-enrollment-user" class="muted"></p>
@@ -102,6 +102,7 @@
               </label>
               <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
               <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+              <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
             </div>
           </div>
 
@@ -130,7 +131,7 @@
     </div>
     <script src="./trusted-device.js?v=3"></script>
     <script src="./passkey-auth.js?v=3"></script>
-    <script src="./unified-login.js?v=20"></script>
+    <script src="./unified-login.js?v=22"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>
