@@ -29,6 +29,34 @@
     });
   }
 
+  function parseApiDetail(data, fallback = "Request failed") {
+    if (window.Admin?.parseApiDetail) return window.Admin.parseApiDetail(data, fallback);
+    if (typeof data?.detail === "string") return data.detail;
+    if (Array.isArray(data?.detail)) {
+      return data.detail
+        .map((item) => (typeof item === "string" ? item : item?.msg || JSON.stringify(item)))
+        .join("; ");
+    }
+    return data?.message || fallback;
+  }
+
+  function showResendToast(message, variant = "info") {
+    if (window.Admin?.showAdminToast) {
+      window.Admin.showAdminToast(message, { variant });
+      return;
+    }
+    const status = document.querySelector("[data-delivery-failures-status]");
+    if (status) status.textContent = message;
+  }
+
+  function setDeliveryFailureStatus(panel, message, isError = false) {
+    const status = panel?.querySelector("[data-delivery-failures-status]");
+    if (!status) return;
+    status.textContent = message || "";
+    status.classList.toggle("form-error-message", Boolean(isError));
+    status.classList.toggle("muted", !isError);
+  }
+
   function escapeHtml(value) {
     if (window.Admin?.escapeHtml) return window.Admin.escapeHtml(value);
     return String(value ?? "")
@@ -74,6 +102,7 @@
           <strong>Failed email deliveries</strong>
         </div>
         <div class="portal-notifications-panel__failures-list" data-delivery-failures-list></div>
+        <p class="edit-form-status muted" data-delivery-failures-status aria-live="polite"></p>
         <p class="portal-notifications-panel__empty muted" data-delivery-failures-empty hidden>No failed deliveries.</p>
       </div>
     `;
@@ -118,10 +147,14 @@
   }
 
   async function resendDeliveryFailure(panel, notificationId, button) {
+    setDeliveryFailureStatus(panel, "Resending…");
     const res = await apiFetch(`/admin/notifications/${notificationId}/resend`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "Resend failed");
+    if (!res.ok) throw new Error(parseApiDetail(data, "Resend failed"));
     if (button) button.textContent = "Sent";
+    const message = data.message || "Notification resent successfully.";
+    setDeliveryFailureStatus(panel, message);
+    showResendToast(message);
     await loadDeliveryFailures(panel);
     return data;
   }
@@ -217,8 +250,11 @@
         try {
           await resendDeliveryFailure(panel, id, resendBtn);
         } catch (error) {
+          const message = error.message || "Resend failed";
           resendBtn.textContent = "Failed";
-          resendBtn.title = error.message || "Resend failed";
+          resendBtn.title = message;
+          setDeliveryFailureStatus(panel, message, true);
+          showResendToast(message, "error");
         } finally {
           resendBtn.disabled = false;
         }

@@ -437,9 +437,9 @@
     });
   }
 
-  async function resendDocumentNotification(row) {
+  async function resendDocumentNotification(row, button, statusEl) {
     if (!row?.id) return;
-    try {
+    const performResend = async () => {
       let res;
       if (row.scope === "employee" && row.employee_id) {
         res = await apiFetch(
@@ -456,8 +456,29 @@
         });
       }
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Resend failed");
-      showAdminToast?.(data.message || "Notification resent.");
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      return (
+        window.Admin?.formatDocumentNotificationSummary?.(data, { uploadedLabel: "Resent" }) ||
+        data.message ||
+        "Notification resent."
+      );
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notification resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    try {
+      const message = await performResend();
+      showAdminToast?.(message);
     } catch (error) {
       showAdminToast?.(error.message || "Resend failed", { variant: "error" });
     }
@@ -516,7 +537,7 @@
           scope: btn.dataset.docScope,
           employeeId: btn.dataset.docEmployeeId,
         });
-        if (row) void resendDocumentNotification(row);
+        if (row) void resendDocumentNotification(row, btn, document.getElementById("document-upload-status"));
       });
     });
   }

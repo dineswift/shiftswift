@@ -2295,8 +2295,6 @@
     parts.push(`<button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}">Edit</button>`);
     if (row.has_file) {
       parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
-    }
-    if row.has_file) {
       parts.push(
         `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}">Resend notify</button>`,
       );
@@ -2359,27 +2357,49 @@
     bindEmployeeDocumentTableActions(container, data.documents || []);
   }
 
-  async function resendEmployeeDocumentNotification(documentId, statusEl) {
+  async function resendEmployeeDocumentNotification(documentId, statusEl, button) {
     if (!activeEmployeeId) return;
-    if (statusEl) statusEl.textContent = "Resending notification…";
-    try {
+    const performResend = async () => {
       const res = await apiFetch(
         `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-notification`,
         { method: "POST", body: JSON.stringify({ send_email: true }) },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Resend failed");
-      if (statusEl) statusEl.textContent = data.message || "Notification resent.";
-      window.Admin?.showAdminToast?.(data.message || "Notification resent.");
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      const message =
+        window.Admin?.formatDocumentNotificationSummary?.(data, { uploadedLabel: "Resent" }) ||
+        data.message ||
+        "Notification resent.";
+      return message;
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notification resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Resending notification…";
+    try {
+      const message = await performResend();
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message);
     } catch (error) {
-      if (statusEl) statusEl.textContent = error.message || "Resend failed.";
+      const message = error.message || "Resend failed.";
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message, { variant: "error" });
     }
   }
 
-  async function resendEmployeeSigningEmail(documentId, statusEl) {
+  async function resendEmployeeSigningEmail(documentId, statusEl, button) {
     if (!activeEmployeeId) return;
-    if (statusEl) statusEl.textContent = "Resending signing email…";
-    try {
+    const performResend = async () => {
       const res = await apiFetch(
         `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-signature-email`,
         {
@@ -2388,11 +2408,31 @@
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Resend failed");
-      if (statusEl) statusEl.textContent = data.message || "Signing email resent.";
-      window.Admin?.showAdminToast?.(data.message || "Signing email resent.");
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      return data.message || "Signing email resent.";
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Signing email resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Resending signing email…";
+    try {
+      const message = await performResend();
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message);
     } catch (error) {
-      if (statusEl) statusEl.textContent = error.message || "Resend failed.";
+      const message = error.message || "Resend failed.";
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message, { variant: "error" });
     }
   }
 
@@ -2519,15 +2559,17 @@
     const actionStatus = container.querySelector("#employee-document-action-status");
     container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        void resendEmployeeDocumentNotification(btn.dataset.resendDocNotify, actionStatus);
+        void resendEmployeeDocumentNotification(btn.dataset.resendDocNotify, actionStatus, btn);
       });
     });
     container.querySelectorAll("[data-resend-sign-email]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        void resendEmployeeSigningEmail(btn.dataset.resendSignEmail, actionStatus);
+        void resendEmployeeSigningEmail(btn.dataset.resendSignEmail, actionStatus, btn);
       });
     });
   }
+
+  function renderDocumentStorePanel(workspace, container) {
     const section = (workspace.sections || []).find((item) => item.key === "document_store");
     const requirements = workspace.document_requirements || {};
     const docs = workspace.documents || [];
