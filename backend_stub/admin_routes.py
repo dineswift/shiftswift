@@ -135,6 +135,11 @@ class NotificationPreferencesUpdate(BaseModel):
     signin_reminder_minutes_before_open: int | None = Field(default=None, ge=15, le=240)
 
 
+class DocumentResendNotificationRequest(BaseModel):
+    employee_ids: list[int] | None = Field(default=None, max_length=500)
+    send_email: bool = Field(default=True)
+
+
 class EmployeeCreate(BaseModel):
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=80)
@@ -834,6 +839,85 @@ async def distribute_document_route(
     finally:
         conn.close()
     return result
+
+
+@router.get("/notifications/delivery-failures")
+def list_delivery_failures(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
+    from core.notifications import list_tenant_delivery_failures
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = _db_conn()
+    try:
+        return list_tenant_delivery_failures(
+            tenant_id=tenant_id,
+            conn=conn,
+            limit=limit,
+            offset=offset,
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/notifications/{notification_id}/resend")
+def resend_delivery_failure(
+    notification_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from core.notifications import resend_tenant_notification
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = _db_conn()
+    try:
+        return resend_tenant_notification(
+            tenant_id=tenant_id,
+            notification_id=notification_id,
+            conn=conn,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.post("/documents/{document_id}/resend-notification")
+def resend_tenant_document_notification(
+    document_id: int,
+    payload: DocumentResendNotificationRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.documents.notifications import resend_document_share_notifications
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = _db_conn()
+    try:
+        return resend_document_share_notifications(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            document_scope="tenant",
+            employee_id=None,
+            employee_ids=payload.employee_ids,
+            conn=conn,
+            send_email=payload.send_email,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        conn.close()
 
 
 @router.get("/notification-preferences")

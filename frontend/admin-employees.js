@@ -2296,8 +2296,18 @@
     if (row.has_file) {
       parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
     }
+    if (row.employee_visible && row.has_file) {
+      parts.push(
+        `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}">Resend notify</button>`,
+      );
+    }
     if (canSign) {
       parts.push(`<button type="button" class="btn ghost btn-sm" data-send-sign-doc="${row.id}">E-sign</button>`);
+    }
+    if (row.signing_status === "sent") {
+      parts.push(
+        `<button type="button" class="btn ghost btn-sm" data-resend-sign-email="${row.id}">Resend signing email</button>`,
+      );
     }
     if (row.document_url) {
       parts.push(
@@ -2347,6 +2357,43 @@
       rows: data.documents || [],
     });
     bindEmployeeDocumentTableActions(container, data.documents || []);
+  }
+
+  async function resendEmployeeDocumentNotification(documentId, statusEl) {
+    if (!activeEmployeeId) return;
+    if (statusEl) statusEl.textContent = "Resending notification…";
+    try {
+      const res = await apiFetch(
+        `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-notification`,
+        { method: "POST", body: JSON.stringify({ send_email: true }) },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Resend failed");
+      if (statusEl) statusEl.textContent = data.message || "Notification resent.";
+      window.Admin?.showAdminToast?.(data.message || "Notification resent.");
+    } catch (error) {
+      if (statusEl) statusEl.textContent = error.message || "Resend failed.";
+    }
+  }
+
+  async function resendEmployeeSigningEmail(documentId, statusEl) {
+    if (!activeEmployeeId) return;
+    if (statusEl) statusEl.textContent = "Resending signing email…";
+    try {
+      const res = await apiFetch(
+        `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-signature-email`,
+        {
+          method: "POST",
+          body: JSON.stringify({ frontend_base: window.location.origin }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Resend failed");
+      if (statusEl) statusEl.textContent = data.message || "Signing email resent.";
+      window.Admin?.showAdminToast?.(data.message || "Signing email resent.");
+    } catch (error) {
+      if (statusEl) statusEl.textContent = error.message || "Resend failed.";
+    }
   }
 
   function bindEmployeeDocumentTableActions(container, docs) {
@@ -2442,7 +2489,8 @@
           const linkBox = container.querySelector("#employee-document-signing-link");
           if (linkBox && data.signing_url) {
             linkBox.hidden = false;
-            linkBox.innerHTML = `<p><strong>Signing link</strong> (also emailed to employee):</p>
+            const emailed = data.email_sent !== false;
+            linkBox.innerHTML = `<p><strong>Signing link</strong>${emailed ? " (emailed to employee)" : ""}:</p>
               <input type="text" readonly value="${escapeHtml(data.signing_url)}" style="width:100%;" onclick="this.select()" />`;
           }
           await refreshEmployeeDocumentStoreList(container);
@@ -2467,9 +2515,19 @@
         }
       });
     });
-  }
 
-  function renderDocumentStorePanel(workspace, container) {
+    const actionStatus = container.querySelector("#employee-document-action-status");
+    container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void resendEmployeeDocumentNotification(btn.dataset.resendDocNotify, actionStatus);
+      });
+    });
+    container.querySelectorAll("[data-resend-sign-email]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void resendEmployeeSigningEmail(btn.dataset.resendSignEmail, actionStatus);
+      });
+    });
+  }
     const section = (workspace.sections || []).find((item) => item.key === "document_store");
     const requirements = workspace.document_requirements || {};
     const docs = workspace.documents || [];
@@ -2707,9 +2765,14 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         resetEmployeeUploadFormKeepingPreferences(uploadForm);
-        const notified = data?.notifications?.notified_count;
         await refreshEmployeeDocumentStoreList(container);
-        return notified != null ? "Uploaded. Staff alerted." : "Uploaded.";
+        const summary = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
+          uploadedLabel: "Uploaded",
+        });
+        if (window.Admin?.documentNotificationNeedsResend?.(data.notifications) && data.id) {
+          return `${summary} Use Resend notify on the document row if needed.`;
+        }
+        return summary || "Uploaded.";
       };
 
       const run = window.ShiftSwiftAction?.runFormSubmit;

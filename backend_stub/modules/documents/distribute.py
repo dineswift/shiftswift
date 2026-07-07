@@ -162,7 +162,7 @@ def distribute_document(
         from modules.documents.notifications import notify_employee_document_shared
 
         try:
-            if notify_employee_document_shared(
+            item = notify_employee_document_shared(
                 tenant_id=tenant_id,
                 employee=employee,
                 document_id=int(doc["id"]),
@@ -174,7 +174,8 @@ def distribute_document(
                 commit=False,
                 send_email=send_email,
                 document_scope="employee",
-            ):
+            )
+            if item.get("email_sent"):
                 emails_sent += 1
             elif send_email:
                 emails_skipped += 1

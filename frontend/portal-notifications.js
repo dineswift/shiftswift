@@ -69,10 +69,60 @@
       </div>
       <div class="portal-notifications-panel__list" data-notifications-list></div>
       <p class="portal-notifications-panel__empty muted" data-notifications-empty hidden>No notifications yet.</p>
+      <div class="portal-notifications-panel__failures" data-delivery-failures hidden>
+        <div class="portal-notifications-panel__failures-head">
+          <strong>Failed email deliveries</strong>
+        </div>
+        <div class="portal-notifications-panel__failures-list" data-delivery-failures-list></div>
+        <p class="portal-notifications-panel__empty muted" data-delivery-failures-empty hidden>No failed deliveries.</p>
+      </div>
     `;
     host.appendChild(panel);
     panel.hidden = true;
     return panel;
+  }
+
+  function renderDeliveryFailures(panel, items) {
+    const section = panel.querySelector("[data-delivery-failures]");
+    const list = panel.querySelector("[data-delivery-failures-list]");
+    const empty = panel.querySelector("[data-delivery-failures-empty]");
+    if (!section || !list || !empty) return;
+    if (!items.length) {
+      section.hidden = true;
+      list.innerHTML = "";
+      empty.hidden = true;
+      return;
+    }
+    section.hidden = false;
+    empty.hidden = true;
+    list.innerHTML = items
+      .map(
+        (item) => `
+      <div class="portal-notifications-failure">
+        <div class="portal-notifications-failure__meta">
+          <span class="portal-notifications-failure__title">${escapeHtml(item.label || item.subject || "Email")}</span>
+          <span class="portal-notifications-failure__body muted">${escapeHtml(item.to || "Unknown recipient")}${item.delivery_error ? ` · ${escapeHtml(item.delivery_error)}` : ""}</span>
+        </div>
+        <button type="button" class="btn outline btn-sm" data-resend-delivery="${item.id}">Resend</button>
+      </div>`,
+      )
+      .join("");
+  }
+
+  async function loadDeliveryFailures(panel) {
+    const res = await apiFetch("/admin/notifications/delivery-failures?limit=8");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Could not load failed deliveries");
+    renderDeliveryFailures(panel, data.items || []);
+    return data;
+  }
+
+  async function resendDeliveryFailure(panel, notificationId) {
+    const res = await apiFetch(`/admin/notifications/${notificationId}/resend`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Resend failed");
+    await loadDeliveryFailures(panel);
+    return data;
   }
 
   function renderList(panel, items) {
@@ -118,6 +168,9 @@
     if (!res.ok) throw new Error(data.detail || "Could not load notifications");
     renderList(config.panel, data.items || []);
     updateBadge(config.badgeEl, data.unread_count);
+    if (config.audience === "hr") {
+      await loadDeliveryFailures(config.panel).catch(() => renderDeliveryFailures(config.panel, []));
+    }
     return data;
   }
 
@@ -156,6 +209,20 @@
     });
 
     panel.addEventListener("click", async (event) => {
+      const resendBtn = event.target.closest("[data-resend-delivery]");
+      if (resendBtn) {
+        const id = resendBtn.getAttribute("data-resend-delivery");
+        resendBtn.disabled = true;
+        try {
+          await resendDeliveryFailure(panel, id);
+        } catch (error) {
+          resendBtn.textContent = "Failed";
+          resendBtn.title = error.message || "Resend failed";
+        } finally {
+          resendBtn.disabled = false;
+        }
+        return;
+      }
       const markAll = event.target.closest("[data-notifications-mark-all]");
       if (markAll) {
         await apiFetch(config.readAllPath, { method: "POST" });

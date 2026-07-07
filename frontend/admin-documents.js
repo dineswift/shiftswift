@@ -437,6 +437,32 @@
     });
   }
 
+  async function resendDocumentNotification(row) {
+    if (!row?.id) return;
+    try {
+      let res;
+      if (row.scope === "employee" && row.employee_id) {
+        res = await apiFetch(
+          `/admin/employees/${row.employee_id}/documents/${row.id}/resend-notification`,
+          { method: "POST", body: JSON.stringify({ send_email: true }) },
+        );
+      } else {
+        res = await apiFetch(`/admin/documents/${row.id}/resend-notification`, {
+          method: "POST",
+          body: JSON.stringify({
+            send_email: true,
+            employee_ids: row.employee_id ? [Number(row.employee_id)] : null,
+          }),
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Resend failed");
+      showAdminToast?.(data.message || "Notification resent.");
+    } catch (error) {
+      showAdminToast?.(error.message || "Resend failed", { variant: "error" });
+    }
+  }
+
   function bindDocumentRowActions(container, rows) {
     if (!container) return;
     container.querySelectorAll("[data-download-doc]").forEach((btn) => {
@@ -480,6 +506,17 @@
           employeeId: btn.dataset.docEmployeeId,
         });
         openDocumentEditPanel(row);
+      });
+    });
+
+    container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.resendDocNotify,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        if (row) void resendDocumentNotification(row);
       });
     });
   }
@@ -654,8 +691,13 @@
   }
 
   function documentActionsMarkup(row) {
+    const resendBtn =
+      row.employee_visible && documentHasAttachment(row)
+        ? `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}" ${documentActionAttrs(row)}>Resend notify</button>`
+        : "";
     return `<div class="table-actions">
       <button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
+      ${resendBtn}
       <button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
     </div>`;
   }
@@ -1289,11 +1331,12 @@
       try {
         const data = await uploadMultipart("/admin/documents/upload", fd);
         resetUploadFormKeepingPreferences(form);
-        const notified = data?.notifications?.notified_count;
-        const successText =
-          notified != null
-            ? `Uploaded ✓ ${notified} staff member${notified === 1 ? "" : "s"} alerted`
-            : "Uploaded ✓";
+        let successText = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
+          uploadedLabel: "Uploaded ✓",
+        }) || "Uploaded ✓";
+        if (window.Admin?.documentNotificationNeedsResend?.(data.notifications)) {
+          successText += " Use Resend notify on the document row if needed.";
+        }
         if (status) setFormStatus(status, successText, "success");
         window.AdminSettings?.showSettingsToast?.(successText);
         await refreshDocumentViews(status);

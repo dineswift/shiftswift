@@ -684,3 +684,119 @@ def _mark_failed(conn: Any, notif_id: int, error: str) -> None:
             (json.dumps({"delivery_error": error[:500]}), notif_id),
         )
     conn.commit()
+
+
+def _notification_label(*, subject: str, payload: dict[str, Any]) -> str:
+    event_type = str(payload.get("type") or payload.get("purpose") or "").strip()
+    labels = {
+        "employee_document_shared": "Document shared",
+        "document_signing": "Signature request",
+        "rota_published": "Rota published",
+        "rota_updated": "Rota updated",
+        "employee_portal_invite_sent": "Portal invite",
+    }
+    if event_type in labels:
+        return labels[event_type]
+    return (subject or "Email")[:120]
+
+
+def list_tenant_delivery_failures(
+    *,
+    tenant_id: int,
+    conn: Any,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List queued or failed outbound email notifications for HR resend."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE tenant_id = %s
+              AND channel = 'email'
+              AND status IN ('queued', 'failed')
+            """,
+            (tenant_id,),
+        )
+        total = int(cur.fetchone()[0])
+        cur.execute(
+            """
+            SELECT id, subject, status, created_at, payload
+            FROM notifications
+            WHERE tenant_id = %s
+              AND channel = 'email'
+              AND status IN ('queued', 'failed')
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (tenant_id, limit, offset),
+        )
+        rows = cur.fetchall()
+
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        payload = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+        items.append(
+            {
+                "id": row[0],
+                "subject": row[1],
+                "status": row[2],
+                "created_at": row[3].isoformat() if hasattr(row[3], "isoformat") else row[3],
+                "label": _notification_label(subject=str(row[1] or ""), payload=payload),
+                "to": payload.get("to"),
+                "event_type": payload.get("type") or payload.get("purpose"),
+                "employee_id": payload.get("employee_id"),
+                "document_id": payload.get("document_id"),
+                "delivery_error": payload.get("delivery_error"),
+                "can_resend": True,
+            }
+        )
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
+def resend_tenant_notification(
+    *,
+    tenant_id: int,
+    notification_id: int,
+    conn: Any,
+) -> dict[str, Any]:
+    """Retry a queued or failed email notification."""
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, tenant_id, channel, subject, body, payload, status
+            FROM notifications
+            WHERE id = %s AND tenant_id = %s
+            """,
+            (notification_id, tenant_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError("Notification not found")
+    if row[2] != "email":
+        raise ValueError("Only email notifications can be resent from here")
+    if row[6] == "sent":
+        raise ValueError("This notification was already delivered")
+
+    success = deliver_notification(conn=conn, row=row[:6])
+    if not success:
+        with conn.cursor() as cur:
+            cur.execute("SELECT payload FROM notifications WHERE id = %s", (notification_id,))
+            payload_row = cur.fetchone()
+        payload = (
+            payload_row[0]
+            if payload_row and isinstance(payload_row[0], dict)
+            else json.loads((payload_row or [None])[0] or "{}")
+        )
+        error = payload.get("delivery_error") or "Email delivery failed"
+        raise RuntimeError(str(error))
+
+    return {
+        "id": notification_id,
+        "status": "sent",
+        "message": "Notification resent successfully.",
+    }

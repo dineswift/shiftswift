@@ -485,6 +485,10 @@ class SendDocumentSignatureRequest(BaseModel):
     frontend_base: str | None = Field(default=None, max_length=240)
 
 
+class DocumentResendNotificationRequest(BaseModel):
+    send_email: bool = Field(default=True)
+
+
 @router.post("/{employee_id}/documents/{document_id}/send-for-signature")
 def send_employee_document_for_signature(
     employee_id: int,
@@ -518,6 +522,8 @@ def send_employee_document_for_signature(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
         log_employee_data_event(
             tenant_id=tenant_id,
             actor_username=current_user.username,
@@ -533,6 +539,78 @@ def send_employee_document_for_signature(
     finally:
         conn.close()
     return result
+
+
+@router.post("/{employee_id}/documents/{document_id}/resend-notification")
+def resend_employee_document_notification(
+    employee_id: int,
+    document_id: int,
+    payload: DocumentResendNotificationRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.documents.notifications import resend_document_share_notifications
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
+    conn = get_connection()
+    try:
+        if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
+            raise HTTPException(status_code=404, detail="employee not found")
+        return resend_document_share_notifications(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            document_scope="employee",
+            employee_id=employee_id,
+            employee_ids=None,
+            conn=conn,
+            send_email=payload.send_email,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.post("/{employee_id}/documents/{document_id}/resend-signature-email")
+def resend_employee_document_signature_email(
+    employee_id: int,
+    document_id: int,
+    payload: SendDocumentSignatureRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.document_signing.service import resend_document_signing_email
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
+    frontend_base = (payload.frontend_base or str(request.base_url)).rstrip("/")
+    if frontend_base.endswith("/admin/employees"):
+        frontend_base = frontend_base.rsplit("/admin", 1)[0]
+    conn = get_connection()
+    try:
+        if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
+            raise HTTPException(status_code=404, detail="employee not found")
+        return resend_document_signing_email(
+            conn=conn,
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            document_id=document_id,
+            frontend_base=frontend_base,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        conn.close()
 
 
 @router.post("/{employee_id}/documents")

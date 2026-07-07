@@ -1666,6 +1666,34 @@ window.Admin = (() => {
 
   document.title = `${businessName} | Admin Console`;
 
+  function formatDocumentNotificationSummary(notifications, { uploadedLabel = "Uploaded" } = {}) {
+    if (!notifications) return `${uploadedLabel}.`;
+    const sent = Number(notifications.emails_sent ?? 0);
+    const skipped = Number(notifications.emails_skipped ?? 0);
+    const pushes = Number(notifications.pushes_sent ?? 0);
+    const failures = Array.isArray(notifications.email_failures) ? notifications.email_failures : [];
+    const parts = [`${uploadedLabel}.`];
+    if (sent > 0) parts.push(`${sent} email${sent === 1 ? "" : "s"} sent`);
+    if (pushes > 0) parts.push(`${pushes} app alert${pushes === 1 ? "" : "s"}`);
+    if (skipped > 0 && sent === 0) parts.push(`${skipped} not emailed`);
+    if (failures.length) {
+      const detail = failures
+        .slice(0, 2)
+        .map((item) => `${item.name || "Staff"}: ${item.error || "failed"}`)
+        .join("; ");
+      parts.push(detail);
+    }
+    return parts.join(" · ");
+  }
+
+  function documentNotificationNeedsResend(notifications) {
+    if (!notifications) return false;
+    const failures = Array.isArray(notifications.email_failures) ? notifications.email_failures : [];
+    const sent = Number(notifications.emails_sent ?? 0);
+    const skipped = Number(notifications.emails_skipped ?? 0);
+    return failures.length > 0 || (skipped > 0 && sent === 0);
+  }
+
   return {
     API_BASE,
     getApiBase,
@@ -1733,5 +1761,7 @@ window.Admin = (() => {
     parseHashBaseSection,
     resolveSectionFromHash,
     routeFromHash: () => window.Admin.routeFromHash?.(),
+    formatDocumentNotificationSummary,
+    documentNotificationNeedsResend,
   };
 })();
