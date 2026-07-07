@@ -1004,6 +1004,18 @@
     return message || "Invite failed.";
   }
 
+  function formatBulkInviteSummary(data) {
+    const base = data?.message || "Invites sent.";
+    const failed = Array.isArray(data?.failed) ? data.failed : [];
+    if (!failed.length) return base;
+    const details = failed
+      .slice(0, 3)
+      .map((item) => `${item.name || "Employee"}: ${item.reason || "failed"}`)
+      .join("; ");
+    const suffix = failed.length > 3 ? ` (+${failed.length - 3} more)` : "";
+    return `${base} ${details}${suffix}`.trim();
+  }
+
   async function sendPortalInvite(employeeId, statusId = "employees-bulk-invite-status") {
     const statusEl = document.getElementById(statusId);
     if (statusEl) statusEl.textContent = "Sending invite…";
@@ -1057,7 +1069,7 @@
       });
       data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(formatInviteError(null, data));
-      if (statusEl) statusEl.textContent = data.message || "Invites sent.";
+      if (statusEl) statusEl.textContent = formatBulkInviteSummary(data);
       try {
         await refreshEmployeesTable();
       } catch {

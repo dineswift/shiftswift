@@ -220,6 +220,11 @@ def invite_workspace_user(
         raise ValueError("A valid work email is required")
     workspace_role = _validate_invite_role(role, actor_workspace_role=actor_workspace_role)
 
+    from core.notifications import smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
+
     with conn.cursor() as cur:
         cur.execute(
             """

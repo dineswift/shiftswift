@@ -102,6 +102,8 @@ def post_workspace_user_invite(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         conn.close()
     return result

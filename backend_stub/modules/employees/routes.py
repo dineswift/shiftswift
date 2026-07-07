@@ -129,6 +129,8 @@ def bulk_invite_employees_to_portal(
             user_agent=request.headers.get("User-Agent"),
             resend_existing=payload.resend_existing,
         )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         conn.close()
 
