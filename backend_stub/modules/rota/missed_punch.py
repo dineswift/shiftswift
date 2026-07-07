@@ -173,43 +173,22 @@ def evaluate_missed_punch_alerts(
             f"{shift_date.strftime('%a %d %b')} · {shift['start_time']}–{shift['end_time']}"
         )
 
-        if hr_delivery != "off":
-            from core.email_templates import missed_punch_hr_email
-            from core.notifications import queue_notification
-
-            content = missed_punch_hr_email(
-                tenant_name=hr_tenant_name,
-                employee_name=shift["employee_name"],
-                shift_label=shift_label,
-                role_label=shift.get("role_label") or "",
-                grace_minutes=missed_punch_minutes,
-            )
-            channels = ["email", "sms"] if hr_delivery == "email_sms" else ["email"]
-            for channel in channels:
-                queue_notification(
-                    conn=conn,
-                    tenant_id=tenant_id,
-                    channel=channel,
-                    subject=content.subject,
-                    body=content.text,
-                    payload={"html": content.html, "alert_id": alert_id, "shift_id": shift["id"]},
-                    purpose="compliance" if channel == "email" else "general",
-                    commit=False,
-                )
-            notified_hr = True
-
         from modules.push.hr_notify import notify_hr_missed_punch
 
         if hr_delivery != "off":
-            push_hr = notify_hr_missed_punch(
+            hr_result = notify_hr_missed_punch(
                 tenant_id=tenant_id,
                 shift_label=shift_label,
                 employee_name=shift["employee_name"],
                 shift_id=int(shift["id"]),
+                tenant_name=hr_tenant_name,
+                role_label=shift.get("role_label") or "",
+                grace_minutes=missed_punch_minutes,
                 preferences=prefs,
                 conn=conn,
+                alert_id=alert_id,
             )
-            if push_hr.get("sent"):
+            if hr_result.get("sent"):
                 notified_hr = True
 
         if (
@@ -218,7 +197,7 @@ def evaluate_missed_punch_alerts(
             and shift.get("email_notifications_enabled")
         ):
             from core.email_templates import missed_punch_employee_email
-            from core.notifications import send_email_content
+            from core.notifications import email_delivered, send_email_content
 
             content = missed_punch_employee_email(
                 employee_name=shift["employee_name"],
@@ -226,7 +205,7 @@ def evaluate_missed_punch_alerts(
                 shift_label=shift_label,
                 grace_minutes=missed_punch_minutes,
             )
-            send_email_content(
+            delivery = send_email_content(
                 conn=conn,
                 tenant_id=tenant_id,
                 to=shift["employee_email"],
@@ -234,25 +213,11 @@ def evaluate_missed_punch_alerts(
                 purpose="employee",
                 audience="employee",
                 payload={"alert_id": alert_id, "shift_id": shift["id"]},
+                deliver_now=True,
                 commit=False,
             )
-            notified_employee = True
-
-        from modules.push.service import app_url_path, send_employee_push
-
-        push_result = send_employee_push(
-            tenant_id=tenant_id,
-            employee_id=int(shift["employee_id"]),
-            notification_key=f"missed_punch_alert:{shift['id']}",
-            title="Missed clock-in — tap to clock in now",
-            body=f"Your shift {shift_label} started but you have not clocked in yet.",
-            url=app_url_path("employee.html#time-clock"),
-            tag=f"missed-punch-{shift['id']}",
-            alert_type="missed_clock_in",
-            conn=conn,
-        )
-        if push_result.get("sent"):
-            notified_employee = True
+            if email_delivered(delivery):
+                notified_employee = True
 
         with conn.cursor() as cur:
             cur.execute(

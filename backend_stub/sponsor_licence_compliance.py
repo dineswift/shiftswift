@@ -251,7 +251,7 @@ def get_rtw_check(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]
 
 
 def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]:
-    from core.notifications import queue_notification
+    from core.notifications import email_delivered, send_email_notification, smtp_configured
 
     check = get_rtw_check(tenant_id=tenant_id, check_id=check_id, conn=conn)
     if not check.get("expiry_date"):
@@ -259,6 +259,8 @@ def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int, conn: Any) -> dic
     email = check.get("employee_email")
     if not email:
         raise ValueError("Employee has no email address on file.")
+    if not smtp_configured():
+        raise ValueError("SMTP is not configured — cannot send RTW reminder email.")
     days_left = check.get("days_until_expiry")
     subject = "Right to Work document expiry reminder"
     body = (
@@ -268,18 +270,22 @@ def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int, conn: Any) -> dic
         "Please contact HR to arrange a re-check before this date.\n\n"
         "ShiftSwift HR"
     )
-    queue_notification(
+    delivery = send_email_notification(
         conn=conn,
         tenant_id=tenant_id,
-        channel="email",
         subject=subject,
         body=body,
         purpose="compliance",
         to=email,
+        audience="employee",
         payload={"rtw_check_id": check_id, "employee_id": check["employee_id"]},
+        deliver_now=True,
         commit=False,
     )
-    return {"message": f"Reminder queued for {check['employee_name']}."}
+    if not email_delivered(delivery):
+        err = delivery.get("delivery_error") or "Email delivery failed"
+        raise ValueError(str(err))
+    return {"message": f"Reminder sent to {check['employee_name']}.", "delivered": True}
 
 
 def store_immutable_rtw_pdf(

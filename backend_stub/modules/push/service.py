@@ -137,6 +137,25 @@ def _delete_subscription_by_id(*, subscription_id: int, conn: Any) -> None:
     conn.commit()
 
 
+def _employee_push_already_sent(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    notification_key: str,
+    conn: Any,
+) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 FROM push_notification_log
+            WHERE tenant_id = %s AND employee_id = %s AND notification_key = %s
+            LIMIT 1
+            """,
+            (tenant_id, employee_id, notification_key),
+        )
+        return cur.fetchone() is not None
+
+
 def record_push_sent(
     *,
     tenant_id: int,
@@ -220,12 +239,11 @@ def send_employee_push(
         return {"sent": 0, "skipped": "not_configured"}
 
     try:
-        if not record_push_sent(
+        if _employee_push_already_sent(
             tenant_id=tenant_id,
             employee_id=employee_id,
             notification_key=notification_key,
             conn=conn,
-            commit=False,
         ):
             return {"sent": 0, "skipped": "duplicate"}
 
@@ -270,10 +288,14 @@ def send_employee_push(
     for sub in subscriptions:
         if send_push(subscription=sub, payload=payload, conn=conn):
             sent += 1
-    try:
-        conn.commit()
-    except Exception:
-        pass
+    if sent > 0:
+        record_push_sent(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            notification_key=notification_key,
+            conn=conn,
+            commit=False,
+        )
     _record_employee_in_app(
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -283,6 +305,10 @@ def send_employee_push(
         alert_type=resolved_alert_type,
         conn=conn,
     )
+    try:
+        conn.commit()
+    except Exception:
+        pass
     return {"sent": sent, "devices": len(subscriptions)}
 
 
@@ -485,6 +511,26 @@ def _delete_admin_subscription_by_id(*, subscription_id: int, conn: Any) -> None
     conn.commit()
 
 
+def _admin_push_already_sent(
+    *,
+    tenant_id: int,
+    username: str,
+    notification_key: str,
+    conn: Any,
+) -> bool:
+    normalized = username.strip().lower()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1 FROM admin_push_notification_log
+            WHERE tenant_id = %s AND username = %s AND notification_key = %s
+            LIMIT 1
+            """,
+            (tenant_id, normalized, notification_key),
+        )
+        return cur.fetchone() is not None
+
+
 def record_admin_push_sent(
     *,
     tenant_id: int,
@@ -526,12 +572,11 @@ def send_admin_push(
 
     normalized = username.strip().lower()
     try:
-        if not record_admin_push_sent(
+        if _admin_push_already_sent(
             tenant_id=tenant_id,
             username=normalized,
             notification_key=notification_key,
             conn=conn,
-            commit=False,
         ):
             return {"sent": 0, "skipped": "duplicate"}
 
@@ -571,10 +616,14 @@ def send_admin_push(
         sub_row = {**sub, "id": sub["id"]}
         if send_push(subscription=sub_row, payload=payload, conn=conn, subscription_kind="admin"):
             sent += 1
-    try:
-        conn.commit()
-    except Exception:
-        pass
+    if sent > 0:
+        record_admin_push_sent(
+            tenant_id=tenant_id,
+            username=normalized,
+            notification_key=notification_key,
+            conn=conn,
+            commit=False,
+        )
     create_in_app_notification(
         tenant_id=tenant_id,
         audience="hr",
@@ -584,8 +633,12 @@ def send_admin_push(
         url=url,
         alert_type=resolved_alert_type,
         conn=conn,
-        commit=True,
+        commit=False,
     )
+    try:
+        conn.commit()
+    except Exception:
+        pass
     return {"sent": sent, "devices": len(subscriptions)}
 
 

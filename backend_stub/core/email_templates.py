@@ -797,6 +797,41 @@ def missed_punch_hr_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def leave_request_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    leave_type: str,
+    start_date: str,
+    end_date: str,
+) -> EmailContent:
+    leave_url = f"{APP_URL}/admin.html#leave"
+    subject = f"{APP_NAME} — leave request: {employee_name}"
+    intro = f"{employee_name} submitted a new {leave_type} request."
+    text = (
+        f"Hello,\n\n"
+        f"{intro}\n\n"
+        f"Dates: {start_date} → {end_date}\n"
+        f"Organisation: {tenant_name}\n\n"
+        f"Review and approve in ShiftSwift:\n{leave_url}\n\n"
+        f"— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=f"{employee_name} requested {leave_type} ({start_date} → {end_date}).",
+        title="New leave request",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Leave type", leave_type),
+            ("Dates", f"{start_date} → {end_date}"),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=leave_url,
+        cta_label="Review leave request",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def missed_punch_employee_email(
     *,
     employee_name: str,
