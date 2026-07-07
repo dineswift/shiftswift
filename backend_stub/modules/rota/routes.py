@@ -6,7 +6,7 @@ from typing import Annotated
 
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -436,7 +436,7 @@ def publish_week_rota(
 @admin_router.post("/weeks/{week_start}/resend-notifications")
 def resend_week_rota_notifications(
     week_start: str,
-    payload: ResendRotaNotificationsRequest = Body(default_factory=ResendRotaNotificationsRequest),
+    payload: ResendRotaNotificationsRequest,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
