@@ -416,6 +416,14 @@ async def upload_employee_document(
             conn=conn,
         )
         if notify_employee:
+            if not employee_visible and doc.get("id") is not None:
+                doc = update_employee_document(
+                    tenant_id=tenant_id,
+                    employee_id=employee_id,
+                    document_id=int(doc["id"]),
+                    updates={"employee_visible": True},
+                    conn=conn,
+                )
             targets = load_document_notification_targets(
                 tenant_id=tenant_id,
                 employee_id=employee_id,

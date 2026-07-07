@@ -311,8 +311,10 @@ def resend_document_share_notifications(
         )
         if not doc:
             raise LookupError("Document not found")
+        if not doc.get("storage_path") and not doc.get("document_url"):
+            raise ValueError("Upload a file or add a link before resending notifications")
         if not doc.get("employee_visible"):
-            raise ValueError("This document is not visible to the employee portal")
+            raise ValueError("Turn on employee portal visibility before resending notifications")
         targets = load_document_notification_targets(
             tenant_id=tenant_id,
             employee_id=employee_id,

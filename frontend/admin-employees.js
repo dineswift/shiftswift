@@ -2296,7 +2296,7 @@
     if (row.has_file) {
       parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
     }
-    if (row.employee_visible && row.has_file) {
+    if row.has_file) {
       parts.push(
         `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}">Resend notify</button>`,
       );
@@ -2756,6 +2756,7 @@
         const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
         fd.set("notify_employee", notify ? "true" : "false");
         fd.set("send_email", sendEmail ? "true" : "false");
+        fd.set("employee_visible", notify ? "true" : "false");
         if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",

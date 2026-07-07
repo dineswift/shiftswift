@@ -117,10 +117,11 @@
     return data;
   }
 
-  async function resendDeliveryFailure(panel, notificationId) {
+  async function resendDeliveryFailure(panel, notificationId, button) {
     const res = await apiFetch(`/admin/notifications/${notificationId}/resend`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || "Resend failed");
+    if (button) button.textContent = "Sent";
     await loadDeliveryFailures(panel);
     return data;
   }
@@ -214,7 +215,7 @@
         const id = resendBtn.getAttribute("data-resend-delivery");
         resendBtn.disabled = true;
         try {
-          await resendDeliveryFailure(panel, id);
+          await resendDeliveryFailure(panel, id, resendBtn);
         } catch (error) {
           resendBtn.textContent = "Failed";
           resendBtn.title = error.message || "Resend failed";
