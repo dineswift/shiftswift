@@ -101,3 +101,26 @@ def test_update_tenant_workspace_not_found() -> None:
                 master_tenant_id=1,
                 business_name="Missing Co",
             )
+
+
+def test_email_tenant_contact_raises_on_delivery_failure() -> None:
+    from modules.master.platform_ops import email_tenant_contact
+
+    conn = MagicMock()
+    tenant_row = (42, "Acme Ltd", "billing@acme.test", "active", None, None, None)
+
+    with patch("modules.master.platform_ops._get_tenant_row", return_value=tenant_row):
+        with patch("modules.master.platform_ops.smtp_configured", return_value=True):
+            with patch(
+                "modules.master.platform_ops.send_email_notification",
+                return_value={"delivery_error": "SMTP authentication failed"},
+            ):
+                with pytest.raises(RuntimeError, match="SMTP authentication failed"):
+                    email_tenant_contact(
+                        conn=conn,
+                        tenant_id=42,
+                        master_tenant_id=1,
+                        subject="Hello",
+                        body="Test message",
+                        master_username="admin@shiftswifthr.co.uk",
+                    )

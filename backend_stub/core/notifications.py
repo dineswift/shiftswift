@@ -42,6 +42,13 @@ def email_delivered(payload: dict[str, Any] | None) -> bool:
     return not (payload or {}).get("delivery_error")
 
 
+def require_email_delivered(payload: dict[str, Any] | None) -> None:
+    """Raise RuntimeError when SMTP delivery failed or was not configured."""
+    err = (payload or {}).get("delivery_error")
+    if err:
+        raise RuntimeError(str(err))
+
+
 def smtp_config_summary() -> dict[str, str | bool]:
     """Non-secret SMTP config snapshot for diagnostics."""
     password = os.getenv("SMTP_PASSWORD", "")

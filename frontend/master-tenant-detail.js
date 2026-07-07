@@ -688,7 +688,7 @@
       if (!body) return;
       try {
         await apiPost(`/master/tenants/${tenant.id}/email`, { subject, body });
-        alert("Email sent.");
+        alert(`Email sent to ${data.sent_to || "tenant contact"}.`);
       } catch (error) {
         alert(error.message);
       }

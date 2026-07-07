@@ -140,3 +140,64 @@ def test_resend_notifies_all_scheduled_staff(get_profile, _delivery, send_email,
     assert send_email.call_count == 2
     assert send_push.call_count == 2
     assert send_push.call_args.kwargs["notification_key"].startswith("rota_resend:")
+
+
+@patch("modules.rota.notifications.send_employee_push", return_value={"sent": 0, "skipped": "no_subscription"})
+@patch(
+    "modules.rota.notifications.send_email_content",
+    return_value={"delivery_error": "SMTP authentication failed"},
+)
+@patch("admin_service.tenant_notification_delivery_enabled", return_value=True)
+@patch("admin_service.get_tenant_profile")
+def test_publish_reports_smtp_failures(get_profile, _delivery, _send_email, _send_push) -> None:
+    get_profile.return_value = {"notify_on_rota_publish": True}
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [(1, "Alex", "Smith", "alex@example.com", True)]
+
+    result = notify_rota_published(
+        tenant_id=1,
+        week_start=date(2026, 6, 8),
+        shifts=[_shift(1, "2026-06-09")],
+        conn=conn,
+        previous_shifts=None,
+    )
+
+    assert result["emails_sent"] == 0
+    assert result["emails_skipped"] == 1
+    assert result["skip_reasons"]["smtp_failed"] == 1
+    assert result["email_failures"][0]["error"] == "SMTP authentication failed"
+
+
+@patch("modules.rota.notifications.send_employee_push", return_value={"sent": 1})
+@patch("modules.rota.notifications.send_email_content", return_value={})
+@patch("admin_service.tenant_notification_delivery_enabled", return_value=True)
+@patch("admin_service.get_tenant_profile")
+def test_resend_can_target_selected_staff(get_profile, _delivery, send_email, send_push) -> None:
+    get_profile.return_value = {"notify_on_rota_publish": True}
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [
+        (1, "Alex", "Smith", "alex@example.com", True),
+        (2, "Sam", "Patel", "sam@example.com", True),
+    ]
+
+    shifts = [_shift(1, "2026-06-09"), _shift(2, "2026-06-10")]
+
+    result = notify_rota_published(
+        tenant_id=1,
+        week_start=date(2026, 6, 8),
+        shifts=shifts,
+        conn=conn,
+        resend=True,
+        employee_ids=[2],
+    )
+
+    assert result["employees_notified"] == 1
+    assert result["emails_sent"] == 1
+    send_email.assert_called_once()
+    assert send_email.call_args.kwargs["payload"]["employee_id"] == 2

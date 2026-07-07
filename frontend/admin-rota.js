@@ -1233,7 +1233,7 @@
       btn.hidden = !canResend;
       btn.disabled = !canResend;
       btn.title = canResend
-        ? "Resend rota email and app alert to all scheduled staff"
+        ? "Resend rota email and app alert to selected scheduled staff"
         : "Available after the rota is published";
     });
     updateReadOnlyUi();
@@ -2317,34 +2317,74 @@
   function formatRotaNotificationSummary(n) {
     if (!n) return "";
     const sent = n.emails_sent ?? 0;
+    const skipped = n.emails_skipped ?? 0;
+    const pushes = n.pushes_sent ?? 0;
     const notified = n.employees_notified ?? sent;
     const unchanged = n.employees_unchanged ?? 0;
-    if (n.mode === "resend") {
-      if (sent > 0) {
-        return ` · ${sent} staff email${sent === 1 ? "" : "s"} resent`;
+    const reasons = n.skip_reasons || {};
+    const pushSkips = n.push_skip_reasons || {};
+    const failures = Array.isArray(n.email_failures) ? n.email_failures : [];
+
+    function skipHint() {
+      const parts = [];
+      if (reasons.smtp_failed) parts.push("SMTP failed on server");
+      if (reasons.no_valid_email) parts.push("missing staff email on employee record");
+      if (reasons.employee_email_disabled) parts.push("staff turned off email notifications");
+      if (reasons.tenant_delivery_off || reasons.tenant_notifications_off) {
+        parts.push("rota emails disabled in Settings → Notifications");
       }
-      if ((n.emails_skipped ?? 0) > 0) {
-        return " · no staff emails resent (check addresses or notification settings)";
+      if (reasons.employee_not_found) parts.push("employee record not found");
+      if (failures.length && failures[0]?.error) {
+        parts.push(failures[0].error);
+      }
+      if (pushSkips.no_subscription && !pushes) {
+        parts.push("no employee app push subscription");
+      }
+      if (pushSkips.not_configured && !pushes) {
+        parts.push("push not configured on server");
+      }
+      if (!parts.length && skipped > 0) {
+        parts.push("check staff email addresses and notification settings");
+      }
+      return parts.length ? ` (${parts.join("; ")})` : "";
+    }
+
+    function pushHint() {
+      if (pushes > 0) {
+        return ` · ${pushes} app alert${pushes === 1 ? "" : "s"} sent`;
       }
       return "";
     }
+
+    if (n.mode === "resend") {
+      if (sent > 0) {
+        return ` · ${sent} staff email${sent === 1 ? "" : "s"} resent${pushHint()}`;
+      }
+      if (skipped > 0) {
+        return ` · no staff emails resent${skipHint()}`;
+      }
+      return pushHint();
+    }
     if (n.mode === "update") {
-      if (notified > 0) {
-        let msg = ` · ${notified} staff emailed about changes`;
+      if (notified > 0 && sent > 0) {
+        let msg = ` · ${sent} staff emailed about changes`;
         if (unchanged > 0) {
           msg += ` (${unchanged} unchanged — not emailed)`;
         }
-        return msg;
+        return msg + pushHint();
+      }
+      if (notified > 0 && sent === 0 && skipped > 0) {
+        return ` · staff with schedule changes were not emailed${skipHint()}${pushHint()}`;
       }
       return " · no schedule changes — staff not emailed";
     }
     if (sent > 0) {
-      return ` · ${sent} email${sent === 1 ? "" : "s"} sent`;
+      return ` · ${sent} email${sent === 1 ? "" : "s"} sent${pushHint()}`;
     }
-    if ((n.emails_skipped ?? 0) > 0) {
-      return " · no staff emails sent (check addresses or notification settings)";
+    if (skipped > 0) {
+      return ` · no staff emails sent${skipHint()}${pushHint()}`;
     }
-    return "";
+    return pushHint();
   }
 
   async function publishRota() {
@@ -2409,6 +2449,79 @@
     }
   }
 
+  function scheduledStaffForWeek() {
+    const ids = [...new Set(shifts.map((s) => Number(s.employee_id)).filter(Boolean))];
+    return ids
+      .map((id) => employeeById(id) || { id, first_name: "", last_name: "", email: "" })
+      .sort((a, b) => employeeName(a.id).localeCompare(employeeName(b.id)));
+  }
+
+  function renderRotaResendStaffList() {
+    const list = document.getElementById("rota-resend-staff-list");
+    if (!list) return;
+    const staff = scheduledStaffForWeek();
+    if (!staff.length) {
+      list.innerHTML = '<p class="muted">No staff scheduled on this rota week.</p>';
+      return;
+    }
+    list.innerHTML = staff
+      .map((emp) => {
+        const email = (emp.email || "").trim();
+        const emailLabel = email || "No email on file";
+        const shiftCount = shifts.filter((s) => Number(s.employee_id) === Number(emp.id)).length;
+        return `<label class="rota-resend-staff-item signup-check">
+          <input type="checkbox" name="rota_resend_staff" value="${emp.id}" checked />
+          <span class="rota-resend-staff-item__meta">
+            <span class="rota-resend-staff-item__name">${escapeHtml(employeeName(emp.id))}</span>
+            <span class="rota-resend-staff-item__email">${escapeHtml(emailLabel)} · ${shiftCount} shift${shiftCount === 1 ? "" : "s"}</span>
+          </span>
+        </label>`;
+      })
+      .join("");
+  }
+
+  function setRotaResendDialogStatus(message) {
+    const status = document.getElementById("rota-resend-dialog-status");
+    if (!status) return;
+    if (message) {
+      status.textContent = message;
+      status.hidden = false;
+    } else {
+      status.textContent = "";
+      status.hidden = true;
+    }
+  }
+
+  function selectedResendStaffIds() {
+    return [...document.querySelectorAll('#rota-resend-staff-list input[name="rota_resend_staff"]:checked')]
+      .map((input) => Number(input.value))
+      .filter((id) => Number.isFinite(id) && id > 0);
+  }
+
+  function openRotaResendDialog() {
+    const dialog = document.getElementById("rota-resend-dialog");
+    if (!dialog || typeof dialog.showModal !== "function") return false;
+    renderRotaResendStaffList();
+    setRotaResendDialogStatus("");
+    dialog.showModal();
+    return true;
+  }
+
+  async function submitRotaResend(employeeIds) {
+    const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/resend-notifications`, {
+      method: "POST",
+      body: JSON.stringify({ employee_ids: employeeIds }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = data.detail?.message || data.detail || "Resend failed.";
+      throw new Error(typeof message === "string" ? message : "Resend failed.");
+    }
+    let msg = data.message || "Rota notifications resent.";
+    msg += formatRotaNotificationSummary(data.notifications);
+    return msg;
+  }
+
   async function resendRotaNotifications() {
     if (!weekMeta?.version || weekMeta.status !== "published") {
       setMessage("Publish the rota before resending staff notifications.", "error");
@@ -2418,9 +2531,16 @@
       setMessage("No shifts on this rota week.", "error");
       return;
     }
+    if (openRotaResendDialog()) return;
+
+    const staff = scheduledStaffForWeek();
+    if (!staff.length) {
+      setMessage("No staff scheduled on this rota week.", "error");
+      return;
+    }
     if (
       !window.confirm(
-        "Resend rota email and app alerts to all scheduled staff for this week? Use this if someone did not receive the first notification."
+        `Resend rota email and app alerts to all ${staff.length} scheduled staff for this week?`
       )
     ) {
       return;
@@ -2429,20 +2549,7 @@
       document.getElementById("rota-resend-btn") || document.getElementById("rota-mobile-resend-btn");
     const statusEl = document.getElementById("rota-admin-message");
 
-    const performResend = async () => {
-      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/resend-notifications`, {
-        method: "POST",
-        body: "{}",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const message = data.detail?.message || data.detail || "Resend failed.";
-        throw new Error(message);
-      }
-      let msg = data.message || "Rota notifications resent.";
-      msg += formatRotaNotificationSummary(data.notifications);
-      return msg;
-    };
+    const performResend = async () => submitRotaResend(staff.map((emp) => Number(emp.id)));
 
     if (btn && window.ShiftSwiftAction?.runButtonAction) {
       await window.ShiftSwiftAction.runButtonAction(btn, statusEl, {
@@ -2461,6 +2568,59 @@
     } catch (error) {
       setMessage(error.message || "Resend failed.", "error");
     }
+  }
+
+  function bindRotaResendDialog() {
+    const dialog = document.getElementById("rota-resend-dialog");
+    const form = document.getElementById("rota-resend-form");
+    if (!dialog || !form || form.dataset.bound) return;
+    form.dataset.bound = "1";
+
+    document.getElementById("rota-resend-select-all")?.addEventListener("click", () => {
+      document
+        .querySelectorAll('#rota-resend-staff-list input[name="rota_resend_staff"]')
+        .forEach((input) => {
+          input.checked = true;
+        });
+      setRotaResendDialogStatus("");
+    });
+    document.getElementById("rota-resend-select-none")?.addEventListener("click", () => {
+      document
+        .querySelectorAll('#rota-resend-staff-list input[name="rota_resend_staff"]')
+        .forEach((input) => {
+          input.checked = false;
+        });
+      setRotaResendDialogStatus("");
+    });
+
+    document.getElementById("rota-resend-cancel")?.addEventListener("click", () => {
+      dialog.close();
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const employeeIds = selectedResendStaffIds();
+      if (!employeeIds.length) {
+        setRotaResendDialogStatus("Select at least one staff member.");
+        return;
+      }
+      const submitBtn = document.getElementById("rota-resend-submit");
+      if (submitBtn) submitBtn.disabled = true;
+      setRotaResendDialogStatus("Resending…");
+      try {
+        const msg = await submitRotaResend(employeeIds);
+        dialog.close();
+        setMessage(msg, "success");
+      } catch (error) {
+        setRotaResendDialogStatus(error.message || "Resend failed.");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
+    dialog.addEventListener("close", () => {
+      setRotaResendDialogStatus("");
+    });
   }
 
   function changeWeek(delta) {
@@ -2619,6 +2779,7 @@
     document.getElementById("rota-clear-btn")?.addEventListener("click", clearRota);
     document.getElementById("rota-publish-btn")?.addEventListener("click", publishRota);
     document.getElementById("rota-resend-btn")?.addEventListener("click", resendRotaNotifications);
+    bindRotaResendDialog();
     document.getElementById("rota-reload-btn")?.addEventListener("click", () => {
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
       closeShiftPanel();

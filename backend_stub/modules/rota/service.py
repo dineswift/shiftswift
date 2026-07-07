@@ -548,6 +548,7 @@ def resend_week_notifications(
     tenant_id: int,
     week_start: date,
     conn: Any,
+    employee_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     """Resend rota emails and push alerts for an already-published week."""
     with conn.cursor() as cur:
@@ -576,6 +577,18 @@ def resend_week_notifications(
             raise RotaValidationError("No shifts on this rota week", field="shifts")
 
     _, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    if employee_ids is not None:
+        allowed = {int(eid) for eid in employee_ids}
+        scheduled = {int(s["employee_id"]) for s in shifts}
+        missing = allowed - scheduled
+        if missing:
+            raise RotaValidationError(
+                "One or more selected staff are not scheduled on this rota week",
+                field="employee_ids",
+            )
+        if not allowed:
+            raise RotaValidationError("Select at least one staff member to resend", field="employee_ids")
+
     from modules.rota.notifications import notify_rota_published
 
     notifications = notify_rota_published(
@@ -584,11 +597,17 @@ def resend_week_notifications(
         shifts=shifts,
         conn=conn,
         resend=True,
+        employee_ids=employee_ids,
     )
+    target_count = len(employee_ids) if employee_ids is not None else notifications.get("employees_notified", 0)
     return {
         "week_start": week_start.isoformat(),
         "notifications": notifications,
-        "message": "Rota notifications resent",
+        "message": (
+            f"Rota notifications resent to {target_count} staff"
+            if employee_ids is not None
+            else "Rota notifications resent"
+        ),
     }
 
 

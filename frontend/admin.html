@@ -2324,7 +2324,7 @@
                 <span>Email rota to staff</span>
               </label>
               <button type="button" class="btn primary" id="rota-publish-btn">Publish rota</button>
-              <button type="button" class="btn outline" id="rota-resend-btn" hidden>Resend staff email</button>
+              <button type="button" class="btn outline" id="rota-resend-btn" hidden>Resend to staff…</button>
             </div>
           </header>
           <div id="rota-admin-message" class="rota-admin-message" aria-live="polite" hidden></div>
@@ -2524,10 +2524,28 @@
           <div class="rota-mobile-footer rota-mobile-only" id="rota-mobile-footer">
             <div class="rota-mobile-footer__inner">
               <button type="button" class="btn outline rota-mobile-footer-btn" id="rota-mobile-save-btn">Save draft</button>
-              <button type="button" class="btn outline rota-mobile-footer-btn" id="rota-mobile-resend-btn" hidden>Resend email</button>
+              <button type="button" class="btn outline rota-mobile-footer-btn" id="rota-mobile-resend-btn" hidden>Resend to staff…</button>
               <button type="button" class="btn primary rota-mobile-footer-btn" id="rota-mobile-publish-btn">Publish rota</button>
             </div>
           </div>
+          <dialog id="rota-resend-dialog" class="rota-resend-dialog">
+            <form method="dialog" id="rota-resend-form" class="rota-resend-dialog__form">
+              <h3 class="rota-resend-dialog__title">Resend rota notifications</h3>
+              <p class="muted rota-resend-dialog__lead">
+                Choose who should receive the rota email and app alert again — for example if the first delivery failed or went to spam.
+              </p>
+              <div class="rota-resend-dialog__toolbar">
+                <button type="button" class="btn ghost" id="rota-resend-select-all">Select all</button>
+                <button type="button" class="btn ghost" id="rota-resend-select-none">Clear</button>
+              </div>
+              <div id="rota-resend-staff-list" class="rota-resend-staff-list" role="group" aria-label="Staff on this rota"></div>
+              <p id="rota-resend-dialog-status" class="form-error-message" hidden></p>
+              <div class="rota-resend-dialog__actions">
+                <button type="button" class="btn ghost" id="rota-resend-cancel">Cancel</button>
+                <button type="submit" class="btn primary" id="rota-resend-submit">Resend</button>
+              </div>
+            </form>
+          </dialog>
           <div id="rota-panel-portal-home">
           <div id="rota-shift-backdrop" class="rota-shift-backdrop mobile-editor-backdrop" hidden aria-hidden="true"></div>
           <aside id="rota-shift-panel" class="rota-shift-panel mobile-editor-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rota-shift-popover-title">
