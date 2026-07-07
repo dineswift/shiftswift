@@ -429,6 +429,29 @@ def publish_week_rota(
         conn.close()
 
 
+@admin_router.post("/weeks/{week_start}/resend-notifications")
+def resend_week_rota_notifications(
+    week_start: str,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+            return rota_service.resend_week_notifications(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                conn=conn,
+            )
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
 @admin_router.get("/templates")
 def list_rota_templates(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],

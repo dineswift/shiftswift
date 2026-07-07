@@ -14,8 +14,8 @@ from modules.documents.notifications import notify_employee_document_shared
 from modules.rota.notifications import notify_rota_published
 
 
-@patch("modules.push.service.send_employee_push")
-@patch("modules.rota.notifications.send_email_content")
+@patch("modules.rota.notifications.send_employee_push")
+@patch("modules.rota.notifications.send_email_content", return_value={})
 @patch("admin_service.tenant_notification_delivery_enabled", return_value=True)
 @patch("admin_service.get_tenant_profile")
 def test_rota_published_sends_push(

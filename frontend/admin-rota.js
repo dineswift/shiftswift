@@ -334,6 +334,10 @@
   }
 
   function isMobileViewport() {
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
+    if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 860px)").matches;
   }
 
@@ -1222,6 +1226,16 @@
               ? "Already published"
               : "Save the rota before publishing";
     });
+    const canResend = Boolean(weekMeta?.status === "published" && shifts.length);
+    ["rota-resend-btn", "rota-mobile-resend-btn"].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.hidden = !canResend;
+      btn.disabled = !canResend;
+      btn.title = canResend
+        ? "Resend rota email and app alert to all scheduled staff"
+        : "Available after the rota is published";
+    });
     updateReadOnlyUi();
   }
 
@@ -1447,7 +1461,7 @@
   function renderShiftCards() {
     const host = document.getElementById("rota-shifts-cards");
     const tableWrap = document.querySelector(".rota-shifts-table-wrap");
-    const useCards = window.matchMedia("(max-width: 860px)").matches;
+    const useCards = isMobileViewport();
     if (!host) return;
     if (tableWrap) tableWrap.hidden = useCards;
     host.hidden = !useCards;
@@ -1515,7 +1529,7 @@
   function renderShiftTable() {
     renderShiftCards();
     const tbody = document.getElementById("rota-shifts-body");
-    if (!tbody || window.matchMedia("(max-width: 860px)").matches) return;
+    if (!tbody || isMobileViewport()) return;
     const readonly = isWeekReadOnly();
     const columns = [
       {
@@ -2300,6 +2314,39 @@
     }
   }
 
+  function formatRotaNotificationSummary(n) {
+    if (!n) return "";
+    const sent = n.emails_sent ?? 0;
+    const notified = n.employees_notified ?? sent;
+    const unchanged = n.employees_unchanged ?? 0;
+    if (n.mode === "resend") {
+      if (sent > 0) {
+        return ` · ${sent} staff email${sent === 1 ? "" : "s"} resent`;
+      }
+      if ((n.emails_skipped ?? 0) > 0) {
+        return " · no staff emails resent (check addresses or notification settings)";
+      }
+      return "";
+    }
+    if (n.mode === "update") {
+      if (notified > 0) {
+        let msg = ` · ${notified} staff emailed about changes`;
+        if (unchanged > 0) {
+          msg += ` (${unchanged} unchanged — not emailed)`;
+        }
+        return msg;
+      }
+      return " · no schedule changes — staff not emailed";
+    }
+    if (sent > 0) {
+      return ` · ${sent} email${sent === 1 ? "" : "s"} sent`;
+    }
+    if ((n.emails_skipped ?? 0) > 0) {
+      return " · no staff emails sent (check addresses or notification settings)";
+    }
+    return "";
+  }
+
   async function publishRota() {
     if (!guardWeekEditable("publish this rota")) return;
     if (!shifts.length) {
@@ -2338,24 +2385,7 @@
       await loadWeek();
       let msg = data.message || "Rota published — staff can see shifts in Time Clock.";
       if (notifyStaff && data.notifications) {
-        const n = data.notifications;
-        const sent = n.emails_sent ?? 0;
-        const notified = n.employees_notified ?? sent;
-        const unchanged = n.employees_unchanged ?? 0;
-        if (n.mode === "update") {
-          if (notified > 0) {
-            msg += ` · ${notified} staff emailed about changes`;
-            if (unchanged > 0) {
-              msg += ` (${unchanged} unchanged — not emailed)`;
-            }
-          } else {
-            msg += " · no schedule changes — staff not emailed";
-          }
-        } else if (sent > 0) {
-          msg += ` · ${sent} email${sent === 1 ? "" : "s"} sent`;
-        } else if ((n.emails_skipped ?? 0) > 0) {
-          msg += " · no staff emails sent (check addresses or notification settings)";
-        }
+        msg += formatRotaNotificationSummary(data.notifications);
       }
       return msg;
     };
@@ -2376,6 +2406,60 @@
       setMessage(await performPublish(), "success");
     } catch (error) {
       setMessage(error.message || "Publish failed.", "error");
+    }
+  }
+
+  async function resendRotaNotifications() {
+    if (!weekMeta?.version || weekMeta.status !== "published") {
+      setMessage("Publish the rota before resending staff notifications.", "error");
+      return;
+    }
+    if (!shifts.length) {
+      setMessage("No shifts on this rota week.", "error");
+      return;
+    }
+    if (
+      !window.confirm(
+        "Resend rota email and app alerts to all scheduled staff for this week? Use this if someone did not receive the first notification."
+      )
+    ) {
+      return;
+    }
+    const btn =
+      document.getElementById("rota-resend-btn") || document.getElementById("rota-mobile-resend-btn");
+    const statusEl = document.getElementById("rota-admin-message");
+
+    const performResend = async () => {
+      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/resend-notifications`, {
+        method: "POST",
+        body: "{}",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data.detail?.message || data.detail || "Resend failed.";
+        throw new Error(message);
+      }
+      let msg = data.message || "Rota notifications resent.";
+      msg += formatRotaNotificationSummary(data.notifications);
+      return msg;
+    };
+
+    if (btn && window.ShiftSwiftAction?.runButtonAction) {
+      await window.ShiftSwiftAction.runButtonAction(btn, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notifications resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Resent",
+        onAction: performResend,
+      });
+      return;
+    }
+
+    setMessage("Resending…");
+    try {
+      setMessage(await performResend(), "success");
+    } catch (error) {
+      setMessage(error.message || "Resend failed.", "error");
     }
   }
 
@@ -2534,6 +2618,7 @@
     document.getElementById("rota-copy-prev-btn")?.addEventListener("click", copyPreviousWeek);
     document.getElementById("rota-clear-btn")?.addEventListener("click", clearRota);
     document.getElementById("rota-publish-btn")?.addEventListener("click", publishRota);
+    document.getElementById("rota-resend-btn")?.addEventListener("click", resendRotaNotifications);
     document.getElementById("rota-reload-btn")?.addEventListener("click", () => {
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
       closeShiftPanel();
@@ -2564,6 +2649,7 @@
     document.getElementById("rota-mobile-clear")?.addEventListener("click", clearRota);
     document.getElementById("rota-mobile-save-btn")?.addEventListener("click", saveRota);
     document.getElementById("rota-mobile-publish-btn")?.addEventListener("click", publishRota);
+    document.getElementById("rota-mobile-resend-btn")?.addEventListener("click", resendRotaNotifications);
     document.getElementById("rota-mobile-notify-btn")?.addEventListener("click", () => {
       const notify = document.getElementById("rota-notify-staff");
       if (!notify) return;

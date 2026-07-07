@@ -69,8 +69,8 @@ def test_rota_updated_email_removed_copy() -> None:
     assert "Schedule update" in content.subject
 
 
-@patch("modules.push.service.send_employee_push")
-@patch("modules.rota.notifications.send_email_content")
+@patch("modules.rota.notifications.send_employee_push")
+@patch("modules.rota.notifications.send_email_content", return_value={})
 @patch("admin_service.tenant_notification_delivery_enabled", return_value=True)
 @patch("admin_service.get_tenant_profile")
 def test_republish_only_emails_changed_staff(get_profile, _delivery, send_email, send_push) -> None:
@@ -101,3 +101,42 @@ def test_republish_only_emails_changed_staff(get_profile, _delivery, send_email,
     assert result["emails_sent"] == 1
     send_email.assert_called_once()
     assert send_email.call_args.kwargs["payload"]["change_kind"] == "updated"
+
+
+@patch("modules.rota.notifications.send_employee_push")
+@patch("modules.rota.notifications.send_email_content", return_value={})
+@patch("admin_service.tenant_notification_delivery_enabled", return_value=True)
+@patch("admin_service.get_tenant_profile")
+def test_resend_notifies_all_scheduled_staff(get_profile, _delivery, send_email, send_push) -> None:
+    get_profile.return_value = {"notify_on_rota_publish": True}
+    send_push.return_value = {"sent": 1}
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [
+        (1, "Alex", "Smith", "alex@example.com", True),
+        (2, "Sam", "Patel", "sam@example.com", True),
+    ]
+
+    shifts = [
+        _shift(1, "2026-06-09"),
+        _shift(2, "2026-06-10"),
+    ]
+    previous = [_shift(1, "2026-06-09"), _shift(2, "2026-06-10")]
+
+    result = notify_rota_published(
+        tenant_id=1,
+        week_start=date(2026, 6, 8),
+        shifts=shifts,
+        conn=conn,
+        previous_shifts=previous,
+        resend=True,
+    )
+
+    assert result["mode"] == "resend"
+    assert result["employees_notified"] == 2
+    assert result["emails_sent"] == 2
+    assert send_email.call_count == 2
+    assert send_push.call_count == 2
+    assert send_push.call_args.kwargs["notification_key"].startswith("rota_resend:")

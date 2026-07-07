@@ -580,7 +580,7 @@ def invite_missing_portal_accounts(
                     "created_account": result["created_account"],
                 }
             )
-        except ValueError as exc:
+        except (ValueError, RuntimeError) as exc:
             failed.append({"employee_id": employee_id, "name": label, "reason": str(exc)})
 
     created_count = sum(1 for item in invited if item.get("created_account"))

@@ -199,13 +199,13 @@ html.native-app.capacitor-native .portal-login-form .btn.primary {
   font-size: 1rem;
 }
 
-/* —— Employee shell —— */
-html.native-app.capacitor-native body.employee-portal .sidebar,
-html.native-app.capacitor-native body.employee-portal #sidebar-toggle {
+/* —— Employee shell (phone only — iPad uses sidebar via iphone-app-ipad.css) —— */
+html.native-app.capacitor-native:not(.native-tablet) body.employee-portal .sidebar,
+html.native-app.capacitor-native:not(.native-tablet) body.employee-portal #sidebar-toggle {
   display: none !important;
 }
 
-html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) main.content {
+html.native-app.capacitor-native:not(.native-tablet) body.employee-portal:has(#mobile-tab-bar) main.content {
   padding: 6px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
 }
 
@@ -350,7 +350,7 @@ html.native-app.capacitor-native .employee-home-card__value {
 }
 
 /* Tab bar */
-html.native-app.capacitor-native #mobile-tab-bar {
+html.native-app.capacitor-native:not(.native-tablet) #mobile-tab-bar {
   display: flex;
   padding: 5px var(--iphone-pad-r) max(4px, env(safe-area-inset-bottom)) var(--iphone-pad);
   border-top: 0.5px solid rgba(15, 23, 42, 0.09);
@@ -446,11 +446,11 @@ html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .topbar.
   box-shadow: none;
 }
 
-html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .sidebar {
+html.native-app.capacitor-native:not(.native-tablet) body.admin-portal:has(#mobile-tab-bar) .sidebar {
   display: none !important;
 }
 
-html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) #sidebar-toggle {
+html.native-app.capacitor-native:not(.native-tablet) body.admin-portal:has(#mobile-tab-bar) #sidebar-toggle {
   display: none !important;
 }
 

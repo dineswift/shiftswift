@@ -7,7 +7,7 @@ import re
 from datetime import date, timedelta
 from typing import Any, Literal
 
-from core.notifications import send_email_content
+from core.notifications import email_delivered, send_email_content
 from modules.push.service import app_url_path, send_employee_push
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -110,14 +110,22 @@ def notify_rota_published(
     shifts: list[dict[str, Any]],
     conn: Any,
     previous_shifts: list[dict[str, Any]] | None = None,
+    resend: bool = False,
 ) -> dict[str, int | str]:
     """Email and push staff — all on first publish, only affected employees on updates."""
+    import time
+
     from admin_service import get_tenant_profile, tenant_notification_delivery_enabled
     from core.email_templates import rota_published_email, rota_updated_email
     from modules.employees.notification_branding import employee_notification_from_name
 
-    notify_map = employees_to_notify(previous_shifts=previous_shifts, current_shifts=shifts)
-    is_update = bool(previous_shifts)
+    resend_batch_id = int(time.time()) if resend else None
+    if resend:
+        notify_map = {int(shift["employee_id"]): "initial" for shift in shifts}
+        is_update = False
+    else:
+        notify_map = employees_to_notify(previous_shifts=previous_shifts, current_shifts=shifts)
+        is_update = bool(previous_shifts)
     if not notify_map:
         if is_update and previous_shifts:
             all_ids = {int(s["employee_id"]) for s in previous_shifts} | {
@@ -127,7 +135,7 @@ def notify_rota_published(
         else:
             unchanged = 0
         return {
-            "mode": "update" if is_update else "initial",
+            "mode": "resend" if resend else ("update" if is_update else "initial"),
             "emails_sent": 0,
             "emails_skipped": 0,
             "pushes_sent": 0,
@@ -143,7 +151,7 @@ def notify_rota_published(
     profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
     if not profile.get("notify_on_rota_publish", True):
         return {
-            "mode": "update" if is_update else "initial",
+            "mode": "resend" if resend else ("update" if is_update else "initial"),
             "emails_sent": 0,
             "emails_skipped": len(notify_map),
             "pushes_sent": 0,
@@ -199,7 +207,7 @@ def notify_rota_published(
                         change_kind=change_kind,
                     )
                     payload_type = "rota_updated"
-                send_email_content(
+                delivery = send_email_content(
                     conn=conn,
                     tenant_id=tenant_id,
                     content=content,
@@ -215,14 +223,25 @@ def notify_rota_published(
                     deliver_now=True,
                     commit=False,
                 )
-                sent += 1
+                if email_delivered(delivery):
+                    sent += 1
+                else:
+                    skipped += 1
             else:
                 skipped += 1
         else:
             skipped += 1
 
         if delivery_enabled:
-            if change_kind == "initial":
+            if resend:
+                push_key = f"rota_resend:{resend_batch_id}:{week_start.isoformat()}:{employee_id}"
+                push_title = "Your rota is ready — ShiftSwift HR"
+                push_body = (
+                    f"Your rota for {week_label} is ready — "
+                    f"{shift_count} shift{'s' if shift_count != 1 else ''}. Tap to view your shifts."
+                )
+                push_tag = f"rota-resend-{week_start.isoformat()}"
+            elif change_kind == "initial":
                 push_key = f"rota_published:{week_start.isoformat()}:{employee_id}"
                 push_title = "Your rota is ready — ShiftSwift HR"
                 push_body = (
@@ -264,7 +283,7 @@ def notify_rota_published(
 
     conn.commit()
     return {
-        "mode": "update" if is_update else "initial",
+        "mode": "resend" if resend else ("update" if is_update else "initial"),
         "emails_sent": sent,
         "emails_skipped": skipped,
         "pushes_sent": pushes_sent,

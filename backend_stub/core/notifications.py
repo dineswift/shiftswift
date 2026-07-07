@@ -37,6 +37,11 @@ def smtp_configured() -> bool:
     )
 
 
+def email_delivered(payload: dict[str, Any] | None) -> bool:
+    """True when send_email_notification / send_email_content completed without delivery_error."""
+    return not (payload or {}).get("delivery_error")
+
+
 def smtp_config_summary() -> dict[str, str | bool]:
     """Non-secret SMTP config snapshot for diagnostics."""
     password = os.getenv("SMTP_PASSWORD", "")
@@ -534,8 +539,9 @@ def _send_email(
 ) -> None:
     to_addr = _resolve_delivery_recipient(conn=conn, tenant_id=tenant_id, payload=payload)
     if not smtp_configured():
-        _log_channel("email", subject, body, {"to": to_addr, **payload})
-        return
+        raise RuntimeError(
+            "SMTP not configured — set SMTP_HOST, SMTP_FROM, SMTP_USER, SMTP_PASSWORD in backend_stub/.env"
+        )
     if not to_addr:
         raise RuntimeError(
             "No recipient — set tenant billing/signatory email or COMPLIANCE_ALERT_EMAIL / SMTP_TO"

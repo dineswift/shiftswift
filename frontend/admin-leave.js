@@ -369,7 +369,7 @@
   }
 
   function isMobileLeave() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function renderEmptyState(host, options, extraBind) {

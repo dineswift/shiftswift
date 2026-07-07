@@ -155,6 +155,7 @@
   }
 
   function isMobileSettingsLayout() {
+    if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 980px)").matches;
   }
 

@@ -9,7 +9,17 @@
     "brand:ios": "node scripts/apply-branding.mjs",
     "ios:open": "npx cap open ios",
     "ios:run": "npx cap run ios",
-    "ios:deploy": "npm run sync:ios && npm run brand:ios && npx cap run ios"
+    "ios:deploy": "npm run sync:ios && npm run brand:ios && npx cap run ios",
+    "ios:ipad": "bash scripts/run-ipad-simulator.sh",
+    "ios:device": "bash scripts/run-device.sh",
+    "ios:sync": "npm run sync:www && rsync -a www/ ios/App/App/public/ && xattr -cr www ios/App/App/public 2>/dev/null || true",
+    "screenshots:prepare": "python3 scripts/prepare-app-store-screenshots.py",
+    "appstore:icon": "python3 scripts/prepare-app-store-screenshots.py --icon-only",
+    "screenshots:capture": "node scripts/capture-real-screenshots.mjs",
+    "appstore:archive": "bash scripts/archive-for-app-store.sh",
+    "appstore:upload": "bash scripts/upload-to-app-store-connect.sh",
+    "appstore:release": "npm run appstore:archive && npm run appstore:upload",
+    "appstore:prepare": "npm run screenshots:prepare && npm run appstore:archive"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",

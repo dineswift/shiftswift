@@ -209,7 +209,8 @@
   let quickAddMounted = false;
 
   function isMobileEmployeesHub() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    if (document.documentElement.classList.contains("native-tablet")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function lifecycleStage(row) {
@@ -953,7 +954,7 @@
       return "Employee portal active";
     }
     if (employee?.portal_setup_pending || employee?.portal_setup_status === "pending") {
-      return "Invite sent — waiting for employee to set password (check junk mail)";
+      return "Portal invite pending — employee has not set a password yet (ask them to check junk mail)";
     }
     if (!employee?.email) return "Add a work email to send a portal invite";
     if (employee?.status !== "active" && employee?.status !== "onboarding") {

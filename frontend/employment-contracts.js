@@ -193,7 +193,7 @@
     if (guide) guide.hidden = hasSelection;
     const row = contracts.find((c) => c.id === selectedContractId);
     renderStatusWorkflow(row || null);
-    if (hasSelection && window.matchMedia("(max-width: 860px)").matches) {
+    if (hasSelection && (window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches)) {
       window.requestAnimationFrame(() => {
         window.MobileShell?.resetPortalScroll?.();
       });
@@ -395,7 +395,7 @@
       const data = await res.json();
       renderDetailPanel(data);
       if (scroll) {
-        if (window.matchMedia("(max-width: 860px)").matches) {
+        if (window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches) {
           window.MobileShell?.resetPortalScroll?.();
         } else {
           $("employment-contracts-detail-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });

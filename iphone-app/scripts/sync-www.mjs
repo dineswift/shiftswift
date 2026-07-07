@@ -26,6 +26,7 @@ const jsAndCss = [
   "action-feedback.js",
   "native-app-portal-guard.js",
   "native-app-bootstrap.js",
+  "native-ipad-layout.js",
   "native-geolocation.js",
   "native-shift-alerts.js",
   "employee-mobile-polish.css",
@@ -142,11 +143,26 @@ for (const file of assets) {
 fs.copyFileSync(path.join(root, "scripts", "portal-boot.js"), path.join(www, "portal-boot.js"));
 fs.copyFileSync(path.join(root, "scripts", "admin-portal-boot.js"), path.join(www, "admin-portal-boot.js"));
 fs.copyFileSync(path.join(root, "scripts", "iphone-app-ui.css"), path.join(www, "iphone-app-ui.css"));
+fs.copyFileSync(path.join(root, "scripts", "iphone-app-ipad.css"), path.join(www, "iphone-app-ipad.css"));
 console.log("copied www/portal-boot.js");
 console.log("copied www/admin-portal-boot.js");
 console.log("copied www/iphone-app-ui.css");
+console.log("copied www/iphone-app-ipad.css");
 
-// --- App home: choose Employee or Business login (no animated loader) ---
+const nativeIpadHead = `    <script src="./native-ipad-layout.js"></script>
+    <link rel="stylesheet" href="./iphone-app-ipad.css" />
+`;
+
+const nativeStartupLoaderHtml = fs.readFileSync(
+  path.join(frontend, "native-startup-loader.html"),
+  "utf8",
+).trim();
+
+const nativeStartupPrimeScript = `<script>(function(){try{if(window.Capacitor?.isNativePlatform?.()){document.documentElement.classList.add("native-startup-active");document.addEventListener("DOMContentLoaded",function(){document.body?.classList.add("native-startup-active");},{once:true});}}catch(e){}})();</script>`;
+
+const nativeStartupHead = `    <link rel="stylesheet" href="./native-app-startup.css" />`;
+
+// --- App home: choose Employee or Business login ---
 const chooserHtml = `<!doctype html>
 <html lang="en" class="native-app capacitor-native iphone-app">
   <head>
@@ -154,17 +170,12 @@ const chooserHtml = `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0f6e56" />
     <title>ShiftSwift HR</title>
-    <script>
-      (function () {
-        try {
-          window.Capacitor?.Plugins?.SplashScreen?.hide?.();
-        } catch (e) {}
-      })();
-    </script>
     <script src="./brand-config.js"></script>
     <script src="./native-app.js"></script>
+    ${nativeStartupHead}
     <link rel="stylesheet" href="./theme.css" />
     <link rel="stylesheet" href="./iphone-app-ui.css" />
+    ${nativeIpadHead}
     <style>
       .iphone-chooser {
         min-height: 100dvh;
@@ -233,7 +244,10 @@ const chooserHtml = `<!doctype html>
     </style>
   </head>
   <body class="portal-login-page">
+    ${nativeStartupLoaderHtml}
+    ${nativeStartupPrimeScript}
     <main class="iphone-chooser">
+      <div class="iphone-chooser__intro">
       <svg class="iphone-chooser__mark" viewBox="0 0 68 68" aria-hidden="true">
         <rect x="0" y="0" width="68" height="68" rx="14" fill="#0a5a47" stroke="#5DCAA5" stroke-width="1" />
         <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5" />
@@ -244,6 +258,7 @@ const chooserHtml = `<!doctype html>
       </svg>
       <h1 class="iphone-chooser__title">ShiftSwift HR</h1>
       <p class="iphone-chooser__lead">Who is signing in?</p>
+      </div>
       <div class="iphone-chooser__actions">
         <a class="iphone-chooser__btn iphone-chooser__btn--primary" href="./employee-login.html?source=native" id="chooser-employee">
           <strong>I'm an employee</strong>
@@ -255,24 +270,13 @@ const chooserHtml = `<!doctype html>
         </a>
       </div>
     </main>
-    <p class="native-login-build" style="margin:16px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 67 · compact MFA</p>
+    <script src="./native-app-startup.js"></script>
     <script>
       (function () {
         try {
           localStorage.setItem("sshrUnifiedNativeApp", "1");
           localStorage.setItem("sshrNativeApp", "1");
         } catch (e) {}
-        function hideSplash() {
-          try {
-            window.Capacitor?.Plugins?.SplashScreen?.hide?.();
-            window.ShiftSwiftNativeApp?.hideSplash?.();
-          } catch (e) {}
-        }
-        hideSplash();
-        document.addEventListener("DOMContentLoaded", hideSplash, { once: true });
-        [100, 500, 1500].forEach(function (ms) {
-          window.setTimeout(hideSplash, ms);
-        });
         var token = localStorage.getItem("token");
         var role = localStorage.getItem("userRole");
         if (token && role === "employee") {
@@ -350,16 +354,19 @@ businessLoginHtml = businessLoginHtml.replace(
   '<header class="portal-login-brand portal-login-brand--streamlined"><p style="margin:0 0 12px;text-align:center"><a href="./index.html" style="color:inherit;font-size:13px;opacity:.75;text-decoration:none">← Back</a></p>',
 );
 businessLoginHtml = businessLoginHtml.replace(
-  '<p class="portal-login-secure-note">',
-  '<p class="native-login-build" style="margin:10px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 67 · compact MFA</p>\n            <p class="portal-login-secure-note">',
+  "</head>",
+  `    <link rel="stylesheet" href="./iphone-app-ui.css" />
+    ${nativeStartupHead}
+    ${nativeIpadHead}
+  </head>`,
 );
 businessLoginHtml = businessLoginHtml.replace(
-  "</head>",
-  `    <script>
-      (function(){function h(){try{window.Capacitor?.Plugins?.SplashScreen?.hide?.();window.ShiftSwiftNativeApp?.hideSplash?.();}catch(e){}}h();document.addEventListener("DOMContentLoaded",h,{once:true});})();
-    </script>
-    <link rel="stylesheet" href="./iphone-app-ui.css" />
-  </head>`,
+  /<body([^>]*)>/,
+  `<body$1>\n    ${nativeStartupLoaderHtml}\n    ${nativeStartupPrimeScript}`,
+);
+businessLoginHtml = businessLoginHtml.replace(
+  /<script src="\.\/login\.js"><\/script>/,
+  '<script src="./native-app-startup.js"></script>\n    <script src="./login.js"></script>',
 );
 businessLoginHtml = businessLoginHtml.replace(
   "<html",
@@ -390,19 +397,18 @@ employeeLoginHtml = employeeLoginHtml.replace(
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   /<script src="\.\/login\.js[^"]*"><\/script>/,
-  '<script src="./login.js"></script>',
-);
-employeeLoginHtml = employeeLoginHtml.replace(
-  '<p class="portal-login-secure-note">',
-  '<p class="native-login-build" style="margin:10px 0 0;text-align:center;font-size:11px;opacity:0.55">Build 67 · compact MFA</p>\n            <p class="portal-login-secure-note">',
+  '<script src="./native-app-startup.js"></script>\n    <script src="./login.js"></script>',
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   "</head>",
-  `    <script>
-      (function(){function h(){try{window.Capacitor?.Plugins?.SplashScreen?.hide?.();window.ShiftSwiftNativeApp?.hideSplash?.();}catch(e){}}h();document.addEventListener("DOMContentLoaded",h,{once:true});})();
-    </script>
-    <link rel="stylesheet" href="./iphone-app-ui.css" />
+  `    <link rel="stylesheet" href="./iphone-app-ui.css" />
+    ${nativeStartupHead}
+    ${nativeIpadHead}
   </head>`,
+);
+employeeLoginHtml = employeeLoginHtml.replace(
+  /<body([^>]*)>/,
+  `<body$1>\n    ${nativeStartupLoaderHtml}\n    ${nativeStartupPrimeScript}`,
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   "<html",
@@ -456,6 +462,7 @@ const employeeHtml = `<!doctype html>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./employee-mobile-polish.css" />
     <link rel="stylesheet" href="./iphone-app-ui.css" />
+    ${nativeIpadHead}
     <script src="./native-bundled-url.js"></script>
     <script src="./native-api-fetch.js"></script>
     <script src="./session-auth.js"></script>
@@ -513,7 +520,9 @@ adminHtml =
 adminHtml = adminHtml.replace(
   "</head>",
   `    ${sessionBridgeScript}
+    <script src="./native-ipad-layout.js"></script>
     <link rel="stylesheet" href="./iphone-app-ui.css" />
+    <link rel="stylesheet" href="./iphone-app-ipad.css" />
     <script src="./native-bundled-url.js"></script>
     <script src="./native-api-fetch.js"></script>
     <script src="./session-auth.js"></script>

@@ -458,7 +458,6 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       dismissStartupLoader();
     } else {
       window.ShiftSwiftNativeApiFetch?.boot?.();
-      forceHideSplash();
     }
     if (!onLogin) {
       window.addEventListener("load", () => window.setTimeout(patchNativeSignOut, 0), { once: true });

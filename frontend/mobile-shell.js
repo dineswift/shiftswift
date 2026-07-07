@@ -54,6 +54,10 @@
   }
 
   function isMobileViewport() {
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
+    if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 860px)").matches;
   }
 

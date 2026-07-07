@@ -639,7 +639,7 @@
             href: "#settings/documents",
           }),
         ].join("");
-        if (!window.matchMedia("(max-width: 860px)").matches) {
+        if (!(window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches)) {
           modulesHost.closest(".overview-main")?.removeAttribute("hidden");
         }
       }

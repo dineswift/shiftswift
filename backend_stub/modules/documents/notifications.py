@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from core.notifications import send_email_content
+from core.notifications import email_delivered, send_email_content
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
 from modules.documents.errors import _rollback_quietly
 from modules.documents.service import _table_columns
@@ -128,7 +128,7 @@ def notify_employee_document_shared(
                     pay_period=pay_period if category == "payslip" else None,
                     tenant_name=tenant_name,
                 )
-                send_email_content(
+                delivery = send_email_content(
                     conn=conn,
                     tenant_id=tenant_id,
                     content=content,
@@ -146,7 +146,7 @@ def notify_employee_document_shared(
                     deliver_now=True,
                     commit=False,
                 )
-                email_sent = True
+                email_sent = email_delivered(delivery)
             except Exception:
                 logger.exception(
                     "Document share email failed for tenant %s employee %s document %s",

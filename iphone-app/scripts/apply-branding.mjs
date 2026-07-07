@@ -29,6 +29,14 @@ function runSips(args) {
 fs.copyFileSync(iconSrc, iconDest);
 runSips(["-z", "1024", "1024", iconDest]);
 
+const iconPrep = spawnSync("python3", ["scripts/prepare-app-store-screenshots.py", "--icon-only"], {
+  cwd: root,
+  stdio: "inherit",
+});
+if (iconPrep.status !== 0) {
+  throw new Error("prepare-app-store-screenshots.py --icon-only failed");
+}
+
 for (const [name, size] of [
   ["splash-2732x2732-2.png", 910],
   ["splash-2732x2732-1.png", 1821],
