@@ -17167,6 +17167,10 @@ body.rota-week-readonly .rota-builder-hint {
   background: #fffbf0;
 }
 
+.employees-register-filter-banner[hidden] {
+  display: none !important;
+}
+
 .employees-register-filter-banner__copy {
   display: grid;
   gap: 2px;
