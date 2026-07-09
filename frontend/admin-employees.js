@@ -228,11 +228,23 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
   }
 
+  function employeeIdMatches(left, right) {
+    return Number(left) === Number(right);
+  }
+
+  function resolveSelectedEmployeeRow() {
+    if (!selectedEmployeeId) return null;
+    return employeesCache.find((row) => employeeIdMatches(row.id, selectedEmployeeId)) || null;
+  }
+
   function setEmployeeSidePanelVisible(hasEmployee) {
+    const panel = $("employees-side-panel");
     const empty = $("employees-side-empty");
     const content = $("employees-side-content");
-    if (empty) empty.hidden = Boolean(hasEmployee);
-    if (content) content.hidden = !hasEmployee;
+    const selected = Boolean(hasEmployee);
+    if (empty) empty.hidden = selected;
+    if (content) content.hidden = !selected;
+    if (panel) panel.classList.toggle("employees-side-panel--selected", selected);
   }
 
   function bucketEmployeesByStage(items = []) {
@@ -409,7 +421,9 @@
         tbody.innerHTML =
           '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
       }
-      renderEmployeeSidePanel(null);
+      if (!resolveSelectedEmployeeRow()) {
+        renderEmployeeSidePanel(null);
+      }
       syncEmployeesPresentation();
       return;
     }
@@ -421,7 +435,7 @@
 
     tbody.innerHTML = rows
       .map((row) => {
-        const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
+        const selected = employeeIdMatches(selectedEmployeeId, row.id) ? " hr-register-row--selected" : "";
         return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
           <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
           <td>${escapeHtml(row.department || "Not set")}</td>
@@ -440,18 +454,19 @@
         }
         selectedEmployeeId = newId;
         tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-          el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+          el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
         });
-        void renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+        void renderEmployeeSidePanel(resolveSelectedEmployeeRow());
       });
     });
 
-    if (selectedEmployeeId && rows.some((row) => row.id === selectedEmployeeId)) {
-      renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+    const selectedRow = resolveSelectedEmployeeRow();
+    if (selectedRow) {
+      void renderEmployeeSidePanel(selectedRow);
     } else if (employeeRegisterFilter === "portal-pending" && rows.length === 1) {
       selectedEmployeeId = rows[0].id;
       tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-        el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+        el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
       });
       void renderEmployeeSidePanel(rows[0]);
     } else {
@@ -657,7 +672,9 @@
         : "";
     const buckets = bucketEmployeesByStage(items);
     const selected =
-      selectedEmployeeId && items.length ? items.find((row) => row.id === selectedEmployeeId) || null : null;
+      selectedEmployeeId && items.length
+        ? items.find((row) => employeeIdMatches(row.id, selectedEmployeeId)) || null
+        : null;
     renderLifecycleStageRail(buckets, { selectedEmployee: selected, totalEmployees: items.length });
 
     if (!isMobileEmployeesHub()) {
@@ -3204,6 +3221,7 @@
     const content = $("employees-side-content");
     if (!content) return;
     if (!row) {
+      sidePanelRenderRequest += 1;
       sidePanelWorkspace = null;
       sidePanelExpandedSection = null;
       sidePanelEmployeeId = null;
@@ -3213,6 +3231,7 @@
       return;
     }
     setEmployeeSidePanelVisible(true);
+    sidePanelEmployeeId = row.id;
 
     const requestId = ++sidePanelRenderRequest;
     content.innerHTML = `<p class="muted employee-record-loading">Loading profile…</p>`;
@@ -3296,6 +3315,8 @@
       void refreshEmployeeSidePanelKioskPin(employee.id);
       bindSidePanelInlineFields(employee, workspace);
       renderLifecycleHub(employeesCache);
+      setEmployeeSidePanelVisible(true);
+      sidePanelEmployeeId = employee.id;
 
       content.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
         void sendPortalInvite(employee.id, "employees-side-invite-status");
@@ -3315,6 +3336,7 @@
       });
     } catch (error) {
       if (requestId !== sidePanelRenderRequest) return;
+      setEmployeeSidePanelVisible(true);
       content.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load employee profile.")}</p>`;
     }
   }

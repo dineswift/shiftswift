@@ -17362,6 +17362,10 @@ body.rota-week-readonly .rota-builder-hint {
   display: none !important;
 }
 
+#employees-side-panel.employees-side-panel--selected .employees-side-empty {
+  display: none !important;
+}
+
 .employees-side-empty {
   display: grid;
   justify-items: center;
