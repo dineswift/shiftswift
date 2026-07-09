@@ -49,6 +49,19 @@ def _paragraphs(text_blocks: Iterable[str]) -> str:
     )
 
 
+def _paragraph_html(html_block: str) -> str:
+    """Trusted HTML paragraph (built from _email_link only)."""
+    return f'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{INK};">{html_block}</p>'
+
+
+def _email_link(url: str, label: str | None = None) -> str:
+    text = label or url
+    return (
+        f'<a href="{_esc(url)}" style="color:{GREEN_700};font-weight:600;text-decoration:underline;">'
+        f"{_esc(text)}</a>"
+    )
+
+
 def _bullet_list(items: Iterable[tuple[str, str]]) -> str:
     rows = []
     for label, value in items:
@@ -94,6 +107,7 @@ def render_email(
     title: str,
     intro: str,
     paragraphs: Iterable[str] = (),
+    html_paragraphs: Iterable[str] = (),
     details: Iterable[tuple[str, str]] = (),
     cta_url: str | None = None,
     cta_label: str | None = None,
@@ -166,7 +180,7 @@ def render_email(
             <td class="pad" style="padding:32px 28px 12px;">
               <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:{GREEN_900};">{_esc(title)}</h1>
               <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{INK};">{_esc(intro)}</p>
-              {_paragraphs(paragraphs)}
+              {_paragraphs(paragraphs)}{"".join(_paragraph_html(block) for block in html_paragraphs)}
               {detail_html}
               {cta_html}
             </td>
@@ -554,8 +568,8 @@ def employee_portal_invite_email(
             "If you do not see this email, check your junk or spam folder.",
             f"Portal sign-in: {login_url}",
             iphone_install_note,
-            f'Privacy policy: <a href="{privacy_url}">{privacy_url}</a>',
         ],
+        html_paragraphs=[f"Privacy policy: {_email_link(privacy_url)}"],
         cta_url=setup_url,
         cta_label="Choose your password",
         employer_name=notification_from_name,

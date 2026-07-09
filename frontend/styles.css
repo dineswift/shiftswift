@@ -17222,6 +17222,21 @@ body.rota-week-readonly .rota-builder-hint {
   background: var(--card);
 }
 
+.lifecycle-stage-rail__caption {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--ink-700);
+}
+
+.lifecycle-stage-rail__caption--overview {
+  color: var(--ink-500);
+}
+
+.lifecycle-stage-rail__caption-label {
+  color: var(--ink-500);
+}
+
 .lifecycle-stage-rail__track {
   position: relative;
   display: flex;
@@ -17342,6 +17357,11 @@ body.rota-week-readonly .rota-builder-hint {
   display: none;
 }
 
+.employees-side-empty[hidden],
+#employees-side-content[hidden] {
+  display: none !important;
+}
+
 .employees-side-empty {
   display: grid;
   justify-items: center;
@@ -17377,6 +17397,32 @@ body.rota-week-readonly .rota-builder-hint {
   font-size: 0.84rem;
   line-height: 1.45;
   color: var(--ink-500);
+}
+
+.employee-record-field__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+input[type="date"][data-empty]:not(:focus)::-webkit-datetime-edit {
+  opacity: 0;
+}
+
+input[type="date"][data-empty]:not(:focus) {
+  position: relative;
+}
+
+input[type="date"][data-empty]:not(:focus)::before {
+  content: "DD / MM / YYYY";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-500);
+  pointer-events: none;
+  font-size: 0.9rem;
 }
 
 .employees-lifecycle-hub {

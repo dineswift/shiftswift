@@ -376,15 +376,27 @@ businessLoginHtml = compactNativeMfaPanel(businessLoginHtml);
 fs.writeFileSync(path.join(www, "business-login.html"), businessLoginHtml);
 console.log("wrote www/business-login.html");
 
+function stripNativeEmployeeInstallBanner(html) {
+  return html
+    .replace(
+      /<div id="portal-pwa-install-banner"[\s\S]*?<div class="portal-pwa-install-banner__actions">[\s\S]*?<\/div>\s*<\/div>\s*/i,
+      "",
+    )
+    .replace(
+      /<div class="portal-pwa-install-banner__actions">[\s\S]*?<\/div>\s*<\/div>\s*/i,
+      "",
+    );
+}
+
 // --- Bundled employee login ---
 let employeeLoginHtml = fs.readFileSync(path.join(frontend, "employee-login.html"), "utf8");
+employeeLoginHtml = stripNativeEmployeeInstallBanner(employeeLoginHtml);
 for (const pattern of [
   /<link rel="canonical"[^>]*>\s*/i,
   /<script src="\.\/portal-sw-guard\.js[^"]*"><\/script>\s*/i,
   /<script>\s*\(function \(\) \{[\s\S]*?sign-in\.html[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
   /<script>\s*\(function \(\) \{[\s\S]*?native-unified-login-redirect[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
-  /<div id="portal-pwa-install-banner"[\s\S]*?<\/div>\s*/i,
-  /<script src="\.\/portal-pwa-install\.js[^"]*"[\s\S]*?<\/script>\s*/i,
+  /<script[\s\S]*?portal-pwa-install\.js[\s\S]*?<\/script>\s*/i,
   /<p class="portal-login-alt-note">[\s\S]*?<\/p>\s*/i,
   /<p class="portal-login-footnote[\s\S]*?<\/p>\s*/i,
   /<script src="\.\/cookie-consent\.js[^"]*"><\/script>\s*/i,
@@ -417,6 +429,10 @@ employeeLoginHtml = employeeLoginHtml.replace(
 employeeLoginHtml = employeeLoginHtml.replace(
   '<header class="portal-login-brand">',
   '<header class="portal-login-brand"><p style="margin:0 0 12px"><a href="./index.html" style="color:inherit;font-size:13px;opacity:.75;text-decoration:none">← Back</a></p>',
+);
+employeeLoginHtml = employeeLoginHtml.replace(
+  "portal-login-card--employee portal-login-card--has-install",
+  "portal-login-card--employee",
 );
 employeeLoginHtml = compactNativeMfaPanel(employeeLoginHtml);
 fs.writeFileSync(path.join(www, "employee-login.html"), employeeLoginHtml);

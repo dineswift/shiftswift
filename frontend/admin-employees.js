@@ -216,11 +216,23 @@
   function lifecycleStage(row) {
     if (!row) return "recruitment";
     if (row.status === "terminated") return "offboarding";
-    if (row.status === "active" && !row.next_section) return "active";
+    if (row.status === "active") return "active";
+    if (row.status === "onboarding") return "onboarding";
     if (row.next_section === "recruitment") return "recruitment";
-    if (row.status === "active" && (row.completion_pct ?? 0) >= 100) return "active";
-    if (row.status === "onboarding" || row.next_section) return "onboarding";
+    if (row.next_section) return "onboarding";
     return "active";
+  }
+
+  function isoDateInputValue(value) {
+    const raw = String(value || "").trim().slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+  }
+
+  function setEmployeeSidePanelVisible(hasEmployee) {
+    const empty = $("employees-side-empty");
+    const content = $("employees-side-content");
+    if (empty) empty.hidden = Boolean(hasEmployee);
+    if (content) content.hidden = !hasEmployee;
   }
 
   function bucketEmployeesByStage(items = []) {
@@ -529,7 +541,9 @@
         } else if (isCurrent) {
           stateClass = " lifecycle-stage-rail__step--current";
           marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
-          stateLabel = `<span class="lifecycle-stage-rail__state">In progress</span>`;
+          const currentLabel =
+            selectedEmployee?.status === "active" && stage.id === "active" ? "Current" : "In progress";
+          stateLabel = `<span class="lifecycle-stage-rail__state">${currentLabel}</span>`;
         } else {
           marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
         }
@@ -574,7 +588,11 @@
       if (index < lines.length) trackParts.push(lines[index]);
     });
 
-    rail.innerHTML = `<div class="lifecycle-stage-rail__track${
+    const caption = selectedEmployee
+      ? `<p class="lifecycle-stage-rail__caption"><span class="lifecycle-stage-rail__caption-label">Lifecycle stage for</span> <strong>${escapeHtml(selectedEmployee.first_name)} ${escapeHtml(selectedEmployee.last_name)}</strong></p>`
+      : `<p class="lifecycle-stage-rail__caption lifecycle-stage-rail__caption--overview muted">Team overview — select an employee to see their lifecycle stage</p>`;
+
+    rail.innerHTML = `${caption}<div class="lifecycle-stage-rail__track${
       selectedEmployee ? "" : " lifecycle-stage-rail__track--neutral"
     }" style="--lifecycle-progress:${progressPct}%">${trackParts.join("")}</div>`;
 
@@ -1716,7 +1734,8 @@
           </label>
           <label class="employee-record-field">
             <span class="employee-record-field__label">Date of birth</span>
-            <input type="date" id="employees-side-dob" value="${escapeHtml((emp.date_of_birth || "").slice(0, 10))}" />
+            <input type="date" id="employees-side-dob" value="${escapeHtml(isoDateInputValue(emp.date_of_birth))}"${isoDateInputValue(emp.date_of_birth) ? "" : ' data-empty="true"'} />
+            ${isoDateInputValue(emp.date_of_birth) ? "" : '<span class="employee-record-field__hint muted">Not set — leave blank until confirmed</span>'}
           </label>
           <label class="employee-record-field">
             <span class="employee-record-field__label">NI number</span>
@@ -1851,7 +1870,9 @@
       void saveInduction({ phone: event.target.value.trim() || null });
     });
     document.getElementById("employees-side-dob")?.addEventListener("change", (event) => {
-      void saveInduction({ date_of_birth: event.target.value || null });
+      const value = event.target.value?.trim() || null;
+      event.target.toggleAttribute("data-empty", !value);
+      void saveInduction({ date_of_birth: value });
     });
     document.getElementById("employees-side-ni")?.addEventListener("change", (event) => {
       void saveInduction({ ni_number: event.target.value.trim() || null });
@@ -3180,21 +3201,18 @@
   }
 
   async function renderEmployeeSidePanel(row) {
-    const empty = $("employees-side-empty");
     const content = $("employees-side-content");
     if (!content) return;
     if (!row) {
       sidePanelWorkspace = null;
       sidePanelExpandedSection = null;
       sidePanelEmployeeId = null;
-      empty?.removeAttribute("hidden");
-      content.hidden = true;
+      setEmployeeSidePanelVisible(false);
       content.innerHTML = "";
       renderLifecycleHub(employeesCache);
       return;
     }
-    empty?.setAttribute("hidden", "");
-    content.hidden = false;
+    setEmployeeSidePanelVisible(true);
 
     const requestId = ++sidePanelRenderRequest;
     content.innerHTML = `<p class="muted employee-record-loading">Loading profile…</p>`;
@@ -3268,9 +3286,9 @@
 
           ${renderEmployeeRecordSectionsHtml(employee, workspace)}
 
-          <footer class="employee-record-foot muted">
+          <footer class="employee-record-foot muted" title="Portal access is separate from employment status — an active employee may still be finishing portal setup.">
             <span class="employee-record-portal-icon" aria-hidden="true"></span>
-            ${escapeHtml(portalStatusCopy(employee))}
+            <span class="employee-record-portal-copy">${escapeHtml(portalStatusCopy(employee))}</span>
           </footer>
           <p class="muted" id="employees-side-invite-status" aria-live="polite"></p>
         </article>`;

@@ -37,6 +37,34 @@ def smtp_configured() -> bool:
     )
 
 
+def humanize_delivery_error(raw: str | None) -> str:
+    """Turn SMTP library errors into actionable text for HR admins."""
+    text = str(raw or "").strip()
+    if not text:
+        return "Email delivery failed"
+    lower = text.lower()
+    if "unauthorized ip" in lower or "(525," in text or ("5.7.1" in text and "ip" in lower):
+        return (
+            "Mail server rejected this API server's IP address (SMTP 525). "
+            "Use a transactional relay such as Brevo (smtp-relay.brevo.com) with a verified "
+            "sending domain, or whitelist your API server IP in your mail provider — then "
+            "update SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in backend_stub/.env and restart the API."
+        )
+    if "authentication" in lower or "(535," in text or "invalid credentials" in lower:
+        return (
+            "SMTP login failed — check SMTP_USER and SMTP_PASSWORD in backend_stub/.env "
+            "(Brevo: use the SMTP key xsmtpsib-…, not the REST API key xkeysib-…)."
+        )
+    if "not configured" in lower:
+        return text
+    if "connection refused" in lower or "timed out" in lower or "network is unreachable" in lower:
+        return (
+            f"Could not reach mail server ({text[:120]}). "
+            "Check SMTP_HOST, SMTP_PORT, and firewall rules on the API server."
+        )
+    return text[:500]
+
+
 def email_delivered(payload: dict[str, Any] | None) -> bool:
     """True when send_email_notification / send_email_content completed without delivery_error."""
     return not (payload or {}).get("delivery_error")
@@ -397,7 +425,7 @@ def send_email_notification(
             _send_email(conn=conn, tenant_id=tenant_id, subject=subject, body=body, payload=payload_out)
             status = "sent"
         except Exception as exc:
-            delivery_error = str(exc)[:500]
+            delivery_error = humanize_delivery_error(str(exc))
             status = "failed"
             logger.error(
                 "Email delivery failed to %s (%s): %s",
@@ -504,7 +532,7 @@ def deliver_notification(*, conn: Any, row: tuple[Any, ...]) -> bool:
         _mark_sent(conn, notif_id)
         return True
     except Exception as exc:
-        _mark_failed(conn, notif_id, str(exc))
+        _mark_failed(conn, notif_id, humanize_delivery_error(str(exc)))
         return False
 
 
@@ -792,8 +820,8 @@ def resend_tenant_notification(
             if payload_row and isinstance(payload_row[0], dict)
             else json.loads((payload_row or [None])[0] or "{}")
         )
-        error = payload.get("delivery_error") or "Email delivery failed"
-        raise RuntimeError(str(error))
+        error = humanize_delivery_error(payload.get("delivery_error") or "Email delivery failed")
+        raise RuntimeError(error)
 
     return {
         "id": notification_id,

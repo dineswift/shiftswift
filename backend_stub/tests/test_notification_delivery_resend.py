@@ -6,7 +6,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.notifications import list_tenant_delivery_failures, resend_tenant_notification
+from core.notifications import (
+    humanize_delivery_error,
+    list_tenant_delivery_failures,
+    resend_tenant_notification,
+)
+
+
+def test_humanize_delivery_error_unauthorized_ip() -> None:
+    raw = "SMTP failed on server; (525, b'5.7.1 Unauthorized IP address')"
+    message = humanize_delivery_error(raw)
+    assert "525" in message or "IP" in message
+    assert "Brevo" in message or "whitelist" in message
 
 
 def test_list_tenant_delivery_failures_maps_payload() -> None:

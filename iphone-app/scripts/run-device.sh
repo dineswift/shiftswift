@@ -12,7 +12,7 @@ cd "$ROOT"
 node scripts/sync-www.mjs
 rsync -a www/ "$IOS/App/public/"
 node scripts/apply-branding.mjs
-xattr -cr "$ROOT/ios" "$ROOT/node_modules/@capacitor" 2>/dev/null || true
+xattr -cr "$ROOT/ios/App/App/public" 2>/dev/null || true
 
 cd "$IOS"
 pod install

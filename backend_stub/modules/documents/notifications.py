@@ -7,7 +7,7 @@ import re
 import time
 from typing import Any
 
-from core.notifications import email_delivered, send_email_content
+from core.notifications import email_delivered, humanize_delivery_error, send_email_content
 from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
 from modules.documents.errors import _rollback_quietly
 from modules.documents.service import _table_columns, get_employee_document, get_tenant_document
@@ -159,7 +159,9 @@ def notify_employee_document_shared(
                 if email_delivered(delivery):
                     result["email_sent"] = True
                 else:
-                    result["error"] = str(delivery.get("delivery_error") or "Email delivery failed")
+                    result["error"] = humanize_delivery_error(
+                        str(delivery.get("delivery_error") or "Email delivery failed")
+                    )
             except Exception as exc:
                 logger.exception(
                     "Document share email failed for tenant %s employee %s document %s",
