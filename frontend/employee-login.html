@@ -123,11 +123,15 @@
           <div class="portal-login-card-head">
             <h1>Set up authenticator</h1>
             <p class="portal-login-card-lead">
-              Recommended for account security. Scan the QR code in Google Authenticator, Authy, or Microsoft Authenticator, then enter a 6-digit code. You can set this up now or skip and enable it later in settings.
+              Recommended for account security. Use Face ID on this iPhone, or scan a QR code in Google Authenticator / Authy. You can also skip and enable later in settings.
             </p>
           </div>
           <div class="portal-login-form">
             <p id="mfa-enrollment-user" class="muted"></p>
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-passkey-btn" hidden>
+              Use Face ID / Touch ID
+            </button>
+            <p class="muted native-login-mfa-divider" id="mfa-enrollment-passkey-divider" hidden>or use an authenticator app</p>
             <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
               <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
             </div>
@@ -146,9 +150,13 @@
         <div id="mfa-panel" class="portal-login-card-body" hidden>
           <div class="portal-login-card-head">
             <h1>Two-factor authentication</h1>
-            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+            <p class="portal-login-card-lead">Verify for <strong data-mfa-user></strong>.</p>
           </div>
           <form id="mfa-form" class="portal-login-form">
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
+              Verify with Face ID
+            </button>
+            <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or enter authenticator code</p>
             <label>
               Authenticator code
               <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
@@ -166,6 +174,8 @@
       </p>
     </div>
     <script src="./session-auth.js?v=3"></script>
+    <script src="./trusted-device.js?v=3"></script>
+    <script src="./passkey-auth.js?v=3"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./employee-pwa.js?v=7"></script>
     <script src="./login.js?v=brandkit-v20"></script>

@@ -71,12 +71,55 @@ html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,
 html.native-app body.employee-portal .employee-app,
 html.native-app body.employee-portal #mobile-tab-bar,
 html.native-app.capacitor-native body.employee-portal .employee-app,
-html.native-app.capacitor-native body.employee-portal #mobile-tab-bar,
-html.native-startup-active body.employee-portal .employee-app,
-html.native-startup-active body.employee-portal #mobile-tab-bar {
+html.native-app.capacitor-native body.employee-portal #mobile-tab-bar {
   pointer-events: auto !important;
-  opacity: 1 !important;
-  visibility: visible !important;
+}
+
+/* Soft tab / section enter — driven by MobileShell.pulseContentEnter */
+@keyframes mobile-shell-enter {
+  from {
+    opacity: 0.45;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
+    animation: mobile-shell-enter 0.18s ease both;
+  }
+
+  body:has(#mobile-tab-bar) #mobile-more-panel {
+    will-change: opacity, transform;
+  }
+
+  body.admin-mobile-more-open #mobile-more-panel,
+  body.employee-portal.employee-mobile-more-open #mobile-more-panel {
+    animation: mobile-shell-enter 0.18s ease both;
+  }
+}
+
+@media (max-width: 860px) and (prefers-reduced-motion: reduce) {
+  body:has(#mobile-tab-bar) main.content.mobile-shell-enter,
+  body.admin-mobile-more-open #mobile-more-panel,
+  body.employee-portal.employee-mobile-more-open #mobile-more-panel {
+    animation: none;
+  }
+}
+
+/* Keep focused form fields above the soft keyboard */
+html.native-app.native-keyboard-open body:has(#mobile-tab-bar) main.content {
+  padding-bottom: calc(
+    88px + env(safe-area-inset-bottom) + var(--native-keyboard-inset, 0px)
+  ) !important;
+  scroll-padding-bottom: calc(24px + var(--native-keyboard-inset, 0px));
+}
+
+html.native-app.native-keyboard-open {
+  overscroll-behavior-y: none;
 }
 
 html.native-app body.employee-portal.no-scroll main.content {

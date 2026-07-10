@@ -139,8 +139,8 @@ html.native-app.native-tablet .portal-login-form input {
 }
 
 html.native-app.native-tablet body:has(#mobile-tab-bar) main.content {
-  overflow-y: visible !important;
-  overscroll-behavior: auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
 }
 
 /* —— Top bar: desktop style —— */

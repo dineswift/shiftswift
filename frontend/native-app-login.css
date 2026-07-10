@@ -1,5 +1,12 @@
 /* Unified native app sign-in — ShiftSwift HR */
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700&display=swap");
+/* Native login — system fonts (no Google Fonts network import; avoids FOUT offline). */
+html.native-app,
+html.native-app body,
+body.portal-login-page--native-stable {
+  --native-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --native-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  font-family: var(--native-font);
+}
 
 *,
 *::before,
@@ -19,8 +26,8 @@
   --native-field: #f7f6f2;
   --native-white: #ffffff;
   --native-radius: 28px;
-  --native-font: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
-  --native-heading: "Sora", "Manrope", sans-serif;
+  --native-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  --native-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
 }
 
 .portal-login-page--unified {
@@ -36,8 +43,24 @@
 html.native-app body.portal-login-page--unified {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none;
   padding-bottom: max(env(safe-area-inset-bottom), var(--native-keyboard-inset, 0px));
+  transition: none;
+}
+
+html.native-app.native-keyboard-open body.portal-login-page--unified {
+  overscroll-behavior-y: none;
+}
+
+.portal-login-page--unified .portal-login-forgot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 4px;
+  margin: -8px -4px;
+  position: relative;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .portal-login-page--unified .portal-login-shell {
@@ -193,6 +216,36 @@ html.native-app body.portal-login-page--unified {
 .portal-login-page--unified #mfa-panel[hidden],
 .portal-login-page--unified #mfa-enrollment-panel[hidden] {
   display: none !important;
+}
+
+/* Soft MFA / sign-in panel enter */
+@keyframes native-login-panel-in {
+  from {
+    opacity: 0.35;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+body.portal-login-page--native-stable.login-step-mfa #mfa-panel,
+body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel,
+body.portal-login-page--native-stable.login-step-signin #login-shell,
+.portal-login-page--unified.login-step-mfa #mfa-panel,
+.portal-login-page--unified.login-step-enroll #mfa-enrollment-panel {
+  animation: native-login-panel-in 0.2s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.portal-login-page--native-stable.login-step-mfa #mfa-panel,
+  body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel,
+  body.portal-login-page--native-stable.login-step-signin #login-shell,
+  .portal-login-page--unified.login-step-mfa #mfa-panel,
+  .portal-login-page--unified.login-step-enroll #mfa-enrollment-panel {
+    animation: none;
+  }
 }
 
 .portal-login-page--unified.login-step-mfa #login-shell,

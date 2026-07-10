@@ -10,6 +10,7 @@
     "app-icons.js",
     "native-geolocation.js",
     "native-shift-alerts.js",
+    "native-remote-push.js",
     "push-notifications.js",
     "mobile-shell.js",
     "mobile-tables.js",
@@ -153,8 +154,12 @@
   function applyPortalShellClasses() {
     const root = document.documentElement;
     root.classList.add("native-app", "capacitor-native", "iphone-app", "portal-pwa-shell", "portal-touch-polish");
-    if (document.getElementById("mobile-tab-bar")) {
+    window.ShiftSwiftNativeLayout?.sync?.();
+    const tablet = root.classList.contains("native-tablet");
+    if (!tablet && document.getElementById("mobile-tab-bar")) {
       root.classList.add("portal-mobile-shell");
+    } else {
+      root.classList.remove("portal-mobile-shell");
     }
   }
 
@@ -257,6 +262,15 @@
       window.ShiftSwiftNativeApiFetch?.bootWhenReady?.();
       window.ShiftSwiftNativeApiFetch?.retryPortalData?.();
       window.dispatchEvent(new CustomEvent("employee:profile-retry"));
+      try {
+        if (localStorage.getItem("sshrNativeShiftAlerts") === "1") {
+          void window.ShiftSwiftNativeRemotePush?.registerForRemotePush?.();
+        } else {
+          void window.ShiftSwiftNativeRemotePush?.syncStoredToken?.();
+        }
+      } catch {
+        /* ignore */
+      }
     });
   }
 

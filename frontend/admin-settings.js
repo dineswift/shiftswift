@@ -686,6 +686,9 @@
 
   const NOTIFICATION_EVENTS = [
     { id: "rtw_expiry", label: "RTW expiry approaching", default: "email_push" },
+    { id: "visa_expiry", label: "Visa expiry approaching", default: "email_push" },
+    { id: "document_expiry", label: "ID / document expiry", default: "email_push" },
+    { id: "sms_login_reminder", label: "Monthly Home Office SMS login reminder", default: "email_push" },
     { id: "absence_day5", label: "Absence day-5 warning", default: "email" },
     { id: "absence_day9", label: "Absence day-9 alert", default: "email_sms" },
     { id: "rota_published", label: "Rota published", default: "email" },
@@ -701,7 +704,14 @@
     { value: "off", label: "Off" },
   ];
 
-  const HR_PUSH_EVENT_IDS = new Set(["missed_punch_hr", "leave_request_hr", "rtw_expiry"]);
+  const HR_PUSH_EVENT_IDS = new Set([
+    "missed_punch_hr",
+    "leave_request_hr",
+    "rtw_expiry",
+    "visa_expiry",
+    "document_expiry",
+    "sms_login_reminder",
+  ]);
 
   const SIGNIN_REMINDER_DELIVERY = [
     { value: "email_push", label: "Email and in-app" },
@@ -1685,8 +1695,10 @@
         const qrImg = document.getElementById("settings-mfa-qr");
         const secretEl = document.getElementById("settings-mfa-secret");
         if (secretEl) secretEl.textContent = setup.manual_secret || "";
-        if (qrImg && setup.otpauth_uri) {
-          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
+        if (qrImg && (setup.otpauth_uri || setup.qr_data_uri)) {
+          qrImg.src =
+            setup.qr_data_uri ||
+            `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
         }
         if (qrArea) qrArea.hidden = false;
       } catch (error) {

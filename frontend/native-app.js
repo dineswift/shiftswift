@@ -11,8 +11,60 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "28";
+const BUNDLED_ASSET_VERSION = "34";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
+  const STOREFRONT_URL = "https://www.shiftswifthr.co.uk";
+  const BUSINESS_SIGNUP_URL = "https://app.shiftswifthr.co.uk/signup.html";
+
+  /** Open marketing / signup outside the WebView (Safari / Chrome). */
+  async function openExternalUrl(url) {
+    const target = String(url || "").trim();
+    if (!target) return false;
+    try {
+      const browser = window.Capacitor?.Plugins?.Browser;
+      if (browser?.open) {
+        await browser.open({ url: target });
+        return true;
+      }
+    } catch {
+      /* fall through */
+    }
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = target;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      return true;
+    } catch {
+      /* fall through */
+    }
+    try {
+      window.open(target, "_blank", "noopener,noreferrer");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function bindExternalSignupLinks(root) {
+    const scope = root || document;
+    scope.querySelectorAll("[data-sshr-external-url]").forEach((el) => {
+      if (el.dataset.sshrExternalBound === "1") return;
+      el.dataset.sshrExternalBound = "1";
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        const href =
+          el.getAttribute("data-sshr-external-url") ||
+          el.getAttribute("href") ||
+          BUSINESS_SIGNUP_URL;
+        void openExternalUrl(href);
+      });
+    });
+  }
 
   function isCapacitorNative() {
     try {
@@ -69,10 +121,19 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function getCapacitorScheme() {
     try {
+      if (window.ShiftSwiftNativeBundledUrl?.scheme) {
+        return window.ShiftSwiftNativeBundledUrl.scheme();
+      }
+      const platform = window.Capacitor?.getPlatform?.();
+      if (platform === "android") {
+        return String(window.Capacitor?.config?.server?.androidScheme || "https");
+      }
       const scheme =
         window.Capacitor?.config?.server?.iosScheme ||
         window.Capacitor?.config?.ios?.scheme;
       if (scheme) return String(scheme);
+      const match = String(location.href || "").match(/^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/localhost/);
+      if (match) return match[1];
       if (window.Capacitor?.isNativePlatform?.()) return "App";
     } catch {
       /* ignore */
@@ -443,6 +504,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     const onEmployeePortal = document.body?.classList?.contains("employee-portal");
     void unregisterNativeServiceWorkers();
     applyNativeClasses();
+    bindExternalSignupLinks();
     if (!onLogin) {
       injectBundledStylesheet("native-app-chrome.css");
     }
@@ -511,6 +573,10 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     dismissStartupLoader,
     patchNativeSignOut,
     sanitizeNativeApiBase,
+    openExternalUrl,
+    bindExternalSignupLinks,
+    STOREFRONT_URL,
+    BUSINESS_SIGNUP_URL,
   };
 })();
 
@@ -520,7 +586,11 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (!window.Capacitor?.isNativePlatform?.()) return;
     if (window.ShiftSwiftNativeApp?.isCapacitorNative) return;
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
-    const scheme = window.Capacitor.config?.ios?.scheme || "App";
+    const scheme =
+      window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+      (window.Capacitor?.getPlatform?.() === "android"
+        ? window.Capacitor?.config?.server?.androidScheme || "https"
+        : window.Capacitor.config?.ios?.scheme || "App");
     const script = document.createElement("script");
     script.src = `${scheme}://localhost/native-app.js?v=27`;
     script.setAttribute("data-sshr-native-bootstrap", "1");

@@ -1,4 +1,4 @@
-/** Native iPad — desktop sidebar layout instead of phone bottom tabs. */
+/** Native phone vs tablet layout — iPhone, iPad, Android phones & tablets. */
 (function () {
   "use strict";
 
@@ -10,21 +10,37 @@
     );
   }
 
+  function screenSides() {
+    const w = Number(window.screen?.width) || 0;
+    const h = Number(window.screen?.height) || 0;
+    return { minSide: Math.min(w, h), maxSide: Math.max(w, h) };
+  }
+
   function isPadDevice() {
     const ua = navigator.userAgent || "";
+
+    // iPad (including iPadOS 13+ desktop UA)
     if (/iPad/i.test(ua)) return true;
     if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) return true;
-    const w = window.screen?.width || 0;
-    const h = window.screen?.height || 0;
-    const minSide = Math.min(w, h);
-    const maxSide = Math.max(w, h);
-    return minSide >= 744 && maxSide >= 1024;
+
+    // Android tablets: typically "Android" without "Mobile" in the UA
+    if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return true;
+
+    const { minSide, maxSide } = screenSides();
+    // iPad-class CSS pixels
+    if (minSide >= 744 && maxSide >= 1024) return true;
+    // 7–8" Android tablets (e.g. Galaxy Tab A7 Lite ~600×1000 CSS px)
+    if (/Android/i.test(ua) && minSide >= 600 && maxSide >= 900) return true;
+
+    return false;
   }
 
   function shouldUseTabletLayout() {
     if (!isNativeShell()) return false;
-    if (isPadDevice()) return true;
-    return window.matchMedia("(min-width: 861px)").matches;
+    if (!isPadDevice()) return false;
+    // Narrow split-view / Stage Manager: use phone chrome so content stays usable
+    if (window.matchMedia("(max-width: 600px)").matches) return false;
+    return true;
   }
 
   function clearMobileShellState() {
@@ -65,24 +81,48 @@
   function finalizeTabletPortal() {
     if (!shouldUseTabletLayout()) return;
     clearMobileShellState();
+    document.documentElement.classList.remove("portal-mobile-shell");
     window.dispatchEvent(new Event("hashchange"));
   }
 
   function isLargeTabletLayout() {
     if (!document.documentElement.classList.contains("native-tablet")) return false;
     if (window.matchMedia("(min-width: 1024px)").matches) return true;
-    const w = window.screen?.width || 0;
-    const h = window.screen?.height || 0;
-    return Math.max(w, h) >= 1194;
+    const { maxSide } = screenSides();
+    return maxSide >= 1194;
+  }
+
+  function syncPlatformClass() {
+    const root = document.documentElement;
+    let platform = "";
+    try {
+      platform = String(window.Capacitor?.getPlatform?.() || "");
+    } catch {
+      /* ignore */
+    }
+    if (!platform) {
+      const ua = navigator.userAgent || "";
+      if (/Android/i.test(ua)) platform = "android";
+      else if (/iPhone|iPad|iPod/i.test(ua)) platform = "ios";
+    }
+    root.classList.toggle("native-android", platform === "android");
+    root.classList.toggle("native-ios", platform === "ios");
   }
 
   function syncTabletClass() {
     const root = document.documentElement;
+    syncPlatformClass();
     const tablet = shouldUseTabletLayout();
     const wasTablet = root.classList.contains("native-tablet");
     root.classList.toggle("native-tablet", tablet);
     root.classList.toggle("native-tablet-large", tablet && isLargeTabletLayout());
-    if (tablet) clearMobileShellState();
+    root.classList.toggle("native-phone", !tablet && isNativeShell());
+    if (tablet) {
+      clearMobileShellState();
+      root.classList.remove("portal-mobile-shell");
+    } else if (isNativeShell() && document.getElementById("mobile-tab-bar")) {
+      root.classList.add("portal-mobile-shell");
+    }
     if (tablet !== wasTablet) {
       window.dispatchEvent(new Event("resize"));
       if (tablet) finalizeTabletPortal();
@@ -113,6 +153,8 @@
   window.ShiftSwiftNativeLayout = {
     isTablet: () => document.documentElement.classList.contains("native-tablet"),
     isLargeTablet: () => document.documentElement.classList.contains("native-tablet-large"),
+    isPhone: () => document.documentElement.classList.contains("native-phone"),
+    isPadDevice,
     isMobileViewport,
     sync: syncTabletClass,
     finalize: finalizeTabletPortal,

@@ -38,6 +38,12 @@ def push_configured() -> bool:
     return bool(vapid_public_key() and vapid_private_key())
 
 
+def any_push_configured() -> bool:
+    from modules.push import native_push as native_push_service
+
+    return push_configured() or native_push_service.native_push_configured()
+
+
 def push_config_payload() -> dict[str, Any]:
     return {
         "enabled": push_configured(),
@@ -235,7 +241,9 @@ def send_employee_push(
     conn: Any,
 ) -> dict[str, Any]:
     """Send to all devices for an employee once per notification_key."""
-    if not push_configured():
+    from modules.push import native_push as native_push_service
+
+    if not any_push_configured():
         return {"sent": 0, "skipped": "not_configured"}
 
     try:
@@ -248,6 +256,11 @@ def send_employee_push(
             return {"sent": 0, "skipped": "duplicate"}
 
         subscriptions = list_subscriptions(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        native_devices = native_push_service.list_native_devices(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            conn=conn,
+        )
     except Exception as exc:
         logger.warning(
             "Push skipped for tenant %s employee %s (%s): %s",
@@ -262,7 +275,7 @@ def send_employee_push(
             pass
         return {"sent": 0, "skipped": "error"}
 
-    if not subscriptions:
+    if not subscriptions and not native_devices:
         return {"sent": 0, "skipped": "no_subscription"}
 
     resolved_alert_type = alert_type or "general"
@@ -274,6 +287,7 @@ def send_employee_push(
             "clock_out",
             "missed_clock_in",
             "missed_clock_in_early",
+            "missed_clock_out",
         }
     )
     payload = {
@@ -285,9 +299,22 @@ def send_employee_push(
         "urgent": resolved_alert_type in clock_alert_types,
     }
     sent = 0
-    for sub in subscriptions:
-        if send_push(subscription=sub, payload=payload, conn=conn):
-            sent += 1
+    if push_configured():
+        for sub in subscriptions:
+            if send_push(subscription=sub, payload=payload, conn=conn):
+                sent += 1
+    if native_push_service.native_push_configured():
+        native_result = native_push_service.send_employee_native_push(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            title=title,
+            body=body,
+            url=url,
+            tag=tag or notification_key,
+            alert_type=resolved_alert_type,
+            conn=conn,
+        )
+        sent += int(native_result.get("sent") or 0)
     if sent > 0:
         record_push_sent(
             tenant_id=tenant_id,
@@ -309,7 +336,7 @@ def send_employee_push(
         conn.commit()
     except Exception:
         pass
-    return {"sent": sent, "devices": len(subscriptions)}
+    return {"sent": sent, "devices": len(subscriptions) + len(native_devices)}
 
 
 def _employee_username(*, tenant_id: int, employee_id: int, conn: Any) -> str | None:
@@ -567,8 +594,17 @@ def send_admin_push(
     alert_type: str | None = None,
     conn: Any,
 ) -> dict[str, Any]:
-    if not push_configured():
-        return {"sent": 0, "skipped": "not_configured"}
+    if not any_push_configured():
+        # Still create in-app when possible below — but skip remote delivery.
+        pass
+
+    from modules.push import native_push as native_push_service
+
+    web_ok = push_configured()
+    native_ok = native_push_service.native_push_configured()
+    if not web_ok and not native_ok:
+        # In-app only path
+        pass
 
     normalized = username.strip().lower()
     try:
@@ -584,7 +620,7 @@ def send_admin_push(
             tenant_id=tenant_id,
             username=normalized,
             conn=conn,
-        )
+        ) if web_ok else []
     except Exception as exc:
         logger.warning(
             "Admin push skipped for tenant %s user %s (%s): %s",
@@ -601,7 +637,16 @@ def send_admin_push(
 
     resolved_alert_type = alert_type or "general"
     hr_alert_types = frozenset(
-        {"missed_punch_hr", "leave_request", "rtw_expiry", "general"}
+        {
+            "missed_punch_hr",
+            "missed_clock_out_hr",
+            "leave_request",
+            "rtw_expiry",
+            "visa_expiry",
+            "document_expiry",
+            "sms_login_reminder",
+            "general",
+        }
     )
     payload = {
         "title": title,
@@ -612,10 +657,28 @@ def send_admin_push(
         "urgent": resolved_alert_type in hr_alert_types,
     }
     sent = 0
-    for sub in subscriptions:
-        sub_row = {**sub, "id": sub["id"]}
-        if send_push(subscription=sub_row, payload=payload, conn=conn, subscription_kind="admin"):
-            sent += 1
+    if web_ok:
+        for sub in subscriptions:
+            sub_row = {**sub, "id": sub["id"]}
+            if send_push(subscription=sub_row, payload=payload, conn=conn, subscription_kind="admin"):
+                sent += 1
+
+    try:
+        if native_ok:
+            native_result = native_push_service.send_admin_native_push(
+                tenant_id=tenant_id,
+                username=normalized,
+                title=title,
+                body=body,
+                url=url,
+                tag=tag or notification_key,
+                alert_type=resolved_alert_type,
+                conn=conn,
+            )
+            sent += int(native_result.get("sent") or 0)
+    except Exception as exc:
+        logger.warning("Admin native push failed for %s: %s", normalized, exc)
+
     if sent > 0:
         record_admin_push_sent(
             tenant_id=tenant_id,
@@ -653,11 +716,28 @@ def broadcast_admin_push(
     alert_type: str | None = None,
     conn: Any,
 ) -> dict[str, Any]:
-    """Send to every HR admin device subscribed for this tenant."""
+    """Send to every HR admin for this tenant (push subscribers + all active HR users for in-app)."""
     subs = list_tenant_admin_subscriptions(tenant_id=tenant_id, conn=conn)
-    usernames = sorted({str(s["username"]).strip().lower() for s in subs if s.get("username")})
+    usernames = {str(s["username"]).strip().lower() for s in subs if s.get("username")}
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT lower(username)
+                FROM app_users
+                WHERE tenant_id = %s
+                  AND is_active = TRUE
+                  AND role IN ('hr', 'admin')
+                """,
+                (tenant_id,),
+            )
+            for row in cur.fetchall():
+                if row and row[0]:
+                    usernames.add(str(row[0]).strip().lower())
+    except Exception:
+        pass
     total_sent = 0
-    for username in usernames:
+    for username in sorted(usernames):
         result = send_admin_push(
             tenant_id=tenant_id,
             username=username,

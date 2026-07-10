@@ -78,11 +78,16 @@
 
   async function fetchJson(path, options = {}) {
     const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-    const response = await fetch(`${getApiBase()}${path}`, {
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    const url = `${getApiBase()}${path}`;
+    const reqInit = {
       ...options,
       headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+      body: options.body != null ? JSON.stringify(options.body) : undefined,
+    };
+    const response = window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+      ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit)
+      : await fetch(url, reqInit);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = data.detail;

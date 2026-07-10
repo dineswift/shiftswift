@@ -16,7 +16,7 @@ echo "==> Sync bundled www"
 cd "$ROOT"
 node scripts/sync-www.mjs
 rsync -a www/ "$APP/App/public/"
-xattr -cr "$IOS" 2>/dev/null || true
+xattr -cr "$APP/App/public" 2>/dev/null || true
 
 echo "==> Pod install"
 cd "$APP"

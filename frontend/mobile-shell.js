@@ -114,6 +114,78 @@
     window.scrollTo(0, 0);
   }
 
+  let contentEnterTimer = 0;
+
+  /** Soft fade when switching tabs / sections / detail (mobile shell only). */
+  function pulseContentEnter() {
+    if (!isMobileViewport()) return;
+    try {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    } catch {
+      /* ignore */
+    }
+    const main = document.querySelector("main.content");
+    if (!main) return;
+    main.classList.remove("mobile-shell-enter");
+    void main.offsetWidth;
+    main.classList.add("mobile-shell-enter");
+    window.clearTimeout(contentEnterTimer);
+    contentEnterTimer = window.setTimeout(() => {
+      main.classList.remove("mobile-shell-enter");
+    }, 220);
+  }
+
+  function bindPortalKeyboardInset() {
+    const isNative =
+      Boolean(window.Capacitor?.isNativePlatform?.()) ||
+      document.documentElement.classList.contains("native-app") ||
+      document.documentElement.classList.contains("capacitor-native");
+    if (!isNative || window.__SSHR_PORTAL_KEYBOARD_BOUND__) return;
+    if (document.body?.classList?.contains("portal-login-page")) return;
+    window.__SSHR_PORTAL_KEYBOARD_BOUND__ = true;
+
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const root = document.documentElement;
+    let lastInset = -1;
+    let rafId = 0;
+
+    const adjust = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        const raw = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        const inset = raw < 48 ? 0 : Math.round(raw / 8) * 8;
+        if (Math.abs(inset - lastInset) < 8) return;
+        lastInset = inset;
+        root.style.setProperty("--native-keyboard-inset", `${inset}px`);
+        root.classList.toggle("native-keyboard-open", inset > 0);
+      });
+    };
+
+    viewport.addEventListener("resize", adjust, { passive: true });
+    adjust();
+
+    document.addEventListener(
+      "focusin",
+      (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) && !target.isContentEditable) {
+          return;
+        }
+        window.setTimeout(() => {
+          try {
+            target.scrollIntoView({ block: "center", behavior: "auto" });
+          } catch {
+            /* ignore */
+          }
+        }, 80);
+      },
+      true,
+    );
+  }
+
   function scrollToAnchor(anchorId, options = {}) {
     if (!anchorId) return;
     const el = document.getElementById(anchorId);
@@ -213,6 +285,7 @@
 
       if (sectionChanged && isMobileViewport()) {
         resetPortalScroll();
+        pulseContentEnter();
       }
 
       if (sectionEvent) {
@@ -250,6 +323,12 @@
     return { routeFromHash, showSection };
   }
 
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindPortalKeyboardInset, { once: true });
+  } else {
+    bindPortalKeyboardInset();
+  }
+
   window.MobileShell = {
     initSidebar,
     initBottomTabs,
@@ -257,6 +336,8 @@
     parseHashSection,
     scrollToAnchor,
     resetPortalScroll,
+    pulseContentEnter,
+    bindPortalKeyboardInset,
     preserveScroll,
     preserveScrollAsync,
     getScrollRoot,

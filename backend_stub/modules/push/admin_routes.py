@@ -12,6 +12,7 @@ from config import load_settings
 from core.database import get_connection
 from deps import get_hr_user, resolve_tenant_id
 from modules.push import service as push_service
+from modules.push import native_push as native_push_service
 
 settings = load_settings()
 
@@ -32,13 +33,51 @@ class PushUnsubscribeRequest(BaseModel):
     endpoint: str = Field(min_length=8)
 
 
+class NativePushSubscribeRequest(BaseModel):
+    platform: str = Field(pattern=r"^(android|ios)$")
+    device_token: str = Field(min_length=8, max_length=4096)
+
+
 @router.get("/push/config")
 def admin_push_config(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    return push_service.push_config_payload()
+    payload = push_service.push_config_payload()
+    payload["native_enabled"] = native_push_service.native_push_configured()
+    return payload
+
+
+@router.post("/push/native-subscribe")
+def admin_native_push_subscribe(
+    payload: NativePushSubscribeRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    if not native_push_service.native_push_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Native push is not configured on this server.",
+        )
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    platform = payload.platform.strip().lower()
+    if platform not in {"ios", "android"}:
+        raise HTTPException(status_code=400, detail="platform must be ios or android")
+    conn = get_connection()
+    try:
+        row = native_push_service.upsert_admin_native_device(
+            tenant_id=tenant_id,
+            username=current_user.username,
+            platform=platform,
+            device_token=payload.device_token.strip(),
+            user_agent=request.headers.get("User-Agent"),
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    return {"ok": True, **row}
 
 
 @router.post("/push/subscribe")

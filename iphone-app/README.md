@@ -1,58 +1,70 @@
-# ShiftSwift HR — iPhone app (clean restart)
+# ShiftSwift HR — mobile app (iOS + Android)
 
-Self-contained Capacitor iPhone app. **Everything runs from the bundle** (`App://localhost`) — no production website, no script hijacking, no BridgeViewController hacks.
-
-The old multi-variant setup under `mobile/` (`ios-app`, `ios-employee`, `ios-business`) is unchanged; use **this folder** for the unified HR app going forward.
+Self-contained Capacitor app for **iOS and Android**. Everything runs from the bundle (`App://localhost` on iOS, `https://localhost` on Android) — no production website, no script hijacking.
 
 ## Architecture
 
-| Page | URL | Source |
-|------|-----|--------|
-| Sign in | `App://localhost/index.html` | `frontend/sign-in.html` |
-| Employee portal | `App://localhost/employee.html` | `frontend/employee.html` shell + `portal-boot.js` |
-
-`portal-boot.js` hydrates the session from Capacitor Preferences, fetches your profile, **then** loads employee scripts (so they never run before login state exists).
+| Page | Bundled URL | Source |
+|------|-------------|--------|
+| Sign in | `index.html` | `frontend/sign-in.html` |
+| Employee portal | `employee.html` | `frontend/employee.html` + `portal-boot.js` |
 
 ## Setup
 
 ```bash
 cd iphone-app
 npm install
-npm run sync:ios
-npm run brand:ios
+npm run sync:all
+npm run brand:all
 ```
 
-## Run on device
+## iOS
 
 ```bash
-npm run ios:deploy -- --target YOUR_DEVICE_UDID
-# or
-npx cap run ios --target 00008130-0019645C1A6A001C
+npm run ios:deploy        # simulator
+npm run ios:device        # USB device
+npm run ios:repair-pods   # fix broken CocoaPods / geolocation pod
+npm run appstore:archive  # App Store IPA
+npm run appstore:upload   # App Store Connect
 ```
 
-## Open in Xcode
+Enable **Push Notifications** capability in Xcode (Signing & Capabilities) if not already present.
+
+**Remote push (APNs):** set on the API server:
+
+- `APNS_KEY_PATH` — `.p8` key from Apple Developer
+- `APNS_KEY_ID`, `APNS_TEAM_ID`
+- `APNS_BUNDLE_ID=co.uk.shiftswifthr.app`
+- `APNS_USE_SANDBOX=true` for debug builds
+
+## Android
+
+Requires **JDK 21+** and **Android SDK**.
 
 ```bash
-npm run ios:open
+npm run android:deploy    # emulator/device
+npm run android:device    # build debug APK + USB install
+npm run playstore:archive # signed Play Store AAB
+npm run playstore:upload  # Play Console (or upload AAB manually)
 ```
+
+**Release signing (one-time):**
+
+```bash
+npm run playstore:signing
+```
+
+**Firebase remote push (FCM):**
+
+1. Create a Firebase project → add Android app `co.uk.shiftswifthr.app`
+2. Download `google-services.json`
+3. `npm run playstore:firebase -- /path/to/google-services.json`
+4. On the API server set `FIREBASE_SERVICE_ACCOUNT_JSON=/path/to/service-account.json`
+
+Run migration `093_native_push_devices.sql` before native push tokens work.
 
 ## After frontend changes
 
 ```bash
-npm run sync:ios
-```
-
-Copies JS/CSS from `../frontend/` and regenerates `www/index.html` + `www/employee.html`.
-
-## Folder layout
-
-```
-iphone-app/
-  www/              # bundled web app (generated — run sync:www)
-  ios/              # Xcode project
-  scripts/
-    sync-www.mjs    # copy frontend → www
-    portal-boot.js  # employee portal loader
-  capacitor.config.ts
-  package.json
+npm run sync:all
 ```

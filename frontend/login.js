@@ -33,6 +33,7 @@ const LOGIN_MODES = {
 
 let pendingEnrollmentToken = null;
 let pendingChallenge = null;
+let pendingMfaUsername = "";
 
 function isNativeLoginApp() {
   try {
@@ -53,8 +54,10 @@ function loginCardEl() {
 function setLoginStep(step) {
   const steps = ["login-step-signin", "login-step-mfa", "login-step-enroll"];
   const target = step === "mfa" ? "login-step-mfa" : step === "enroll" ? "login-step-enroll" : "login-step-signin";
+  document.documentElement.classList.remove(...steps);
   document.body.classList.remove(...steps);
   loginCardEl()?.classList.remove(...steps);
+  document.documentElement.classList.add(target);
   document.body.classList.add(target);
   loginCardEl()?.classList.add(target);
 }
@@ -71,6 +74,15 @@ function blurLoginFocus() {
 
 function resetLoginScroll() {
   if (!isNativeLoginApp()) return;
+  // Avoid fighting the soft keyboard — only reset when keyboard is closed
+  try {
+    const inset = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--native-keyboard-inset") || "0",
+    );
+    if (inset > 24) return;
+  } catch {
+    /* ignore */
+  }
   const shell = document.querySelector(".portal-login-shell");
   window.scrollTo(0, 0);
   document.documentElement.scrollTop = 0;
@@ -137,13 +149,53 @@ function bindNativeKeyboardInset() {
   const viewport = window.visualViewport;
   if (!viewport) return;
   const root = document.documentElement;
+  let lastInset = -1;
+  let rafId = 0;
   const adjust = () => {
-    const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-    root.style.setProperty("--native-keyboard-inset", `${inset}px`);
+    if (rafId) return;
+    rafId = window.requestAnimationFrame(() => {
+      rafId = 0;
+      // Ignore tiny visualViewport scroll jitter — only track real keyboard height
+      const raw = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      const inset = raw < 48 ? 0 : Math.round(raw / 8) * 8;
+      if (Math.abs(inset - lastInset) < 8) return;
+      lastInset = inset;
+      root.style.setProperty("--native-keyboard-inset", `${inset}px`);
+      root.classList.toggle("native-keyboard-open", inset > 0);
+    });
   };
-  viewport.addEventListener("resize", adjust);
-  viewport.addEventListener("scroll", adjust);
+  // resize only — visualViewport "scroll" fires constantly on iOS and causes shake
+  viewport.addEventListener("resize", adjust, { passive: true });
   adjust();
+}
+
+function withNativeQuery(path) {
+  try {
+    const parsed = new URL(String(path || "./"), window.location.href);
+    if (!parsed.searchParams.get("source")) parsed.searchParams.set("source", "native");
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return String(path || "./");
+  }
+}
+
+function bindForgotPasswordLink() {
+  const forgotLink = document.getElementById("forgot-password-link");
+  if (!forgotLink || forgotLink.dataset.boundForgot === "1") return;
+  forgotLink.dataset.boundForgot = "1";
+  forgotLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    const target =
+      activeLoginMode === "employee"
+        ? "./employee-forgot-password.html"
+        : "./forgot-password.html";
+    const href = withNativeQuery(forgotLink.getAttribute("href") || target);
+    window.location.assign(href);
+  });
+  // Keep href in sync for long-press / accessibility
+  forgotLink.href = withNativeQuery(
+    activeLoginMode === "employee" ? "./employee-forgot-password.html" : "./forgot-password.html",
+  );
 }
 
 function initNativeLoginStability() {
@@ -152,19 +204,27 @@ function initNativeLoginStability() {
   loginCardEl()?.classList.add("login-steps-host");
   syncLoginPanels("signin");
   bindNativeKeyboardInset();
+  bindForgotPasswordLink();
 }
 
 async function postJsonAuth(path, body, bearerToken) {
   const headers = { "Content-Type": "application/json" };
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
   window.ShiftSwiftNativeApiFetch?.boot?.();
+  const url = `${getApiBase()}${path}`;
+  const reqInit = {
+    method: "POST",
+    headers,
+    // Always send a JSON body — CapacitorHttp can mishandle POST with undefined body
+    body: JSON.stringify(body == null ? {} : body),
+  };
   let response;
   try {
-    response = await fetch(`${getApiBase()}${path}`, {
-      method: "POST",
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+      response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
+    } else {
+      response = await fetch(url, reqInit);
+    }
   } catch {
     throw new Error("Failed to fetch");
   }
@@ -196,19 +256,37 @@ async function startMfaEnrollment(data, redirectUrl) {
   if (userLabel) userLabel.textContent = `Account: ${data.username || "master admin"}`;
 
   setEnrollmentStatus("Preparing authenticator…");
+  const enrollPasskeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
+  const enrollPasskeyDivider = document.getElementById("mfa-enrollment-passkey-divider");
+  const canPasskey = Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+  if (enrollPasskeyBtn) enrollPasskeyBtn.hidden = !canPasskey;
+  if (enrollPasskeyDivider) enrollPasskeyDivider.hidden = !canPasskey;
   try {
-    const setup = await postJsonAuth("/auth/mfa/setup", null, pendingEnrollmentToken);
+    const setup = await postJsonAuth("/auth/mfa/setup", {}, pendingEnrollmentToken);
     const secretEl = document.getElementById("mfa-enrollment-secret");
     const qrImg = document.getElementById("mfa-enrollment-qr");
     const qrWrap = document.getElementById("mfa-enrollment-qr-wrap");
     if (secretEl) secretEl.textContent = setup.manual_secret || "";
-    if (qrImg && setup.otpauth_uri) {
+    if (qrImg && (setup.qr_data_uri || setup.otpauth_uri)) {
       const qrSize = isNativeLoginApp() ? 128 : 200;
-      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(setup.otpauth_uri)}`;
+      // Prefer server-generated data URI — native WebViews often block api.qrserver.com
+      qrImg.src =
+        setup.qr_data_uri ||
+        `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}x${qrSize}&data=${encodeURIComponent(setup.otpauth_uri)}`;
       qrImg.width = qrSize;
       qrImg.height = qrSize;
+      qrImg.onerror = () => {
+        if (setup.otpauth_uri && !String(qrImg.src || "").startsWith("data:")) {
+          setEnrollmentStatus("QR image blocked — use the manual key below, or Skip for now.");
+        }
+      };
     }
-    if (qrWrap) qrWrap.hidden = !setup.otpauth_uri;
+    if (qrWrap) qrWrap.hidden = !(setup.qr_data_uri || setup.otpauth_uri);
+    const openAuth = document.getElementById("mfa-enrollment-open-app");
+    if (openAuth && setup.otpauth_uri) {
+      openAuth.hidden = false;
+      openAuth.href = setup.otpauth_uri;
+    }
     setEnrollmentStatus("");
     focusLoginInput(document.getElementById("mfa-enrollment-code"));
   } catch (error) {
@@ -225,7 +303,9 @@ function bindMfaEnrollmentSubmit() {
       setEnrollmentStatus("Session expired. Sign in again.");
       return;
     }
-    const code = document.getElementById("mfa-enrollment-code")?.value?.trim();
+    const code = String(document.getElementById("mfa-enrollment-code")?.value || "")
+      .trim()
+      .replace(/\s+/g, "");
     if (!code) {
       setEnrollmentStatus("Enter the 6-digit code from your authenticator app.");
       return;
@@ -256,7 +336,7 @@ function bindMfaEnrollmentSkip() {
     const enableBtn = document.getElementById("mfa-enrollment-submit");
     if (enableBtn) enableBtn.disabled = true;
     try {
-      const data = await postJsonAuth("/auth/mfa/skip-enrollment", null, pendingEnrollmentToken);
+      const data = await postJsonAuth("/auth/mfa/skip-enrollment", {}, pendingEnrollmentToken);
       await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
     } catch (error) {
       setEnrollmentStatus(error.message || "Could not skip MFA setup");
@@ -266,9 +346,36 @@ function bindMfaEnrollmentSkip() {
   });
 }
 
+function bindMfaEnrollmentPasskey() {
+  const btn = document.getElementById("mfa-enrollment-passkey-btn");
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = "1";
+  btn.addEventListener("click", async () => {
+    if (!pendingEnrollmentToken) {
+      setEnrollmentStatus("Session expired. Sign in again.");
+      return;
+    }
+    if (!window.ShiftSwiftPasskeyAuth?.enrollMfaWithPasskey) {
+      setEnrollmentStatus("Face ID is not available in this build.");
+      return;
+    }
+    setEnrollmentStatus("Waiting for Face ID…");
+    btn.disabled = true;
+    try {
+      const data = await window.ShiftSwiftPasskeyAuth.enrollMfaWithPasskey(pendingEnrollmentToken);
+      window.ShiftSwiftPasskeyAuth.rememberLastEmail?.(pendingMfaUsername || data.username);
+      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
+    } catch (error) {
+      setEnrollmentStatus(error.message || "Could not enable Face ID — try the authenticator code instead");
+      btn.disabled = false;
+    }
+  });
+}
+
 function bindMfaEnrollmentHandlers() {
   bindMfaEnrollmentSubmit();
   bindMfaEnrollmentSkip();
+  bindMfaEnrollmentPasskey();
 }
 
 let pendingRedirect = "./admin.html";
@@ -336,13 +443,18 @@ function friendlyLoginError(message, endpoint, username) {
 async function postJson(path, body) {
   const url = `${getApiBase()}${path}`;
   window.ShiftSwiftNativeApiFetch?.boot?.();
+  const reqInit = {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body == null ? {} : body),
+  };
   let response;
   try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+      response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
+    } else {
+      response = await fetch(url, reqInit);
+    }
   } catch {
     throw new Error("Failed to fetch");
   }
@@ -410,14 +522,39 @@ function redirectForRole(data, fallback) {
   return fallback;
 }
 
-function showMfaStep(username) {
+function showMfaStep(username, passkeyAvailable = false) {
+  pendingMfaUsername = String(username || "");
   syncLoginPanels("mfa");
   const mfaPanel = document.getElementById("mfa-panel");
   if (mfaPanel) {
     const userLabel = mfaPanel.querySelector("[data-mfa-user]");
     if (userLabel) userLabel.textContent = username;
-    focusLoginInput(mfaPanel.querySelector('input[name="code"]'));
+    const lead = mfaPanel.querySelector(".portal-login-card-lead");
+    const canPasskey =
+      Boolean(passkeyAvailable) && Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+    if (lead) {
+      lead.innerHTML = canPasskey
+        ? `Verify with Face ID or enter the 6-digit code for <strong data-mfa-user>${escapeLoginHtml(username)}</strong>.`
+        : `Enter the 6-digit code for <strong data-mfa-user>${escapeLoginHtml(username)}</strong>.`;
+    }
+    const passkeyBtn = document.getElementById("mfa-passkey-btn");
+    const divider = document.getElementById("mfa-passkey-divider");
+    if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
+    if (divider) divider.hidden = !canPasskey;
+    if (canPasskey) {
+      focusLoginInput(passkeyBtn);
+    } else {
+      focusLoginInput(mfaPanel.querySelector('input[name="code"]'));
+    }
   }
+}
+
+function escapeLoginHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function bindMfaForm() {
@@ -432,7 +569,10 @@ function bindMfaForm() {
       return;
     }
     setStatus("Verifying code…");
-    const code = new FormData(mfaForm).get("code");
+    const raw = new FormData(mfaForm).get("code");
+    const code = String(raw || "")
+      .trim()
+      .replace(/\s+/g, "");
     try {
       const data = await postJson("/auth/mfa/verify", {
         challenge_token: pendingChallenge,
@@ -440,9 +580,38 @@ function bindMfaForm() {
       });
       await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
     } catch (error) {
-      setStatus(error.message);
+      setStatus(error.message || "Invalid authentication code");
     }
   });
+
+  const passkeyBtn = document.getElementById("mfa-passkey-btn");
+  if (passkeyBtn && !passkeyBtn.dataset.bound) {
+    passkeyBtn.dataset.bound = "1";
+    passkeyBtn.addEventListener("click", async () => {
+      if (!pendingChallenge) {
+        setStatus("Session expired. Sign in again.");
+        return;
+      }
+      if (!window.ShiftSwiftPasskeyAuth?.verifyMfaWithPasskey) {
+        setStatus("Face ID is not available in this build.");
+        return;
+      }
+      setStatus("Waiting for Face ID…");
+      passkeyBtn.disabled = true;
+      try {
+        const email =
+          pendingMfaUsername ||
+          document.querySelector('#portal-login-form input[name="username"]')?.value ||
+          "";
+        const data = await window.ShiftSwiftPasskeyAuth.verifyMfaWithPasskey(pendingChallenge, email);
+        window.ShiftSwiftPasskeyAuth.rememberLastEmail?.(email);
+        await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
+      } catch (error) {
+        setStatus(error.message || "Face ID verification failed");
+        passkeyBtn.disabled = false;
+      }
+    });
+  }
 }
 
 function loginPayload(form) {
@@ -469,12 +638,14 @@ function bindPortalLogin() {
       const data = await postJson(mode.endpoint, payload);
       if (data.mfa_required && data.challenge_token) {
         pendingChallenge = data.challenge_token;
+        pendingMfaUsername = data.username || payload.username || "";
         pendingRedirect = redirectForRole(data, mode.redirect);
         setStatus("");
-        showMfaStep(data.username || payload.username);
+        showMfaStep(pendingMfaUsername, Boolean(data.passkey_available));
         return;
       }
       if (data.mfa_enrollment_required && data.enrollment_token) {
+        pendingMfaUsername = data.username || payload.username || "";
         setStatus("");
         await startMfaEnrollment(data, redirectForRole(data, mode.redirect));
         return;
@@ -509,8 +680,9 @@ function switchLoginMode(nextMode) {
   if (bannerCopy) bannerCopy.innerHTML = mode.bannerCopy;
   const forgotLink = document.getElementById("forgot-password-link");
   if (forgotLink) {
-    forgotLink.href =
-      activeLoginMode === "employee" ? "./employee-forgot-password.html" : "./forgot-password.html";
+    forgotLink.href = withNativeQuery(
+      activeLoginMode === "employee" ? "./employee-forgot-password.html" : "./forgot-password.html",
+    );
   }
   setStatus("");
 }
@@ -522,6 +694,7 @@ function initDedicatedLogin(mode) {
   switchLoginMode(mode);
   bindPortalLogin();
   bindMfaEnrollmentHandlers();
+  bindForgotPasswordLink();
 }
 
 function initBusinessLoginTabs() {
@@ -629,8 +802,9 @@ function bindUnifiedLogin() {
       pendingRedirect = redirect;
       if (data.mfa_required && data.challenge_token) {
         pendingChallenge = data.challenge_token;
+        pendingMfaUsername = data.username || payload.username || "";
         setStatus("");
-        showMfaStep(data.username || payload.username);
+        showMfaStep(pendingMfaUsername, Boolean(data.passkey_available));
         return;
       }
       if (data.mfa_enrollment_required && data.enrollment_token) {
@@ -733,9 +907,10 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
       const data = await postJson(endpoint, payload);
       if (data.mfa_required && data.challenge_token) {
         pendingChallenge = data.challenge_token;
+        pendingMfaUsername = data.username || payload.username || "";
         pendingRedirect = redirectUrl;
         setStatus("");
-        showMfaStep(data.username || payload.username);
+        showMfaStep(pendingMfaUsername, Boolean(data.passkey_available));
         return;
       }
       if (data.mfa_enrollment_required && data.enrollment_token) {

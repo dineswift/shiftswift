@@ -476,6 +476,13 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
 
     conn = _db_conn()
     try:
+        with conn.cursor() as cur:
+            user_row = fetch_user_mfa(cur, challenge["sub"])
+        if user_row and user_row.get("mfa_enabled") and not user_row.get("totp_secret"):
+            raise HTTPException(
+                status_code=401,
+                detail="This account uses Face ID / Touch ID only. Sign in again and use the passkey option, or reset MFA from Settings on the web.",
+            )
         if not verify_user_mfa_code(conn=conn, username=challenge["sub"], code=payload.code):
             log_security_event(
                 settings,
@@ -559,6 +566,7 @@ def mfa_setup(
         conn.close()
     return {
         "otpauth_uri": result["otpauth_uri"],
+        "qr_data_uri": result.get("qr_data_uri"),
         "portal": result["portal"],
         "manual_secret": result["secret"],
         "message": "Scan the URI in Google Authenticator, Authy, or Microsoft Authenticator, then confirm with a code.",

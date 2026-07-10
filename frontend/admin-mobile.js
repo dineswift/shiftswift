@@ -11,6 +11,9 @@
   let lastSyncedTab = null;
 
   function isMobile() {
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
     if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 860px)").matches;
   }
@@ -167,6 +170,7 @@
 
     if (isMobile() && tabChanged) {
       window.MobileShell?.resetPortalScroll?.();
+      window.MobileShell?.pulseContentEnter?.();
     }
     syncComplianceDrill();
   }
@@ -209,6 +213,7 @@
     if (back) back.hidden = false;
     if (toggle) toggle.hidden = true;
     window.MobileShell?.resetPortalScroll?.();
+    window.MobileShell?.pulseContentEnter?.();
   }
 
   function exitDetailView() {
@@ -218,6 +223,7 @@
     const toggle = document.getElementById("sidebar-toggle");
     if (back) back.hidden = true;
     if (toggle) toggle.hidden = false;
+    window.MobileShell?.pulseContentEnter?.();
     const returnTab = previousTab || "home";
     if (returnTab === "more") {
       currentTab = "more";

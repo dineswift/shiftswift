@@ -10,6 +10,25 @@ html.native-app.iphone-app {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Android gesture / cutout insets (phones + tablets) */
+html.native-app.native-android {
+  --iphone-pad: max(14px, env(safe-area-inset-left, 0px));
+  --iphone-pad-r: max(14px, env(safe-area-inset-right, 0px));
+  --iphone-footer: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Keep phone login readable on all iPhone / Android phone sizes */
+html.native-app.native-phone .iphone-chooser__actions {
+  width: min(100%, 340px);
+}
+
+html.native-app.native-phone .portal-login-shell {
+  width: 100%;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 html.native-app.capacitor-native body {
   background: #f3f5f4;
   -webkit-font-smoothing: antialiased;
@@ -38,7 +57,15 @@ html.native-app.capacitor-native .native-login-sheet {
 html.native-app.iphone-app body.portal-login-page--native-stable {
   min-height: 100dvh;
   overflow-x: hidden;
+  overscroll-behavior-y: none;
   padding-bottom: max(env(safe-area-inset-bottom), var(--native-keyboard-inset, 0px));
+  /* Avoid layout thrash while typing */
+  transition: none;
+}
+
+html.native-app.iphone-app.native-keyboard-open body.portal-login-page--native-stable {
+  /* Keep page pinned while keyboard is open — stops bounce/shake */
+  position: relative;
 }
 
 html.native-app.iphone-app body.portal-login-page--native-stable .portal-login-shell {
@@ -46,6 +73,17 @@ html.native-app.iphone-app body.portal-login-page--native-stable .portal-login-s
   max-width: 520px;
   margin: 0 auto;
   padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+html.native-app.iphone-app .portal-login-forgot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 4px;
+  margin: -8px -4px;
+  position: relative;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html.native-app.iphone-app .portal-login-card.login-steps-host > .portal-login-card-body {
@@ -75,26 +113,40 @@ html.native-app.iphone-app .portal-login-form .form-error-message.is-empty {
 /* Compact MFA enrollment — one screen, Skip always visible */
 html.native-app.iphone-app.login-step-enroll .portal-login-brand,
 html.native-app.iphone-app.login-step-enroll .portal-login-footnote,
-html.native-app.iphone-app.login-step-enroll .native-login-build {
+html.native-app.iphone-app.login-step-enroll .native-login-build,
+html.native-app.iphone-app body.login-step-enroll .portal-login-brand,
+html.native-app.iphone-app body.login-step-enroll .portal-login-footnote,
+html.native-app.iphone-app body.login-step-enroll .native-login-build {
   display: none !important;
 }
 
-html.native-app.iphone-app.login-step-enroll .portal-login-shell {
+html.native-app.iphone-app.login-step-enroll .portal-login-shell,
+html.native-app.iphone-app body.login-step-enroll .portal-login-shell {
   padding: max(8px, env(safe-area-inset-top)) 12px 0;
   max-width: 100%;
 }
 
-html.native-app.iphone-app.login-step-enroll #portal-login-card {
+html.native-app.iphone-app.login-step-enroll #portal-login-card,
+html.native-app.iphone-app body.login-step-enroll #portal-login-card {
   border: none;
   box-shadow: none;
   background: transparent;
 }
 
-html.native-app.iphone-app #mfa-enrollment-panel.mfa-enrollment--native:not([hidden]) {
+html.native-app.iphone-app #mfa-enrollment-panel.mfa-enrollment--native:not([hidden]),
+html.native-app.iphone-app #mfa-panel:not([hidden]) {
   display: flex !important;
   flex-direction: column;
+}
+
+html.native-app.iphone-app #mfa-enrollment-panel.mfa-enrollment--native:not([hidden]) {
   max-height: calc(100dvh - env(safe-area-inset-top) - 8px);
   padding: 0 4px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-open-wrap {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
 }
 
 html.native-app.iphone-app .mfa-enrollment-head {

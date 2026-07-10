@@ -9,6 +9,8 @@
     "auth-guard.js",
     "portal-pwa-stability.js",
     "admin-pwa.js",
+    "native-shift-alerts.js",
+    "native-remote-push.js",
     "mobile-shell.js",
     "mobile-tables.js",
     "admin-icons.js",
@@ -123,8 +125,12 @@
   function applyPortalShellClasses() {
     const root = document.documentElement;
     root.classList.add("native-app", "capacitor-native", "iphone-app", "portal-pwa-shell", "portal-touch-polish");
-    if (document.getElementById("mobile-tab-bar")) {
+    window.ShiftSwiftNativeLayout?.sync?.();
+    const tablet = root.classList.contains("native-tablet");
+    if (!tablet && document.getElementById("mobile-tab-bar")) {
       root.classList.add("portal-mobile-shell");
+    } else {
+      root.classList.remove("portal-mobile-shell");
     }
   }
 
@@ -382,9 +388,17 @@
       wireAdminChrome();
 
       const remaining = SCRIPTS.filter((file) => !PRIORITY_SCRIPTS.includes(file));
-      void loadScripts(remaining).catch((error) => {
-        console.error("Admin deferred scripts failed:", error);
-      });
+      void loadScripts(remaining)
+        .then(() => {
+          try {
+            void window.ShiftSwiftNativeRemotePush?.registerForRemotePush?.();
+          } catch {
+            /* ignore */
+          }
+        })
+        .catch((error) => {
+          console.error("Admin deferred scripts failed:", error);
+        });
 
       await loadPortalData(true);
       finalizePortalReady();

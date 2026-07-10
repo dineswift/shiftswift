@@ -64,7 +64,7 @@
       const reqInit = {
         method: "POST",
         headers,
-        body: body ? JSON.stringify(body) : undefined,
+        body: JSON.stringify(body == null ? {} : body),
         signal: controller?.signal,
       };
       if (window.ShiftSwiftNativeApiFetch?.isCapacitorHttpEnabled?.()) {
@@ -371,22 +371,37 @@
 
   function bindKeyboardScroll() {
     const viewport = window.visualViewport;
-    if (!viewport) return;
+    if (!viewport || window.__SSHR_UNIFIED_KEYBOARD_BOUND__) return;
+    window.__SSHR_UNIFIED_KEYBOARD_BOUND__ = true;
     const root = document.documentElement;
+    let lastInset = -1;
+    let rafId = 0;
     const adjust = () => {
-      const keyboardInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-      root.style.setProperty("--native-keyboard-inset", `${keyboardInset}px`);
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        const raw = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        const inset = raw < 48 ? 0 : Math.round(raw / 8) * 8;
+        if (Math.abs(inset - lastInset) < 8) return;
+        lastInset = inset;
+        root.style.setProperty("--native-keyboard-inset", `${inset}px`);
+        root.classList.toggle("native-keyboard-open", inset > 0);
+      });
     };
-    viewport.addEventListener("resize", adjust);
-    viewport.addEventListener("scroll", adjust);
+    viewport.addEventListener("resize", adjust, { passive: true });
     adjust();
   }
 
   function scrollLoginControlIntoView(element) {
-    if (!element) return;
+    if (!element || !isNativeShell()) return;
+    // Instant scroll — smooth + keyboard inset fighting causes shake on iOS
     window.setTimeout(() => {
-      element.scrollIntoView({ block: "center", behavior: "smooth" });
-    }, 280);
+      try {
+        element.scrollIntoView({ block: "nearest", behavior: "auto" });
+      } catch {
+        /* ignore */
+      }
+    }, 120);
   }
 
   function defaultPortalInfo() {
@@ -440,10 +455,12 @@
       const qrImg = document.getElementById("mfa-enrollment-qr");
       const qrWrap = document.getElementById("mfa-enrollment-qr-wrap");
       if (secretEl) secretEl.textContent = setup.manual_secret || "";
-      if (qrImg && setup.otpauth_uri) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setup.otpauth_uri)}`;
+      if (qrImg && (setup.qr_data_uri || setup.otpauth_uri)) {
+        qrImg.src =
+          setup.qr_data_uri ||
+          `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setup.otpauth_uri)}`;
       }
-      if (qrWrap) qrWrap.hidden = !setup.otpauth_uri;
+      if (qrWrap) qrWrap.hidden = !(setup.qr_data_uri || setup.otpauth_uri);
       setEnrollmentStatus("");
       document.getElementById("mfa-enrollment-code")?.focus();
     } catch (error) {
@@ -643,7 +660,17 @@
     bindMfaForms();
 
     const forgotLink = document.getElementById("forgot-password-link");
-    if (forgotLink) forgotLink.href = portalUrl(DEFAULT_FORGOT);
+    if (forgotLink) {
+      const href = portalUrl(DEFAULT_FORGOT);
+      forgotLink.href = href;
+      if (!forgotLink.dataset.boundForgot) {
+        forgotLink.dataset.boundForgot = "1";
+        forgotLink.addEventListener("click", (event) => {
+          event.preventDefault();
+          window.location.assign(forgotLink.href || href);
+        });
+      }
+    }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();

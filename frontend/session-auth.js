@@ -47,9 +47,12 @@
     }
     try {
       const scheme =
-        window.Capacitor?.config?.server?.iosScheme ||
-        window.Capacitor?.config?.ios?.scheme ||
-        (window.Capacitor?.isNativePlatform?.() ? "App" : "capacitor");
+        window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+        (window.Capacitor?.getPlatform?.() === "android"
+          ? window.Capacitor?.config?.server?.androidScheme || "https"
+          : window.Capacitor?.config?.server?.iosScheme ||
+            window.Capacitor?.config?.ios?.scheme ||
+            (window.Capacitor?.isNativePlatform?.() ? "App" : "capacitor"));
       if (window.Capacitor?.isNativePlatform?.()) {
         return `${scheme}://localhost/index.html?build=27&v=39`;
       }
@@ -105,9 +108,12 @@
     }
     try {
       const scheme =
-        window.Capacitor?.config?.server?.iosScheme ||
-        window.Capacitor?.config?.ios?.scheme ||
-        "App";
+        window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+        (window.Capacitor?.getPlatform?.() === "android"
+          ? window.Capacitor?.config?.server?.androidScheme || "https"
+          : window.Capacitor?.config?.server?.iosScheme ||
+            window.Capacitor?.config?.ios?.scheme ||
+            "App");
       const parsed = new URL(`${scheme}://localhost/${clean}`);
       parsed.searchParams.set("source", "native");
       return parsed.toString();

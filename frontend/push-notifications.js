@@ -73,22 +73,22 @@
       }
       const now = ctx.currentTime;
       const tones = [
-        { offset: 0, freq: 880 },
-        { offset: 0.28, freq: 988 },
-        { offset: 0.56, freq: 880 },
+        { offset: 0, freq: 784 },
+        { offset: 0.16, freq: 988 },
+        { offset: 0.34, freq: 1174 },
       ];
       tones.forEach(({ offset, freq }) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "square";
+        osc.type = "sine";
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.42, now + offset + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.38, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.2);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now + offset);
-        osc.stop(now + offset + 0.24);
+        osc.stop(now + offset + 0.22);
       });
     } catch {
       /* ignore — device may block audio until user gesture */

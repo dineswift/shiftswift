@@ -5,6 +5,13 @@
 
   function getCapacitorScheme() {
     try {
+      if (window.ShiftSwiftNativeBundledUrl?.scheme) {
+        return window.ShiftSwiftNativeBundledUrl.scheme();
+      }
+      var platform = window.Capacitor?.getPlatform?.();
+      if (platform === "android") {
+        return String(window.Capacitor?.config?.server?.androidScheme || "https");
+      }
       var scheme =
         window.Capacitor?.config?.server?.iosScheme ||
         window.Capacitor?.config?.ios?.scheme ||

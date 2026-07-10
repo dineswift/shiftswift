@@ -74,7 +74,11 @@
   }
 
   async function getJson(path) {
-    const response = await fetch(`${apiBase()}${path}`);
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    const url = `${apiBase()}${path}`;
+    const response = window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+      ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, {})
+      : await fetch(url);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = data.detail;
@@ -85,11 +89,16 @@
   }
 
   async function postJson(path, body) {
-    const response = await fetch(`${apiBase()}${path}`, {
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    const url = `${apiBase()}${path}`;
+    const reqInit = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
+    };
+    const response = window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+      ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit)
+      : await fetch(url, reqInit);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = data.detail;

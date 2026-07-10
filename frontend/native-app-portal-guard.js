@@ -19,7 +19,11 @@
         function bootLegacyLoginRedirect() {
           try {
             var cap = window.Capacitor;
-            var scheme = cap?.config?.ios?.scheme || "App";
+            var scheme =
+              window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+              (cap?.getPlatform?.() === "android"
+                ? cap?.config?.server?.androidScheme || "https"
+                : cap?.config?.ios?.scheme || "App");
             var src = scheme + "://localhost/native-unified-login-redirect.js?v=37";
             if (!document.querySelector('script[data-sshr-unified-login-redirect="1"]')) {
               var boot = document.createElement("script");
@@ -60,11 +64,14 @@
       }
       if (!unifiedIphone) {
         try {
-          var iosScheme =
-            window.Capacitor?.config?.server?.iosScheme ||
-            window.Capacitor?.config?.ios?.scheme ||
-            "App";
-          var bundledAdmin = iosScheme + "://localhost/admin.html" + (window.location.search || "") + (window.location.hash || "");
+          var nativeScheme =
+            window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+            (window.Capacitor?.getPlatform?.() === "android"
+              ? window.Capacitor?.config?.server?.androidScheme || "https"
+              : window.Capacitor?.config?.server?.iosScheme ||
+                window.Capacitor?.config?.ios?.scheme ||
+                "App");
+          var bundledAdmin = nativeScheme + "://localhost/admin.html" + (window.location.search || "") + (window.location.hash || "");
           window.location.replace(bundledAdmin);
           return;
         } catch (e) {
@@ -147,7 +154,7 @@
         "#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important;pointer-events:none!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important;}" +
         "#portal-pwa-install-banner,.portal-pwa-install-banner,.pwa-ios-sheet,.pwa-ios-sheet-backdrop{display:none!important;visibility:hidden!important;pointer-events:none!important;}" +
         "html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important;}" +
-        "html.native-app.capacitor-native body.employee-portal .employee-app,html.native-app.capacitor-native body.employee-portal #mobile-tab-bar,html.native-app.capacitor-native body.admin-portal #mobile-tab-bar,html.native-app body.employee-portal.portal-startup-pending .app>main.content,html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,html.native-app body.admin-portal.portal-startup-pending .app>main.content,html.native-app body.admin-portal.portal-startup-pending #mobile-tab-bar,html.native-startup-active body.employee-portal .employee-app,html.native-startup-active body.employee-portal #mobile-tab-bar,html.native-startup-active body.admin-portal #mobile-tab-bar{pointer-events:auto!important;opacity:1!important;visibility:visible!important;}" +
+        "html.native-app.capacitor-native body.employee-portal .employee-app,html.native-app.capacitor-native body.employee-portal #mobile-tab-bar,html.native-app.capacitor-native body.admin-portal #mobile-tab-bar,html.native-app body.employee-portal.portal-startup-pending .app>main.content,html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,html.native-app body.admin-portal.portal-startup-pending .app>main.content,html.native-app body.admin-portal.portal-startup-pending #mobile-tab-bar{pointer-events:auto!important;}" +
         "html.native-app.capacitor-native .topbar.app-mobile-header,html.native-app.capacitor-native body.admin-mobile-detail .topbar,html.native-app.capacitor-native body.employee-mobile-detail .topbar{padding-top:max(12px,env(safe-area-inset-top))!important;padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important;}";
       (document.head || document.documentElement).appendChild(style);
     }
@@ -245,9 +252,12 @@
         return window.ShiftSwiftNativeBundledUrl.assetUrl(file, version);
       }
       var scheme =
-        window.Capacitor?.config?.server?.iosScheme ||
-        window.Capacitor?.config?.ios?.scheme ||
-        "App";
+        window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+        (window.Capacitor?.getPlatform?.() === "android"
+          ? window.Capacitor?.config?.server?.androidScheme || "https"
+          : window.Capacitor?.config?.server?.iosScheme ||
+            window.Capacitor?.config?.ios?.scheme ||
+            "App");
       return String(scheme) + "://localhost/" + file + "?v=" + version;
     }
 

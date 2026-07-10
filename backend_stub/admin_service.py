@@ -48,7 +48,10 @@ TENANT_PROFILE_FIELDS = (
 )
 
 NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
-    "rtw_expiry": "email",
+    "rtw_expiry": "email_push",
+    "visa_expiry": "email_push",
+    "document_expiry": "email_push",
+    "sms_login_reminder": "email_push",
     "absence_day5": "email",
     "absence_day9": "email_sms",
     "rota_published": "email",
@@ -60,6 +63,9 @@ NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
 
 NOTIFICATION_PREF_EVENTS = (
     {"id": "rtw_expiry", "label": "RTW expiry approaching"},
+    {"id": "visa_expiry", "label": "Visa expiry approaching"},
+    {"id": "document_expiry", "label": "ID / document expiry"},
+    {"id": "sms_login_reminder", "label": "Monthly Home Office SMS login reminder"},
     {"id": "absence_day5", "label": "Absence day-5 warning"},
     {"id": "absence_day9", "label": "Absence day-9 alert"},
     {"id": "rota_published", "label": "Rota published"},
@@ -71,7 +77,16 @@ NOTIFICATION_PREF_EVENTS = (
 
 VALID_NOTIFICATION_DELIVERY = frozenset({"email", "email_sms", "off"})
 VALID_HR_PUSH_DELIVERY = frozenset({"email", "email_push", "push", "off"})
-HR_PUSH_PREF_KEYS = frozenset({"missed_punch_hr", "leave_request_hr", "rtw_expiry"})
+HR_PUSH_PREF_KEYS = frozenset(
+    {
+        "missed_punch_hr",
+        "leave_request_hr",
+        "rtw_expiry",
+        "visa_expiry",
+        "document_expiry",
+        "sms_login_reminder",
+    }
+)
 VALID_SIGNIN_REMINDER_DELIVERY = frozenset({"email", "push", "email_push", "off"})
 SIGNIN_REMINDER_DEFAULT_INTERVAL_DAYS = 30
 SIGNIN_REMINDER_DEFAULT_HOUR_UK = 9

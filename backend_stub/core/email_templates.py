@@ -811,6 +811,38 @@ def missed_punch_hr_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def missed_clock_out_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    shift_label: str,
+    minutes_after_end: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#time-punch"
+    subject = f"{APP_NAME} — missed clock-out: {employee_name}"
+    intro = (
+        f"{employee_name} is still clocked in {minutes_after_end} minutes after "
+        f"their shift ended ({shift_label})."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review time punch:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Missed clock-out alert",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Shift", shift_label),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open time punch",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def leave_request_hr_email(
     *,
     tenant_name: str,
@@ -1002,5 +1034,177 @@ def generic_notification_email(*, subject: str, message: str, cta_url: str | Non
         intro=message,
         cta_url=cta_url,
         cta_label=cta_label,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def rtw_expiry_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#compliance"
+    subject = f"{APP_NAME} — RTW expires in {days_until_expiry} days: {employee_name}"
+    intro = (
+        f"{employee_name}'s right-to-work check expires on {expiry_date} "
+        f"({days_until_expiry} days)."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review compliance:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Right-to-work expiry",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Expiry date", expiry_date),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open compliance",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def visa_expiry_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#compliance"
+    subject = f"{APP_NAME} — visa expires in {days_until_expiry} days: {employee_name}"
+    intro = f"{employee_name}'s visa expires on {expiry_date} ({days_until_expiry} days)."
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review sponsored workers:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Visa expiry",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Visa expiry", expiry_date),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open compliance",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def document_expiry_hr_email(
+    *,
+    tenant_name: str,
+    document_title: str,
+    employee_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#documents"
+    subject = f"{APP_NAME} — document expires in {days_until_expiry} days"
+    intro = (
+        f"{employee_name}: “{document_title}” expires on {expiry_date} "
+        f"({days_until_expiry} days)."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review documents:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="ID / document expiry",
+        intro=intro,
+        details=[
+            ("Document", document_title),
+            ("Person", employee_name),
+            ("Expiry date", expiry_date),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open documents",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def sms_login_reminder_hr_email(*, tenant_name: str) -> EmailContent:
+    url = f"{APP_URL}/admin.html#compliance"
+    subject = f"{APP_NAME} — monthly Home Office SMS login reminder"
+    intro = (
+        "Log into the Home Office Sponsor Management System (SMS) this month "
+        "to review your sponsor licence duties and reporting."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Open compliance in ShiftSwift HR:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Monthly SMS login reminder",
+        intro=intro,
+        details=[("Organisation", tenant_name)],
+        cta_url=url,
+        cta_label="Open compliance",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def employee_document_expiry_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    document_title: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/employee.html#documents"
+    subject = f"Your document expires in {days_until_expiry} days"
+    intro = (
+        f"Hello {employee_name}, your document “{document_title}” expires on {expiry_date} "
+        f"({days_until_expiry} days). Please contact HR if you need to renew it."
+    )
+    text = f"{intro}\n\nOpen documents:\n{url}\n\n{_employer_text_signoff(tenant_name)}\n"
+    html = render_email(
+        preheader=subject,
+        title="Document expiry reminder",
+        intro=intro,
+        cta_url=url,
+        cta_label="Open my documents",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def employee_visa_expiry_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/employee.html#my-details"
+    subject = f"Your visa expires in {days_until_expiry} days"
+    intro = (
+        f"Hello {employee_name}, your visa expires on {expiry_date} "
+        f"({days_until_expiry} days). Please speak to HR about renewal."
+    )
+    text = f"{intro}\n\nOpen your details:\n{url}\n\n{_employer_text_signoff(tenant_name)}\n"
+    html = render_email(
+        preheader=subject,
+        title="Visa expiry reminder",
+        intro=intro,
+        cta_url=url,
+        cta_label="Open my details",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)

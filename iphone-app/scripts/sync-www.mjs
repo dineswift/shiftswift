@@ -29,6 +29,7 @@ const jsAndCss = [
   "native-ipad-layout.js",
   "native-geolocation.js",
   "native-shift-alerts.js",
+  "native-remote-push.js",
   "employee-mobile-polish.css",
   "employee-mobile.js",
   "admin-mobile.js",
@@ -50,6 +51,8 @@ const jsAndCss = [
   "employee-security.js",
   "employee-leave.js",
   "employee-my-details.js",
+  "passkey-auth.js",
+  "password-reset.js",
   "styles.css",
   "theme.css",
   "admin-mobile-polish.css",
@@ -149,7 +152,10 @@ console.log("copied www/admin-portal-boot.js");
 console.log("copied www/iphone-app-ui.css");
 console.log("copied www/iphone-app-ipad.css");
 
-const nativeIpadHead = `    <script src="./native-ipad-layout.js"></script>
+const nativeLayoutPrimeScript = `<script>(function(){try{if(!window.Capacitor?.isNativePlatform?.())return;var ua=navigator.userAgent||"";var w=screen.width||0,h=screen.height||0,min=Math.min(w,h),max=Math.max(w,h);var pad=/iPad/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)||(/Android/i.test(ua)&&!/Mobile/i.test(ua))||(min>=744&&max>=1024)||(/Android/i.test(ua)&&min>=600&&max>=900);var root=document.documentElement;root.classList.add("native-app","capacitor-native");if(/Android/i.test(ua))root.classList.add("native-android");else root.classList.add("native-ios");if(pad&&!window.matchMedia("(max-width:600px)").matches){root.classList.add("native-tablet");if(max>=1194||window.matchMedia("(min-width:1024px)").matches)root.classList.add("native-tablet-large");}else{root.classList.add("native-phone");}}catch(e){}})();</script>`;
+
+const nativeIpadHead = `    ${nativeLayoutPrimeScript}
+    <script src="./native-ipad-layout.js"></script>
     <link rel="stylesheet" href="./iphone-app-ipad.css" />
 `;
 
@@ -241,6 +247,19 @@ const chooserHtml = `<!doctype html>
         color: #0f6e56;
         opacity: 0.85;
       }
+      .iphone-chooser__signup {
+        margin: 22px 0 0;
+        max-width: 340px;
+        font-size: 0.88rem;
+        line-height: 1.45;
+        opacity: 0.92;
+      }
+      .iphone-chooser__signup a {
+        color: #fff;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
     </style>
   </head>
   <body class="portal-login-page">
@@ -269,6 +288,12 @@ const chooserHtml = `<!doctype html>
           <span>HR admin, employees, rota &amp; compliance</span>
         </a>
       </div>
+      <p class="iphone-chooser__signup">
+        New business?
+        <a href="https://app.shiftswifthr.co.uk/signup.html" data-sshr-external-url="https://app.shiftswifthr.co.uk/signup.html" id="chooser-signup">
+          Start free trial
+        </a>
+      </p>
     </main>
     <script src="./native-app-startup.js"></script>
     <script>
@@ -295,18 +320,23 @@ console.log("wrote www/index.html (employee / business chooser)");
 
 const COMPACT_NATIVE_MFA_PANEL = `        <div id="mfa-enrollment-panel" class="portal-login-card-body mfa-enrollment--native" hidden>
           <div class="portal-login-card-head mfa-enrollment-head">
-            <h1>Authenticator</h1>
-            <p class="portal-login-card-lead">Optional — scan QR, enter a code, or skip below.</p>
+            <h1>Secure your account</h1>
+            <p class="portal-login-card-lead">Use Face ID, scan a QR code, or skip for now.</p>
           </div>
           <div class="mfa-enrollment-scroll">
             <p id="mfa-enrollment-user" class="mfa-enrollment-user muted"></p>
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-passkey-btn" hidden>Use Face ID / Touch ID</button>
+            <p class="muted native-login-mfa-divider" id="mfa-enrollment-passkey-divider" hidden>or authenticator app</p>
             <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
               <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="128" height="128" />
             </div>
-            <details class="mfa-enrollment-manual">
+            <details class="mfa-enrollment-manual" open>
               <summary>Manual key</summary>
               <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
             </details>
+            <p class="mfa-enrollment-open-wrap">
+              <a id="mfa-enrollment-open-app" class="portal-login-inline-link" href="#" hidden>Open authenticator app</a>
+            </p>
             <label class="mfa-enrollment-code-label">
               6-digit code
               <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
@@ -333,10 +363,17 @@ for (const pattern of [
   /<script src="\.\/portal-sw-guard\.js[^"]*"><\/script>\s*/i,
   /<script src="\.\/cookie-consent\.js[^"]*"><\/script>\s*/i,
   /<script>\s*\(function \(\) \{[\s\S]*?portal=employee[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
-  /<p class="portal-login-alt-note[\s\S]*?<\/p>\s*/i,
 ]) {
   businessLoginHtml = businessLoginHtml.replace(pattern, "");
 }
+businessLoginHtml = businessLoginHtml.replace(
+  /<p class="portal-login-alt-note[\s\S]*?<\/p>\s*/i,
+  `<p class="portal-login-alt-note portal-login-alt-note--compact native-business-signup">
+            New business?
+            <a class="portal-login-inline-link" href="https://app.shiftswifthr.co.uk/signup.html" data-sshr-external-url="https://app.shiftswifthr.co.uk/signup.html">Start free trial</a>
+          </p>
+`,
+);
 businessLoginHtml = businessLoginHtml.replace(
   '<script src="./brand-config.js?v=brand-v7"></script>',
   '<script src="./native-api-fetch.js"></script>\n    <script src="./brand-config.js?v=brand-v7"></script>',
@@ -376,6 +413,61 @@ businessLoginHtml = compactNativeMfaPanel(businessLoginHtml);
 fs.writeFileSync(path.join(www, "business-login.html"), businessLoginHtml);
 console.log("wrote www/business-login.html");
 
+function patchForgotPasswordPage(html, { backHref, titleMark }) {
+  let out = html;
+  for (const pattern of [
+    /<link rel="canonical"[^>]*>\s*/i,
+    /<link rel="manifest"[^>]*>\s*/i,
+    /<script src="\.\/cookie-consent\.js[^"]*"><\/script>\s*/i,
+    /<script src="\.\/employee-pwa\.js[^"]*"><\/script>\s*/i,
+    /<script src="\.\/session-auth\.js[^"]*"><\/script>\s*/i,
+  ]) {
+    out = out.replace(pattern, "");
+  }
+  out = out.replace(
+    '<script src="./brand-config.js?v=brand-v7"></script>',
+    '<script src="./native-api-fetch.js"></script>\n    <script src="./brand-config.js?v=brand-v7"></script>',
+  );
+  out = out.replace(
+    /<script src="\.\/password-reset\.js[^"]*"><\/script>/,
+    '<script src="./password-reset.js"></script>',
+  );
+  out = out.replace("<html", '<html class="native-app capacitor-native iphone-app"');
+  out = out.replace(
+    "</head>",
+    `    <link rel="stylesheet" href="./iphone-app-ui.css" />
+    ${nativeIpadHead}
+  </head>`,
+  );
+  if (backHref) {
+    out = out.replace(/href="\.\/business-login\.html"/g, `href="${backHref}"`);
+    out = out.replace(/href="\.\/employee-login\.html"/g, `href="${backHref}"`);
+  }
+  void titleMark;
+  return out;
+}
+
+let forgotBusinessHtml = fs.readFileSync(path.join(frontend, "forgot-password.html"), "utf8");
+forgotBusinessHtml = patchForgotPasswordPage(forgotBusinessHtml, {
+  backHref: "./business-login.html?source=native",
+});
+fs.writeFileSync(path.join(www, "forgot-password.html"), forgotBusinessHtml);
+console.log("wrote www/forgot-password.html");
+
+let forgotEmployeeHtml = fs.readFileSync(path.join(frontend, "employee-forgot-password.html"), "utf8");
+forgotEmployeeHtml = patchForgotPasswordPage(forgotEmployeeHtml, {
+  backHref: "./employee-login.html?source=native",
+});
+fs.writeFileSync(path.join(www, "employee-forgot-password.html"), forgotEmployeeHtml);
+console.log("wrote www/employee-forgot-password.html");
+
+let resetPasswordHtml = fs.readFileSync(path.join(frontend, "reset-password.html"), "utf8");
+resetPasswordHtml = patchForgotPasswordPage(resetPasswordHtml, {
+  backHref: "./business-login.html?source=native",
+});
+fs.writeFileSync(path.join(www, "reset-password.html"), resetPasswordHtml);
+console.log("wrote www/reset-password.html");
+
 function stripNativeEmployeeInstallBanner(html) {
   return html
     .replace(
@@ -396,7 +488,7 @@ for (const pattern of [
   /<script src="\.\/portal-sw-guard\.js[^"]*"><\/script>\s*/i,
   /<script>\s*\(function \(\) \{[\s\S]*?sign-in\.html[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
   /<script>\s*\(function \(\) \{[\s\S]*?native-unified-login-redirect[\s\S]*?\}\)\(\);\s*<\/script>\s*/i,
-  /<script[\s\S]*?portal-pwa-install\.js[\s\S]*?<\/script>\s*/i,
+  /<script\s+src="\.\/portal-pwa-install\.js[^"]*"[\s\S]*?<\/script>\s*/gi,
   /<p class="portal-login-alt-note">[\s\S]*?<\/p>\s*/i,
   /<p class="portal-login-footnote[\s\S]*?<\/p>\s*/i,
   /<script src="\.\/cookie-consent\.js[^"]*"><\/script>\s*/i,
@@ -435,6 +527,10 @@ employeeLoginHtml = employeeLoginHtml.replace(
   "portal-login-card--employee",
 );
 employeeLoginHtml = compactNativeMfaPanel(employeeLoginHtml);
+if (!employeeLoginHtml.includes('id="portal-login-form"')) {
+  console.error("employee-login.html sync produced invalid output — portal-login-form missing");
+  process.exit(1);
+}
 fs.writeFileSync(path.join(www, "employee-login.html"), employeeLoginHtml);
 console.log("wrote www/employee-login.html");
 
@@ -536,6 +632,7 @@ adminHtml =
 adminHtml = adminHtml.replace(
   "</head>",
   `    ${sessionBridgeScript}
+    ${nativeLayoutPrimeScript}
     <script src="./native-ipad-layout.js"></script>
     <link rel="stylesheet" href="./iphone-app-ui.css" />
     <link rel="stylesheet" href="./iphone-app-ipad.css" />

@@ -22,6 +22,9 @@
   let lastSyncedTab = null;
 
   function isMobile() {
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
     if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 860px)").matches;
   }
@@ -103,6 +106,7 @@
 
     if (isMobile() && tabChanged) {
       window.MobileShell?.resetPortalScroll?.();
+      window.MobileShell?.pulseContentEnter?.();
     }
   }
 
@@ -162,6 +166,7 @@
     const morePanel = document.getElementById("mobile-more-panel");
     if (morePanel) morePanel.hidden = true;
     window.MobileShell?.resetPortalScroll?.();
+    window.MobileShell?.pulseContentEnter?.();
   }
 
   function exitDetailView() {
@@ -174,6 +179,7 @@
     setTab(previousTab || "home");
     const hash = TAB_SECTIONS[previousTab] || "overview";
     window.location.hash = hash;
+    window.MobileShell?.pulseContentEnter?.();
   }
 
   function isNativeShell() {

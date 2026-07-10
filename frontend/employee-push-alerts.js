@@ -106,25 +106,40 @@
       }
     }
 
-    async function enableNativeAlerts() {
-      if (window.ShiftSwiftNativeShiftAlerts?.enableAlerts) {
-        return window.ShiftSwiftNativeShiftAlerts.enableAlerts();
-      }
-
-      const plugin = await waitForNotificationsPlugin();
-      if (!plugin?.requestPermissions) return { ok: false, reason: "unsupported" };
-
+    async function registerRemotePush() {
+      if (!window.ShiftSwiftNativeRemotePush?.registerForRemotePush) return;
       try {
-        const result = await plugin.requestPermissions();
-        const permission = result?.display || "denied";
-        if (permission !== "granted") return { ok: false, reason: "denied" };
-        setNativeAlertsEnabled(true);
-        window.ShiftSwiftPush?.playAlertSound?.();
-        window.dispatchEvent(new CustomEvent("employee:shift-alerts-enabled"));
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, reason: error?.message || "permission_error" };
+        await window.ShiftSwiftNativeRemotePush.registerForRemotePush();
+      } catch {
+        /* ignore */
       }
+    }
+
+    async function enableNativeAlerts() {
+      let result;
+      if (window.ShiftSwiftNativeShiftAlerts?.enableAlerts) {
+        result = await window.ShiftSwiftNativeShiftAlerts.enableAlerts();
+      } else {
+        const plugin = await waitForNotificationsPlugin();
+        if (!plugin?.requestPermissions) return { ok: false, reason: "unsupported" };
+
+        try {
+          const perm = await plugin.requestPermissions();
+          const permission = perm?.display || "denied";
+          if (permission !== "granted") return { ok: false, reason: "denied" };
+          setNativeAlertsEnabled(true);
+          window.ShiftSwiftPush?.playAlertSound?.();
+          window.dispatchEvent(new CustomEvent("employee:shift-alerts-enabled"));
+          result = { ok: true };
+        } catch (error) {
+          return { ok: false, reason: error?.message || "permission_error" };
+        }
+      }
+
+      if (result?.ok) {
+        await registerRemotePush();
+      }
+      return result;
     }
 
     function setBannerState({ active, message, hideBanner }) {
