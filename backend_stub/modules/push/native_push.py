@@ -134,6 +134,37 @@ def _fcm_app():
 
 
 NOTIFICATION_SOUND = os.getenv("APNS_NOTIFICATION_SOUND", "shiftswift_alert.caf")
+_APNS_JWT_CACHE: dict[str, Any] = {"token": None, "exp": 0}
+
+
+def _apns_bearer_token() -> str:
+    """Build a short-lived APNs provider JWT (ES256) using PyJWT — no apns2 dependency."""
+    import time
+
+    import jwt
+
+    now = int(time.time())
+    cached = _APNS_JWT_CACHE.get("token")
+    if cached and int(_APNS_JWT_CACHE.get("exp") or 0) > now + 60:
+        return str(cached)
+
+    key_path = os.environ["APNS_KEY_PATH"]
+    key_id = os.environ["APNS_KEY_ID"]
+    team_id = os.environ["APNS_TEAM_ID"]
+    with open(key_path, "r", encoding="utf-8") as handle:
+        key_pem = handle.read()
+
+    token = jwt.encode(
+        {"iss": team_id, "iat": now},
+        key_pem,
+        algorithm="ES256",
+        headers={"alg": "ES256", "kid": key_id},
+    )
+    if isinstance(token, bytes):
+        token = token.decode("ascii")
+    _APNS_JWT_CACHE["token"] = token
+    _APNS_JWT_CACHE["exp"] = now + 50 * 60
+    return token
 
 
 def send_fcm(
@@ -181,32 +212,42 @@ def send_apns(
     if not apns_configured():
         return False
     try:
-        from apns2.client import APNsClient
-        from apns2.payload import Payload
+        import httpx
 
         bundle_id = os.getenv("APNS_BUNDLE_ID", "co.uk.shiftswifthr.app")
         use_sandbox = os.getenv("APNS_USE_SANDBOX", "false").lower() in {"1", "true", "yes"}
-        client = APNsClient(
-            os.environ["APNS_KEY_PATH"],
-            use_alternative_port=False,
-            use_sandbox=use_sandbox,
+        host = "api.sandbox.push.apple.com" if use_sandbox else "api.push.apple.com"
+        url = f"https://{host}/3/device/{device_token}"
+        payload = {
+            "aps": {
+                "alert": {"title": title, "body": body},
+                "sound": NOTIFICATION_SOUND,
+            },
+            **{str(k): str(v) for k, v in (data or {}).items()},
+        }
+        headers = {
+            "authorization": f"bearer {_apns_bearer_token()}",
+            "apns-topic": bundle_id,
+            "apns-push-type": "alert",
+            "apns-priority": "10",
+            "content-type": "application/json",
+        }
+        with httpx.Client(http2=True, timeout=20.0) as client:
+            response = client.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            return True
+        logger.warning(
+            "APNs delivery failed (%s): %s",
+            response.status_code,
+            (response.text or "")[:300],
         )
-        payload = Payload(
-            alert={"title": title, "body": body},
-            sound=NOTIFICATION_SOUND,
-            custom=data,
-        )
-        client.send_notification(
-            device_token,
-            payload,
-            topic=bundle_id,
-            priority=10,
-        )
-        return True
+        if response.status_code in {400, 410}:
+            raise RuntimeError(f"APNs status {response.status_code}")
+        return False
     except Exception as exc:
         logger.warning("APNs delivery failed: %s", exc)
-        status = getattr(exc, "status", None)
-        if status in {400, 410}:
+        status = getattr(exc, "status", None) or getattr(exc, "status_code", None)
+        if status in {400, 410} or "APNs status 400" in str(exc) or "APNs status 410" in str(exc):
             raise
         return False
 
