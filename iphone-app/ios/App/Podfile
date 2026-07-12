@@ -19,6 +19,8 @@ def capacitor_pods
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
   pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
+  pod 'CapacitorKeyboard', :path => '../../node_modules/@capacitor/keyboard'
+  pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
 end
 
 target 'App' do
@@ -45,5 +47,22 @@ post_install do |installer|
     # Run strip immediately before implicit CodeSign (last script phase).
     target.build_phases.delete(strip)
     target.build_phases << strip
+  end
+
+  # File Provider / Desktop xattrs break [CP] Embed Pods Frameworks codesign.
+  frameworks_sh = File.join(__dir__, 'Pods/Target Support Files/Pods-App/Pods-App-frameworks.sh')
+  if File.exist?(frameworks_sh)
+    contents = File.read(frameworks_sh)
+    unless contents.include?('xattr -cr "$1"')
+      contents.sub!(
+        /code_sign_if_enabled\(\) \{\n  if \[ -n "\$\{EXPANDED_CODE_SIGN_IDENTITY:-\}"/,
+        "code_sign_if_enabled() {\n  if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\""
+      )
+      contents.sub!(
+        "    # Use the current code_sign_identity\n    echo \"Code Signing $1 with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\"",
+        "    /usr/bin/xattr -cr \"$1\" 2>/dev/null || true\n    # Use the current code_sign_identity\n    echo \"Code Signing $1 with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\""
+      )
+      File.write(frameworks_sh, contents)
+    end
   end
 end

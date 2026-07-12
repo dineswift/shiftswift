@@ -26,6 +26,7 @@
             android:launchMode="singleTask"
             android:resizeableActivity="true"
             android:exported="true"
+            android:windowSoftInputMode="adjustNothing"
             android:screenOrientation="fullUser">
 
             <intent-filter>

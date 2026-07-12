@@ -34,6 +34,25 @@
     });
   }
 
+  function setHomeToday(items) {
+    const wrap = document.getElementById("employee-home-today");
+    const value = document.getElementById("employee-home-today-value");
+    if (!wrap || !value) return;
+    wrap.hidden = false;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const today = (items || []).filter((item) => item.shift_date === todayIso);
+    if (!today.length) {
+      value.textContent = "No published shift today";
+      wrap.classList.remove("employee-home-today--active");
+      return;
+    }
+    const first = today[0];
+    const more = today.length > 1 ? ` · +${today.length - 1} more` : "";
+    const role = first.role_label ? ` · ${first.role_label}` : "";
+    value.textContent = `${first.start_time}–${first.end_time}${role}${more}`;
+    wrap.classList.add("employee-home-today--active");
+  }
+
   function parseApiError(data, fallback) {
     const detail = data?.detail;
     if (typeof detail === "string") return detail;
@@ -176,6 +195,7 @@
         const errorText = parseApiError(data, "Could not load shifts.");
         renderPlaceholder(errorText, { retry: true });
         setShiftsSummary("Could not load shifts.");
+        setHomeToday([]);
         return;
       }
 
@@ -189,6 +209,7 @@
       renderReminderBanner();
       window.dispatchEvent(new CustomEvent("employee:shifts-loaded", { detail: data }));
       setShiftsSummary(formatShiftSummary(items));
+      setHomeToday(items);
 
       if (weekLabelEl) {
         const label = formatWeekLabel(data.week_start, data.week_end);
@@ -212,6 +233,7 @@
     } catch {
       renderPlaceholder("Could not reach the server. Check your connection.", { retry: true });
       setShiftsSummary("Could not load shifts.");
+      setHomeToday([]);
     }
   }
 

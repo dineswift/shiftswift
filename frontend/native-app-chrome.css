@@ -75,30 +75,24 @@ html.native-app.capacitor-native body.employee-portal #mobile-tab-bar {
   pointer-events: auto !important;
 }
 
-/* Soft tab / section enter — driven by MobileShell.pulseContentEnter */
+/* Soft tab / section enter — opacity only; disabled on native (see pulseContentEnter) */
 @keyframes mobile-shell-enter {
   from {
-    opacity: 0.45;
-    transform: translateY(5px);
+    opacity: 0.72;
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
 @media (max-width: 860px) {
   body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
-    animation: mobile-shell-enter 0.18s ease both;
-  }
-
-  body:has(#mobile-tab-bar) #mobile-more-panel {
-    will-change: opacity, transform;
+    animation: mobile-shell-enter 0.14s ease both;
   }
 
   body.admin-mobile-more-open #mobile-more-panel,
   body.employee-portal.employee-mobile-more-open #mobile-more-panel {
-    animation: mobile-shell-enter 0.18s ease both;
+    animation: mobile-shell-enter 0.14s ease both;
   }
 }
 
@@ -110,16 +104,62 @@ html.native-app.capacitor-native body.employee-portal #mobile-tab-bar {
   }
 }
 
-/* Keep focused form fields above the soft keyboard */
+/* Native: never slide/fade the whole shell — feels loose vs fixed tab bar */
+html.native-app body:has(#mobile-tab-bar) main.content.mobile-shell-enter,
+html.native-app body.admin-mobile-more-open #mobile-more-panel,
+html.native-app body.employee-portal.employee-mobile-more-open #mobile-more-panel,
+html.capacitor-native body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
+  animation: none !important;
+}
+
+/* One-shot startup reveal — don't leave opacity transition on for the session */
+html.native-app body.portal-startup-ready .app > main.content,
+html.native-app body.portal-startup-ready #mobile-tab-bar {
+  transition: none !important;
+}
+
+/* Tighter press feedback on native */
+html.native-app .btn:active:not(:disabled):not(.btn--busy) {
+  transform: none;
+  opacity: 0.88;
+}
+
+html.native-app .mobile-tab:active {
+  transform: none;
+  opacity: 0.75;
+}
+
+html.native-app .topbar-icon-btn:active {
+  transform: none;
+  opacity: 0.8;
+}
+
+/* Keep focused form fields above the soft keyboard without reflowing the shell */
 html.native-app.native-keyboard-open body:has(#mobile-tab-bar) main.content {
-  padding-bottom: calc(
-    88px + env(safe-area-inset-bottom) + var(--native-keyboard-inset, 0px)
-  ) !important;
-  scroll-padding-bottom: calc(24px + var(--native-keyboard-inset, 0px));
+  scroll-padding-bottom: calc(28px + var(--native-keyboard-inset, 0px)) !important;
 }
 
 html.native-app.native-keyboard-open {
   overscroll-behavior-y: none;
+}
+
+/* Stable shell height — avoid 100dvh thrash when keyboard opens */
+html.native-app body,
+html.native-app .employee-app,
+html.native-app .admin-portal .app,
+html.native-app .app {
+  min-height: 100svh;
+}
+
+html.native-app body:has(#mobile-tab-bar) .app {
+  height: 100svh;
+  max-height: 100svh;
+}
+
+/* Detail mode: no empty tab-bar padding when bar is hidden */
+html.native-app body.admin-mobile-detail:has(#mobile-tab-bar) main.content,
+html.native-app body.employee-mobile-detail:has(#mobile-tab-bar) main.content {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
 }
 
 html.native-app body.employee-portal.no-scroll main.content {

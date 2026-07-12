@@ -116,8 +116,16 @@
 
   let contentEnterTimer = 0;
 
-  /** Soft fade when switching tabs / sections / detail (mobile shell only). */
+  /** Soft fade when switching tabs / sections / detail (web mobile only). */
   function pulseContentEnter() {
+    // Native: skip — animating main.content shakes the topbar vs fixed tab bar.
+    if (
+      document.documentElement.classList.contains("native-app") ||
+      document.documentElement.classList.contains("capacitor-native") ||
+      Boolean(window.Capacitor?.isNativePlatform?.())
+    ) {
+      return;
+    }
     if (!isMobileViewport()) return;
     try {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -126,22 +134,25 @@
     }
     const main = document.querySelector("main.content");
     if (!main) return;
-    main.classList.remove("mobile-shell-enter");
-    void main.offsetWidth;
+    if (main.classList.contains("mobile-shell-enter")) return;
     main.classList.add("mobile-shell-enter");
     window.clearTimeout(contentEnterTimer);
     contentEnterTimer = window.setTimeout(() => {
       main.classList.remove("mobile-shell-enter");
-    }, 220);
+    }, 180);
   }
 
   function bindPortalKeyboardInset() {
+    if (document.body?.classList?.contains("portal-login-page")) return;
+    if (window.ShiftSwiftNativeKeyboard?.bind) {
+      window.ShiftSwiftNativeKeyboard.bind({ scope: "portal" });
+      return;
+    }
     const isNative =
       Boolean(window.Capacitor?.isNativePlatform?.()) ||
       document.documentElement.classList.contains("native-app") ||
       document.documentElement.classList.contains("capacitor-native");
     if (!isNative || window.__SSHR_PORTAL_KEYBOARD_BOUND__) return;
-    if (document.body?.classList?.contains("portal-login-page")) return;
     window.__SSHR_PORTAL_KEYBOARD_BOUND__ = true;
 
     const viewport = window.visualViewport;
@@ -165,25 +176,6 @@
 
     viewport.addEventListener("resize", adjust, { passive: true });
     adjust();
-
-    document.addEventListener(
-      "focusin",
-      (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLElement)) return;
-        if (!/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) && !target.isContentEditable) {
-          return;
-        }
-        window.setTimeout(() => {
-          try {
-            target.scrollIntoView({ block: "center", behavior: "auto" });
-          } catch {
-            /* ignore */
-          }
-        }, 80);
-      },
-      true,
-    );
   }
 
   function scrollToAnchor(anchorId, options = {}) {

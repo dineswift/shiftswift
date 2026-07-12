@@ -11,7 +11,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "34";
+const BUNDLED_ASSET_VERSION = "36";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   const STOREFRONT_URL = "https://www.shiftswifthr.co.uk";
   const BUSINESS_SIGNUP_URL = "https://app.shiftswifthr.co.uk/signup.html";
@@ -221,6 +221,15 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     link.href = href;
     link.setAttribute("data-sshr-native", filename);
     document.head.appendChild(link);
+  }
+
+  function injectBundledScript(filename) {
+    if (!isCapacitorNative()) return;
+    if (document.querySelector(`script[data-sshr-native="${filename}"]`)) return;
+    const script = document.createElement("script");
+    script.src = capacitorAssetUrl(filename);
+    script.setAttribute("data-sshr-native", filename);
+    document.head.appendChild(script);
   }
 
   function productionBusinessLoginUrl() {
@@ -505,9 +514,14 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     void unregisterNativeServiceWorkers();
     applyNativeClasses();
     bindExternalSignupLinks();
+    injectBundledScript("native-keyboard.js");
+    injectBundledScript("native-haptics.js");
     if (!onLogin) {
       injectBundledStylesheet("native-app-chrome.css");
     }
+    window.setTimeout(() => {
+      window.ShiftSwiftNativeKeyboard?.bind?.({ scope: onLogin ? "login" : "portal" });
+    }, 0);
     bindNavigationSplash();
     scheduleSplashHide();
     if (onEmployeePortal) {

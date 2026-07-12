@@ -34,18 +34,47 @@
     return url;
   }
 
+  function setStatusMessage(el, message) {
+    if (!el) return;
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
+
+  function ensureMfaVerifyStatus() {
+    let status = document.getElementById("mfa-verify-status");
+    if (status) return status;
+    const form = document.getElementById("mfa-form");
+    if (!form) return null;
+    status = document.createElement("p");
+    status.id = "mfa-verify-status";
+    status.className = "form-error-message";
+    status.hidden = true;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) form.insertBefore(status, submit);
+    else form.appendChild(status);
+    return status;
+  }
+
   function setStatus(message) {
-    const status = document.getElementById("login-status");
-    if (!status) return;
-    status.textContent = message || "";
-    status.hidden = !message;
+    if (document.body.classList.contains("login-step-mfa")) {
+      setStatusMessage(ensureMfaVerifyStatus(), message);
+      return;
+    }
+    if (document.body.classList.contains("login-step-enroll")) {
+      setEnrollmentStatus(message);
+      return;
+    }
+    setStatusMessage(document.getElementById("login-status"), message);
   }
 
   function setEnrollmentStatus(message) {
-    const status = document.getElementById("mfa-enrollment-status");
-    if (!status) return;
-    status.textContent = message || "";
-    status.hidden = !message;
+    setStatusMessage(document.getElementById("mfa-enrollment-status"), message);
+  }
+
+  function normalizeMfaCode(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, "");
   }
 
   async function postJson(path, body, bearerToken, options = {}) {
@@ -370,6 +399,10 @@
   }
 
   function bindKeyboardScroll() {
+    if (window.ShiftSwiftNativeKeyboard?.bind) {
+      window.ShiftSwiftNativeKeyboard.bind({ scope: "login" });
+      return;
+    }
     const viewport = window.visualViewport;
     if (!viewport || window.__SSHR_UNIFIED_KEYBOARD_BOUND__) return;
     window.__SSHR_UNIFIED_KEYBOARD_BOUND__ = true;
@@ -480,7 +513,11 @@
           return;
         }
         setStatus("Verifying code…");
-        const code = new FormData(mfaForm).get("code");
+        const code = normalizeMfaCode(new FormData(mfaForm).get("code"));
+        if (!code || code.length < 6) {
+          setStatus("Enter the 6-digit code from your authenticator app.");
+          return;
+        }
         try {
           const data = await postJson("/auth/mfa/verify", {
             challenge_token: pendingChallenge,
@@ -553,8 +590,8 @@
           showLoginForm();
           return;
         }
-        const code = document.getElementById("mfa-enrollment-code")?.value?.trim();
-        if (!code) {
+        const code = normalizeMfaCode(document.getElementById("mfa-enrollment-code")?.value);
+        if (!code || code.length < 6) {
           setEnrollmentStatus("Enter the 6-digit code from your authenticator app.");
           return;
         }

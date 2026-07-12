@@ -42,10 +42,14 @@ if [[ -z "$DEVICE_ID" ]]; then
   DEVICE_ID="$(adb devices | awk 'NR>1 && $2=="device" { print $1; exit }')"
 fi
 
+# Prefer a single online emulator/device when several are listed
 if [[ -z "$DEVICE_ID" ]]; then
   echo "No connected Android device found. Enable USB debugging and trust this computer."
   exit 1
 fi
+
+# Clear macOS duplicate resource names again after branding (Finder copies)
+find "$ROOT/android/app/src/main/res" -name '* *' -delete 2>/dev/null || true
 
 echo "==> Building debug APK"
 cd "$ANDROID"

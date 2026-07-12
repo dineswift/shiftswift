@@ -24,18 +24,24 @@ pod install
 
 echo "==> Archive (Release, generic iOS — iPhone + iPad)"
 rm -rf "$ARCHIVE" "$EXPORT"
-xcodebuild -workspace App.xcworkspace \
+# Build off Desktop to avoid File Provider xattrs that break codesign
+DERIVED="${SSHR_DERIVED_DATA:-/tmp/sshr-AppStoreDerivedData}"
+rm -rf "$DERIVED"
+COPYFILE_DISABLE=1 xcodebuild -workspace App.xcworkspace \
   -scheme App \
   -configuration Release \
   -destination 'generic/platform=iOS' \
   -archivePath "$ARCHIVE" \
+  -derivedDataPath "$DERIVED" \
+  -allowProvisioningUpdates \
   archive
 
 echo "==> Export IPA for App Store Connect"
 xcodebuild -exportArchive \
   -archivePath "$ARCHIVE" \
   -exportPath "$EXPORT" \
-  -exportOptionsPlist "$EXPORT_PLIST"
+  -exportOptionsPlist "$EXPORT_PLIST" \
+  -allowProvisioningUpdates
 
 IPA="$EXPORT/App.ipa"
 if [[ -f "$IPA" ]]; then

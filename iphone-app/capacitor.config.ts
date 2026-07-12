@@ -13,12 +13,10 @@ const config: CapacitorConfig = {
         // Keep app/api in-WebView; www (storefront/signup) opens in Safari.
         allowNavigation: ["app.shiftswifthr.co.uk", "api.shiftswifthr.co.uk", "localhost"],
         iosScheme: "App",
-        androidScheme: "https",
         hostname: "localhost",
       }
     : {
         iosScheme: "App",
-        androidScheme: "https",
         hostname: "localhost",
         // Keep app/api in-WebView; www (storefront/signup) opens in Safari.
         allowNavigation: ["app.shiftswifthr.co.uk", "api.shiftswifthr.co.uk", "localhost"],
@@ -34,13 +32,6 @@ const config: CapacitorConfig = {
       UIBackgroundModes: ["remote-notification"],
     },
   },
-  android: {
-    path: "android",
-    allowMixedContent: false,
-    captureInput: true,
-    webContentsDebuggingEnabled: false,
-    backgroundColor: "#0f6e56",
-  },
   plugins: {
     CapacitorHttp: { enabled: true },
     SplashScreen: {
@@ -49,8 +40,6 @@ const config: CapacitorConfig = {
       launchFadeOutDuration: 200,
       backgroundColor: "#0f6e56",
       showSpinner: false,
-      androidSplashResourceName: "splash",
-      androidScaleType: "CENTER_INSIDE",
     },
     StatusBar: {
       style: "LIGHT",
@@ -58,6 +47,9 @@ const config: CapacitorConfig = {
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
+    },
+    Keyboard: {
+      resize: "none",
     },
   },
 };

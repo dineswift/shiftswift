@@ -1201,6 +1201,67 @@ body.master-app textarea {
 
   .master-cards {
     display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0;
+  }
+
+  .master-card {
+    border-radius: 14px;
+    padding: 12px;
+    border: 1px solid rgba(15, 110, 86, 0.12);
+    background: linear-gradient(160deg, #f7faf8 0%, #eef6f2 100%);
+    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
+    display: flex;
+    flex-direction: column;
+    min-height: 118px;
+  }
+
+  .master-card__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .master-card__head strong {
+    font-size: 0.88rem;
+    line-height: 1.25;
+  }
+
+  .master-card__meta {
+    font-size: 0.72rem;
+    margin-bottom: 0.5rem;
+    flex: 1;
+  }
+
+  .master-card__footer {
+    margin-top: auto;
+  }
+
+  .master-page-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .master-page-head > div:first-child {
+    width: 100%;
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(152deg, #0c5e4a 0%, #0f6e56 48%, #15906f 100%);
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(15, 110, 86, 0.22);
+  }
+
+  .master-page-head h1 {
+    color: #fff;
+    font-size: 1.22rem;
+  }
+
+  .master-page-head .master-page-sub {
+    color: rgba(255, 255, 255, 0.9);
   }
 
   .master-main {
@@ -1210,7 +1271,7 @@ body.master-app textarea {
 
 @media (max-width: 520px) {
   .master-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .master-toolbar {

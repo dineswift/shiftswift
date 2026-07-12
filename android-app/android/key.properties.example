@@ -2,4 +2,4 @@
 storePassword=YOUR_KEYSTORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
 keyAlias=upload
-storeFile=keystore/shiftswifthr-upload.jks
+storeFile=../keystore/shiftswifthr-upload.jks

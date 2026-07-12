@@ -98,7 +98,18 @@
   }
 
   function canUsePasskeys() {
-    return Boolean(window.PublicKeyCredential && navigator.credentials?.create);
+    if (!window.PublicKeyCredential || !navigator.credentials?.create) return false;
+    // Capacitor / Ionic WebViews expose WebAuthn APIs but RP ID / Associated Domains
+    // usually fail — hide Face ID CTAs so authenticator codes stay the clear path.
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) return false;
+      const origin = String(window.location.origin || window.location.href || "");
+      if (/^(capacitor|ionic|app):\/\//i.test(origin)) return false;
+      if (/\/\/localhost\b/i.test(origin) && window.__SSHR_BUNDLED_NATIVE_BOOT) return false;
+    } catch {
+      /* ignore */
+    }
+    return true;
   }
 
   function isPasskeyOptIn() {

@@ -9,6 +9,10 @@ PODS:
   - CapacitorGeolocation (7.1.8):
     - Capacitor
     - IONGeolocationLib (= 1.0.1)
+  - CapacitorHaptics (7.0.5):
+    - Capacitor
+  - CapacitorKeyboard (7.0.6):
+    - Capacitor
   - CapacitorLocalNotifications (7.0.6):
     - Capacitor
   - CapacitorPreferences (7.0.4):
@@ -27,6 +31,8 @@ DEPENDENCIES:
   - "CapacitorBrowser (from `../../node_modules/@capacitor/browser`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorGeolocation (from `../../node_modules/@capacitor/geolocation`)"
+  - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
+  - "CapacitorKeyboard (from `../../node_modules/@capacitor/keyboard`)"
   - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
   - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
@@ -48,6 +54,10 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorGeolocation:
     :path: "../../node_modules/@capacitor/geolocation"
+  CapacitorHaptics:
+    :path: "../../node_modules/@capacitor/haptics"
+  CapacitorKeyboard:
+    :path: "../../node_modules/@capacitor/keyboard"
   CapacitorLocalNotifications:
     :path: "../../node_modules/@capacitor/local-notifications"
   CapacitorPreferences:
@@ -65,6 +75,8 @@ SPEC CHECKSUMS:
   CapacitorBrowser: 6d09f59655e89aede71654ef08b98de55cf032b6
   CapacitorCordova: 139e2ed3d91c54b5aeae7941135c9f9aefc6da1d
   CapacitorGeolocation: ab54d708e2fcf99a7bafe0219eaa6f7a932f001a
+  CapacitorHaptics: 1b145fa83c622e5383a3bac04ea81e2514f0b0f5
+  CapacitorKeyboard: a2e0869edd229490ce36aed2549c0d6b95e27ee8
   CapacitorLocalNotifications: 2e3f5b717ec9cd2bd64d93c99a9470941e1c80be
   CapacitorPreferences: 69d9991307507aeab8ef8019c10b9babfda0e9ca
   CapacitorPushNotifications: 0527809a9619ed775439d5ab2c2d996122b48319
@@ -72,6 +84,6 @@ SPEC CHECKSUMS:
   CapacitorStatusBar: 416e9e53fd6397e668d4a181cd2131617d949bd6
   IONGeolocationLib: 20f9d0248a0b5264511fb57a37e25dd2badf797a
 
-PODFILE CHECKSUM: 4c6e2e0d786a90c11ab14292ba09bc93326dff18
+PODFILE CHECKSUM: 01ba11f3d941a5d7ba118ee984d663329ec305bc
 
 COCOAPODS: 1.16.2

@@ -160,7 +160,7 @@
     const modulesBlock = document.querySelector("#overview .overview-main");
     if (modulesBlock) {
       if (isMobile()) {
-        modulesBlock.hidden = tab !== "modules";
+        modulesBlock.hidden = tab !== "modules" && tab !== "home";
       } else {
         modulesBlock.removeAttribute("hidden");
       }
@@ -213,7 +213,6 @@
     if (back) back.hidden = false;
     if (toggle) toggle.hidden = true;
     window.MobileShell?.resetPortalScroll?.();
-    window.MobileShell?.pulseContentEnter?.();
   }
 
   function exitDetailView() {
@@ -223,7 +222,6 @@
     const toggle = document.getElementById("sidebar-toggle");
     if (back) back.hidden = true;
     if (toggle) toggle.hidden = false;
-    window.MobileShell?.pulseContentEnter?.();
     const returnTab = previousTab || "home";
     if (returnTab === "more") {
       currentTab = "more";
@@ -425,8 +423,13 @@
       syncTabUi(currentTab);
     });
 
-    window.addEventListener("resize", () => {
-      if (!isMobile()) {
+    let lastMobile = isMobile();
+    const mobileMq = window.matchMedia("(max-width: 860px)");
+    const onShellModeChange = () => {
+      const mobile = isMobile();
+      if (mobile === lastMobile) return;
+      lastMobile = mobile;
+      if (!mobile) {
         document.body.classList.remove("admin-mobile-detail", "admin-mobile-more-open");
         delete document.body.dataset.mobileTab;
         document.querySelector("#overview .overview-main")?.removeAttribute("hidden");
@@ -436,7 +439,10 @@
         syncTabUi(currentTab);
       }
       syncComplianceDrill();
-    });
+    };
+    if (mobileMq.addEventListener) mobileMq.addEventListener("change", onShellModeChange);
+    else mobileMq.addListener?.(onShellModeChange);
+    window.addEventListener("sshr:shell-mode-change", onShellModeChange);
 
     refreshGreeting();
     syncClockAvailability(clockEnabled);

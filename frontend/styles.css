@@ -4542,16 +4542,15 @@ html.pwa-standalone .mobile-tab-bar {
   .overview-main {
     display: none;
   }
-  body[data-mobile-tab="modules"] .overview-main {
+  body[data-mobile-tab="modules"] .overview-main,
+  body[data-mobile-tab="home"] .overview-main {
     display: block;
   }
-  body[data-mobile-tab="modules"] .mobile-panel-title--modules {
+  body[data-mobile-tab="modules"] .mobile-panel-title--modules,
+  body[data-mobile-tab="home"] .mobile-panel-title--modules {
     display: block;
   }
   body[data-mobile-tab="modules"] .overview-section-title--desktop {
-    display: none !important;
-  }
-  body[data-mobile-tab="home"] .overview-main {
     display: none !important;
   }
   body[data-mobile-tab="home"] .overview-main[hidden] {
@@ -18289,29 +18288,29 @@ input[type="date"][data-empty]:not(:focus)::before {
   }
 
   body.employee-portal:has(#mobile-tab-bar) .employee-home-hero {
-    margin-bottom: 10px;
-    padding: 14px 14px 16px;
-    border-radius: 16px;
+    margin-bottom: 6px;
+    padding: 10px 12px;
+    border-radius: 14px;
   }
 
   body.employee-portal:has(#mobile-tab-bar) .employee-home-name {
-    margin-bottom: 8px;
-    font-size: 1.42rem;
+    margin-bottom: 4px;
+    font-size: 1.12rem;
   }
 
   body.employee-portal:has(#mobile-tab-bar) .employee-alerts-banner {
-    margin-bottom: 10px;
-    padding: 12px;
-    gap: 10px;
+    margin-bottom: 6px;
+    padding: 8px 10px;
+    gap: 8px;
   }
 
   body.employee-portal:has(#mobile-tab-bar) .employee-home-quick {
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 6px;
+    margin-bottom: 6px;
   }
 
   body.employee-portal:has(#mobile-tab-bar) .employee-home-section-title {
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 }
 
@@ -18406,6 +18405,80 @@ input[type="date"][data-empty]:not(:focus)::before {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+@media (max-width: 860px) {
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 0;
+    padding: 10px 10px 9px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card__chevron {
+    display: none;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card__body {
+    width: 100%;
+    gap: 2px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card__title {
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    color: #12352c;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card__value {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #5c6b66;
+    -webkit-line-clamp: 2;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card--clock {
+    background: linear-gradient(160deg, #f3fbf6 0%, #e7f6ec 100%);
+    border-color: rgba(15, 110, 86, 0.14);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card--shifts {
+    background: linear-gradient(160deg, #f5f9ff 0%, #e8f1fe 100%);
+    border-color: rgba(29, 78, 216, 0.14);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card--docs {
+    background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: rgba(180, 83, 9, 0.14);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card--payslips {
+    background: linear-gradient(160deg, #f8f5ff 0%, #ede9fe 100%);
+    border-color: rgba(109, 40, 217, 0.14);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card--notes {
+    background: linear-gradient(160deg, #fff5f6 0%, #ffe4e6 100%);
+    border-color: rgba(190, 18, 60, 0.12);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) .employee-home-card--leave {
+    background: linear-gradient(160deg, #f0fdff 0%, #cffafe 100%);
+    border-color: rgba(14, 116, 144, 0.14);
+  }
 }
 
 .employee-home-card {

@@ -31,8 +31,11 @@ function runSips(args) {
 
 function ensurePng(src, dest, size) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(src, dest);
-  runSips(["-z", String(size), String(size), dest]);
+  // Write to a temp name then rename — avoids macOS "file 2.png" duplicates when overwriting.
+  const tmp = `${dest}.tmp-${process.pid}`;
+  fs.copyFileSync(src, tmp);
+  runSips(["-z", String(size), String(size), tmp]);
+  fs.renameSync(tmp, dest);
 }
 
 const resRoot = path.join(androidRoot, "app", "src", "main", "res");

@@ -146,6 +146,10 @@
               Authenticator code
               <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
             </label>
+            <label class="portal-login-remember portal-login-remember--mfa">
+              <input type="checkbox" id="login-remember-device-mfa" checked />
+              <span>Trust this device for 30 days</span>
+            </label>
             <p id="mfa-verify-status" class="form-error-message" hidden></p>
             <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
           </form>
@@ -159,10 +163,11 @@
     </div>
     <script src="./session-auth.js?v=9"></script>
     <script src="./trusted-device.js?v=3"></script>
-    <script src="./passkey-auth.js?v=3"></script>
+    <script src="./passkey-auth.js?v=4"></script>
+    <script src="./native-keyboard.js?v=1"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./admin-pwa.js?v=8"></script>
-    <script src="./login.js?v=brandkit-v20"></script>
+    <script src="./login.js?v=brandkit-v21"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>

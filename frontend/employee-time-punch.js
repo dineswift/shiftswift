@@ -747,6 +747,7 @@
       }
       if (!response.ok) {
         setMessage(parseApiError(data, "Punch failed."), "error");
+        void window.ShiftSwiftNativeHaptics?.error?.();
         return;
       }
       let detail = `${punchTypeLabel(punchType)} at ${data.site_name}`;
@@ -754,10 +755,12 @@
       else if (data.distance_meters != null) detail += ` (${Math.round(data.distance_meters)}m from site)`;
       if (data.rapid_re_punch) detail += " — flagged for HR review.";
       setMessage(`${detail}.`, "success");
+      void window.ShiftSwiftNativeHaptics?.success?.();
       await loadStatus();
       window.EmployeeTimesheet?.reload?.();
     } catch (error) {
       setMessage(error.message || "Punch failed.", "error");
+      void window.ShiftSwiftNativeHaptics?.error?.();
     } finally {
       punchInFlight = false;
       syncClockWidget();

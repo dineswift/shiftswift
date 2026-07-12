@@ -148,6 +148,10 @@
         return;
       }
       applyEmployeeIdentity(user);
+      if (typeof user.time_clock_enabled === "boolean") {
+        localStorage.setItem("employeeTimeClockEnabled", user.time_clock_enabled ? "true" : "false");
+        window.EmployeeMobile?.syncClockAvailability?.(user.time_clock_enabled);
+      }
       const employerLabel = user.employer_name || "Your employer";
       if (employerHeader) employerHeader.textContent = employerLabel;
       if (employerSubtitle) employerSubtitle.textContent = employerLabel;

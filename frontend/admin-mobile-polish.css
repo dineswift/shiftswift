@@ -5,81 +5,125 @@
   }
 
   body:has(#mobile-tab-bar)[data-mobile-tab="home"] #overview.admin-section {
-    gap: 8px;
+    gap: 6px;
   }
 
   body:has(#mobile-tab-bar) .mobile-home-header {
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    column-gap: 8px;
-    row-gap: 2px;
-    margin: 0 0 8px;
-    padding: 10px 12px 9px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin: 0 0 6px;
+    padding: 10px 12px;
     border-radius: 14px;
-    background: linear-gradient(145deg, rgba(15, 110, 86, 0.1) 0%, rgba(255, 255, 255, 0.98) 62%);
-    border: 1px solid rgba(15, 110, 86, 0.12);
-    box-shadow: 0 4px 14px rgba(15, 110, 86, 0.06);
+    border: none;
+    background: linear-gradient(152deg, #0c5e4a 0%, #0f6e56 48%, #15906f 100%);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(15, 110, 86, 0.18);
   }
 
   body:has(#mobile-tab-bar) .mobile-greeting {
     margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: #12352c;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #fff;
+    opacity: 0.9;
     line-height: 1.2;
   }
 
   body:has(#mobile-tab-bar) .mobile-business-name {
     margin: 0;
-    font-size: 0.78rem;
-    color: #5c6b66;
-    line-height: 1.2;
+    font-size: 1.12rem;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: #fff;
+    line-height: 1.15;
   }
 
   body:has(#mobile-tab-bar) .mobile-business-name:not(:empty)::before {
-    content: "·";
-    margin-right: 8px;
-    color: #8a9691;
+    content: none;
+    margin: 0;
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid {
     gap: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   body:has(#mobile-tab-bar) .overview-stats-grid .hr-stat-card {
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid rgba(15, 110, 86, 0.1);
-    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
-    padding: 8px 8px 7px;
+    box-shadow: 0 2px 6px rgba(18, 53, 44, 0.04);
+    padding: 7px 7px 6px;
     min-height: 0;
   }
 
   body:has(#mobile-tab-bar) .overview-error {
-    padding: 12px;
-    border-radius: 12px;
+    padding: 10px;
+    border-radius: 10px;
     border: 1px solid rgba(198, 40, 40, 0.18);
     background: rgba(198, 40, 40, 0.05);
     text-align: center;
   }
 
   body:has(#mobile-tab-bar) .overview-module-grid {
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
   }
 
   body:has(#mobile-tab-bar) .overview-module-card {
-    border-radius: 14px;
+    border-radius: 12px;
     min-height: 0;
-    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
+    padding: 10px 10px 9px;
+    box-shadow: 0 2px 6px rgba(18, 53, 44, 0.04);
+    background: linear-gradient(160deg, #f7faf8 0%, #eef6f2 100%);
+    border: 1px solid rgba(15, 110, 86, 0.12);
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-card__chevron {
+    display: none;
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-card__icon .admin-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-card__title {
+    font-size: 0.68rem;
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-card__value {
+    font-size: 1.05rem;
+  }
+
+  body:has(#mobile-tab-bar) .overview-module-card__sub {
+    font-size: 0.66rem;
+    line-height: 1.25;
+  }
+
+  /* Show module tiles on Home as well as Modules tab */
+  body:has(#mobile-tab-bar)[data-mobile-tab="home"] .overview-main {
+    display: block !important;
+  }
+
+  body:has(#mobile-tab-bar)[data-mobile-tab="home"] .mobile-panel-title--modules {
+    display: block;
+    margin: 2px 0 6px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #5c6b66;
   }
 
   body:has(#mobile-tab-bar) .mobile-subscription-card {
-    border-radius: 12px;
-    margin: 0 0 8px;
-    padding: 9px 11px;
-    box-shadow: 0 3px 10px rgba(18, 53, 44, 0.05);
+    border-radius: 10px;
+    margin: 0 0 6px;
+    padding: 7px 10px;
+    box-shadow: 0 2px 6px rgba(18, 53, 44, 0.04);
   }
 
   body:has(#mobile-tab-bar) .rota-admin-message {
@@ -970,10 +1014,10 @@ html.native-app .employee-shift-reminder-toast span,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 1px solid rgba(15, 110, 86, 0.16);
   background: linear-gradient(135deg, rgba(15, 110, 86, 0.08), rgba(255, 255, 255, 0.9));
 }
@@ -981,18 +1025,18 @@ html.native-app .employee-shift-reminder-toast span,
 .employee-shift-alerts-banner__copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
 .employee-shift-alerts-banner__title {
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   color: #12352c;
 }
 
 .employee-shift-alerts-banner__sub {
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   color: #5c6b66;
 }
 

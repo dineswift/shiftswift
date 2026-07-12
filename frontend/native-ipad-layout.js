@@ -124,7 +124,7 @@
       root.classList.add("portal-mobile-shell");
     }
     if (tablet !== wasTablet) {
-      window.dispatchEvent(new Event("resize"));
+      window.dispatchEvent(new CustomEvent("sshr:shell-mode-change", { detail: { tablet } }));
       if (tablet) finalizeTabletPortal();
     }
     return tablet;

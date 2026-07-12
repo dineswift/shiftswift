@@ -144,7 +144,12 @@ function syncLoginPanels(step) {
 }
 
 function bindNativeKeyboardInset() {
-  if (!isNativeLoginApp() || window.__SSHR_LOGIN_KEYBOARD_BOUND__) return;
+  if (!isNativeLoginApp()) return;
+  if (window.ShiftSwiftNativeKeyboard?.bind) {
+    window.ShiftSwiftNativeKeyboard.bind({ scope: "login" });
+    return;
+  }
+  if (window.__SSHR_LOGIN_KEYBOARD_BOUND__) return;
   window.__SSHR_LOGIN_KEYBOARD_BOUND__ = true;
   const viewport = window.visualViewport;
   if (!viewport) return;
@@ -155,7 +160,6 @@ function bindNativeKeyboardInset() {
     if (rafId) return;
     rafId = window.requestAnimationFrame(() => {
       rafId = 0;
-      // Ignore tiny visualViewport scroll jitter — only track real keyboard height
       const raw = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
       const inset = raw < 48 ? 0 : Math.round(raw / 8) * 8;
       if (Math.abs(inset - lastInset) < 8) return;
@@ -164,7 +168,6 @@ function bindNativeKeyboardInset() {
       root.classList.toggle("native-keyboard-open", inset > 0);
     });
   };
-  // resize only — visualViewport "scroll" fires constantly on iOS and causes shake
   viewport.addEventListener("resize", adjust, { passive: true });
   adjust();
 }
@@ -286,6 +289,23 @@ async function startMfaEnrollment(data, redirectUrl) {
     if (openAuth && setup.otpauth_uri) {
       openAuth.hidden = false;
       openAuth.href = setup.otpauth_uri;
+      if (!openAuth.dataset.bound) {
+        openAuth.dataset.bound = "1";
+        openAuth.addEventListener("click", (event) => {
+          const href = openAuth.getAttribute("href") || setup.otpauth_uri;
+          if (!href || href === "#") return;
+          // Native WebViews often ignore otpauth:// — open via Capacitor Browser/App when available.
+          if (window.Capacitor?.isNativePlatform?.()) {
+            event.preventDefault();
+            const browser = window.Capacitor?.Plugins?.Browser;
+            if (browser?.open) {
+              void browser.open({ url: href });
+              return;
+            }
+            window.open(href, "_system");
+          }
+        });
+      }
     }
     setEnrollmentStatus("");
     focusLoginInput(document.getElementById("mfa-enrollment-code"));
@@ -356,17 +376,17 @@ function bindMfaEnrollmentPasskey() {
       return;
     }
     if (!window.ShiftSwiftPasskeyAuth?.enrollMfaWithPasskey) {
-      setEnrollmentStatus("Face ID is not available in this build.");
+      setEnrollmentStatus("Device unlock is not available in this build.");
       return;
     }
-    setEnrollmentStatus("Waiting for Face ID…");
+    setEnrollmentStatus("Waiting for device unlock…");
     btn.disabled = true;
     try {
       const data = await window.ShiftSwiftPasskeyAuth.enrollMfaWithPasskey(pendingEnrollmentToken);
       window.ShiftSwiftPasskeyAuth.rememberLastEmail?.(pendingMfaUsername || data.username);
       await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
     } catch (error) {
-      setEnrollmentStatus(error.message || "Could not enable Face ID — try the authenticator code instead");
+      setEnrollmentStatus(error.message || "Could not enable device unlock — try the authenticator code instead");
       btn.disabled = false;
     }
   });
@@ -573,10 +593,16 @@ function bindMfaForm() {
     const code = String(raw || "")
       .trim()
       .replace(/\s+/g, "");
+    if (!code || code.length < 6) {
+      setStatus("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
     try {
       const data = await postJson("/auth/mfa/verify", {
         challenge_token: pendingChallenge,
         code,
+        remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
+        device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || undefined,
       });
       await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
     } catch (error) {

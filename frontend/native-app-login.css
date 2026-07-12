@@ -218,15 +218,13 @@ html.native-app.native-keyboard-open body.portal-login-page--unified {
   display: none !important;
 }
 
-/* Soft MFA / sign-in panel enter */
+/* Soft MFA / sign-in panel enter — opacity only (no translateY = no sibling shake) */
 @keyframes native-login-panel-in {
   from {
-    opacity: 0.35;
-    transform: translateY(8px);
+    opacity: 0.4;
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -249,18 +247,29 @@ body.portal-login-page--native-stable.login-step-signin #login-shell,
 }
 
 .portal-login-page--unified.login-step-mfa #login-shell,
-.portal-login-page--unified.login-step-mfa #mfa-enrollment-panel {
+.portal-login-page--unified.login-step-mfa #mfa-enrollment-panel,
+body.portal-login-page--native-stable.login-step-mfa #login-shell,
+body.portal-login-page--native-stable.login-step-mfa #mfa-enrollment-panel {
   display: none !important;
 }
 
-.portal-login-page--unified.login-step-mfa #mfa-panel {
+.portal-login-page--unified.login-step-mfa #mfa-panel,
+body.portal-login-page--native-stable.login-step-mfa #mfa-panel {
   display: flex !important;
   flex-direction: column;
 }
 
 .portal-login-page--unified.login-step-enroll #login-shell,
-.portal-login-page--unified.login-step-enroll #mfa-panel {
+.portal-login-page--unified.login-step-enroll #mfa-panel,
+body.portal-login-page--native-stable.login-step-enroll #login-shell,
+body.portal-login-page--native-stable.login-step-enroll #mfa-panel {
   display: none !important;
+}
+
+.portal-login-page--unified.login-step-enroll #mfa-enrollment-panel,
+body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
+  display: flex !important;
+  flex-direction: column;
 }
 
 .portal-login-page--unified #login-shell {
@@ -539,6 +548,23 @@ body.portal-login-page--native-stable.login-step-signin #login-shell,
   color: #b42318;
   font-size: 0.86rem;
   line-height: 1.4;
+}
+
+.portal-login-remember--mfa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--native-ink, #141413);
+}
+
+.portal-login-remember--mfa input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--native-green, #0f6e56);
 }
 
 .portal-login-page--unified .portal-login-brand {

@@ -1,8 +1,10 @@
 # Secrets and local env
 .env
 backend_stub/.env
+backend_stub/secrets/
 *.pem
 *.key
+*.p8
 
 # Python
 __pycache__/
