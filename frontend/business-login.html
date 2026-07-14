@@ -27,8 +27,11 @@
     <script src="./native-app.js?v=6"></script>
     <script src="./pwa-ios.js?v=1"></script>
     <title>ShiftSwift HR | Business sign in</title>
-    <link rel="stylesheet" href="./styles.css?v=brandkit-v8" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v9" />
     <style>
+      .portal-login-page--split {
+        --portal-login-hero: url("./assets/screenshots/admin-overview.svg");
+      }
       .portal-login-submit--secondary {
         margin-top: 0.75rem;
         background: transparent;
@@ -42,125 +45,190 @@
       }
     </style>
   </head>
-  <body class="portal-login-page portal-login-page--streamlined login-step-signin" data-login-page="business">
-    <div class="portal-login-shell portal-login-shell--streamlined">
-      <header class="portal-login-brand portal-login-brand--streamlined">
-        <a href="./sign-in.html">
-          <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" width="44" height="44" />
-        </a>
-        <p class="portal-login-brand-copy">HR admin</p>
-      </header>
-
-      <section class="portal-login-card portal-login-card--business portal-login-card--streamlined login-steps-host login-step-signin" id="portal-login-card">
-        <div id="login-shell" class="portal-login-card-body">
-          <div class="portal-login-card-head portal-login-card-head--streamlined">
-            <h1>Business sign in</h1>
-            <p class="portal-login-card-lead" id="login-lead">Sign in to your ShiftSwift HR account.</p>
-          </div>
-
-          <form id="portal-login-form" class="portal-login-form portal-login-form--streamlined">
-            <label>
-              Work email
-              <input name="username" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="hr@yourcompany.co.uk" />
-            </label>
-            <label class="portal-login-password-field">
-              <span class="portal-login-password-label">
-                <span id="password-label">Password</span>
-                <a
-                  class="portal-login-inline-link portal-login-forgot"
-                  id="forgot-password-link"
-                  href="./forgot-password.html"
-                >Forgot?</a>
+  <body class="portal-login-page portal-login-page--streamlined portal-login-page--split login-step-signin" data-login-page="business">
+    <div class="portal-login-split">
+      <aside class="portal-login-visual" aria-hidden="true">
+        <div class="portal-login-visual-scrim"></div>
+        <div class="portal-login-visual-content">
+          <img
+            class="portal-login-visual-logo"
+            src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5"
+            alt=""
+            width="42"
+            height="42"
+          />
+          <p class="portal-login-visual-kicker">HR admin &amp; compliance</p>
+          <h2 class="portal-login-visual-title">Run payroll-ready HR from one dashboard</h2>
+          <ul class="portal-login-visual-features">
+            <li class="portal-login-visual-feature">
+              <span class="portal-login-visual-feature-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M8 7h8M8 12h8M8 17h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  <rect x="5" y="4" width="14" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+                </svg>
               </span>
-              <input
-                name="password"
-                type="password"
-                required
-                autocomplete="current-password"
-                placeholder="Enter password"
-                aria-labelledby="password-label"
-              />
-            </label>
-
-            <p id="login-status" class="form-error-message" hidden></p>
-
-            <button class="btn portal-login-submit" type="submit" id="login-submit">
-              Open HR dashboard
-            </button>
-
-            <p class="portal-login-secure-note">
-              Secured · <span data-secure-host>shiftswifthr.co.uk</span>
-            </p>
-          </form>
-
-          <p class="portal-login-alt-note portal-login-alt-note--compact">
-            Prefer one login for staff and managers?
-            <a class="portal-login-inline-link" href="./sign-in.html">Sign in with work email</a>
-            ·
-            <a class="portal-login-inline-link" href="./signup.html">Start free trial</a>
-          </p>
+              <span><strong>Employees</strong><span>Records, contracts and portal invites</span></span>
+            </li>
+            <li class="portal-login-visual-feature">
+              <span class="portal-login-visual-feature-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <rect x="4" y="5" width="16" height="15" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M8 3v4M16 3v4M4 10h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span><strong>Rotas</strong><span>Publish shifts and notify staff</span></span>
+            </li>
+            <li class="portal-login-visual-feature">
+              <span class="portal-login-visual-feature-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span><strong>Time clock</strong><span>Geofenced clock-in and punch review</span></span>
+            </li>
+            <li class="portal-login-visual-feature">
+              <span class="portal-login-visual-feature-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3 20 7v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V7l8-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span><strong>Compliance</strong><span>RTW, documents and audits</span></span>
+            </li>
+          </ul>
         </div>
+      </aside>
 
-        <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
-          <div class="portal-login-card-head">
-            <h1>Set up authenticator</h1>
-            <p class="portal-login-card-lead">
-              Recommended for account security. Use Face ID on this iPhone, or scan a QR code in Google Authenticator / Authy. You can also skip and enable later in settings.
+      <div class="portal-login-panel">
+        <div class="portal-login-panel-inner">
+          <div class="portal-login-shell portal-login-shell--streamlined">
+            <header class="portal-login-brand portal-login-brand--streamlined">
+              <a href="./sign-in.html">
+                <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" width="44" height="44" />
+              </a>
+              <p class="portal-login-brand-copy">HR admin</p>
+            </header>
+
+            <section class="portal-login-card portal-login-card--business portal-login-card--streamlined login-steps-host login-step-signin" id="portal-login-card">
+              <div id="login-shell" class="portal-login-card-body">
+                <div class="portal-login-card-head portal-login-card-head--streamlined">
+                  <h1>Welcome back</h1>
+                  <p class="portal-login-card-lead" id="login-lead">Sign in to your ShiftSwift HR account.</p>
+                </div>
+
+                <form id="portal-login-form" class="portal-login-form portal-login-form--streamlined">
+                  <label>
+                    Work email
+                    <input name="username" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="hr@yourcompany.co.uk" />
+                  </label>
+                  <label class="portal-login-password-field">
+                    <span class="portal-login-password-label">
+                      <span id="password-label">Password</span>
+                      <a
+                        class="portal-login-inline-link portal-login-forgot"
+                        id="forgot-password-link"
+                        href="./forgot-password.html"
+                      >Forgot?</a>
+                    </span>
+                    <input
+                      name="password"
+                      type="password"
+                      required
+                      autocomplete="current-password"
+                      placeholder="Enter password"
+                      aria-labelledby="password-label"
+                    />
+                  </label>
+
+                  <p id="login-status" class="form-error-message" hidden></p>
+
+                  <button class="btn portal-login-submit" type="submit" id="login-submit">
+                    Open HR dashboard
+                  </button>
+
+                  <p class="portal-login-secure-note">
+                    Secured · <span data-secure-host>shiftswifthr.co.uk</span>
+                  </p>
+                </form>
+
+                <p class="portal-login-alt-note portal-login-alt-note--compact">
+                  Prefer one login for staff and managers?
+                  <a class="portal-login-inline-link" href="./sign-in.html">Sign in with work email</a>
+                  ·
+                  <a class="portal-login-inline-link" href="./signup.html">Start free trial</a>
+                </p>
+              </div>
+
+              <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
+                <div class="portal-login-card-head">
+                  <h1>Set up authenticator</h1>
+                  <p class="portal-login-card-lead">
+                    Recommended for account security. Use Face ID on this iPhone, or scan a QR code in Google Authenticator / Authy. You can also skip and enable later in settings.
+                  </p>
+                </div>
+                <div class="portal-login-form">
+                  <p id="mfa-enrollment-user" class="muted"></p>
+                  <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-passkey-btn" hidden>
+                    Use Face ID / Touch ID
+                  </button>
+                  <p class="muted native-login-mfa-divider" id="mfa-enrollment-passkey-divider" hidden>or use an authenticator app</p>
+                  <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
+                    <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
+                  </div>
+                  <p class="mfa-enrollment-secret-label">Manual key</p>
+                  <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
+                  <p class="muted" style="margin:0.5rem 0 0">
+                    <a id="mfa-enrollment-open-app" class="portal-login-inline-link" href="#" hidden>Open authenticator app</a>
+                  </p>
+                  <label>
+                    Verification code
+                    <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
+                  </label>
+                  <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
+                  <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+                  <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
+                </div>
+              </div>
+
+              <div id="mfa-panel" class="portal-login-card-body" hidden>
+                <div class="portal-login-card-head">
+                  <h1>Two-factor authentication</h1>
+                  <p class="portal-login-card-lead">Verify for <strong data-mfa-user></strong>.</p>
+                </div>
+                <form id="mfa-form" class="portal-login-form">
+                  <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
+                    Verify with Face ID
+                  </button>
+                  <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or enter authenticator code</p>
+                  <label>
+                    Authenticator code
+                    <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+                  </label>
+                  <label class="portal-login-remember portal-login-remember--mfa">
+                    <input type="checkbox" id="login-remember-device-mfa" checked />
+                    <span>Trust this device for 30 days</span>
+                  </label>
+                  <p id="mfa-verify-status" class="form-error-message" hidden></p>
+                  <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+                </form>
+              </div>
+            </section>
+
+            <p class="portal-login-footnote muted portal-login-footnote--streamlined">
+              Need help?
+              <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>
             </p>
           </div>
-          <div class="portal-login-form">
-            <p id="mfa-enrollment-user" class="muted"></p>
-            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-passkey-btn" hidden>
-              Use Face ID / Touch ID
-            </button>
-            <p class="muted native-login-mfa-divider" id="mfa-enrollment-passkey-divider" hidden>or use an authenticator app</p>
-            <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
-              <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
-            </div>
-            <p class="mfa-enrollment-secret-label">Manual key</p>
-            <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
-            <p class="muted" style="margin:0.5rem 0 0">
-              <a id="mfa-enrollment-open-app" class="portal-login-inline-link" href="#" hidden>Open authenticator app</a>
-            </p>
-            <label>
-              Verification code
-              <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
-            </label>
-            <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
-            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
-            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
-          </div>
         </div>
-
-        <div id="mfa-panel" class="portal-login-card-body" hidden>
-          <div class="portal-login-card-head">
-            <h1>Two-factor authentication</h1>
-            <p class="portal-login-card-lead">Verify for <strong data-mfa-user></strong>.</p>
-          </div>
-          <form id="mfa-form" class="portal-login-form">
-            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
-              Verify with Face ID
-            </button>
-            <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or enter authenticator code</p>
-            <label>
-              Authenticator code
-              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
-            </label>
-            <label class="portal-login-remember portal-login-remember--mfa">
-              <input type="checkbox" id="login-remember-device-mfa" checked />
-              <span>Trust this device for 30 days</span>
-            </label>
-            <p id="mfa-verify-status" class="form-error-message" hidden></p>
-            <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
-          </form>
-        </div>
-      </section>
-
-      <p class="portal-login-footnote muted portal-login-footnote--streamlined">
-        Need help?
-        <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>
-      </p>
+      </div>
     </div>
+    <script>
+      (function () {
+        if (/[?&]source=native(?:&|$)/.test(location.search) || window.Capacitor?.isNativePlatform?.()) {
+          document.body.setAttribute("data-hide-visual", "1");
+        }
+      })();
+    </script>
     <script src="./session-auth.js?v=9"></script>
     <script src="./trusted-device.js?v=3"></script>
     <script src="./passkey-auth.js?v=4"></script>

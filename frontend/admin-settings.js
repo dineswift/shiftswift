@@ -1662,10 +1662,45 @@
 
     const enabled = Boolean(status.mfa_enabled);
     const required = Boolean(status.policy_required);
+    const passkeys = Array.isArray(status.passkeys) ? status.passkeys : [];
+    const canPasskey = Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+    const passkeyRows =
+      passkeys.length > 0
+        ? `<ul class="settings-passkey-list">${passkeys
+            .map(
+              (item) => `
+            <li class="settings-passkey-item">
+              <span>
+                <strong>${escapeHtml(item.device_label || "Face ID / Touch ID")}</strong>
+                <span class="muted">${item.last_used_at ? `Last used ${escapeHtml(String(item.last_used_at).slice(0, 10))}` : "Not used yet"}</span>
+              </span>
+              <button type="button" class="btn ghost settings-passkey-remove" data-passkey-id="${escapeHtml(String(item.id))}">Remove</button>
+            </li>`
+            )
+            .join("")}</ul>`
+        : `<p class="muted">No Face ID / Touch ID devices registered yet.</p>`;
+
     host.innerHTML = `
       <div class="settings-security-summary">
         <p><strong>Status:</strong> ${enabled ? "Two-factor authentication is ON" : "Not enabled yet"}</p>
-        <p class="muted">${required ? "Your organisation requires authenticator app codes at sign-in." : "You can optionally enable an authenticator app for extra security."}</p>
+        <p class="muted">${
+          required
+            ? "Your organisation requires a second factor at sign-in (authenticator app or Face ID / Touch ID)."
+            : "You can optionally enable Face ID / Touch ID or an authenticator app for extra security."
+        }</p>
+      </div>
+      <div class="settings-security-passkey-block">
+        <h4>Face ID / Touch ID</h4>
+        <p class="muted">Unlock this account on compatible Apple devices and browsers without typing a code every time.</p>
+        ${
+          canPasskey
+            ? `
+        ${passkeyRows}
+        <button type="button" class="btn outline" id="settings-passkey-enable">
+          ${passkeys.length ? "Add another device" : "Enable Face ID / Touch ID"}
+        </button>`
+            : `<p class="muted">Face ID / Touch ID is available in Safari or Chrome on a device that supports passkeys. Open this page on your iPhone or Mac to enable it.</p>`
+        }
       </div>
       <div id="settings-mfa-setup-block" ${enabled ? "hidden" : ""}>
         <h4>Set up authenticator</h4>
@@ -1688,6 +1723,48 @@
       <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>`;
 
     const statusLine = document.getElementById("settings-mfa-status-line");
+    document.getElementById("settings-passkey-enable")?.addEventListener("click", async () => {
+      const btn = document.getElementById("settings-passkey-enable");
+      if (!window.ShiftSwiftPasskeyAuth?.registerPasskeyOnDevice) {
+        if (statusLine) statusLine.textContent = "Face ID is not available in this session.";
+        return;
+      }
+      if (btn) btn.disabled = true;
+      if (statusLine) statusLine.textContent = "Waiting for Face ID / Touch ID…";
+      try {
+        await window.ShiftSwiftPasskeyAuth.registerPasskeyOnDevice({
+          enableMfa: !enabled,
+          deviceLabel: "Face ID / Touch ID",
+        });
+        showSettingsToast(enabled ? "Face ID device added." : "Face ID enabled for sign-in.");
+        await loadSecurityPanel();
+      } catch (error) {
+        if (statusLine) statusLine.textContent = error.message || "Could not enable Face ID";
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    host.querySelectorAll(".settings-passkey-remove").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const passkeyId = button.getAttribute("data-passkey-id");
+        if (!passkeyId) return;
+        if (!window.confirm("Remove Face ID / Touch ID for this device?")) return;
+        button.disabled = true;
+        try {
+          if (window.ShiftSwiftPasskeyAuth?.deletePasskey) {
+            await window.ShiftSwiftPasskeyAuth.deletePasskey(passkeyId);
+          } else {
+            await mfaAuthFetch(`/auth/passkey/${encodeURIComponent(passkeyId)}`, { method: "DELETE" });
+          }
+          showSettingsToast("Face ID device removed.");
+          await loadSecurityPanel();
+        } catch (error) {
+          if (statusLine) statusLine.textContent = error.message || "Could not remove Face ID";
+          button.disabled = false;
+        }
+      });
+    });
+
     document.getElementById("settings-mfa-start")?.addEventListener("click", async () => {
       try {
         const setup = await mfaAuthFetch("/auth/mfa/setup", { method: "POST", body: "{}" });

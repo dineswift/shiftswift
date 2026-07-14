@@ -161,8 +161,10 @@
     }
   }
 
-  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub }) {
+  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub, empty }) {
+    const isEmpty = Boolean(empty);
     const toneClass = tone ? ` overview-module-card--${tone}` : "";
+    const emptyClass = isEmpty && !tone ? " overview-module-card--empty" : "";
     const iconSvg = window.AdminIcons?.svg?.(icon) || "";
     const clockAttr = requiresClock ? " data-requires-clock" : "";
     const enabled = !feature || isFeatureEnabled(feature);
@@ -173,7 +175,7 @@
       ? ""
       : `<span class="overview-module-card__lock">${window.AdminIcons?.svg?.("lock") || "🔒"}</span>`;
     return `
-      <a class="overview-module-card${toneClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
+      <a class="overview-module-card${toneClass}${emptyClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
         <span class="overview-module-card__head">
           <span class="overview-module-card__icon" aria-hidden="true">${iconSvg}</span>
           <span class="overview-module-card__head-meta">
@@ -427,16 +429,24 @@
           icon: "users",
           label: "Active employees",
           value: String(employees.active ?? 0),
-          sub: `Limit ${employees.limit ?? data.max_employees ?? "—"} on ${data.plan_display_name || "current"} plan`,
+          sub:
+            (employees.active ?? 0) > 0
+              ? `Limit ${employees.limit ?? data.max_employees ?? "—"} on ${data.plan_display_name || "current"} plan`
+              : "Add your first employee →",
           href: "#employees",
+          tone: (employees.active ?? 0) > 0 ? "ok" : "",
         })}
         ${statCard({
           icon: "clock",
           label: "Today's punches",
           value: String(punch.today_punches ?? 0),
-          sub: punch.last_punch_at ? `Last punch ${formatOverviewTime(punch.last_punch_at)}` : "No punches yet",
+          sub: punch.last_punch_at
+            ? `Last punch ${formatOverviewTime(punch.last_punch_at)}`
+            : punch.sites
+              ? "No punches yet — open time clock →"
+              : "Set up a punch site →",
           href: punch.today_punches ? "#time-punch/today" : "#time-punch",
-          tone: "ok",
+          tone: punch.today_punches ? "ok" : "",
           requiresClock: true,
         })}
         ${statCard({
@@ -449,7 +459,7 @@
               ? actionPreview || "Tap to review"
               : "All clear",
           href: "#overview-actions",
-          tone: critical || actions ? "warn" : "",
+          tone: critical || actions ? "warn" : "ok",
         })}
         ${statCard({
           icon: "card",
@@ -459,6 +469,7 @@
           href: "#settings/billing",
           valueText: true,
           extraClass: "hr-stat-card--subscription",
+          tone: "ok",
         })}`;
 
       const subscriptionCard = document.getElementById("mobile-subscription-card");
@@ -486,12 +497,13 @@
         const docs = m.documents || {};
         const leave = m.leave || {};
         const qualifications = m.qualifications || {};
+        const rotaEmpty = !(rota.shift_count ?? 0);
         const rotaLabel =
           rota.status === "published"
             ? "Published this week"
             : rota.shift_count
               ? "Draft — not published"
-              : "No shifts yet";
+              : "Add your first shift →";
 
         modulesHost.innerHTML = [
           moduleCard({
@@ -506,8 +518,11 @@
                   ? `${qualifications.expiring_soon} cert(s) expiring soon`
                   : employees.onboarding
                     ? `${employees.onboarding} onboarding`
-                    : "Active register",
+                    : (employees.active ?? 0) > 0
+                      ? "Active register"
+                      : "Add your first employee →",
             href: employees.portal_setup_pending ? "#employees/portal-pending" : "#employees",
+            empty: !(employees.active ?? 0),
             tone:
               (qualifications.expired ?? 0) > 0
                 ? "danger"
@@ -521,15 +536,24 @@
             value: String(recruitment.open_vacancies ?? 0),
             sub: recruitment.pending_applicants
               ? `${recruitment.pending_applicants} pending applicants`
-              : "Open vacancies",
+              : (recruitment.open_vacancies ?? 0) > 0
+                ? "Open vacancies"
+                : "Post a vacancy →",
             href: "#recruitment",
+            empty: !(recruitment.open_vacancies ?? 0) && !(recruitment.pending_applicants ?? 0),
           }),
           moduleCard({
             icon: "passport",
             title: "Right to work",
             value: String(rtw.verified ?? 0),
-            sub: `${rtw.expiring_soon ?? 0} expiring · ${rtw.needs_review ?? 0} need review`,
+            sub:
+              (rtw.needs_review ?? 0) > 0 || (rtw.expiring_soon ?? 0) > 0
+                ? `${rtw.expiring_soon ?? 0} expiring · ${rtw.needs_review ?? 0} need review`
+                : (rtw.verified ?? 0) > 0
+                  ? `${rtw.expiring_soon ?? 0} expiring · ${rtw.needs_review ?? 0} need review`
+                  : "Record a right-to-work check →",
             href: "#compliance-rtw",
+            empty: !(rtw.verified ?? 0) && !(rtw.needs_review ?? 0),
             tone: (rtw.needs_review ?? 0) > 0 ? "danger" : (rtw.expiring_soon ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -539,8 +563,11 @@
             sub:
               (absence.day9_alerts ?? 0) > 0
                 ? "Day-9 alerts need action"
-                : `${absence.active_this_month ?? 0} absence days this month`,
+                : (absence.active_this_month ?? 0) > 0
+                  ? `${absence.active_this_month ?? 0} absence days this month`
+                  : "No absences logged yet",
             href: "#compliance",
+            empty: !(absence.day9_alerts ?? 0) && !(absence.active_this_month ?? 0),
             tone: (absence.day9_alerts ?? 0) > 0 ? "danger" : "",
             feature: "sponsor-compliance",
             lockedSub: "Compliance plan — day-9 alerts",
@@ -553,8 +580,9 @@
               ? `${punch.today_punches} punch${punch.today_punches === 1 ? "" : "es"} today`
               : punch.sites
                 ? "No punches today"
-                : "Set up geofence sites",
+                : "Set up a punch site →",
             href: punch.today_punches ? "#time-punch/today" : "#time-punch",
+            empty: !(punch.sites ?? 0),
             tone: !punch.sites ? "warn" : "",
             requiresClock: true,
           }),
@@ -564,6 +592,7 @@
             value: String(rota.shift_count ?? 0),
             sub: rotaLabel,
             href: "#rota",
+            empty: rotaEmpty,
             tone: rota.status !== "published" && rota.shift_count ? "warn" : "",
           }),
           moduleCard({
@@ -572,6 +601,7 @@
             value: String(grievance.open_cases ?? 0),
             sub: grievance.open_cases ? "Open cases" : "No open cases",
             href: "#grievance",
+            empty: !(grievance.open_cases ?? 0),
             tone: (grievance.open_cases ?? 0) > 0 ? "warn" : "",
             feature: "grievance",
             lockedSub: "Compliance plan",
@@ -582,6 +612,7 @@
             value: String(disciplinary.open_cases ?? 0),
             sub: disciplinary.open_cases ? "Open cases" : "No open cases",
             href: "#disciplinary",
+            empty: !(disciplinary.open_cases ?? 0),
             tone: (disciplinary.open_cases ?? 0) > 0 ? "warn" : "",
             feature: "disciplinary",
             lockedSub: "Compliance plan",
@@ -590,8 +621,9 @@
             icon: "file-text",
             title: "Employment templates",
             value: String(contracts.pending_signature ?? 0),
-            sub: contracts.pending_signature ? "Awaiting signature" : "Offer letters for new hires",
+            sub: contracts.pending_signature ? "Awaiting signature" : "Send an offer letter →",
             href: "#employment-contracts",
+            empty: !(contracts.pending_signature ?? 0),
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -600,6 +632,7 @@
             value: String(offboarding.in_progress ?? 0),
             sub: offboarding.in_progress ? "In progress" : "No active leavers",
             href: "#offboarding",
+            empty: !(offboarding.in_progress ?? 0),
           }),
           moduleCard({
             icon: "calendar-off",
@@ -607,6 +640,7 @@
             value: String(leave.pending_requests ?? 0),
             sub: leave.pending_requests ? "Awaiting HR approval" : "No pending requests",
             href: "#leave",
+            empty: !(leave.pending_requests ?? 0),
             tone: (leave.pending_requests ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -615,6 +649,7 @@
             value: String(contracts.pending_signature ?? 0),
             sub: contracts.pending_signature ? "Awaiting signature" : "ShiftSwift MSA — not employee contracts",
             href: "#contracts",
+            empty: !(contracts.pending_signature ?? 0),
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -635,8 +670,12 @@
             icon: "folder",
             title: "Documents",
             value: String(docs.count ?? data.document_count ?? 0),
-            sub: "In tenant document store",
+            sub:
+              (docs.count ?? data.document_count ?? 0) > 0
+                ? "In tenant document store"
+                : "Upload your first document →",
             href: "#settings/documents",
+            empty: !(docs.count ?? data.document_count ?? 0),
           }),
         ].join("");
         if (!(window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches)) {
@@ -648,7 +687,9 @@
 
       if (actionsHost) {
         const items = data.open_actions || [];
+        const actionsPanel = document.getElementById("overview-actions-panel");
         if (actionsCount) actionsCount.textContent = String(items.length);
+        actionsPanel?.classList.toggle("overview-actions-panel--active", items.length > 0);
         actionsHost.innerHTML = items.length
           ? items.map(actionItem).join("")
           : `<p class="overview-actions-empty muted">No open actions — your workspace looks good.</p>`;

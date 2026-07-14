@@ -544,11 +544,43 @@
 
   function isDayOffShift(shift) {
     const role = (shift.role_label || "").toLowerCase();
-    return /day off|off day|annual leave|holiday|unpaid leave/.test(role);
+    return /day off|off day|annual leave|holiday|unpaid leave|sick leave|leave/.test(role);
+  }
+
+  function isLeaveShift(shift) {
+    const role = (shift.role_label || "").toLowerCase();
+    return /annual leave|holiday|unpaid leave|sick leave|\bleave\b/.test(role) && !/day off|off day/.test(role);
+  }
+
+  function isEveningShift(shift) {
+    const start = String(shift.start_time || "");
+    const hour = Number(start.slice(0, 2));
+    return Number.isFinite(hour) && hour >= 16;
+  }
+
+  function formatShiftTimeRange(shift) {
+    const start = String(shift.start_time || "").slice(0, 5);
+    const end = String(shift.end_time || "").slice(0, 5);
+    if (!start || !end) return "";
+    return `${start} – ${end}`;
+  }
+
+  function shiftHours(shift) {
+    if (isDayOffShift(shift)) return 0;
+    const start = String(shift.start_time || "");
+    const end = String(shift.end_time || "");
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    if (![sh, sm, eh, em].every(Number.isFinite)) return 0;
+    let mins = eh * 60 + em - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    return mins / 60;
   }
 
   function shiftBlockClass(shift, emp) {
+    if (isLeaveShift(shift)) return "rota-shift-block--leave";
     if (isDayOffShift(shift)) return "rota-shift-block--off";
+    if (isEveningShift(shift)) return "rota-shift-block--evening";
     const role = shiftRoleKey(shift, emp);
     if (/kitchen|cook|chef/.test(role)) return "rota-shift-block--kitchen";
     if (/bar|floor|front|wait|server/.test(role)) return "rota-shift-block--floor";
@@ -1250,11 +1282,13 @@
       return;
     }
     const weekLabel = formatWeekLabel(currentWeekStart);
+    const totalHours = shifts.reduce((sum, shift) => sum + shiftHours(shift), 0);
+    const hoursLabel = totalHours > 0 ? ` · ${Math.round(totalHours)} hrs` : "";
     if (!shiftCount) {
       el.textContent = `0 shifts · ${staff.length} staff · ${weekLabel}`;
       return;
     }
-    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff · ${weekLabel}`;
+    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff${hoursLabel} · ${weekLabel}`;
   }
 
   function isRotaSectionActive() {
@@ -1600,22 +1634,18 @@
     const todayIso = todayIsoLocal();
     const staff = activeEmployees();
 
-    let html = '<div class="rota-grid-header"><div class="rota-gh-cell">Staff</div>';
+    let html = `<div class="rota-grid-header"><div class="rota-gh-cell rota-gh-cell--staff">Staff <span class="rota-gh-staff-count">(${staff.length})</span></div>`;
     days.forEach((iso) => {
-      const label = new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
-        weekday: "short",
-        day: "numeric",
-      });
+      const date = new Date(`${iso}T12:00:00`);
+      const weekday = date.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase();
+      const dayNum = date.getDate();
       const count = shiftsOnDate(iso);
       const level = coverageLevelForDay(iso, count);
-      const gapNote =
-        window.Admin?.tenantFeatures?.rota_advanced_enabled && gapsOnDate(iso) > 0
-          ? ` · ${gapsOnDate(iso)} gap${gapsOnDate(iso) === 1 ? "" : "s"}`
-          : "";
       const todayClass = iso === todayIso ? " rota-gh-cell--today" : "";
       html += `<div class="rota-gh-cell${todayClass}">
-        <span class="rota-day-sub">${escapeHtml(label)}</span>
-        <span class="rota-day-cov"><span class="rota-cov-dot rota-cov-dot--${level}" aria-hidden="true"></span>${count} shift${count === 1 ? "" : "s"}${gapNote}</span>
+        <span class="rota-day-mark" aria-hidden="true"></span>
+        <span class="rota-day-sub"><span class="rota-day-weekday">${escapeHtml(weekday)}</span> <span class="rota-day-num">${dayNum}</span></span>
+        <span class="rota-day-cov"><span class="rota-cov-dot rota-cov-dot--${level}" aria-hidden="true"></span>${count || "—"}</span>
       </div>`;
     });
     html += "</div>";
@@ -1631,7 +1661,8 @@
         const cellShifts = shifts
           .map((s, index) => ({ s, index }))
           .filter(({ s }) => Number(s.employee_id) === Number(emp.id) && s.shift_date === iso);
-        html += `<div class="rota-shift-cell rota-grid-drop" data-employee-id="${emp.id}" data-shift-date="${iso}">`;
+        const emptyClass = cellShifts.length ? "" : " rota-shift-cell--empty";
+        html += `<div class="rota-shift-cell rota-grid-drop${emptyClass}" data-employee-id="${emp.id}" data-shift-date="${iso}">`;
         cellShifts.forEach(({ s, index }) => {
           const a = attendanceForShift(s);
           const attendClass =
@@ -1643,8 +1674,8 @@
           const blockClass = shiftBlockClass(s, emp);
           const roleText = escapeHtml(s.role_label || employeeRoleLabel(emp));
           const blockBody = isDayOffShift(s)
-            ? "Day off"
-            : `${escapeHtml(s.start_time)}–${escapeHtml(s.end_time)}<span class="rota-shift-block-role">${roleText}</span>`;
+            ? `${escapeHtml(s.role_label || "Leave")}<span class="rota-shift-block-role">All day</span>`
+            : `${escapeHtml(formatShiftTimeRange(s))}<span class="rota-shift-block-role">${roleText}</span>`;
           html += `<div class="rota-shift-wrap">
             <button type="button" class="rota-shift-block ${blockClass}${attendClass}" draggable="${readonly ? "false" : "true"}" data-shift-index="${index}" title="${readonly ? "View only" : "Drag to move · Alt+drag to copy"}">${blockBody}</button>
             ${
@@ -1657,8 +1688,10 @@
             }
           </div>`;
         });
-        if (!readonly) {
-          html += `<span class="rota-add-cell-hint">+ add</span>`;
+        if (!readonly && !cellShifts.length) {
+          html += `<span class="rota-add-cell-hint"><span class="rota-add-cell-hint__plus" aria-hidden="true">+</span> Add</span>`;
+        } else if (!readonly) {
+          html += `<span class="rota-add-cell-hint rota-add-cell-hint--overlay">+ add</span>`;
         }
         html += "</div>";
       });

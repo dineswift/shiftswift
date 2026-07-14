@@ -754,12 +754,14 @@ def mfa_disable(
 
 @router.get("/mfa/status")
 def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> dict[str, object]:
+    from auth_passkeys import list_passkeys
     from auth_policy import business_require_mfa_hr, employee_require_mfa
 
     conn = _db_conn()
     try:
         with conn.cursor() as cur:
             user = fetch_user_mfa(cur, current_user.username)
+        passkeys = list_passkeys(conn=conn, username=current_user.username) if user else []
     finally:
         conn.close()
     if not user:
@@ -779,6 +781,16 @@ def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> 
         "mfa_enabled": bool(user.get("mfa_enabled")),
         "role": user["role"],
         "policy_required": policy_required,
+        "has_passkeys": bool(passkeys),
+        "passkeys": [
+            {
+                "id": item["id"],
+                "device_label": item.get("device_label") or "Face ID / Touch ID",
+                "created_at": item.get("created_at"),
+                "last_used_at": item.get("last_used_at"),
+            }
+            for item in passkeys
+        ],
     }
 
 
@@ -951,6 +963,7 @@ class PasskeyRegisterVerifyRequest(BaseModel):
     challenge_token: str = Field(min_length=10)
     credential: dict[str, object]
     device_label: str | None = Field(default=None, max_length=120)
+    enable_mfa: bool = False
 
 
 class PasskeyLoginOptionsRequest(BaseModel):
@@ -1235,6 +1248,7 @@ def passkey_register_verify(
 ) -> dict[str, object]:
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_mfa import enable_mfa_with_passkey
     from auth_passkeys import complete_registration
 
     conn = _db_conn()
@@ -1247,8 +1261,70 @@ def passkey_register_verify(
             credential=payload.credential,
             device_label=payload.device_label or "",
         )
+        if payload.enable_mfa:
+            enable_mfa_with_passkey(conn=conn, username=current_user.username)
+            result = {**result, "mfa_enabled": True}
         conn.commit()
         return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.get("/passkey/list")
+def passkey_list(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_passkeys import list_passkeys
+
+    conn = _db_conn()
+    try:
+        items = list_passkeys(conn=conn, username=current_user.username)
+        return {
+            "passkeys": [
+                {
+                    "id": item["id"],
+                    "device_label": item.get("device_label") or "Face ID / Touch ID",
+                    "created_at": item.get("created_at"),
+                    "last_used_at": item.get("last_used_at"),
+                }
+                for item in items
+            ]
+        }
+    finally:
+        conn.close()
+
+
+@router.delete("/passkey/{passkey_id}")
+def passkey_delete(
+    passkey_id: int,
+    current_user: Annotated[AuthUser, Depends(get_current_user)],
+) -> dict[str, object]:
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="Passkeys require database")
+    from auth_passkeys import delete_passkey, list_passkeys
+
+    conn = _db_conn()
+    try:
+        deleted = delete_passkey(conn=conn, username=current_user.username, passkey_id=passkey_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Face ID device not found")
+        remaining = list_passkeys(conn=conn, username=current_user.username)
+        conn.commit()
+        return {
+            "deleted": True,
+            "has_passkeys": bool(remaining),
+            "passkeys": [
+                {
+                    "id": item["id"],
+                    "device_label": item.get("device_label") or "Face ID / Touch ID",
+                    "created_at": item.get("created_at"),
+                    "last_used_at": item.get("last_used_at"),
+                }
+                for item in remaining
+            ],
+        }
     finally:
         conn.close()
 

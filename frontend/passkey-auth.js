@@ -30,7 +30,8 @@
   }
 
   function decodeOptions(options) {
-    const copy = JSON.parse(JSON.stringify(options || {}));
+    const raw = typeof options === "string" ? JSON.parse(options) : options || {};
+    const copy = JSON.parse(JSON.stringify(raw));
     if (copy.challenge) copy.challenge = base64urlToBuffer(copy.challenge);
     if (copy.user?.id) copy.user.id = base64urlToBuffer(copy.user.id);
     if (Array.isArray(copy.excludeCredentials)) {
@@ -159,30 +160,47 @@
 
   async function registerPasskey(email) {
     if (!canUsePasskeys() || !isPasskeyOptIn()) return false;
-    const token = localStorage.getItem("token");
-    if (!token) return false;
     try {
-      const begin = await fetchJson("/auth/passkey/register/options", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const credential = await navigator.credentials.create({
-        publicKey: decodeOptions(begin.options),
-      });
-      if (!credential) return false;
-      await fetchJson("/auth/passkey/register/verify", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: {
-          challenge_token: begin.challenge_token,
-          credential: credentialToJson(credential),
-          device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || "This device",
-        },
-      });
+      await registerPasskeyOnDevice({ enableMfa: false });
       return true;
     } catch {
       return false;
     }
+  }
+
+  async function registerPasskeyOnDevice({ enableMfa = false, deviceLabel } = {}) {
+    if (!canUsePasskeys()) {
+      throw new Error("Face ID / Touch ID is not available in this browser");
+    }
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Sign in again to manage Face ID");
+    const begin = await fetchJson("/auth/passkey/register/options", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const credential = await navigator.credentials.create({
+      publicKey: decodeOptions(begin.options),
+    });
+    if (!credential) throw new Error("Face ID setup was cancelled");
+    return fetchJson("/auth/passkey/register/verify", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: {
+        challenge_token: begin.challenge_token,
+        credential: credentialToJson(credential),
+        device_label: deviceLabel || window.ShiftSwiftTrustedDevice?.deviceLabel?.() || "Face ID / Touch ID",
+        enable_mfa: Boolean(enableMfa),
+      },
+    });
+  }
+
+  async function deletePasskey(passkeyId) {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Sign in again to manage Face ID");
+    return fetchJson(`/auth/passkey/${encodeURIComponent(passkeyId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
   }
 
   async function loginWithPasskey(email, { silent = false } = {}) {
@@ -404,6 +422,8 @@
     lastLoginEmail,
     hasPasskeys,
     registerPasskey,
+    registerPasskeyOnDevice,
+    deletePasskey,
     loginWithPasskey,
     verifyMfaWithPasskey,
     enrollMfaWithPasskey,

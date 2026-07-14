@@ -75,7 +75,8 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v152" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v154" />
+    <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=12" />
   </head>
   <body class="admin-portal">
@@ -626,7 +627,7 @@
               <span class="hr-stat-card__value" id="disciplinary-stat-investigation">0</span>
               <span class="hr-stat-card__sub" id="disciplinary-stat-investigation-sub">Gathering evidence</span>
             </div>
-            <div class="hr-stat-card" id="disciplinary-stat-hearing-card">
+            <div class="hr-stat-card hr-stat-card--warn" id="disciplinary-stat-hearing-card">
               <span class="hr-stat-card__icon" aria-hidden="true">⚖</span>
               <span class="hr-stat-card__label">At hearing</span>
               <span class="hr-stat-card__value" id="disciplinary-stat-hearing">0</span>
@@ -1401,21 +1402,25 @@
 
             <div class="absence-stats-grid" aria-label="Absence summary">
               <div class="absence-stat-card absence-stat-card--danger">
+                <span class="absence-stat-card__icon" aria-hidden="true">⚠</span>
                 <span class="absence-stat-card__label">Day-9 alerts</span>
                 <span class="absence-stat-card__value" id="absence-stat-day9">0</span>
                 <span class="absence-stat-card__sub">Action required now</span>
               </div>
               <div class="absence-stat-card absence-stat-card--warn">
+                <span class="absence-stat-card__icon" aria-hidden="true">⏱</span>
                 <span class="absence-stat-card__label">Active absences</span>
                 <span class="absence-stat-card__value" id="absence-stat-active">0</span>
                 <span class="absence-stat-card__sub">Currently ongoing</span>
               </div>
               <div class="absence-stat-card">
+                <span class="absence-stat-card__icon" aria-hidden="true">✓</span>
                 <span class="absence-stat-card__label">Resolved this month</span>
                 <span class="absence-stat-card__value" id="absence-stat-resolved">0</span>
                 <span class="absence-stat-card__sub" id="absence-stat-month"></span>
               </div>
               <div class="absence-stat-card absence-stat-card--ok">
+                <span class="absence-stat-card__icon" aria-hidden="true">👥</span>
                 <span class="absence-stat-card__label">Sponsored workers</span>
                 <span class="absence-stat-card__value" id="absence-stat-sponsored">0</span>
                 <span class="absence-stat-card__sub">Under monitoring</span>
@@ -1540,18 +1545,22 @@
 
             <div class="rtw-stats-grid" aria-label="RTW summary">
               <div class="rtw-stat-card rtw-stat-card--neutral">
+                <span class="rtw-stat-card__icon" aria-hidden="true">📋</span>
                 <span class="rtw-stat-card__value" id="rtw-stat-total">0</span>
                 <span class="rtw-stat-card__label">Total checks</span>
               </div>
               <div class="rtw-stat-card rtw-stat-card--ok">
+                <span class="rtw-stat-card__icon" aria-hidden="true">✓</span>
                 <span class="rtw-stat-card__value" id="rtw-stat-verified">0</span>
                 <span class="rtw-stat-card__label">Verified</span>
               </div>
               <div class="rtw-stat-card rtw-stat-card--warn">
+                <span class="rtw-stat-card__icon" aria-hidden="true">⏳</span>
                 <span class="rtw-stat-card__value" id="rtw-stat-expiring">0</span>
                 <span class="rtw-stat-card__label">Expiring soon <span class="rtw-stat-card__hint">Within 30 days</span></span>
               </div>
               <div class="rtw-stat-card rtw-stat-card--clear">
+                <span class="rtw-stat-card__icon" aria-hidden="true">⚠</span>
                 <span class="rtw-stat-card__value" id="rtw-stat-review">0</span>
                 <span class="rtw-stat-card__label">Needs review <span class="rtw-stat-card__hint">All clear</span></span>
               </div>
@@ -2414,9 +2423,11 @@
             <p class="rota-builder-hint muted">Drag to move · Alt+drag to copy · Right-click for options · Click empty cell to add</p>
             <button type="button" class="btn btn--ghost btn--danger btn-sm rota-clear-inline" id="rota-clear-btn">Clear rota</button>
             <ul class="rota-attendance-legend" aria-label="Shift colour key">
-              <li><span class="rota-shift-block rota-shift-block--kitchen rota-attendance-legend__chip">Shift</span> Scheduled</li>
+              <li><span class="rota-legend-swatch rota-legend-swatch--day" aria-hidden="true"></span> Day shift</li>
+              <li><span class="rota-legend-swatch rota-legend-swatch--evening" aria-hidden="true"></span> Evening shift</li>
+              <li><span class="rota-legend-swatch rota-legend-swatch--leave" aria-hidden="true"></span> Leave</li>
               <li><span class="rota-shift-block rota-shift-block--attended rota-attendance-legend__chip">Shift</span> Attended</li>
-              <li><span class="rota-shift-block rota-shift-block--late rota-attendance-legend__chip">Shift</span> Late clock-in</li>
+              <li><span class="rota-shift-block rota-shift-block--late rota-attendance-legend__chip">Shift</span> Late</li>
               <li><span class="rota-shift-block rota-shift-block--no_show rota-attendance-legend__chip">Shift</span> No show</li>
             </ul>
           </div>
@@ -3200,8 +3211,9 @@
     <script src="./admin-compliance-mobile.js?v=3"></script>
     <script src="./action-feedback.js?v=3"></script>
     <script src="./admin-shared.js?v=admin-v46"></script>
-    <script src="./admin-settings.js?v=40"></script>
-    <script src="./admin-workspace.js?v=admin-v29"></script>
+    <script src="./passkey-auth.js?v=5"></script>
+    <script src="./admin-settings.js?v=41"></script>
+    <script src="./admin-workspace.js?v=admin-v30"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=32"></script>
     <script src="./admin-employees.js?v=39"></script>
@@ -3217,7 +3229,7 @@
     <script src="./admin-templates.js?v=admin-v13"></script>
     <script src="./admin-global-documents.js?v=2"></script>
     <script src="./admin-time-punch.js?v=37"></script>
-    <script src="./admin-rota.js?v=37"></script>
+    <script src="./admin-rota.js?v=38"></script>
     <script src="./admin-leave.js?v=admin-v7"></script>
     <script src="./admin-profile-changes.js?v=3"></script>
     <script src="./app.js?v=admin-v6"></script>

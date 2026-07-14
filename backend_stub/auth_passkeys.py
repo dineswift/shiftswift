@@ -165,6 +165,21 @@ def user_has_passkeys(*, conn: Any, username: str) -> bool:
         return cur.fetchone() is not None
 
 
+def delete_passkey(*, conn: Any, username: str, passkey_id: int) -> bool:
+    """Remove one passkey owned by username. Returns True when a row was deleted."""
+    email = _normalize_username(username)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM user_passkeys
+            WHERE id = %s AND lower(username) = lower(%s)
+            RETURNING id
+            """,
+            (int(passkey_id), email),
+        )
+        return cur.fetchone() is not None
+
+
 def _load_passkey_by_credential_id(*, conn: Any, credential_id: bytes) -> dict[str, Any] | None:
     with conn.cursor() as cur:
         cur.execute(
