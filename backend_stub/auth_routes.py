@@ -959,26 +959,34 @@ class PasskeyStatusRequest(BaseModel):
     username: str = Field(min_length=3, max_length=254)
 
 
+class PasskeyRegisterOptionsRequest(BaseModel):
+    client_origin: str | None = Field(default=None, max_length=255)
+
+
 class PasskeyRegisterVerifyRequest(BaseModel):
     challenge_token: str = Field(min_length=10)
     credential: dict[str, object]
     device_label: str | None = Field(default=None, max_length=120)
     enable_mfa: bool = False
+    client_origin: str | None = Field(default=None, max_length=255)
 
 
 class PasskeyLoginOptionsRequest(BaseModel):
     username: str = Field(min_length=3, max_length=254)
+    client_origin: str | None = Field(default=None, max_length=255)
 
 
 class PasskeyLoginVerifyRequest(BaseModel):
     username: str = Field(min_length=3, max_length=254)
     challenge_token: str = Field(min_length=10)
     credential: dict[str, object]
+    client_origin: str | None = Field(default=None, max_length=255)
 
 
 class MfaPasskeyOptionsRequest(BaseModel):
     challenge_token: str = Field(min_length=10)
     username: str = Field(min_length=3, max_length=254)
+    client_origin: str | None = Field(default=None, max_length=255)
 
 
 class MfaPasskeyVerifyRequest(BaseModel):
@@ -988,6 +996,11 @@ class MfaPasskeyVerifyRequest(BaseModel):
     credential: dict[str, object]
     remember_device: bool = False
     device_label: str | None = Field(default=None, max_length=120)
+    client_origin: str | None = Field(default=None, max_length=255)
+
+
+class MfaPasskeyEnrollOptionsRequest(BaseModel):
+    client_origin: str | None = Field(default=None, max_length=255)
 
 
 class MfaPasskeyEnrollVerifyRequest(BaseModel):
@@ -995,10 +1008,11 @@ class MfaPasskeyEnrollVerifyRequest(BaseModel):
     credential: dict[str, object]
     device_label: str | None = Field(default=None, max_length=120)
     remember_device: bool = False
+    client_origin: str | None = Field(default=None, max_length=255)
 
 
 @router.post("/mfa/passkey/options")
-def mfa_passkey_options(payload: MfaPasskeyOptionsRequest) -> dict[str, object]:
+def mfa_passkey_options(request: Request, payload: MfaPasskeyOptionsRequest) -> dict[str, object]:
     """Begin Face ID / Touch ID verification during MFA (after password)."""
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
@@ -1009,11 +1023,16 @@ def mfa_passkey_options(payload: MfaPasskeyOptionsRequest) -> dict[str, object]:
     if challenge["sub"].strip().lower() != payload.username.strip().lower():
         raise HTTPException(status_code=403, detail="Account mismatch")
 
-    from auth_passkeys import authentication_options
+    from auth_passkeys import authentication_options, resolve_request_origin
 
     conn = _db_conn()
     try:
-        return authentication_options(settings, conn=conn, username=challenge["sub"])
+        return authentication_options(
+            settings,
+            conn=conn,
+            username=challenge["sub"],
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
@@ -1035,7 +1054,7 @@ def mfa_passkey_verify(request: Request, payload: MfaPasskeyVerifyRequest) -> di
     if challenge["sub"].strip().lower() != payload.username.strip().lower():
         raise HTTPException(status_code=403, detail="Account mismatch")
 
-    from auth_passkeys import complete_authentication
+    from auth_passkeys import complete_authentication, resolve_request_origin
 
     conn = _db_conn()
     try:
@@ -1056,6 +1075,7 @@ def mfa_passkey_verify(request: Request, payload: MfaPasskeyVerifyRequest) -> di
             username=challenge["sub"],
             challenge_token=payload.passkey_challenge_token,
             credential=payload.credential,
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
         )
         conn.commit()
     except ValueError as exc:
@@ -1105,6 +1125,8 @@ def mfa_passkey_verify(request: Request, payload: MfaPasskeyVerifyRequest) -> di
 
 @router.post("/mfa/passkey/enroll/options")
 def mfa_passkey_enroll_options(
+    request: Request,
+    payload: MfaPasskeyEnrollOptionsRequest,
     identity: Annotated[tuple[AuthUser, Literal["session", "enrollment"]], Depends(get_mfa_setup_user)],
 ) -> dict[str, object]:
     """Register Face ID / Touch ID to satisfy mandatory MFA enrollment."""
@@ -1114,7 +1136,7 @@ def mfa_passkey_enroll_options(
     if mode != "enrollment":
         raise HTTPException(status_code=400, detail="Passkey MFA enrollment requires an active enrollment session")
 
-    from auth_passkeys import registration_options
+    from auth_passkeys import registration_options, resolve_request_origin
 
     conn = _db_conn()
     try:
@@ -1129,6 +1151,7 @@ def mfa_passkey_enroll_options(
             conn=conn,
             username=current_user.username,
             device_label="Face ID / Touch ID",
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
         )
     finally:
         conn.close()
@@ -1148,7 +1171,7 @@ def mfa_passkey_enroll_verify(
         raise HTTPException(status_code=400, detail="Passkey MFA enrollment requires an active enrollment session")
 
     from auth_mfa import enable_mfa_with_passkey
-    from auth_passkeys import complete_registration
+    from auth_passkeys import complete_registration, resolve_request_origin
 
     conn = _db_conn()
     try:
@@ -1159,6 +1182,7 @@ def mfa_passkey_enroll_verify(
             challenge_token=payload.challenge_token,
             credential=payload.credential,
             device_label=payload.device_label or "Face ID / Touch ID",
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
         )
         enable_mfa_with_passkey(conn=conn, username=current_user.username)
         conn.commit()
@@ -1222,11 +1246,12 @@ def passkey_status(username: str) -> dict[str, object]:
 @router.post("/passkey/register/options")
 def passkey_register_options(
     request: Request,
+    payload: PasskeyRegisterOptionsRequest,
     current_user: Annotated[AuthUser, Depends(get_current_user)],
 ) -> dict[str, object]:
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
-    from auth_passkeys import registration_options
+    from auth_passkeys import registration_options, resolve_request_origin
 
     device_label = request.headers.get("User-Agent", "")[:120]
     conn = _db_conn()
@@ -1236,6 +1261,7 @@ def passkey_register_options(
             conn=conn,
             username=current_user.username,
             device_label=device_label,
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
         )
     finally:
         conn.close()
@@ -1244,12 +1270,13 @@ def passkey_register_options(
 @router.post("/passkey/register/verify")
 def passkey_register_verify(
     payload: PasskeyRegisterVerifyRequest,
+    request: Request,
     current_user: Annotated[AuthUser, Depends(get_current_user)],
 ) -> dict[str, object]:
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_mfa import enable_mfa_with_passkey
-    from auth_passkeys import complete_registration
+    from auth_passkeys import complete_registration, resolve_request_origin
 
     conn = _db_conn()
     try:
@@ -1260,6 +1287,7 @@ def passkey_register_verify(
             challenge_token=payload.challenge_token,
             credential=payload.credential,
             device_label=payload.device_label or "",
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
         )
         if payload.enable_mfa:
             enable_mfa_with_passkey(conn=conn, username=current_user.username)
@@ -1330,14 +1358,19 @@ def passkey_delete(
 
 
 @router.post("/passkey/login/options")
-def passkey_login_options(payload: PasskeyLoginOptionsRequest) -> dict[str, object]:
+def passkey_login_options(request: Request, payload: PasskeyLoginOptionsRequest) -> dict[str, object]:
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
-    from auth_passkeys import authentication_options
+    from auth_passkeys import authentication_options, resolve_request_origin
 
     conn = _db_conn()
     try:
-        return authentication_options(settings, conn=conn, username=payload.username)
+        return authentication_options(
+            settings,
+            conn=conn,
+            username=payload.username,
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
@@ -1348,7 +1381,7 @@ def passkey_login_options(payload: PasskeyLoginOptionsRequest) -> dict[str, obje
 def passkey_login_verify(request: Request, payload: PasskeyLoginVerifyRequest) -> dict[str, object]:
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
-    from auth_passkeys import complete_authentication
+    from auth_passkeys import complete_authentication, resolve_request_origin
 
     ip = client_ip(request)
     user_agent = request.headers.get("User-Agent")
@@ -1360,6 +1393,7 @@ def passkey_login_verify(request: Request, payload: PasskeyLoginVerifyRequest) -
             username=payload.username,
             challenge_token=payload.challenge_token,
             credential=payload.credential,
+            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
         )
         conn.commit()
         log_security_event(

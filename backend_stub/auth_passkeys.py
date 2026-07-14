@@ -42,23 +42,23 @@ def passkey_user_id(username: str) -> bytes:
     return hashlib.sha256(_normalize_username(username).encode("utf-8")).digest()[:32]
 
 
-def passkey_rp_id() -> str:
-    explicit = (os.getenv("PASSKEY_RP_ID") or "").strip()
-    if explicit:
-        return explicit
-    app_url = (os.getenv("APP_URL") or "https://app.shiftswifthr.co.uk").rstrip("/")
+def _hostname_from_url(value: str | None) -> str | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
     try:
         from urllib.parse import urlparse
 
-        host = urlparse(app_url).hostname or "app.shiftswifthr.co.uk"
-        if host == "localhost":
-            return "localhost"
-        parts = host.split(".")
-        if len(parts) >= 2:
-            return ".".join(parts[-2:])
-        return host
+        parsed = urlparse(raw if "://" in raw else f"https://{raw}")
+        host = (parsed.hostname or "").strip().lower()
+        return host or None
     except Exception:
-        return "shiftswifthr.co.uk"
+        return None
+
+
+def _default_app_hostname() -> str:
+    app_url = (os.getenv("APP_URL") or "https://app.shiftswifthr.co.uk").rstrip("/")
+    return _hostname_from_url(app_url) or "app.shiftswifthr.co.uk"
 
 
 def passkey_origins() -> list[str]:
@@ -78,6 +78,9 @@ def passkey_origins() -> list[str]:
         origins.add("https://app.shiftswifthr.co.uk")
     origins.update(
         {
+            "https://app.shiftswifthr.co.uk",
+            "https://shiftswifthr.co.uk",
+            "https://www.shiftswifthr.co.uk",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
             "http://localhost:8080",
@@ -91,12 +94,75 @@ def passkey_origins() -> list[str]:
     return sorted(origins)
 
 
+def _allowed_passkey_hosts() -> set[str]:
+    hosts: set[str] = set()
+    for origin in passkey_origins():
+        host = _hostname_from_url(origin)
+        if host:
+            hosts.add(host)
+    explicit = (os.getenv("PASSKEY_RP_ID") or "").strip().lower()
+    if explicit:
+        hosts.add(explicit)
+    hosts.add(_default_app_hostname())
+    hosts.update({"localhost", "127.0.0.1", "app.shiftswifthr.co.uk", "shiftswifthr.co.uk", "www.shiftswifthr.co.uk"})
+    return hosts
+
+
+def passkey_rp_id(*, request_origin: str | None = None) -> str:
+    """
+    WebAuthn RP ID must match the browser page host.
+
+    Chrome rejects a parent-domain RP ID (e.g. shiftswifthr.co.uk on
+    app.shiftswifthr.co.uk) unless Related Origins are published. Prefer the
+    exact Origin hostname from the browser request.
+    """
+    origin_host = _hostname_from_url(request_origin)
+    if origin_host and origin_host in _allowed_passkey_hosts():
+        return origin_host
+
+    app_host = _default_app_hostname()
+    explicit = (os.getenv("PASSKEY_RP_ID") or "").strip().lower()
+    if explicit:
+        # Ignore parent-domain overrides that would fail Chrome related-origins checks.
+        if app_host != "localhost" and app_host.endswith("." + explicit) and explicit != app_host:
+            return app_host
+        return explicit
+
+    return "localhost" if app_host == "localhost" else app_host
+
+
+def resolve_request_origin(request: Any | None, *, client_origin: str | None = None) -> str | None:
+    """Prefer an explicit client_origin (page URL), then Origin / Referer headers."""
+    candidates = [
+        (client_origin or "").strip().rstrip("/"),
+    ]
+    if request is not None:
+        headers = getattr(request, "headers", None)
+        if headers is not None:
+            candidates.append((headers.get("x-client-origin") or "").strip().rstrip("/"))
+            candidates.append((headers.get("origin") or "").strip().rstrip("/"))
+            referer = (headers.get("referer") or "").strip()
+            if referer:
+                host = _hostname_from_url(referer)
+                if host:
+                    scheme = "https" if referer.lower().startswith("https") else "http"
+                    candidates.append(f"{scheme}://{host}")
+    for value in candidates:
+        if not value:
+            continue
+        host = _hostname_from_url(value)
+        if host and host in _allowed_passkey_hosts():
+            return value if "://" in value else f"https://{value}"
+    return None
+
+
 def _issue_challenge_token(
     settings: Settings,
     *,
     username: str,
     action: Literal["register", "login"],
     challenge: bytes,
+    rp_id: str,
 ) -> str:
     now = datetime.now(timezone.utc)
     exp = now + timedelta(minutes=PASSKEY_CHALLENGE_MINUTES)
@@ -104,6 +170,7 @@ def _issue_challenge_token(
         "sub": _normalize_username(username),
         "action": action,
         "challenge": bytes_to_base64url(challenge),
+        "rp_id": rp_id,
         "type": "passkey_challenge",
         "iat": int(now.timestamp()),
         "exp": int(exp.timestamp()),
@@ -112,7 +179,7 @@ def _issue_challenge_token(
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 
-def _decode_challenge_token(settings: Settings, token: str, *, action: str) -> tuple[str, bytes]:
+def _decode_challenge_token(settings: Settings, token: str, *, action: str) -> tuple[str, bytes, str]:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
     except jwt.PyJWTError as exc:
@@ -123,7 +190,8 @@ def _decode_challenge_token(settings: Settings, token: str, *, action: str) -> t
     challenge_raw = payload.get("challenge")
     if not username or not challenge_raw:
         raise ValueError("Invalid passkey challenge payload")
-    return username, base64url_to_bytes(str(challenge_raw))
+    rp_id = str(payload.get("rp_id") or passkey_rp_id()).strip()
+    return username, base64url_to_bytes(str(challenge_raw)), rp_id
 
 
 def list_passkeys(*, conn: Any, username: str) -> list[dict[str, Any]]:
@@ -208,6 +276,7 @@ def registration_options(
     conn: Any,
     username: str,
     device_label: str = "",
+    request_origin: str | None = None,
 ) -> dict[str, Any]:
     email = _normalize_username(username)
     existing = list_passkeys(conn=conn, username=email)
@@ -216,8 +285,9 @@ def registration_options(
         for item in existing
     ]
     challenge = secrets.token_bytes(32)
+    rp_id = passkey_rp_id(request_origin=request_origin)
     options = generate_registration_options(
-        rp_id=passkey_rp_id(),
+        rp_id=rp_id,
         rp_name=PASSKEY_RP_NAME,
         user_id=passkey_user_id(email),
         user_name=email,
@@ -230,13 +300,20 @@ def registration_options(
         ),
         attestation=AttestationConveyancePreference.NONE,
     )
-    token = _issue_challenge_token(settings, username=email, action="register", challenge=challenge)
+    token = _issue_challenge_token(
+        settings,
+        username=email,
+        action="register",
+        challenge=challenge,
+        rp_id=rp_id,
+    )
     from webauthn.helpers.options_to_json import options_to_json
 
     return {
         "challenge_token": token,
         "options": options_to_json(options),
         "device_label": device_label,
+        "rp_id": rp_id,
     }
 
 
@@ -248,14 +325,22 @@ def complete_registration(
     challenge_token: str,
     credential: dict[str, Any],
     device_label: str = "",
+    request_origin: str | None = None,
 ) -> dict[str, Any]:
     email = _normalize_username(username)
-    _, expected_challenge = _decode_challenge_token(settings, challenge_token, action="register")
+    _, expected_challenge, rp_id = _decode_challenge_token(
+        settings, challenge_token, action="register"
+    )
+    expected_origins = passkey_origins()
+    if request_origin:
+        cleaned = request_origin.strip().rstrip("/")
+        if cleaned and cleaned not in expected_origins:
+            expected_origins = [*expected_origins, cleaned]
     verification = verify_registration_response(
         credential=RegistrationCredential.model_validate(credential),
         expected_challenge=expected_challenge,
-        expected_rp_id=passkey_rp_id(),
-        expected_origin=passkey_origins(),
+        expected_rp_id=rp_id,
+        expected_origin=expected_origins,
         require_user_verification=True,
     )
     label = (device_label or "Face ID / Touch ID").strip()[:120]
@@ -290,12 +375,14 @@ def authentication_options(
     *,
     conn: Any,
     username: str,
+    request_origin: str | None = None,
 ) -> dict[str, Any]:
     email = _normalize_username(username)
     passkeys = list_passkeys(conn=conn, username=email)
     if not passkeys:
         raise LookupError("No passkeys registered for this account")
     challenge = secrets.token_bytes(32)
+    rp_id = passkey_rp_id(request_origin=request_origin)
     allow = [
         PublicKeyCredentialDescriptor(
             id=base64url_to_bytes(item["credential_id"]),
@@ -304,15 +391,21 @@ def authentication_options(
         for item in passkeys
     ]
     options = generate_authentication_options(
-        rp_id=passkey_rp_id(),
+        rp_id=rp_id,
         challenge=challenge,
         allow_credentials=allow,
         user_verification=UserVerificationRequirement.REQUIRED,
     )
-    token = _issue_challenge_token(settings, username=email, action="login", challenge=challenge)
+    token = _issue_challenge_token(
+        settings,
+        username=email,
+        action="login",
+        challenge=challenge,
+        rp_id=rp_id,
+    )
     from webauthn.helpers.options_to_json import options_to_json
 
-    return {"challenge_token": token, "options": options_to_json(options)}
+    return {"challenge_token": token, "options": options_to_json(options), "rp_id": rp_id}
 
 
 def complete_authentication(
@@ -322,19 +415,26 @@ def complete_authentication(
     username: str,
     challenge_token: str,
     credential: dict[str, Any],
+    request_origin: str | None = None,
 ) -> dict[str, Any]:
     email = _normalize_username(username)
-    _, expected_challenge = _decode_challenge_token(settings, challenge_token, action="login")
+    _, expected_challenge, rp_id = _decode_challenge_token(settings, challenge_token, action="login")
     credential_id = base64url_to_bytes(str(credential.get("rawId") or credential.get("id") or ""))
     stored = _load_passkey_by_credential_id(conn=conn, credential_id=credential_id)
     if not stored or _normalize_username(stored["username"]) != email:
         raise ValueError("Unknown passkey for this account")
 
+    expected_origins = passkey_origins()
+    if request_origin:
+        cleaned = request_origin.strip().rstrip("/")
+        if cleaned and cleaned not in expected_origins:
+            expected_origins = [*expected_origins, cleaned]
+
     verification = verify_authentication_response(
         credential=AuthenticationCredential.model_validate(credential),
         expected_challenge=expected_challenge,
-        expected_rp_id=passkey_rp_id(),
-        expected_origin=passkey_origins(),
+        expected_rp_id=rp_id,
+        expected_origin=expected_origins,
         credential_public_key=stored["public_key"],
         credential_current_sign_count=stored["sign_count"],
         require_user_verification=True,

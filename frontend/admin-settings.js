@@ -1698,7 +1698,8 @@
         ${passkeyRows}
         <button type="button" class="btn outline" id="settings-passkey-enable">
           ${passkeys.length ? "Add another device" : "Enable Face ID / Touch ID"}
-        </button>`
+        </button>
+        <p class="muted" id="settings-passkey-status-line" aria-live="polite"></p>`
             : `<p class="muted">Face ID / Touch ID is available in Safari or Chrome on a device that supports passkeys. Open this page on your iPhone or Mac to enable it.</p>`
         }
       </div>
@@ -1709,9 +1710,10 @@
         <div id="settings-mfa-qr-area" hidden>
           <div class="mfa-enrollment-qr-wrap"><img id="settings-mfa-qr" alt="Authenticator QR code" width="180" height="180" /></div>
           <p class="muted">Manual key: <code id="settings-mfa-secret"></code></p>
-          <label class="edit-field">Verification code<input type="text" id="settings-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="123456" /></label>
+          <label class="edit-field">Verification code<input type="text" id="settings-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
           <button type="button" class="btn" id="settings-mfa-enable">Enable two-factor authentication</button>
         </div>
+        <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>
       </div>
       <div id="settings-mfa-disable-block" ${enabled ? "" : "hidden"}>
         <h4>Turn off two-factor authentication</h4>
@@ -1719,18 +1721,28 @@
         <label class="edit-field">Password<input type="password" id="settings-mfa-disable-password" autocomplete="current-password" /></label>
         <label class="edit-field">Authenticator code<input type="text" id="settings-mfa-disable-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
         <button type="button" class="btn ghost" id="settings-mfa-disable" ${required ? "disabled" : ""}>Disable two-factor authentication</button>
-      </div>
-      <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>`;
+        <p class="muted" id="settings-mfa-disable-status-line" aria-live="polite"></p>
+      </div>`;
+
+    const formatPasskeyError = (message) => {
+      const text = String(message || "").trim();
+      if (/rpid did not match|related origins/i.test(text)) {
+        return "Face ID could not start because this site’s security domain did not match. Refresh and try again, or contact support if it keeps failing.";
+      }
+      return text || "Could not enable Face ID";
+    };
 
     const statusLine = document.getElementById("settings-mfa-status-line");
+    const passkeyStatusLine = document.getElementById("settings-passkey-status-line");
+    const disableStatusLine = document.getElementById("settings-mfa-disable-status-line");
     document.getElementById("settings-passkey-enable")?.addEventListener("click", async () => {
       const btn = document.getElementById("settings-passkey-enable");
       if (!window.ShiftSwiftPasskeyAuth?.registerPasskeyOnDevice) {
-        if (statusLine) statusLine.textContent = "Face ID is not available in this session.";
+        if (passkeyStatusLine) passkeyStatusLine.textContent = "Face ID is not available in this session.";
         return;
       }
       if (btn) btn.disabled = true;
-      if (statusLine) statusLine.textContent = "Waiting for Face ID / Touch ID…";
+      if (passkeyStatusLine) passkeyStatusLine.textContent = "Waiting for Face ID / Touch ID…";
       try {
         await window.ShiftSwiftPasskeyAuth.registerPasskeyOnDevice({
           enableMfa: !enabled,
@@ -1739,7 +1751,7 @@
         showSettingsToast(enabled ? "Face ID device added." : "Face ID enabled for sign-in.");
         await loadSecurityPanel();
       } catch (error) {
-        if (statusLine) statusLine.textContent = error.message || "Could not enable Face ID";
+        if (passkeyStatusLine) passkeyStatusLine.textContent = formatPasskeyError(error.message);
         if (btn) btn.disabled = false;
       }
     });
@@ -1759,7 +1771,7 @@
           showSettingsToast("Face ID device removed.");
           await loadSecurityPanel();
         } catch (error) {
-          if (statusLine) statusLine.textContent = error.message || "Could not remove Face ID";
+          if (passkeyStatusLine) passkeyStatusLine.textContent = error.message || "Could not remove Face ID";
           button.disabled = false;
         }
       });
@@ -1806,7 +1818,8 @@
         showSettingsToast("Two-factor authentication disabled.");
         await loadSecurityPanel();
       } catch (error) {
-        if (statusLine) statusLine.textContent = error.message;
+        if (disableStatusLine) disableStatusLine.textContent = error.message;
+        else if (statusLine) statusLine.textContent = error.message;
       }
     });
   }

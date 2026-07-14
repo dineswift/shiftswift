@@ -49,6 +49,42 @@
     return copy;
   }
 
+  function pageOrigin() {
+    try {
+      return String(window.location.origin || "").replace(/\/$/, "");
+    } catch {
+      return "";
+    }
+  }
+
+  function pageHostname() {
+    try {
+      return String(window.location.hostname || "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
+  function publicKeyFromBegin(begin) {
+    const copy = decodeOptions(begin?.options);
+    const host = pageHostname();
+    const fromServer = String(begin?.rp_id || copy.rp?.id || "")
+      .trim()
+      .toLowerCase();
+    // Parent RP IDs (e.g. shiftswifthr.co.uk on app.shiftswifthr.co.uk) fail in Chrome
+    // unless Related Origins are configured — prefer the exact page host.
+    let rpId = fromServer;
+    if (host && fromServer && host !== fromServer && host.endsWith("." + fromServer)) {
+      rpId = host;
+    } else if (!fromServer && host) {
+      rpId = host;
+    }
+    if (rpId) {
+      copy.rp = { ...(copy.rp || {}), id: rpId, name: copy.rp?.name || "ShiftSwift HR" };
+    }
+    return copy;
+  }
+
   function credentialToJson(credential) {
     const response = credential.response || {};
     const out = {
@@ -78,13 +114,29 @@
   }
 
   async function fetchJson(path, options = {}) {
-    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    const origin = pageOrigin();
+    const headers = {
+      "Content-Type": "application/json",
+      ...(origin ? { "X-Client-Origin": origin } : {}),
+      ...(options.headers || {}),
+    };
     window.ShiftSwiftNativeApiFetch?.boot?.();
     const url = `${getApiBase()}${path}`;
+    let body = options.body;
+    if (body && typeof body === "object" && !Array.isArray(body) && origin && body.client_origin == null) {
+      body = { ...body, client_origin: origin };
+    } else if (
+      body == null &&
+      origin &&
+      options.method &&
+      /^(POST|PUT|PATCH)$/i.test(String(options.method))
+    ) {
+      body = { client_origin: origin };
+    }
     const reqInit = {
       ...options,
       headers,
-      body: options.body != null ? JSON.stringify(options.body) : undefined,
+      body: body != null ? JSON.stringify(body) : undefined,
     };
     const response = window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
       ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit)
@@ -177,9 +229,10 @@
     const begin = await fetchJson("/auth/passkey/register/options", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
+      body: { client_origin: pageOrigin() },
     });
     const credential = await navigator.credentials.create({
-      publicKey: decodeOptions(begin.options),
+      publicKey: publicKeyFromBegin(begin),
     });
     if (!credential) throw new Error("Face ID setup was cancelled");
     return fetchJson("/auth/passkey/register/verify", {
@@ -190,6 +243,7 @@
         credential: credentialToJson(credential),
         device_label: deviceLabel || window.ShiftSwiftTrustedDevice?.deviceLabel?.() || "Face ID / Touch ID",
         enable_mfa: Boolean(enableMfa),
+        client_origin: pageOrigin(),
       },
     });
   }
@@ -209,10 +263,10 @@
     try {
       const begin = await fetchJson("/auth/passkey/login/options", {
         method: "POST",
-        body: { username: normalized },
+        body: { username: normalized, client_origin: pageOrigin() },
       });
       const credential = await navigator.credentials.get({
-        publicKey: decodeOptions(begin.options),
+        publicKey: publicKeyFromBegin(begin),
         mediation: silent ? "silent" : "optional",
       });
       if (!credential) return null;
@@ -222,6 +276,7 @@
           username: normalized,
           challenge_token: begin.challenge_token,
           credential: credentialToJson(credential),
+          client_origin: pageOrigin(),
         },
       });
       rememberLastEmail(normalized);
@@ -239,10 +294,14 @@
     }
     const begin = await fetchJson("/auth/mfa/passkey/options", {
       method: "POST",
-      body: { challenge_token: mfaChallengeToken, username: normalized },
+      body: {
+        challenge_token: mfaChallengeToken,
+        username: normalized,
+        client_origin: pageOrigin(),
+      },
     });
     const credential = await navigator.credentials.get({
-      publicKey: decodeOptions(begin.options),
+      publicKey: publicKeyFromBegin(begin),
       mediation: "required",
     });
     if (!credential) throw new Error("Face ID verification was cancelled");
@@ -255,6 +314,7 @@
         credential: credentialToJson(credential),
         remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
         device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || undefined,
+        client_origin: pageOrigin(),
       },
     });
   }
@@ -266,9 +326,10 @@
     const begin = await fetchJson("/auth/mfa/passkey/enroll/options", {
       method: "POST",
       headers: { Authorization: `Bearer ${enrollmentToken}` },
+      body: { client_origin: pageOrigin() },
     });
     const credential = await navigator.credentials.create({
-      publicKey: decodeOptions(begin.options),
+      publicKey: publicKeyFromBegin(begin),
     });
     if (!credential) throw new Error("Face ID setup was cancelled");
     return fetchJson("/auth/mfa/passkey/enroll/verify", {
@@ -279,6 +340,7 @@
         credential: credentialToJson(credential),
         device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || "Face ID / Touch ID",
         remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
+        client_origin: pageOrigin(),
       },
     });
   }
