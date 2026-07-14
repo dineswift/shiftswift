@@ -575,7 +575,14 @@
             portalUrl(data.redirect_url || pendingRedirect),
           );
         } catch (error) {
-          setEnrollmentStatus(error.message || "Could not enable Face ID — try the authenticator app instead");
+          const raw = String(error?.message || "").trim();
+          if (/^(Load failed|Failed to fetch)$/i.test(raw) || /rpid did not match|related origins/i.test(raw)) {
+            setEnrollmentStatus(
+              "Face ID could not start on this device. Scan the QR code and enter the 6-digit code to continue — you can enable Face ID later in Settings.",
+            );
+          } else {
+            setEnrollmentStatus(raw || "Could not enable Face ID — try the authenticator app instead");
+          }
           enrollPasskeyBtn.disabled = false;
         }
       });

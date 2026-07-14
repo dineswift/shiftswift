@@ -386,7 +386,14 @@ function bindMfaEnrollmentPasskey() {
       window.ShiftSwiftPasskeyAuth.rememberLastEmail?.(pendingMfaUsername || data.username);
       await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
     } catch (error) {
-      setEnrollmentStatus(error.message || "Could not enable device unlock — try the authenticator code instead");
+      const raw = String(error?.message || "").trim();
+      if (/^(Load failed|Failed to fetch)$/i.test(raw) || /rpid did not match|related origins/i.test(raw)) {
+        setEnrollmentStatus(
+          "Face ID could not start on this device. Scan the QR code and enter the 6-digit code to continue — you can enable Face ID later in Settings.",
+        );
+      } else {
+        setEnrollmentStatus(raw || "Could not enable device unlock — try the authenticator code instead");
+      }
       btn.disabled = false;
     }
   });

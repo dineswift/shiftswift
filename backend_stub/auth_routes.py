@@ -1126,8 +1126,8 @@ def mfa_passkey_verify(request: Request, payload: MfaPasskeyVerifyRequest) -> di
 @router.post("/mfa/passkey/enroll/options")
 def mfa_passkey_enroll_options(
     request: Request,
-    payload: MfaPasskeyEnrollOptionsRequest,
     identity: Annotated[tuple[AuthUser, Literal["session", "enrollment"]], Depends(get_mfa_setup_user)],
+    payload: MfaPasskeyEnrollOptionsRequest | None = None,
 ) -> dict[str, object]:
     """Register Face ID / Touch ID to satisfy mandatory MFA enrollment."""
     if not settings.use_db or not settings.database_url:
@@ -1138,6 +1138,7 @@ def mfa_passkey_enroll_options(
 
     from auth_passkeys import registration_options, resolve_request_origin
 
+    client_origin = payload.client_origin if payload else None
     conn = _db_conn()
     try:
         with conn.cursor() as cur:
@@ -1151,7 +1152,7 @@ def mfa_passkey_enroll_options(
             conn=conn,
             username=current_user.username,
             device_label="Face ID / Touch ID",
-            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
+            request_origin=resolve_request_origin(request, client_origin=client_origin),
         )
     finally:
         conn.close()
@@ -1246,14 +1247,15 @@ def passkey_status(username: str) -> dict[str, object]:
 @router.post("/passkey/register/options")
 def passkey_register_options(
     request: Request,
-    payload: PasskeyRegisterOptionsRequest,
     current_user: Annotated[AuthUser, Depends(get_current_user)],
+    payload: PasskeyRegisterOptionsRequest | None = None,
 ) -> dict[str, object]:
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_passkeys import registration_options, resolve_request_origin
 
     device_label = request.headers.get("User-Agent", "")[:120]
+    client_origin = payload.client_origin if payload else None
     conn = _db_conn()
     try:
         return registration_options(
@@ -1261,7 +1263,7 @@ def passkey_register_options(
             conn=conn,
             username=current_user.username,
             device_label=device_label,
-            request_origin=resolve_request_origin(request, client_origin=payload.client_origin),
+            request_origin=resolve_request_origin(request, client_origin=client_origin),
         )
     finally:
         conn.close()

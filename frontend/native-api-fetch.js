@@ -302,8 +302,16 @@
         return await attempt();
       } catch (error) {
         errors.push(error);
-        if (!isTransientNetworkError(error)) throw error;
+        // Keep trying alternate native transports — CapacitorHttp can fail while another path works.
       }
+    }
+
+    // WebView fetch works when the portal is served from https://app.shiftswifthr.co.uk.
+    try {
+      noteTransport("webFetch-fallback");
+      return await webFetch(input, init);
+    } catch (error) {
+      errors.push(error);
     }
 
     throw errors[0] || new Error("Load failed");

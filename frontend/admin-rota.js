@@ -2068,9 +2068,13 @@
       void reloadRotaData();
     }
   }
-  async function loadWeek({ retryAfterAlign = true, attempt = 0 } = {}) {
+  async function loadWeek({ retryAfterAlign = true, attempt = 0, light = false } = {}) {
     setMessage("Loading rota…");
-    const weekPath = `/admin/rota/weeks/${currentWeekStart}${templateQuerySuffix() ? `?${templateQuerySuffix().slice(1)}` : ""}`;
+    const params = new URLSearchParams();
+    if (light) params.set("include_attendance", "false");
+    if (selectedTemplateId) params.set("template_id", String(selectedTemplateId));
+    const query = params.toString();
+    const weekPath = `/admin/rota/weeks/${currentWeekStart}${query ? `?${query}` : ""}`;
     try {
       const res = await apiFetch(weekPath);
       const data = await parseApiJson(res);
@@ -2082,7 +2086,7 @@
           message.includes("week_start must be a")
         ) {
           await ensureWeekStartAligned();
-          return loadWeek({ retryAfterAlign: false });
+          return loadWeek({ retryAfterAlign: false, light });
         }
         shifts = [];
         renderAll();
@@ -2126,11 +2130,20 @@
       } else {
         setMessage("Unsaved changes? Save draft, then publish when ready.");
       }
+      if (light && shifts.length) {
+        // Fill attendance in the background without blocking the grid.
+        void loadWeek({ retryAfterAlign: false, attempt: 0, light: false }).catch(() => null);
+      }
     } catch (error) {
+      if (!light && attempt < 1) {
+        await ensureRotaSession();
+        await new Promise((resolve) => window.setTimeout(resolve, 400));
+        return loadWeek({ retryAfterAlign, attempt: attempt + 1, light: true });
+      }
       if (attempt < 2) {
         await ensureRotaSession();
         await new Promise((resolve) => window.setTimeout(resolve, 450 * (attempt + 1)));
-        return loadWeek({ retryAfterAlign, attempt: attempt + 1 });
+        return loadWeek({ retryAfterAlign, attempt: attempt + 1, light });
       }
       shifts = [];
       renderAll();
