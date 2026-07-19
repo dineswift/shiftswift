@@ -20,6 +20,11 @@ const iconDest = path.join(iconDestDir, "AppIcon-512@2x.png");
 fs.mkdirSync(iconDestDir, { recursive: true });
 fs.mkdirSync(splashDestDir, { recursive: true });
 
+function hasSips() {
+  const result = spawnSync("sips", ["--help"], { stdio: "ignore" });
+  return result.status === 0 || result.status === 1 || result.status === 2;
+}
+
 function runSips(args) {
   const result = spawnSync("sips", args, { stdio: "inherit" });
   if (result.status !== 0) {
@@ -28,7 +33,6 @@ function runSips(args) {
 }
 
 fs.copyFileSync(iconSrc, iconDest);
-runSips(["-z", "1024", "1024", iconDest]);
 
 /** Square app mark for launch screen — never stretch portrait splash art to a square. */
 const splashFiles = [
@@ -36,10 +40,19 @@ const splashFiles = [
   ["splash-2732x2732-1.png", 1821],
   ["splash-2732x2732.png", 2732],
 ];
-for (const [name, size] of splashFiles) {
-  const dest = path.join(splashDestDir, name);
-  fs.copyFileSync(iconSrc, dest);
-  runSips(["-z", String(size), String(size), dest]);
+
+if (!hasSips()) {
+  console.warn("sips not available (macOS only) — copied icons without resize; run brand:ios on a Mac before Archive.");
+  for (const [name] of splashFiles) {
+    fs.copyFileSync(iconSrc, path.join(splashDestDir, name));
+  }
+} else {
+  runSips(["-z", "1024", "1024", iconDest]);
+  for (const [name, size] of splashFiles) {
+    const dest = path.join(splashDestDir, name);
+    fs.copyFileSync(iconSrc, dest);
+    runSips(["-z", String(size), String(size), dest]);
+  }
 }
 
 const displayNamePlist = path.join(iosRoot, "Info.plist");

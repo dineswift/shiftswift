@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HR Admin</string>
+    <string name="title_activity_main">HR Admin</string>
+    <string name="package_name">co.uk.shiftswifthr.hradmin</string>
+    <string name="custom_url_scheme">co.uk.shiftswifthr.hradmin</string>
+</resources>

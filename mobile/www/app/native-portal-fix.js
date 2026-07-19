@@ -5,22 +5,27 @@
     return /admin\.html$|employee\.html$|master\.html$/i.test(path);
   }
 
-  function scheme() {
+  function assetOrigin() {
     try {
-      return (
-        (window.Capacitor &&
-          window.Capacitor.config &&
-          window.Capacitor.config.ios &&
-          window.Capacitor.config.ios.scheme) ||
-        "App"
-      );
+      var cap = window.Capacitor;
+      var platform = cap && cap.getPlatform ? cap.getPlatform() : "";
+      if (platform === "android") {
+        var androidScheme =
+          (cap.config && cap.config.android && cap.config.android.scheme) || "https";
+        var host =
+          (cap.config && cap.config.android && cap.config.android.hostname) || "localhost";
+        return androidScheme + "://" + host;
+      }
+      var iosScheme =
+        (cap.config && cap.config.ios && cap.config.ios.scheme) || "App";
+      return iosScheme + "://localhost";
     } catch (e) {
-      return "App";
+      return "App://localhost";
     }
   }
 
   function version() {
-    return "26";
+    return "29";
   }
 
   function injectHideStyles() {
@@ -69,7 +74,7 @@
   function loadBundledScript(file) {
     if (document.querySelector('[data-sshr-portal-fix="' + file + '"]')) return;
     var script = document.createElement("script");
-    script.src = scheme() + "://localhost/" + file + "?v=" + version();
+    script.src = assetOrigin() + "/" + file + "?v=" + version();
     script.setAttribute("data-sshr-portal-fix", file);
     script.async = false;
     document.head.appendChild(script);

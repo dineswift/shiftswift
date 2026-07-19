@@ -9,7 +9,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "28";
+    var version = "29";
 
     function markNativeShell() {
       try {
@@ -104,13 +104,27 @@
     window.addEventListener("shiftswift:portal-ready", settlePortalShell, { once: true });
     window.setTimeout(settlePortalShell, 10000);
 
+    function assetOrigin() {
+      try {
+        var cap = window.Capacitor;
+        var platform = cap && cap.getPlatform ? cap.getPlatform() : "";
+        if (platform === "android") {
+          var androidScheme =
+            (cap.config && cap.config.android && cap.config.android.scheme) || "https";
+          var host =
+            (cap.config && cap.config.android && cap.config.android.hostname) || "localhost";
+          return androidScheme + "://" + host;
+        }
+        var iosScheme =
+          (cap.config && cap.config.ios && cap.config.ios.scheme) || "App";
+        return iosScheme + "://localhost";
+      } catch (e) {
+        return "App://localhost";
+      }
+    }
+
     function assetUrl(file) {
-      var scheme =
-        window.Capacitor && window.Capacitor.config && window.Capacitor.config.ios
-          ? window.Capacitor.config.ios.scheme
-          : "App";
-      if (!scheme) scheme = "App";
-      return scheme + "://localhost/" + file + "?v=" + version;
+      return assetOrigin() + "/" + file + "?v=" + version;
     }
 
     function appendScript(src, marker) {
@@ -132,20 +146,16 @@
           appendScript(assetUrl("native-shift-alerts.js"), "data-sshr-portal-shift-alerts");
         }
         appendScript(assetUrl("native-app-bootstrap.js"), "data-sshr-portal-guard-bootstrap");
-        window.addEventListener(
-          "load",
-          function () {
-            appendScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
-            appendScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");
-            appendScript(assetUrl("auth-guard.js"), "data-sshr-portal-auth-guard");
-            window.setTimeout(function () {
-              window.ShiftSwiftNativeApiFetch?.boot?.();
-              window.ShiftSwiftNativeApp?.patchNativeSignOut?.();
-              window.dispatchEvent(new CustomEvent("shiftswift:native-session-ready"));
-            }, 0);
-          },
-          { once: true },
-        );
+        appendScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
+        appendScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");
+        appendScript(assetUrl("auth-guard.js"), "data-sshr-portal-auth-guard");
+        function bootNativePortalHelpers() {
+          window.ShiftSwiftNativeApiFetch?.boot?.();
+          window.ShiftSwiftNativeApp?.patchNativeSignOut?.();
+          window.dispatchEvent(new CustomEvent("shiftswift:native-session-ready"));
+        }
+        window.setTimeout(bootNativePortalHelpers, 0);
+        window.addEventListener("load", bootNativePortalHelpers, { once: true });
       } catch (e) {
         /* ignore */
       }

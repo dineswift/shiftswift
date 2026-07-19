@@ -9,3 +9,10 @@ ios-business/App/Pods/
 ios-app/App/Pods/
 ios-employee/App/public/
 ios-business/App/public/
+android-*/.gradle/
+android-*/build/
+android-*/app/build/
+android-*/local.properties/
+android-*/captures/
+*.iml
+.idea/

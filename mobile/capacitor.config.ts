@@ -57,6 +57,9 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       scheme: "App",
       infoPlist: sharedPlist,
     },
+    android: {
+      path: "android-app",
+    },
     plugins: pluginConfig,
   },
   employee: {
@@ -76,6 +79,9 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       scheme: "App",
       infoPlist: sharedPlist,
     },
+    android: {
+      path: "android-employee",
+    },
     plugins: pluginConfig,
   },
   business: {
@@ -94,6 +100,9 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       contentInset: "automatic",
       scheme: "App",
       infoPlist: sharedPlist,
+    },
+    android: {
+      path: "android-business",
     },
     plugins: pluginConfig,
   },

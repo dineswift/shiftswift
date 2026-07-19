@@ -18,20 +18,25 @@
         try {
           if (!window.Capacitor?.isNativePlatform?.()) return;
           window.__SSHR_BUNDLED_NATIVE_BOOT = true;
-          var scheme =
-            window.Capacitor.config && window.Capacitor.config.ios
-              ? window.Capacitor.config.ios.scheme
-              : "App";
-          if (!scheme) scheme = "App";
+          var cap = window.Capacitor;
+          var platform = cap.getPlatform ? cap.getPlatform() : "";
+          var origin;
+          if (platform === "android") {
+            var androidScheme =
+              (cap.config && cap.config.android && cap.config.android.scheme) || "https";
+            var host =
+              (cap.config && cap.config.android && cap.config.android.hostname) || "localhost";
+            origin = androidScheme + "://" + host;
+          } else {
+            var iosScheme =
+              (cap.config && cap.config.ios && cap.config.ios.scheme) || "App";
+            origin = iosScheme + "://localhost";
+          }
           document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-portal-guard.js?v=28"><\/script>',
+            '<script src="' + origin + '/native-app-portal-guard.js?v=29"><\/script>',
           );
           document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-bootstrap.js?v=27"><\/script>',
+            '<script src="' + origin + '/native-app-bootstrap.js?v=29"><\/script>',
           );
         } catch (e) {
           /* ignore */
@@ -60,7 +65,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v135" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v136" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=1" />
   </head>
   <body class="employee-portal">
@@ -514,6 +519,7 @@
             <div id="employee-payslips-list" class="employee-payslips-list">
               <p class="muted">Loading payslips…</p>
             </div>
+            <p class="muted" id="employee-payslips-message" aria-live="polite"></p>
           </article>
         </section>
 
@@ -614,7 +620,7 @@
       data-portal="employee"
       data-app-name="ShiftSwift Employee"
       data-manifest="./employee-manifest.webmanifest?v=8"
-      data-sw="./employee-sw.js?v=15"
+      data-sw="./employee-sw.js?v=16"
     ></script>
     <script src="./mobile-shell.js?v=6"></script>
     <script src="./mobile-tables.js?v=1"></script>
@@ -627,7 +633,7 @@
     <script src="./employee-timesheet.js?v=2"></script>
     <script src="./employee-rota.js?v=8"></script>
     <script src="./employee-shift-reminders.js?v=2"></script>
-    <script src="./employee-documents.js?v=6"></script>
+    <script src="./employee-documents.js?v=7"></script>
     <script src="./employee-notes.js?v=2"></script>
     <script src="./employee-security.js?v=2"></script>
     <script src="./employee-leave.js?v=4"></script>
