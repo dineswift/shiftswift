@@ -1,11 +1,11 @@
-# Native iOS apps (App Store)
+# Native mobile apps (App Store / Play Store)
 
-ShiftSwift HR ships two native iPhone apps that use the **same UI and API** as the Employee and HR Admin PWAs. They are Capacitor shells around `app.shiftswifthr.co.uk` — not a separate codebase.
+ShiftSwift HR ships native Employee and HR Admin apps that use the **same UI and API** as the PWAs. They are Capacitor shells around `app.shiftswifthr.co.uk` — not a separate codebase.
 
-| App | Setup |
-|-----|--------|
-| Employee | [mobile/README.md](../mobile/README.md) → `npm run ios:employee:open` |
-| HR Admin | [mobile/README.md](../mobile/README.md) → `npm run ios:business:open` |
+| App | iOS | Android |
+|-----|-----|---------|
+| Employee | [mobile/README.md](../mobile/README.md) → `npm run ios:employee:open` | `npm run android:employee:open` |
+| HR Admin | [mobile/README.md](../mobile/README.md) → `npm run ios:business:open` | `npm run android:business:open` |
 
 ## Why Capacitor (not a Swift rewrite)
 

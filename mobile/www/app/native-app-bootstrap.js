@@ -3,21 +3,34 @@
   try {
     if (!window.Capacitor?.isNativePlatform?.()) return;
 
-    var scheme =
-      window.Capacitor.config && window.Capacitor.config.ios
-        ? window.Capacitor.config.ios.scheme
-        : "App";
-    if (!scheme) scheme = "App";
-
-    var version = "27";
+    var version = "29";
     var path = String(window.location.pathname || "");
     var onPortal =
       /admin\.html$/i.test(path) ||
       /employee\.html$/i.test(path) ||
       /master\.html$/i.test(path);
 
+    function assetOrigin() {
+      try {
+        var cap = window.Capacitor;
+        var platform = cap && cap.getPlatform ? cap.getPlatform() : "";
+        if (platform === "android") {
+          var androidScheme =
+            (cap.config && cap.config.android && cap.config.android.scheme) || "https";
+          var host =
+            (cap.config && cap.config.android && cap.config.android.hostname) || "localhost";
+          return androidScheme + "://" + host;
+        }
+        var iosScheme =
+          (cap.config && cap.config.ios && cap.config.ios.scheme) || "App";
+        return iosScheme + "://localhost";
+      } catch (e) {
+        return "App://localhost";
+      }
+    }
+
     function assetUrl(file) {
-      return scheme + "://localhost/" + file + "?v=" + version;
+      return assetOrigin() + "/" + file + "?v=" + version;
     }
 
     function appendStylesheet(href) {

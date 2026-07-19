@@ -1,14 +1,14 @@
-# ShiftSwift HR — Native iOS apps
+# ShiftSwift HR — Native mobile apps
 
-Native **App Store** shells for the same Employee and HR Admin experiences as the PWAs.  
-Built with [Capacitor](https://capacitorjs.com/): a full-screen iOS WebView loads `app.shiftswifthr.co.uk`, so UI, API calls, and features stay identical to the web/PWA apps.
+Native **App Store / Play Store** shells for the same Employee and HR Admin experiences as the PWAs.  
+Built with [Capacitor](https://capacitorjs.com/): a full-screen WebView loads `app.shiftswifthr.co.uk`, so UI, API calls, and features stay identical to the web/PWA apps.
 
 ## Apps
 
-| App | Bundle ID | Capacitor variant | Start URL |
-|-----|-----------|-------------------|-----------|
-| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `employee-login.html?source=native` |
-| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `business-login.html?source=native` |
+| App | Bundle ID | Capacitor variant | Start URL | Native projects |
+|-----|-----------|-------------------|-----------|-----------------|
+| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `employee-login.html?source=native` | `ios-employee`, `android-employee` |
+| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `business-login.html?source=native` | `ios-business`, `android-business` |
 
 ## Requirements
 
@@ -28,13 +28,15 @@ npm run ios:setup
 
 `ios:setup` creates `ios-employee/` and `ios-business/` Xcode projects and syncs Capacitor.
 
-## Open in Xcode
+## Open in Xcode (iOS)
 
 ```bash
 # Employee app
+npm run ios:employee:sync
 npm run ios:employee:open
 
 # HR Admin app
+npm run ios:business:sync
 npm run ios:business:open
 ```
 
@@ -43,6 +45,24 @@ In Xcode:
 1. Select your **Team** (Signing & Capabilities).
 2. Choose a simulator or connected iPhone.
 3. Press **Run** (⌘R).
+
+## Open in Android Studio
+
+Requires Android Studio / Android SDK on the build machine.
+
+```bash
+# Employee app
+npm run android:employee:sync
+npm run android:employee:open
+
+# HR Admin app
+npm run android:business:sync
+npm run android:business:open
+```
+
+Payslips and documents use the same **View** / **Download** flow on iOS and Android:
+- **View** opens an in-app preview with **Share** (WhatsApp, Email, Files, etc.)
+- **Download** saves to the app Documents folder and opens the system share sheet so staff can save locally or send the file
 
 ## Local development (optional)
 

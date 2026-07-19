@@ -38,6 +38,58 @@
     return Object.assign({}, headers);
   }
 
+  function headerValue(headers, name) {
+    const target = String(name || "").toLowerCase();
+    const keys = Object.keys(headers || {});
+    for (let i = 0; i < keys.length; i += 1) {
+      if (String(keys[i]).toLowerCase() === target) return headers[keys[i]];
+    }
+    return "";
+  }
+
+  function wantsBinaryResponse(url, headers, explicitType) {
+    if (explicitType === "arraybuffer" || explicitType === "blob") return true;
+    const hint = String(headerValue(headers, "X-SSHR-Response-Type") || "").toLowerCase();
+    if (hint === "arraybuffer" || hint === "blob") return true;
+    try {
+      const path = new URL(String(url), "https://local.invalid").pathname;
+      return /\/(file|download)(\/|$)/i.test(path);
+    } catch {
+      return /\/(file|download)(?:\?|$)/i.test(String(url || ""));
+    }
+  }
+
+  function stripBinaryHintHeaders(headers) {
+    const out = Object.assign({}, headers || {});
+    Object.keys(out).forEach(function (key) {
+      if (String(key).toLowerCase() === "x-sshr-response-type") delete out[key];
+    });
+    return out;
+  }
+
+  function base64ToArrayBuffer(base64) {
+    const cleaned = String(base64 || "").replace(/^data:[^;]+;base64,/i, "").replace(/\s/g, "");
+    const binary = atob(cleaned);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  function normalizeBinaryPayload(payload) {
+    if (payload == null) return new ArrayBuffer(0);
+    if (payload instanceof ArrayBuffer) return payload;
+    if (ArrayBuffer.isView(payload)) {
+      return payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
+    }
+    if (typeof payload === "string") return base64ToArrayBuffer(payload);
+    if (typeof payload === "object" && typeof payload.data === "string") {
+      return base64ToArrayBuffer(payload.data);
+    }
+    return base64ToArrayBuffer(String(payload));
+  }
+
   async function readBody(body, contentType) {
     if (body == null) return { data: undefined, dataType: undefined };
     if (typeof body === "string") {
@@ -66,36 +118,34 @@
   async function nativeHttpRequest(url, options) {
     const cap = window.Capacitor;
     const method = String(options?.method || "GET").toUpperCase();
-    const headers = headersToObject(options?.headers);
+    const headers = stripBinaryHintHeaders(headersToObject(options?.headers));
     const contentType = headers["Content-Type"] || headers["content-type"] || "";
     const bodyInfo = await readBody(options?.body, contentType);
+    const binary = wantsBinaryResponse(url, options?.headers, options?.responseType);
+    const responseType = binary ? "arraybuffer" : options?.responseType;
+    const requestPayload = {
+      url: String(url),
+      method: method,
+      headers: headers,
+      data: bodyInfo.data,
+      dataType: bodyInfo.dataType,
+    };
+    if (responseType) requestPayload.responseType = responseType;
 
     if (cap?.nativePromise) {
-      const nativeResponse = await cap.nativePromise("CapacitorHttp", "request", {
-        url: String(url),
-        method: method,
-        headers: headers,
-        data: bodyInfo.data,
-        dataType: bodyInfo.dataType,
-      });
-      return responseFromNative(nativeResponse, url);
+      const nativeResponse = await cap.nativePromise("CapacitorHttp", "request", requestPayload);
+      return responseFromNative(nativeResponse, url, { binary });
     }
 
     if (cap?.Plugins?.CapacitorHttp?.request) {
-      const nativeResponse = await cap.Plugins.CapacitorHttp.request({
-        url: String(url),
-        method: method,
-        headers: headers,
-        data: bodyInfo.data,
-        dataType: bodyInfo.dataType,
-      });
-      return responseFromNative(nativeResponse, url);
+      const nativeResponse = await cap.Plugins.CapacitorHttp.request(requestPayload);
+      return responseFromNative(nativeResponse, url, { binary });
     }
 
-    return xhrRequest(url, { method, headers, body: options?.body });
+    return xhrRequest(url, { method, headers, body: options?.body, binary });
   }
 
-  function responseFromNative(nativeResponse, url) {
+  function responseFromNative(nativeResponse, url, options = {}) {
     const responseType =
       nativeResponse.headers?.["Content-Type"] ||
       nativeResponse.headers?.["content-type"] ||
@@ -103,6 +153,8 @@
     let payload = nativeResponse.data;
     if (nativeResponse.status === 204) {
       payload = null;
+    } else if (options.binary) {
+      payload = normalizeBinaryPayload(payload);
     } else if (payload != null && typeof payload === "object" && /json/i.test(responseType)) {
       payload = JSON.stringify(payload);
     } else if (payload != null && typeof payload !== "string") {
@@ -124,15 +176,21 @@
     return new Promise(function (resolve, reject) {
       const xhr = new XMLHttpRequest();
       xhr.open(options.method || "GET", String(url), true);
+      if (options.binary) xhr.responseType = "arraybuffer";
       const headers = headersToObject(options.headers);
       Object.keys(headers).forEach(function (key) {
         xhr.setRequestHeader(key, headers[key]);
       });
       xhr.onload = function () {
+        const body = options.binary ? xhr.response : xhr.responseText;
+        const contentType = xhr.getResponseHeader("Content-Type") || (options.binary ? "application/octet-stream" : "text/plain");
+        const responseHeaders = { "Content-Type": contentType };
+        const disposition = xhr.getResponseHeader("Content-Disposition");
+        if (disposition) responseHeaders["Content-Disposition"] = disposition;
         resolve(
-          new Response(xhr.responseText, {
+          new Response(body, {
             status: xhr.status,
-            headers: { "Content-Type": xhr.getResponseHeader("Content-Type") || "text/plain" },
+            headers: responseHeaders,
           }),
         );
       };
@@ -152,12 +210,14 @@
     }
     try {
       const headers = headersToObject(request.headers);
+      if (init?.headers) Object.assign(headers, headersToObject(init.headers));
       const body =
         request.method === "GET" || request.method === "HEAD" ? undefined : await request.clone().text();
       return await nativeHttpRequest(url, {
         method: request.method,
         headers: headers,
         body: body || undefined,
+        responseType: init?.responseType,
       });
     } catch {
       return webFetch(input, init);

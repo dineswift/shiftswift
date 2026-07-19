@@ -62,14 +62,29 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     }
   }
 
+  function capacitorAssetOrigin() {
+    try {
+      const cap = window.Capacitor;
+      const platform = cap?.getPlatform?.();
+      if (platform === "android") {
+        const scheme = cap?.config?.android?.scheme || "https";
+        const host = cap?.config?.android?.hostname || "localhost";
+        return `${scheme}://${host}`;
+      }
+      const iosScheme = cap?.config?.ios?.scheme || "App";
+      return `${iosScheme}://localhost`;
+    } catch {
+      return "App://localhost";
+    }
+  }
+
   function capacitorAssetUrl(filename) {
-    const scheme = window.Capacitor?.config?.ios?.scheme || "App";
     const raw = String(filename || "");
     const [path, query = ""] = raw.split("?");
     const params = new URLSearchParams(query);
     if (!params.has("v")) params.set("v", BUNDLED_ASSET_VERSION);
     const qs = params.toString();
-    return `${scheme}://localhost/${path}${qs ? `?${qs}` : ""}`;
+    return `${capacitorAssetOrigin()}/${path}${qs ? `?${qs}` : ""}`;
   }
 
   function isBundledNativeShell() {
@@ -483,11 +498,12 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   window.ShiftSwiftNativeApp = {
     isNativeApp,
+    capacitorAssetOrigin,
+    capacitorAssetUrl,
     isCapacitorNative,
     isUnifiedNativeApp,
     unifiedNativeLoginUrl,
     resolveNativeLoginUrl,
-    capacitorAssetUrl,
     showSplash,
     hideSplash,
     dismissStartupLoader,
@@ -502,9 +518,19 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (!window.Capacitor?.isNativePlatform?.()) return;
     if (window.ShiftSwiftNativeApp?.isCapacitorNative) return;
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
-    const scheme = window.Capacitor.config?.ios?.scheme || "App";
+    const origin =
+      window.ShiftSwiftNativeApp?.capacitorAssetOrigin?.() ||
+      (function () {
+        const cap = window.Capacitor;
+        if (cap?.getPlatform?.() === "android") {
+          const scheme = cap.config?.android?.scheme || "https";
+          const host = cap.config?.android?.hostname || "localhost";
+          return `${scheme}://${host}`;
+        }
+        return `${cap?.config?.ios?.scheme || "App"}://localhost`;
+      })();
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=27`;
+    script.src = `${origin}/native-app.js?v=29`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);
