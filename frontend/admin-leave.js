@@ -833,13 +833,16 @@
 
   function pendingRequests() {
     return allRequests
-      .filter((item) => item.status === "pending")
+      .filter((item) => String(item.status || "").toLowerCase() === "pending")
       .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
   }
 
   function recentDecidedRequests(limit = 8) {
     return allRequests
-      .filter((item) => item.status === "approved" || item.status === "rejected")
+      .filter((item) => {
+        const status = String(item.status || "").toLowerCase();
+        return status === "approved" || status === "rejected";
+      })
       .sort((a, b) => {
         const aTime = new Date(a.reviewed_at || a.created_at || 0).getTime();
         const bTime = new Date(b.reviewed_at || b.created_at || 0).getTime();
@@ -850,7 +853,7 @@
 
   function historyRequests() {
     return allRequests
-      .filter((item) => item.status !== "pending")
+      .filter((item) => String(item.status || "").toLowerCase() !== "pending")
       .sort((a, b) => {
         const aTime = new Date(a.reviewed_at || a.created_at || 0).getTime();
         const bTime = new Date(b.reviewed_at || b.created_at || 0).getTime();
@@ -877,28 +880,24 @@
     document.querySelectorAll("[data-leave-mobile-panel]").forEach((panel) => {
       panel.hidden = panel.dataset.leaveMobilePanel !== tab;
     });
-    if (tab === "balances") void renderMobileBalances();
+    if (tab === "balances") void renderMobileBalances().catch(() => null);
     if (tab === "calendar") renderMobileCalendar();
     if (tab === "history") renderMobileHistory();
-    if (tab === "requests") renderMobileRequestsPanel();
+    if (tab === "requests") void renderMobileRequestsPanel().catch(() => null);
   }
 
-  async function renderPendingCard(item) {
+  function renderPendingCard(item) {
     const emp = employeesCache.find((row) => Number(row.id) === Number(item.employee_id));
     const palette = avatarPalette(item.employee_id || item.id);
     const initials = employeeInitials(item.employee_name, emp);
-    const balance = await ensureBalance(item.employee_id, item.leave_type);
-    const thirdMeta =
-      item.leave_type === "annual" && balance
-        ? `${Number(balance.remaining_days)} left`
-        : item.leave_type_label || "Leave";
-    const thirdIcon = item.leave_type === "annual" ? "beach" : "file";
+    const thirdMeta = item.leave_type_label || item.leave_type || "Leave";
+    const thirdIcon = String(item.leave_type || "").toLowerCase() === "annual" ? "beach" : "file";
     return `<article class="leave-mobile-request-card" data-leave-id="${item.id}">
       <div class="leave-mobile-request-card__head">
         <span class="leave-mobile-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
         <div class="leave-mobile-request-card__who">
-          <strong>${escapeHtml(item.employee_name)}</strong>
-          <span>${escapeHtml(item.leave_type_label || item.leave_type)}</span>
+          <strong>${escapeHtml(item.employee_name || "Employee")}</strong>
+          <span>${escapeHtml(item.leave_type_label || item.leave_type || "Leave")}</span>
         </div>
         <span class="leave-mobile-badge leave-mobile-badge--pending">Pending</span>
       </div>
@@ -915,13 +914,14 @@
   }
 
   function renderRecentRow(item) {
-    const tone = item.status === "approved" ? "approved" : "declined";
-    const badge = item.status === "approved" ? "Approved" : item.status === "rejected" ? "Declined" : item.status;
-    const daysTone = item.status === "approved" ? "ok" : "danger";
+    const status = String(item.status || "").toLowerCase();
+    const tone = status === "approved" ? "approved" : "declined";
+    const badge = status === "approved" ? "Approved" : status === "rejected" ? "Declined" : item.status;
+    const daysTone = status === "approved" ? "ok" : "danger";
     return `<div class="leave-mobile-recent-row leave-mobile-recent-row--${tone}">
       <div class="leave-mobile-recent-row__main">
-        <strong>${escapeHtml(item.employee_name)}</strong>
-        <span>${escapeHtml(formatLeaveRange(item.start_date, item.end_date))} · ${escapeHtml(item.leave_type_label || item.leave_type)}</span>
+        <strong>${escapeHtml(item.employee_name || "Employee")}</strong>
+        <span>${escapeHtml(formatLeaveRange(item.start_date, item.end_date))} · ${escapeHtml(item.leave_type_label || item.leave_type || "Leave")}</span>
       </div>
       <div class="leave-mobile-recent-row__side">
         <span class="leave-mobile-recent-row__days leave-mobile-recent-row__days--${daysTone}">${escapeHtml(daysLabel(item.days_requested))}</span>
@@ -942,8 +942,8 @@
     if (!pending.length) {
       pendingHost.innerHTML = `<p class="leave-mobile-empty muted">No requests waiting for approval.</p>`;
     } else {
-      const cards = await Promise.all(pending.map((item) => renderPendingCard(item)));
-      pendingHost.innerHTML = cards.join("");
+      // Render immediately — never block the list on balance fetches.
+      pendingHost.innerHTML = pending.map((item) => renderPendingCard(item)).join("");
       pendingHost.querySelectorAll("[data-leave-approve]").forEach((btn) => {
         btn.addEventListener("click", (event) => {
           event.stopPropagation();
@@ -956,6 +956,18 @@
           void reviewRequest(Number(btn.dataset.leaveDecline), "rejected", { reviewNote: "" });
         });
       });
+      // Best-effort annual balance labels after cards are visible.
+      void Promise.all(
+        pending
+          .filter((item) => String(item.leave_type || "").toLowerCase() === "annual")
+          .map(async (item) => {
+            const balance = await ensureBalance(item.employee_id, "annual");
+            if (!balance) return;
+            const card = pendingHost.querySelector(`[data-leave-id="${item.id}"]`);
+            const meta = card?.querySelector(".leave-mobile-request-card__meta span:last-child span");
+            if (meta) meta.textContent = `${Number(balance.remaining_days)} left`;
+          }),
+      ).catch(() => null);
     }
 
     const recent = recentDecidedRequests(6);
