@@ -165,6 +165,8 @@ def review_admin_leave_request(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not review leave request: {exc}") from exc
     finally:
         conn.close()
     return item

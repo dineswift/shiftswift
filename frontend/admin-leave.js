@@ -723,12 +723,14 @@
       tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading leave requests…</td></tr>`;
     }
     try {
-      const res = await Promise.race([
-        apiFetch("/admin/leave/requests"),
-        new Promise((_, reject) => {
-          window.setTimeout(() => reject(new Error("Leave request timed out")), 20000);
-        }),
-      ]);
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = window.setTimeout(() => controller?.abort?.(), 20000);
+      let res;
+      try {
+        res = await apiFetch("/admin/leave/requests", controller ? { signal: controller.signal } : {});
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (!res.ok) throw new Error("Load failed");
       const data = await res.json();
       allRequests = Array.isArray(data.items) ? data.items : [];
@@ -751,6 +753,18 @@
     }
   }
 
+  function parseLeaveApiError(data, fallback) {
+    const detail = data?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (Array.isArray(detail) && detail.length) {
+      const first = detail[0];
+      if (typeof first === "string") return first;
+      if (first && typeof first.msg === "string") return first.msg;
+    }
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
+  }
+
   async function reviewRequest(requestId, decision, { reviewNote } = {}) {
     if (reviewBusy) return;
     const noteEl = $("leave-review-note");
@@ -762,11 +776,25 @@
     const performReview = async () => {
       const res = await apiFetch(`/admin/leave/requests/${requestId}/review`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision, review_note: note || null }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Review failed");
-      await loadRequests();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(parseLeaveApiError(data, "Could not update leave request."));
+      }
+      // Don't fail the approval if the list refresh has a temporary network blip.
+      try {
+        await loadRequests();
+      } catch {
+        /* list refresh is best-effort after a successful review */
+      }
+      const updated = allRequests.find((row) => row.id === requestId);
+      if (updated) {
+        selectedId = requestId;
+        await renderDetail(updated);
+        syncDetailLayout();
+      }
       return decision === "approved" ? "Approved." : "Rejected.";
     };
 
@@ -789,8 +817,13 @@
         );
       }
     } catch (error) {
-      if (statusEl) statusEl.textContent = "";
-      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not update leave request.", "error");
+      const message = error?.message || "Could not update leave request.";
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.textContent = message;
+        statusEl.classList.add("form-error-message");
+      }
+      window.ShiftSwiftAction?.showActionToast?.(message, "error");
     } finally {
       reviewBusy = false;
     }
