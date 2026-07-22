@@ -722,16 +722,16 @@
     } else if (tbody) {
       tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading leave requests…</td></tr>`;
     }
+    let timeoutId = 0;
     try {
-      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const timeoutId = window.setTimeout(() => controller?.abort?.(), 20000);
-      let res;
-      try {
-        res = await apiFetch("/admin/leave/requests", controller ? { signal: controller.signal } : {});
-      } finally {
-        window.clearTimeout(timeoutId);
-      }
-      if (!res.ok) throw new Error("Load failed");
+      // Hard timeout: do not rely on AbortSignal (apiFetch may ignore it).
+      const res = await Promise.race([
+        apiFetch("/admin/leave/requests"),
+        new Promise((_, reject) => {
+          timeoutId = window.setTimeout(() => reject(new Error("Leave request timed out")), 12000);
+        }),
+      ]);
+      if (!res || !res.ok) throw new Error("Load failed");
       const data = await res.json();
       allRequests = Array.isArray(data.items) ? data.items : [];
       if (isMobileLeaveUi() && !employeesCache.length) {
@@ -750,6 +750,8 @@
       renderStats([]);
       renderMobileLeaveShell();
       showLeaveLoadError();
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
     }
   }
 
