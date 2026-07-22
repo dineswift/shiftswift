@@ -161,7 +161,7 @@
     }
   }
 
-  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub, empty }) {
+  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub, empty, valueAsLabel }) {
     const isEmpty = Boolean(empty);
     const toneClass = tone ? ` overview-module-card--${tone}` : "";
     const emptyClass = isEmpty && !tone ? " overview-module-card--empty" : "";
@@ -174,6 +174,9 @@
     const lockBadge = enabled
       ? ""
       : `<span class="overview-module-card__lock">${window.AdminIcons?.svg?.("lock") || "🔒"}</span>`;
+    const rawValue = String(value ?? "");
+    const displayValue = isEmpty && /^\d+$/.test(rawValue) && Number(rawValue) === 0 ? "–" : rawValue;
+    const valueClass = valueAsLabel ? " overview-module-card__value--label" : "";
     return `
       <a class="overview-module-card${toneClass}${emptyClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
         <span class="overview-module-card__head">
@@ -184,7 +187,7 @@
           </span>
         </span>
         <span class="overview-module-card__title">${escapeHtml(title)}</span>
-        <span class="overview-module-card__value">${escapeHtml(value)}</span>
+        <span class="overview-module-card__value${valueClass}">${escapeHtml(displayValue)}</span>
         <span class="overview-module-card__sub">${escapeHtml(cardSub)}</span>
       </a>`;
   }
@@ -219,23 +222,59 @@
     const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
-    const avatar = document.querySelector(".topbar-user-menu__avatar");
+    const avatars = document.querySelectorAll(".topbar-user-menu__avatar, #topbar-mobile-avatar-initials");
     const displayName =
       localStorage.getItem("adminDisplayName") ||
       localStorage.getItem("adminFirstName") ||
       localStorage.getItem("adminUsername") ||
       "Admin";
-    if (topbarName) topbarName.textContent = businessName;
+    if (topbarName && !document.body.classList.contains("emp-profile-open")) {
+      topbarName.textContent = businessName;
+    }
     if (userLabel) userLabel.textContent = displayName;
-    if (avatar) {
-      const initials = String(displayName)
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0])
-        .join("")
-        .toUpperCase();
+    const initials = String(displayName)
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+    avatars.forEach((avatar) => {
       avatar.textContent = initials || "HR";
+    });
+  }
+
+  function formatHomeBannerDate(date = new Date()) {
+    return date.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+    });
+  }
+
+  function homeBannerSummary(data) {
+    const rota = data?.modules?.rota || {};
+    const shifts = Number(rota.shift_count ?? 0);
+    const actions = Number(data?.open_actions_count ?? 0);
+    if (shifts > 0 && rota.status === "published") {
+      return `${shifts} shift${shifts === 1 ? "" : "s"} this week · published`;
+    }
+    if (shifts > 0) {
+      return `${shifts} shift${shifts === 1 ? "" : "s"} drafted this week`;
+    }
+    if (actions > 0) {
+      return `${actions} open action${actions === 1 ? "" : "s"} to review`;
+    }
+    return "You're all set for today";
+  }
+
+  function updateMobileHomeBanner(data) {
+    const businessEl = document.getElementById("mobile-business-name");
+    const summaryEl = document.getElementById("mobile-home-summary");
+    const businessName = data?.trading_name || data?.tenant_name || localStorage.getItem("businessName") || "";
+    if (businessEl && businessName) businessEl.textContent = businessName;
+    if (summaryEl) {
+      summaryEl.textContent = `${formatHomeBannerDate()} · ${homeBannerSummary(data || {})}`;
     }
   }
 
@@ -395,6 +434,7 @@
       applyAdminIdentityFromOverview(data);
       window.AdminMobile?.refreshGreeting?.();
       updateTopbarMeta(data);
+      updateMobileHomeBanner(data);
 
       const openActions = data.open_actions || [];
       const actionPreview =
@@ -423,27 +463,33 @@
       const punch = m.time_punch || {};
       const actions = data.open_actions_count || 0;
       const critical = openActions.filter((a) => a.severity === "critical").length;
+      const compactHome =
+        window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
 
       grid.innerHTML = `
         ${statCard({
           icon: "users",
-          label: "Active employees",
+          label: compactHome ? "Employees" : "Active employees",
           value: String(employees.active ?? 0),
           sub:
             (employees.active ?? 0) > 0
-              ? `Limit ${employees.limit ?? data.max_employees ?? "—"} on ${data.plan_display_name || "current"} plan`
+              ? compactHome
+                ? `Limit ${employees.limit ?? data.max_employees ?? "—"}`
+                : `Limit ${employees.limit ?? data.max_employees ?? "—"} on ${data.plan_display_name || "current"} plan`
               : "Add your first employee →",
           href: "#employees",
           tone: (employees.active ?? 0) > 0 ? "ok" : "",
         })}
         ${statCard({
           icon: "clock",
-          label: "Today's punches",
+          label: compactHome ? "Punches" : "Today's punches",
           value: String(punch.today_punches ?? 0),
           sub: punch.last_punch_at
             ? `Last punch ${formatOverviewTime(punch.last_punch_at)}`
             : punch.sites
-              ? "No punches yet — open time clock →"
+              ? compactHome
+                ? "None yet — open clock →"
+                : "No punches yet — open time clock →"
               : "Set up a punch site →",
           href: punch.today_punches ? "#time-punch/today" : "#time-punch",
           tone: punch.today_punches ? "ok" : "",
@@ -451,7 +497,7 @@
         })}
         ${statCard({
           icon: critical ? "alert" : "check",
-          label: "Open actions",
+          label: compactHome ? "Actions" : "Open actions",
           value: String(actions),
           sub: critical
             ? `${critical} need immediate attention`
@@ -479,10 +525,10 @@
           <div class="mobile-subscription-card__head">
             ${window.AdminIcons?.svg?.("card") || ""}
             <span class="mobile-subscription-card__label">Subscription</span>
+            <span class="mobile-subscription-card__value">${escapeHtml(data.subscription_status || "Not set")}</span>
           </div>
-          <p class="mobile-subscription-card__value">${escapeHtml(data.subscription_status || "Not set")}</p>
           <p class="mobile-subscription-card__sub muted">${escapeHtml(data.plan_display_name || data.subscription_plan || "No plan")} plan</p>
-          <a class="mobile-subscription-card__link" href="#settings/billing">Manage plan ›</a>`;
+          <a class="btn secondary btn-sm mobile-subscription-card__btn" href="#settings/billing">Manage plan</a>`;
       }
 
       if (modulesHost) {
@@ -658,6 +704,7 @@
             value: "Tools",
             sub: "Documents & AI assistant",
             href: "#templates",
+            valueAsLabel: true,
           }),
           moduleCard({
             icon: "folder",
@@ -665,6 +712,7 @@
             value: "Free",
             sub: "Word & Excel HR forms",
             href: "#global-documents",
+            valueAsLabel: true,
           }),
           moduleCard({
             icon: "folder",

@@ -25,14 +25,14 @@ html.native-app .app {
 html.native-app .topbar,
 html.native-app .app-mobile-header,
 html.native-app .employee-app .topbar {
-  padding-top: max(12px, env(safe-area-inset-top));
-  padding-left: max(12px, env(safe-area-inset-left));
-  padding-right: max(12px, env(safe-area-inset-right));
+  padding-top: max(2px, env(safe-area-inset-top));
+  padding-left: max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
 }
 
 html.native-app body.admin-mobile-detail .topbar,
 html.native-app body.employee-mobile-detail .topbar {
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding-top: max(2px, env(safe-area-inset-top));
 }
 
 html.native-app .mobile-more-sheet,

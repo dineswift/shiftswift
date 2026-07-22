@@ -68,6 +68,7 @@
   }
 
   function normalizeTab(tab) {
+    if (tab === "more") return "more";
     if (tab && TAB_SECTIONS[tab]) return tab;
     return "home";
   }

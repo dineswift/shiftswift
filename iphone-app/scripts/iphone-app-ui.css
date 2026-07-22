@@ -475,6 +475,34 @@ html.native-app.capacitor-native .mobile-tab--active {
   font-weight: 700;
 }
 
+html.native-app.capacitor-native .mobile-tab--active .mobile-tab__icon-wrap {
+  background: rgba(15, 110, 86, 0.1);
+  border-radius: 10px;
+  padding: 3px 10px;
+}
+
+html.native-app.capacitor-native .mobile-tab--active .mobile-tab__icon-wrap::after {
+  bottom: -4px;
+  width: 5px;
+  height: 5px;
+  background: #0f6e56;
+  opacity: 1;
+}
+
+html.native-app.capacitor-native .topbar-signout-btn--mobile {
+  display: none !important;
+}
+
+html.native-app.capacitor-native .overview-module-card__value--label {
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+html.native-app.capacitor-native .overview-module-card--empty .overview-module-card__value {
+  color: #c5ceca;
+  font-weight: 500;
+}
+
 html.native-app.capacitor-native .mobile-tab__label {
   font-size: 0.62rem;
   letter-spacing: 0.01em;
@@ -620,8 +648,20 @@ html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .overvie
   display: none;
 }
 
-html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="home"] .overview-main {
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="home"] .overview-main,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="home"] .mobile-panel-title--modules {
+  display: none !important;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] .overview-main {
   display: block !important;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #overview-metrics,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #overview-actions-panel,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #mobile-home-header,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #mobile-subscription-card {
+  display: none !important;
 }
 
 html.native-app.capacitor-native .sshr-action-toast-host {

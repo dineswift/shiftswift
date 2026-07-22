@@ -188,7 +188,7 @@
 
   function formatMobileDayPill(iso, selected) {
     const date = new Date(`${iso}T12:00:00`);
-    const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
+    const weekday = date.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase();
     const dayNum = date.getDate();
     const hasShifts = shiftsOnDate(iso) > 0;
     const todayIso = todayIsoLocal();
@@ -206,65 +206,136 @@
     </button>`;
   }
 
+  function mobileShiftPlaceLabel(shift, emp) {
+    const role = String(shift.role_label || employeeRoleLabel(emp) || "").toLowerCase();
+    if (/kitchen|chef|cook/.test(role)) return "Kitchen";
+    if (/bar|barista/.test(role)) return "Bar";
+    if (/floor|waiter|waitress|server|host|front/.test(role)) return "Dine area";
+    if (/manager|supervisor/.test(role)) return "Floor";
+    const notes = String(shift.notes || "").trim();
+    if (notes && notes.length <= 24) return notes;
+    return employeeRoleLabel(emp) || "Shift";
+  }
+
+  function mobileAttendanceLabel(shift) {
+    const a = attendanceForShift(shift);
+    const status = String(a?.attendance_status || "").toLowerCase();
+    if (status === "attended") return "Attended";
+    if (status === "late") return "Late";
+    if (status === "no_show") return "No show";
+    if (status === "awaiting" || status === "missing_clock_out") return "Awaiting";
+    if (weekMeta?.status === "published") return "Scheduled";
+    return "Confirmed";
+  }
+
+  function dayShiftsForMobile(selectedDay) {
+    return shifts
+      .map((shift, index) => ({ shift, index }))
+      .filter(({ shift }) => shift.shift_date === selectedDay)
+      .sort((a, b) => String(a.shift.start_time || "").localeCompare(String(b.shift.start_time || "")));
+  }
+
   function renderMobileDayStatus(selectedDay) {
     const el = document.getElementById("rota-mobile-day-status");
     if (!el) return;
-    const dayLabel = new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en-GB", {
+    const date = new Date(`${selectedDay}T12:00:00`);
+    const dayLabel = date.toLocaleDateString("en-GB", {
       weekday: "long",
+      day: "numeric",
+      month: "long",
     });
-    const count = shiftsOnDate(selectedDay);
+    const dayEntries = dayShiftsForMobile(selectedDay);
+    const work = dayEntries.filter(({ shift }) => !isLeaveShift(shift) && !isDayOffShift(shift));
+    const leave = dayEntries.filter(({ shift }) => isLeaveShift(shift) || isDayOffShift(shift));
+    const totalHours = work.reduce((sum, { shift }) => sum + (Number(shiftHours(shift)) || 0), 0);
+    const covered = leave.length === 0 || work.length > 0;
+    const hoursLabel = Number.isInteger(totalHours) ? String(totalHours) : totalHours.toFixed(1);
+
     if (!hasActiveEmployees()) {
-      el.innerHTML = '<span class="rota-mobile-day-status__icon" aria-hidden="true">ⓘ</span> Add employees before building a rota.';
-      el.className = "rota-mobile-day-status rota-mobile-day-status--info";
+      el.innerHTML = `<div class="rota-mobile-day-summary__head">
+        <h3 class="rota-mobile-day-summary__title">${escapeHtml(dayLabel)}</h3>
+        <p class="rota-mobile-day-summary__meta muted">Add employees before building a rota</p>
+      </div>`;
       return;
     }
-    if (count === 0) {
-      el.innerHTML = `<span class="rota-mobile-day-status__icon" aria-hidden="true">ⓘ</span> No shifts scheduled for ${escapeHtml(dayLabel)} yet`;
-      el.className = "rota-mobile-day-status rota-mobile-day-status--info";
-      return;
-    }
-    el.innerHTML = `<span class="rota-mobile-day-status__icon" aria-hidden="true">✓</span> ${count} shift${count === 1 ? "" : "s"} on ${escapeHtml(dayLabel)}`;
-    el.className = "rota-mobile-day-status rota-mobile-day-status--ok";
+
+    el.innerHTML = `
+      <div class="rota-mobile-day-summary__head">
+        <h3 class="rota-mobile-day-summary__title">${escapeHtml(dayLabel)}</h3>
+        <p class="rota-mobile-day-summary__meta muted">${work.length} shift${work.length === 1 ? "" : "s"} · ${escapeHtml(hoursLabel)} hrs</p>
+      </div>
+      <div class="rota-mobile-day-stats" aria-label="Day summary">
+        <article class="rota-mobile-day-stat">
+          <strong>${work.length}</strong>
+          <span>On shift</span>
+        </article>
+        <article class="rota-mobile-day-stat">
+          <strong>${escapeHtml(hoursLabel)}</strong>
+          <span>Total hrs</span>
+        </article>
+        <article class="rota-mobile-day-stat">
+          <strong>${leave.length}</strong>
+          <span>On leave</span>
+        </article>
+        <article class="rota-mobile-day-stat">
+          <strong class="${covered ? "rota-mobile-day-stat__ok" : ""}">${covered ? "All" : "Gap"}</strong>
+          <span>Covered</span>
+        </article>
+      </div>`;
   }
 
-  function renderMobileStaffRow(emp, selectedDay, readonly) {
-    const palette = avatarPalette(emp.id);
-    const dayShifts = shifts
-      .map((shift, index) => ({ shift, index }))
-      .filter(({ shift }) => Number(shift.employee_id) === Number(emp.id) && shift.shift_date === selectedDay);
-    const shiftChips = dayShifts
-      .map(({ shift, index }) => {
-        const blockClass = shiftBlockClass(shift, emp).replace("rota-shift-block--", "rota-mobile-shift-chip--");
-        const body = isDayOffShift(shift)
-          ? "Day off"
-          : `${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}`;
-        const role = escapeHtml(shift.role_label || employeeRoleLabel(emp));
-        return `<div class="rota-mobile-shift-chip-wrap">
-          <button type="button" class="rota-mobile-shift-chip ${blockClass}" data-mobile-edit-shift="${index}" aria-label="Edit shift for ${escapeHtml(employeeShortName(emp))}">
-          <span class="rota-mobile-shift-chip__time">${body}</span>
-          <span class="rota-mobile-shift-chip__role">${role}</span>
-        </button>
-          ${
-            readonly
-              ? ""
-              : `<button type="button" class="rota-mobile-shift-delete" data-mobile-delete-shift="${index}" aria-label="Delete shift for ${escapeHtml(employeeShortName(emp))}">×</button>`
-          }
-        </div>`;
-      })
-      .join("");
-    const addBtn = readonly
-      ? ""
-      : `<button type="button" class="rota-mobile-add-btn" data-mobile-add-shift="${emp.id}">+ Add shift</button>`;
-    return `<article class="rota-mobile-staff-card">
-      <div class="rota-mobile-staff-card__head">
-        <span class="rota-staff-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(emp))}</span>
-        <div class="rota-mobile-staff-card__meta">
-          <strong class="rota-mobile-staff-card__name">${escapeHtml(employeeShortName(emp))}</strong>
-          <span class="rota-mobile-staff-card__role">${escapeHtml(employeeRoleLabel(emp))}</span>
-        </div>
-      </div>
-      ${shiftChips ? `<div class="rota-mobile-staff-card__shifts">${shiftChips}</div>` : ""}
-      ${addBtn}
+  function renderMobileShiftCard(shift, index, emp, readonly) {
+    const palette = avatarPalette(emp?.id || shift.employee_id);
+    const name = emp ? employeeShortName(emp) : employeeName(shift.employee_id);
+    const role = shift.role_label || employeeRoleLabel(emp);
+    const place = mobileShiftPlaceLabel(shift, emp);
+    const hours = Number(shiftHours(shift)) || 0;
+    const hoursLabel = Number.isInteger(hours) ? `${hours} hrs` : `${hours.toFixed(1)} hrs`;
+    const time = formatShiftTimeRange(shift) || `${shift.start_time || "—"} – ${shift.end_time || "—"}`;
+    const status = mobileAttendanceLabel(shift);
+    const tone = shiftBlockClass(shift, emp).replace("rota-shift-block--", "");
+    return `<article class="rota-mobile-shift-card rota-mobile-shift-card--${escapeHtml(tone)}">
+      <button type="button" class="rota-mobile-shift-card__main" data-mobile-edit-shift="${index}" aria-label="Edit shift for ${escapeHtml(name)}">
+        <span class="rota-mobile-shift-card__bar" aria-hidden="true"></span>
+        <span class="rota-mobile-shift-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(
+          emp ? employeeInitials(emp) : String(name).replace(/[^A-Za-z]/g, " ").trim().split(/\s+/).map((p) => p[0] || "").join("").slice(0, 2).toUpperCase() || "?"
+        )}</span>
+        <span class="rota-mobile-shift-card__body">
+          <span class="rota-mobile-shift-card__top">
+            <span class="rota-mobile-shift-card__identity">
+              <strong class="rota-mobile-shift-card__name">${escapeHtml(name)}</strong>
+              <span class="rota-mobile-shift-card__role">${escapeHtml(role)}</span>
+            </span>
+            <span class="rota-mobile-shift-card__time">${escapeHtml(time)}</span>
+          </span>
+          <span class="rota-mobile-shift-card__meta">
+            <span>${escapeHtml(hoursLabel)}</span>
+            <span>${escapeHtml(place)}</span>
+            <span>${escapeHtml(status)}</span>
+          </span>
+        </span>
+      </button>
+      ${
+        readonly
+          ? ""
+          : `<button type="button" class="rota-mobile-shift-card__delete" data-mobile-delete-shift="${index}" aria-label="Delete shift for ${escapeHtml(name)}">×</button>`
+      }
+    </article>`;
+  }
+
+  function renderMobileLeaveCard(shift, index, emp) {
+    const name = emp ? employeeShortName(emp) : employeeName(shift.employee_id);
+    const leaveType = isDayOffShift(shift) && !isLeaveShift(shift) ? "Day off" : shift.role_label || "Leave";
+    const status = weekMeta?.status === "published" ? "Approved" : "Draft";
+    return `<article class="rota-mobile-leave-card">
+      <button type="button" class="rota-mobile-leave-card__main" data-mobile-edit-shift="${index}" aria-label="Edit leave for ${escapeHtml(name)}">
+        <span class="rota-mobile-leave-card__icon" aria-hidden="true">${window.AdminIcons?.svg?.("beach") || "⛱"}</span>
+        <span class="rota-mobile-leave-card__copy">
+          <strong>${escapeHtml(name)}</strong>
+          <span>${escapeHtml(leaveType)} · All day</span>
+        </span>
+        <span class="rota-mobile-leave-card__badge">${escapeHtml(status)}</span>
+      </button>
     </article>`;
   }
 
@@ -272,7 +343,12 @@
     if (!shouldUseMobileRotaBuilder()) return;
     const selectedDay = ensureMobileSelectedDay();
     const weekLabelBtn = document.getElementById("rota-mobile-week-label-btn");
-    if (weekLabelBtn) weekLabelBtn.textContent = formatWeekLabel(currentWeekStart);
+    if (weekLabelBtn) {
+      const start = new Date(`${currentWeekStart}T12:00:00`);
+      const end = new Date(`${addDays(currentWeekStart, 6)}T12:00:00`);
+      const fmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
+      weekLabelBtn.textContent = `${fmt.format(start)} – ${fmt.format(end)} ${start.getFullYear()}`;
+    }
 
     const strip = document.getElementById("rota-mobile-day-strip");
     if (strip) {
@@ -299,14 +375,44 @@
       return;
     }
 
-    list.innerHTML = staff.map((emp) => renderMobileStaffRow(emp, selectedDay, readonly)).join("");
+    const dayEntries = dayShiftsForMobile(selectedDay);
+    const work = dayEntries.filter(({ shift }) => !isLeaveShift(shift) && !isDayOffShift(shift));
+    const leave = dayEntries.filter(({ shift }) => isLeaveShift(shift) || isDayOffShift(shift));
 
-    list.querySelectorAll("[data-mobile-add-shift]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        openShiftPanel({
-          employeeId: Number(btn.getAttribute("data-mobile-add-shift")),
-          shiftDate: selectedDay,
-        });
+    const workHtml = work.length
+      ? work
+          .map(({ shift, index }) => renderMobileShiftCard(shift, index, employeeById(shift.employee_id), readonly))
+          .join("")
+      : `<p class="rota-mobile-empty-line muted">No shifts scheduled for this day.</p>`;
+    const leaveHtml = leave.length
+      ? `<section class="rota-mobile-section" aria-labelledby="rota-mobile-leave-heading">
+          <h4 class="rota-mobile-section__title" id="rota-mobile-leave-heading">Leave</h4>
+          <div class="rota-mobile-section__list">
+            ${leave
+              .map(({ shift, index }) => renderMobileLeaveCard(shift, index, employeeById(shift.employee_id)))
+              .join("")}
+          </div>
+        </section>`
+      : "";
+
+    const addBtn = readonly
+      ? ""
+      : `<button type="button" class="btn outline rota-mobile-add-shift" id="rota-mobile-add-shift-btn">+ Add shift</button>`;
+
+    list.innerHTML = `
+      <section class="rota-mobile-section" aria-labelledby="rota-mobile-shifts-heading">
+        <h4 class="rota-mobile-section__title" id="rota-mobile-shifts-heading">Shifts</h4>
+        <div class="rota-mobile-section__list">${workHtml}</div>
+      </section>
+      ${leaveHtml}
+      ${addBtn}`;
+
+    document.getElementById("rota-mobile-add-shift-btn")?.addEventListener("click", () => {
+      const first = staff[0];
+      if (!first) return;
+      openShiftPanel({
+        employeeId: Number(first.id),
+        shiftDate: selectedDay,
       });
     });
     list.querySelectorAll("[data-mobile-edit-shift]").forEach((btn) => {
@@ -2068,15 +2174,12 @@
       void reloadRotaData();
     }
   }
-  async function loadWeek({ retryAfterAlign = true, attempt = 0, light = false } = {}) {
+  async function loadWeek({ retryAfterAlign = true, attempt = 0 } = {}) {
     setMessage("Loading rota…");
-    const params = new URLSearchParams();
-    if (light) params.set("include_attendance", "false");
-    if (selectedTemplateId) params.set("template_id", String(selectedTemplateId));
-    const query = params.toString();
-    const weekPath = `/admin/rota/weeks/${currentWeekStart}${query ? `?${query}` : ""}`;
+    // Attendance is loaded separately — path-only URL avoids Cap bridge quirks with "?".
+    const weekPath = `/admin/rota/weeks/${currentWeekStart}`;
     try {
-      const res = await apiFetch(weekPath);
+      const res = await apiFetch(weekPath, { sshrPriority: true });
       const data = await parseApiJson(res);
       if (!res.ok) {
         const message = parseRotaApiDetail(data, "Could not load rota.");
@@ -2086,7 +2189,7 @@
           message.includes("week_start must be a")
         ) {
           await ensureWeekStartAligned();
-          return loadWeek({ retryAfterAlign: false, light });
+          return loadWeek({ retryAfterAlign: false, attempt });
         }
         shifts = [];
         renderAll();
@@ -2130,25 +2233,44 @@
       } else {
         setMessage("Unsaved changes? Save draft, then publish when ready.");
       }
-      if (light && shifts.length) {
-        // Fill attendance in the background without blocking the grid.
-        void loadWeek({ retryAfterAlign: false, attempt: 0, light: false }).catch(() => null);
+      // Always refresh attendance via the dedicated endpoint so week GET stays path-only.
+      if (shifts.length) {
+        void loadWeekAttendance().catch(() => null);
       }
     } catch (error) {
-      if (!light && attempt < 1) {
-        await ensureRotaSession();
+      if (attempt < 1 && /timed out|could not connect|failed to fetch|load failed/i.test(String(error?.message || ""))) {
+        window.ShiftSwiftNativeApiFetch?.boot?.();
+        await window.ShiftSwiftSession?.hydrateNativeSession?.({ force: true });
         await new Promise((resolve) => window.setTimeout(resolve, 400));
-        return loadWeek({ retryAfterAlign, attempt: attempt + 1, light: true });
-      }
-      if (attempt < 2) {
-        await ensureRotaSession();
-        await new Promise((resolve) => window.setTimeout(resolve, 450 * (attempt + 1)));
-        return loadWeek({ retryAfterAlign, attempt: attempt + 1, light });
+        return loadWeek({ retryAfterAlign, attempt: attempt + 1 });
       }
       shifts = [];
       renderAll();
-      setMessage(friendlyNativeError(error, "Could not load rota."), "error");
+      setMessage(
+        `${friendlyNativeError(error, "Could not load rota.")}${
+          window.__SSHR_LAST_TRANSPORT ? ` [${window.__SSHR_LAST_TRANSPORT}]` : ""
+        }${
+          Array.isArray(window.__SSHR_LAST_TRANSPORT_ERRORS) && window.__SSHR_LAST_TRANSPORT_ERRORS.length
+            ? ` · ${String(window.__SSHR_LAST_TRANSPORT_ERRORS[0]).slice(0, 140)}`
+            : ""
+        }${window.__SSHR_HTTP_PROBE ? ` · probe:${window.__SSHR_HTTP_PROBE}` : ""}`,
+        "error",
+      );
     }
+  }
+
+  async function loadWeekAttendance() {
+    const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/attendance`);
+    if (!res.ok) return;
+    const data = await parseApiJson(res);
+    attendanceByShiftId = new Map();
+    const items = data.items || data.attendance?.items || [];
+    items.forEach((item) => {
+      if (item.shift_id != null) attendanceByShiftId.set(String(item.shift_id), item);
+    });
+    attendanceSummary = data.summary || data.attendance?.summary || null;
+    renderAttendanceTable(items);
+    renderAll();
   }
 
   async function loadEmployeesList() {
@@ -2838,12 +2960,23 @@
     document.getElementById("rota-shift-popover-close")?.addEventListener("click", closeShiftPanel);
     document.getElementById("rota-mobile-prev-week")?.addEventListener("click", () => changeWeek(-1));
     document.getElementById("rota-mobile-next-week")?.addEventListener("click", () => changeWeek(1));
-    document.getElementById("rota-mobile-week-label-btn")?.addEventListener("click", () => {
+    const jumpToThisWeek = () => {
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
       closeShiftPanel();
       mobileSelectedDay = null;
       currentWeekStart = rotaWeekStartIso(new Date());
       loadWeek();
+    };
+    document.getElementById("rota-mobile-week-label-btn")?.addEventListener("click", jumpToThisWeek);
+    document.getElementById("rota-mobile-today-btn")?.addEventListener("click", () => {
+      const today = todayIsoLocal();
+      const thisWeek = rotaWeekStartIso(new Date());
+      if (currentWeekStart === thisWeek) {
+        mobileSelectedDay = today;
+        renderMobileRota();
+        return;
+      }
+      jumpToThisWeek();
     });
     document.getElementById("rota-mobile-export-csv")?.addEventListener("click", exportRotaCsv);
     document.getElementById("rota-mobile-export-pdf")?.addEventListener("click", exportRotaPdf);
@@ -2926,8 +3059,7 @@
   });
 
   window.addEventListener("admin:rota-mobile-open", () => {
-    if (sectionReady) renderAll();
-    else bootRotaSection();
+    bootRotaSection();
   });
 
   window.addEventListener("admin:deferred-ready", () => {
@@ -2937,6 +3069,18 @@
   });
 
   window.addEventListener("admin:portal-native-retry", () => {
+    if (document.body.dataset.mobileTab === "rota" || /#rota/i.test(window.location.hash)) {
+      bootRotaSection();
+    }
+  });
+
+  window.addEventListener("shiftswift:portal-ready", () => {
+    if (document.body.dataset.mobileTab === "rota" || /#rota/i.test(window.location.hash)) {
+      bootRotaSection();
+    }
+  });
+
+  window.addEventListener("shiftswift:native-session-ready", () => {
     if (document.body.dataset.mobileTab === "rota" || /#rota/i.test(window.location.hash)) {
       bootRotaSection();
     }

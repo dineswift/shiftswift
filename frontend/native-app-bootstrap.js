@@ -3,7 +3,7 @@
   try {
     if (!window.Capacitor?.isNativePlatform?.()) return;
 
-    var version = "52";
+    var version = "56";
     var path = String(window.location.pathname || "");
 
     function assetUrl(file) {

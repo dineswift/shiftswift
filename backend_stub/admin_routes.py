@@ -110,6 +110,7 @@ class TenantProfileUpdate(BaseModel):
     signatory_email: str | None = Field(default=None, max_length=254)
     payroll_accountant_email: str | None = Field(default=None, max_length=254)
     payroll_hours_report_enabled: bool | None = None
+    punch_time_mode: str | None = Field(default=None, pattern="^(timestamped|presence_only)$")
     rota_mode: str | None = Field(default=None, pattern="^(basic|advanced|multi_site)$")
     rota_week_start_day: int | None = Field(default=None, ge=0, le=6)
 

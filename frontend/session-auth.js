@@ -223,7 +223,12 @@
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
     if (window.ShiftSwiftBrand?.resolveApiBase) return window.ShiftSwiftBrand.resolveApiBase();
-    if (isCapacitorNative()) {
+    if (isCapacitorNative() || window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      try {
+        localStorage.removeItem("apiBaseUrl");
+      } catch {
+        /* ignore */
+      }
       return window.ShiftSwiftBrand?.urls?.api || "https://api.shiftswifthr.co.uk";
     }
     const stored = localStorage.getItem("apiBaseUrl");
@@ -619,31 +624,20 @@
 
     window.ShiftSwiftNativeApiFetch?.boot?.();
 
-    const timeoutMs = isCapacitorNative() && String(init?.method || "GET").toUpperCase() === "GET" ? 90000 : 45000;
-    const run = async () => {
-      const http = window.ShiftSwiftNativeApiFetch;
-      if (http?.nativeAwareFetch) {
-        return http.nativeAwareFetch(target, init);
-      }
-      if (http?.nativeHttpRequest) {
-        return http.nativeHttpRequest(target, init);
-      }
-      if (http?.isCapacitorHttpEnabled?.()) {
-        const capFetch = http.getCapacitorFetch?.() || window.fetch.bind(window);
-        return capFetch(target, init);
-      }
-      return fetch(target, init);
-    };
-
-    let timer;
-    const timeout = new Promise((_, reject) => {
-      timer = window.setTimeout(() => reject(new Error("Request timed out")), timeoutMs);
-    });
-    try {
-      return await Promise.race([run(), timeout]);
-    } finally {
-      window.clearTimeout(timer);
+    const http = window.ShiftSwiftNativeApiFetch;
+    if (http?.nativeAwareFetch) {
+      // nativeAwareFetch already queues + times out — do not wrap in a second race
+      // that can fire while the request is still waiting in the shared queue.
+      return http.nativeAwareFetch(target, init);
     }
+    if (http?.nativeHttpRequest) {
+      return http.nativeHttpRequest(target, init);
+    }
+    if (http?.isCapacitorHttpEnabled?.()) {
+      const capFetch = http.getCapacitorFetch?.() || window.fetch.bind(window);
+      return capFetch(target, init);
+    }
+    return fetch(target, init);
   }
 
   async function refreshAccessToken(apiBase) {
@@ -806,9 +800,11 @@
       throw lastError || new Error("Failed to fetch");
     };
 
+    const isRotaPath = /\/(?:admin\/)?rota\//i.test(String(path || ""));
     let response;
     try {
-      response = await requestWithRetry(isCapacitorNative() ? 3 : 1);
+      // Rota already has its own fallbacks — avoid stacking 3×60s CapHttp waits.
+      response = await requestWithRetry(isCapacitorNative() ? (isRotaPath ? 1 : 3) : 1);
     } catch (error) {
       if (isCapacitorNative() && isTransientNetworkError(error)) {
         nativeHydrated = false;

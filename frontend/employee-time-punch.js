@@ -48,6 +48,7 @@
   let statusPollTimer = null;
   let expectedShiftToday = null;
   let API_BASE = "";
+  let punchTimeMode = "timestamped";
   let tenantId = "";
 
   function authHeaders(json = true) {
@@ -138,8 +139,12 @@
     }
   }
 
+  function isPresenceOnly() {
+    return punchTimeMode === "presence_only";
+  }
+
   function formatTimeShort(iso) {
-    if (!iso) return "";
+    if (!iso || isPresenceOnly()) return "";
     try {
       return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     } catch {
@@ -232,23 +237,35 @@
     if (!statusEl) return;
     const last = data?.last_punch;
     if (data?.work_state === "on_break") {
-      const since = formatTimeShort(data.break_started_at || last?.punched_at);
-      const duration = formatDurationSince(data.break_started_at || last?.punched_at);
-      statusEl.innerHTML = `<strong>On break</strong> since ${since}${duration ? ` · ${duration}` : ""}.`;
+      if (isPresenceOnly()) {
+        statusEl.innerHTML = `<strong>On break</strong> at ${last?.site_name || "work site"}.`;
+      } else {
+        const since = formatTimeShort(data.break_started_at || last?.punched_at);
+        const duration = formatDurationSince(data.break_started_at || last?.punched_at);
+        statusEl.innerHTML = `<strong>On break</strong> since ${since}${duration ? ` · ${duration}` : ""}.`;
+      }
       statusEl.className = "punch-work-state-label punch-work-state-label--break";
       return;
     }
     if (data?.work_state === "clocked_in") {
-      statusEl.innerHTML = `<strong>Working</strong> since ${formatTimeShort(last?.punched_at)} at ${last?.site_name || "work site"}.`;
+      if (isPresenceOnly()) {
+        statusEl.innerHTML = `<strong>Present</strong> at ${last?.site_name || "work site"}.`;
+      } else {
+        statusEl.innerHTML = `<strong>Working</strong> since ${formatTimeShort(last?.punched_at)} at ${last?.site_name || "work site"}.`;
+      }
       statusEl.className = "punch-work-state-label punch-work-state-label--working";
       return;
     }
     if (secondsSinceClockOut != null && data?.last_punch?.punch_type === "out") {
-      const ago =
-        secondsSinceClockOut < 60
-          ? `${secondsSinceClockOut} sec`
-          : formatDurationSince(last?.punched_at);
-      statusEl.textContent = `Clocked out ${ago} ago · last out at ${formatTimeShort(last?.punched_at)}.`;
+      if (isPresenceOnly()) {
+        statusEl.textContent = "Not present — clocked out today.";
+      } else {
+        const ago =
+          secondsSinceClockOut < 60
+            ? `${secondsSinceClockOut} sec`
+            : formatDurationSince(last?.punched_at);
+        statusEl.textContent = `Clocked out ${ago} ago · last out at ${formatTimeShort(last?.punched_at)}.`;
+      }
       statusEl.className = "punch-work-state-label punch-work-state-label--out";
       return;
     }
@@ -273,11 +290,17 @@
   function updatePunchSummary(data) {
     let text = "Ready to clock in";
     if (data?.work_state === "on_break") {
-      text = `On break since ${formatTimeShort(data.break_started_at || data.last_punch?.punched_at)}`;
+      text = isPresenceOnly()
+        ? "On break"
+        : `On break since ${formatTimeShort(data.break_started_at || data.last_punch?.punched_at)}`;
     } else if (data?.work_state === "clocked_in") {
-      text = `Working since ${formatTimeShort(data.last_punch?.punched_at)}`;
+      text = isPresenceOnly()
+        ? "Present"
+        : `Working since ${formatTimeShort(data.last_punch?.punched_at)}`;
     } else if (data?.last_punch?.punch_type === "out") {
-      text = `Clocked out at ${formatTimeShort(data.last_punch?.punched_at)}`;
+      text = isPresenceOnly()
+        ? "Not present"
+        : `Clocked out at ${formatTimeShort(data.last_punch?.punched_at)}`;
     } else if (clockInReady()) {
       text = "On site — ready to clock in";
     } else if (geofencePreview && !geofencePreview.within_geofence) {
@@ -305,6 +328,7 @@
       }
       const data = await response.json();
       workState = data.work_state || (data.clocked_in ? "clocked_in" : "off");
+      punchTimeMode = data.punch_time_mode === "presence_only" ? "presence_only" : "timestamped";
       secondsSinceClockOut = data.seconds_since_clock_out ?? null;
       breakStartedAt = data.break_started_at || null;
       clockInCooldownSeconds = Number(data.clock_in_cooldown_seconds) || DEFAULT_COOLDOWN_SECONDS;

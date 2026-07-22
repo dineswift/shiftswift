@@ -2,7 +2,7 @@
 
 Standalone Capacitor **iOS** app. Android lives in the sibling folder `../android-app/`.
 
-**Version:** 1.3 (build 14)  
+**Version:** 1.5 (build 16)  
 **Bundle ID:** `co.uk.shiftswifthr.app`
 
 ## Setup

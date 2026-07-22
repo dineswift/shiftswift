@@ -33,7 +33,9 @@ const config: CapacitorConfig = {
     },
   },
   plugins: {
-    CapacitorHttp: { enabled: true },
+    // CapHttp mangled absolute URLs on iOS ("Could not connect") and returned
+    // Cloudflare HTML 400s. Native API traffic uses ShiftSwiftHttp (URLSession).
+    CapacitorHttp: { enabled: false },
     SplashScreen: {
       launchAutoHide: true,
       launchShowDuration: 400,

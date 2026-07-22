@@ -266,6 +266,8 @@
       window.ShiftSwiftNativeApiFetch?.bootWhenReady?.();
       window.ShiftSwiftNativeApiFetch?.retryPortalData?.();
       window.dispatchEvent(new CustomEvent("employee:profile-retry"));
+      window.dispatchEvent(new CustomEvent("employee:shifts-retry"));
+      window.ShiftSwiftEmployeeRota?.reload?.();
       try {
         if (localStorage.getItem("sshrNativeShiftAlerts") === "1") {
           void window.ShiftSwiftNativeRemotePush?.registerForRemotePush?.();

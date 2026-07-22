@@ -155,7 +155,7 @@
         "#portal-pwa-install-banner,.portal-pwa-install-banner,.pwa-ios-sheet,.pwa-ios-sheet-backdrop{display:none!important;visibility:hidden!important;pointer-events:none!important;}" +
         "html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important;}" +
         "html.native-app.capacitor-native body.employee-portal .employee-app,html.native-app.capacitor-native body.employee-portal #mobile-tab-bar,html.native-app.capacitor-native body.admin-portal #mobile-tab-bar,html.native-app body.employee-portal.portal-startup-pending .app>main.content,html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,html.native-app body.admin-portal.portal-startup-pending .app>main.content,html.native-app body.admin-portal.portal-startup-pending #mobile-tab-bar{pointer-events:auto!important;}" +
-        "html.native-app.capacitor-native .topbar.app-mobile-header,html.native-app.capacitor-native body.admin-mobile-detail .topbar,html.native-app.capacitor-native body.employee-mobile-detail .topbar{padding-top:max(12px,env(safe-area-inset-top))!important;padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important;}";
+        "html.native-app.capacitor-native .topbar.app-mobile-header,html.native-app.capacitor-native body.admin-mobile-detail .topbar,html.native-app.capacitor-native body.employee-mobile-detail .topbar{padding-top:max(2px,env(safe-area-inset-top))!important;padding-left:max(10px,env(safe-area-inset-left))!important;padding-right:max(10px,env(safe-area-inset-right))!important;}";
       (document.head || document.documentElement).appendChild(style);
     }
 
@@ -487,11 +487,18 @@
             window.__SSHR_PORTAL_READY = true;
             window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
             window.AdminMobile?.finishStartup?.(localStorage.getItem("adminTimeClockEnabled") === "true");
+            var tab = String(document.body?.dataset?.mobileTab || "");
+            var hash = String(window.location.hash || "");
+            if (tab === "rota" || /#rota/i.test(hash)) {
+              window.dispatchEvent(new CustomEvent("admin:portal-native-retry"));
+              window.dispatchEvent(new CustomEvent("admin:rota-mobile-open"));
+              window.dispatchEvent(new CustomEvent("admin:section", { detail: { section: "rota" } }));
+            }
           }
           bootProductionAdminShell();
           document.addEventListener("DOMContentLoaded", bootProductionAdminShell, { once: true });
           window.addEventListener("load", bootProductionAdminShell, { once: true });
-          [80, 300, 1000, 2500].forEach(function (ms) {
+          [80, 300, 1000, 2500, 5000].forEach(function (ms) {
             window.setTimeout(bootProductionAdminShell, ms);
           });
         }

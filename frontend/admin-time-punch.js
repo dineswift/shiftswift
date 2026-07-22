@@ -31,6 +31,15 @@
   let punchRefreshTimer = null;
   let exportPreset = "week";
   const siteQrCache = new Map();
+  let mobileClockTimer = null;
+  let mobileRotaSnapshot = null;
+  let mobileGeoState = { label: "—", tone: "muted" };
+  const MOBILE_AVATAR_PALETTES = [
+    { bg: "#E1F5EE", color: "#0F6E56" },
+    { bg: "#E6F1FB", color: "#185FA5" },
+    { bg: "#FAEEDA", color: "#854F0B" },
+    { bg: "#FBEAF0", color: "#993556" },
+  ];
 
   function formatDayLabel(iso) {
     if (!iso) return "";
@@ -209,7 +218,7 @@
     if (!punch) {
       return '<td class="punch-shift-time punch-shift-time--missing"><span class="muted">—</span></td>';
     }
-    const time = escapeHtml(formatTimeShort(punch.punched_at));
+    const time = escapeHtml(formatPunchListTime(punch.punched_at));
     const admin = punch.admin_override
       ? ` <span class="punch-shift-admin muted" title="${escapeHtml(punch.admin_note || "Admin punch")}">(admin)</span>`
       : "";
@@ -256,6 +265,10 @@
       punchHistoryDate === todayIso() ? loadWeekPunches() : Promise.resolve(),
     ]);
     if (punchHistoryDate === todayIso()) updatePunchStats();
+    if (isMobilePunchUi()) {
+      renderMobilePunchShell();
+      if (punchHistoryDate === todayIso()) void softLoadMobileTeamContext();
+    }
     if (!quiet) showPunchNote("Punch list refreshed.", "ok");
   }
 
@@ -342,12 +355,15 @@
 
   function formatWhen(iso) {
     try {
-      return new Date(iso).toLocaleString("en-GB", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+      const opts = isPresenceOnlyMode()
+        ? { day: "numeric", month: "short", year: "numeric" }
+        : {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          };
+      return new Date(iso).toLocaleString("en-GB", opts);
     } catch {
       return iso || "";
     }
@@ -359,6 +375,16 @@
     } catch {
       return "";
     }
+  }
+
+  function isPresenceOnlyMode() {
+    return (tenantProfile?.punch_time_mode || "timestamped") === "presence_only";
+  }
+
+  /** Day-to-day punch lists hide the minute in presence-only; timesheets keep exact times. */
+  function formatPunchListTime(iso) {
+    if (isPresenceOnlyMode()) return "Present";
+    return formatTimeShort(iso);
   }
 
   function formatSyncShort(iso) {
@@ -704,7 +730,7 @@
 
     const lastToday = todayItems[0];
     $("punch-stat-today-sub").textContent = lastToday
-      ? `Last punch ${formatTimeShort(lastToday.punched_at)}`
+      ? `Last punch ${formatPunchListTime(lastToday.punched_at)}`
       : "No punches yet";
 
     const primary = primarySite();
@@ -721,7 +747,491 @@
       $("punch-stat-radius-sub").textContent = "Set up a punch site first";
     }
     updateSetupUi();
+    renderMobilePunchShell();
   }
+
+  function isMobilePunchUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
+    if (document.documentElement.classList.contains("native-tablet")) return false;
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function formatLongWeekdayDate(d = new Date()) {
+    try {
+      return d.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return todayIso();
+    }
+  }
+
+  function formatClockHm(d = new Date()) {
+    try {
+      return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+    } catch {
+      return "--:--";
+    }
+  }
+
+  function formatDurationFriendly(ms) {
+    if (ms == null || ms < 0) return null;
+    const totalMinutes = Math.round(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes} min`;
+    if (minutes === 0) return `${hours} hr${hours === 1 ? "" : "s"}`;
+    return `${hours} hr${hours === 1 ? "" : "s"} ${minutes} min`;
+  }
+
+  function mobileEmployeeName(emp, fallback = "Staff") {
+    if (!emp) return fallback;
+    const first = (emp.first_name || "").trim();
+    const last = (emp.last_name || "").trim();
+    if (first && last) return `${first} ${last}`;
+    return first || last || emp.full_name || fallback;
+  }
+
+  function mobileEmployeeInitials(emp, name) {
+    const first = (emp?.first_name || "").trim()[0] || "";
+    const last = (emp?.last_name || "").trim()[0] || "";
+    if (first || last) return (first + last).toUpperCase();
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return (parts[0]?.[0] || "?").toUpperCase();
+  }
+
+  function mobileAvatarPalette(seed) {
+    return MOBILE_AVATAR_PALETTES[Math.abs(Number(seed) || 0) % MOBILE_AVATAR_PALETTES.length];
+  }
+
+  function countOpenShiftsToday() {
+    return groupDailyPunches(todayPunches).reduce(
+      (sum, group) => sum + group.shifts.filter((shift) => shift.clockIn && !shift.clockOut).length,
+      0
+    );
+  }
+
+  function totalWorkedMsToday() {
+    const now = Date.now();
+    let total = 0;
+    groupDailyPunches(todayPunches).forEach((group) => {
+      group.shifts.forEach((shift) => {
+        if (!shift.clockIn?.punched_at) return;
+        const start = new Date(shift.clockIn.punched_at).getTime();
+        const end = shift.clockOut?.punched_at ? new Date(shift.clockOut.punched_at).getTime() : now;
+        if (end > start) total += end - start;
+      });
+    });
+    return total;
+  }
+
+  function punchTypeLabel(type) {
+    const labels = {
+      in: "Clock in",
+      out: "Clock out",
+      break_start: "Break start",
+      break_end: "Break end",
+    };
+    return labels[type] || "Punch";
+  }
+
+  function punchTypeTone(type) {
+    if (type === "in" || type === "break_end") return "in";
+    if (type === "out" || type === "break_start") return "out";
+    return "neutral";
+  }
+
+  function updateMobileClockFace() {
+    const now = new Date();
+    const timeEl = $("punch-mobile-clock-time");
+    const dateEl = $("punch-mobile-clock-date");
+    const pageDate = $("punch-mobile-date");
+    const label = formatLongWeekdayDate(now);
+    if (timeEl) timeEl.textContent = formatClockHm(now);
+    if (dateEl) dateEl.textContent = label;
+    if (pageDate) pageDate.textContent = label;
+  }
+
+  function updateMobileStatusBadge() {
+    const status = $("punch-mobile-status");
+    const label = $("punch-mobile-status-label");
+    if (!status || !label) return;
+    const openCount = countOpenShiftsToday();
+    status.classList.remove("punch-mobile-status--quiet", "punch-mobile-status--active");
+    if (openCount > 0) {
+      status.classList.add("punch-mobile-status--active");
+      label.textContent = openCount === 1 ? "1 on shift" : `${openCount} on shift`;
+    } else {
+      status.classList.add("punch-mobile-status--quiet");
+      label.textContent = "Not clocked in";
+    }
+  }
+
+  function renderMobileGeoCard() {
+    const title = $("punch-mobile-geo-title");
+    const meta = $("punch-mobile-geo-meta");
+    const badge = $("punch-mobile-geo-badge");
+    const iconHost = document.querySelector("#punch-mobile-geo-card .punch-mobile-geo-card__icon");
+    if (!title || !meta || !badge) return;
+
+    if (iconHost && !iconHost.innerHTML) {
+      iconHost.innerHTML =
+        window.AdminIcons?.svg?.("map-pin", "punch-mobile-geo-card__svg") ||
+        '<span aria-hidden="true">📍</span>';
+    }
+
+    const site = primarySite();
+    if (!site) {
+      title.textContent = "No punch site";
+      meta.textContent = "Set up a geofenced site";
+      badge.textContent = "Setup";
+      badge.className = "punch-mobile-geo-badge punch-mobile-geo-badge--muted";
+      return;
+    }
+
+    const tenantName =
+      tenantProfile?.trading_name ||
+      tenantProfile?.business_name ||
+      window.Admin?.tenantFeatures?.trading_name ||
+      "";
+    title.textContent = tenantName ? `${tenantName} — ${site.name}` : site.name;
+    meta.textContent = site.is_active
+      ? `Geofence active · ${site.radius_meters}m radius`
+      : `Site inactive · ${site.radius_meters}m radius`;
+
+    const tone = mobileGeoState.tone || "muted";
+    badge.textContent = mobileGeoState.label || "—";
+    badge.className = `punch-mobile-geo-badge punch-mobile-geo-badge--${tone}`;
+  }
+
+  async function refreshMobileGeofence() {
+    if (!isMobilePunchUi()) return;
+    const site = primarySite();
+    if (!site?.latitude || !site?.longitude) {
+      mobileGeoState = site ? { label: "Active", tone: "ok" } : { label: "Setup", tone: "muted" };
+      renderMobileGeoCard();
+      return;
+    }
+    if (!site.is_active) {
+      mobileGeoState = { label: "Inactive", tone: "muted" };
+      renderMobileGeoCard();
+      return;
+    }
+    mobileGeoState = { label: "Checking…", tone: "muted" };
+    renderMobileGeoCard();
+    try {
+      const coords = window.ShiftSwiftNativeGeo?.readLocation
+        ? await window.ShiftSwiftNativeGeo.readLocation()
+        : await new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+              reject(new Error("Location unavailable"));
+              return;
+            }
+            navigator.geolocation.getCurrentPosition(
+              (pos) =>
+                resolve({
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                }),
+              reject,
+              { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+            );
+          });
+      const distance = haversineMeters(
+        coords.latitude,
+        coords.longitude,
+        Number(site.latitude),
+        Number(site.longitude)
+      );
+      const within = distance <= Number(site.radius_meters || 0);
+      mobileGeoState = within
+        ? { label: "In range", tone: "ok" }
+        : { label: "Out of range", tone: "warn" };
+    } catch {
+      mobileGeoState = { label: "Active", tone: "ok" };
+    }
+    renderMobileGeoCard();
+  }
+
+  function renderMobileMyPunches() {
+    const host = $("punch-mobile-my-punches");
+    if (!host) return;
+    const chronological = [...todayPunches].sort(
+      (a, b) => new Date(a.punched_at).getTime() - new Date(b.punched_at).getTime()
+    );
+    if (!chronological.length) {
+      host.innerHTML = `<p class="punch-mobile-empty muted">No punches recorded yet today.</p>`;
+      return;
+    }
+
+    const recent = chronological.slice(-8);
+    const rows = recent
+      .map((punch) => {
+        const tone = punchTypeTone(punch.punch_type);
+        const who = punch.employee_name || "Staff";
+        const siteLabel = punch.site_name || primarySite()?.name || "Site";
+        return `<div class="punch-mobile-punch-row">
+          <span class="punch-mobile-punch-dot punch-mobile-punch-dot--${tone}" aria-hidden="true"></span>
+          <div class="punch-mobile-punch-body">
+            <strong class="punch-mobile-punch-type">${escapeHtml(punchTypeLabel(punch.punch_type))}</strong>
+            <span class="punch-mobile-punch-loc">${escapeHtml(who)} · ${escapeHtml(siteLabel)}</span>
+          </div>
+          <time class="punch-mobile-punch-time">${escapeHtml(formatPunchListTime(punch.punched_at))}</time>
+        </div>`;
+      })
+      .join("");
+
+    const openCount = countOpenShiftsToday();
+    const totalLabel = formatDurationFriendly(totalWorkedMsToday()) || "0 min";
+    const summaryState = openCount > 0 ? "Currently clocked in" : "Currently clocked out";
+    const summary = `<div class="punch-mobile-punch-row punch-mobile-punch-row--summary">
+      <span class="punch-mobile-punch-dot punch-mobile-punch-dot--neutral" aria-hidden="true"></span>
+      <div class="punch-mobile-punch-body">
+        <strong class="punch-mobile-punch-type">${summaryState}</strong>
+        <span class="punch-mobile-punch-loc">Total so far: ${escapeHtml(totalLabel)}</span>
+      </div>
+    </div>`;
+
+    host.innerHTML = `${rows}${summary}`;
+  }
+
+  function isLeaveRoleLabel(role) {
+    const value = String(role || "").toLowerCase();
+    return /annual leave|holiday|unpaid leave|sick leave|\bleave\b/.test(value) && !/day off|off day/.test(value);
+  }
+
+  function buildMobileTeamStatusRows() {
+    const rows = [];
+    const seen = new Set();
+    const groups = groupDailyPunches(todayPunches);
+    const empById = new Map(employees.map((emp) => [String(emp.id), emp]));
+
+    groups.forEach((group) => {
+      const empId = group.punches[0]?.employee_id;
+      const key = empId != null ? `id:${empId}` : `name:${group.employee_name}`;
+      seen.add(key);
+      const emp = empId != null ? empById.get(String(empId)) : null;
+      const open = group.shifts.find((shift) => shift.clockIn && !shift.clockOut);
+      if (open) {
+        rows.push({
+          key,
+          emp,
+          name: group.employee_name || mobileEmployeeName(emp),
+          detail: `Clocked in · ${formatPunchListTime(open.clockIn.punched_at)}`,
+          badge: "On shift",
+          badgeTone: "ok",
+        });
+      }
+    });
+
+    const today = todayIso();
+    const shifts = (mobileRotaSnapshot?.shifts || []).filter((shift) => shift.shift_date === today);
+    const attendanceByShift = new Map();
+    (mobileRotaSnapshot?.attendance || []).forEach((item) => {
+      if (item.shift_id != null) attendanceByShift.set(String(item.shift_id), item);
+    });
+
+    const nowMinutes = (() => {
+      const d = new Date();
+      return d.getHours() * 60 + d.getMinutes();
+    })();
+
+    function timeToMinutes(value) {
+      const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
+      if (!match) return null;
+      return Number(match[1]) * 60 + Number(match[2]);
+    }
+
+    shifts.forEach((shift) => {
+      const empId = shift.employee_id;
+      const key = empId != null ? `id:${empId}` : `shift:${shift.id}`;
+      if (seen.has(key)) return;
+      const emp = empId != null ? empById.get(String(empId)) : null;
+      const name = mobileEmployeeName(emp, "Staff");
+      if (isLeaveRoleLabel(shift.role_label)) {
+        seen.add(key);
+        rows.push({
+          key,
+          emp,
+          name,
+          detail: shift.role_label || "Leave today",
+          badge: "On leave",
+          badgeTone: "warn",
+        });
+        return;
+      }
+
+      const attendance = attendanceByShift.get(String(shift.id)) || null;
+      const status = String(attendance?.attendance_status || "").toLowerCase();
+      const startMins = timeToMinutes(shift.start_time);
+      if (status === "late" || (status === "no_show" && startMins != null && nowMinutes >= startMins)) {
+        seen.add(key);
+        const lateMins =
+          startMins != null && nowMinutes > startMins ? nowMinutes - startMins : null;
+        const expected = shift.start_time ? String(shift.start_time).slice(0, 5) : "";
+        rows.push({
+          key,
+          emp,
+          name,
+          detail:
+            lateMins != null && expected
+              ? `Expected ${expected} · ${lateMins} min late`
+              : expected
+                ? `Expected ${expected}`
+                : "Late for shift",
+          badge: "Late",
+          badgeTone: "warn",
+        });
+        return;
+      }
+
+      if (status === "attended" || status === "on_shift") return;
+
+      if (startMins != null && nowMinutes < startMins) {
+        seen.add(key);
+        rows.push({
+          key,
+          emp,
+          name,
+          detail: `Shift starts ${String(shift.start_time).slice(0, 5)}`,
+          badge: "Not in",
+          badgeTone: "muted",
+        });
+        return;
+      }
+
+      if (startMins != null && nowMinutes >= startMins) {
+        seen.add(key);
+        const lateMins = nowMinutes - startMins;
+        const expected = String(shift.start_time).slice(0, 5);
+        rows.push({
+          key,
+          emp,
+          name,
+          detail: lateMins > 0 ? `Expected ${expected} · ${lateMins} min late` : `Expected ${expected}`,
+          badge: lateMins > 5 ? "Late" : "Not in",
+          badgeTone: lateMins > 5 ? "warn" : "muted",
+        });
+      }
+    });
+
+    return rows.slice(0, 10);
+  }
+
+  function renderMobileTeamStatus() {
+    const host = $("punch-mobile-team");
+    if (!host) return;
+    const rows = buildMobileTeamStatusRows();
+    if (!rows.length) {
+      host.innerHTML = `<p class="punch-mobile-empty muted">No team activity to show yet today.</p>`;
+      return;
+    }
+    host.innerHTML = rows
+      .map((row, index) => {
+        const palette = mobileAvatarPalette(row.emp?.id || index);
+        const initials = mobileEmployeeInitials(row.emp, row.name);
+        return `<div class="punch-mobile-team-row">
+          <span class="punch-mobile-team-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+          <div class="punch-mobile-team-body">
+            <strong class="punch-mobile-team-name">${escapeHtml(row.name)}</strong>
+            <span class="punch-mobile-team-detail">${escapeHtml(row.detail)}</span>
+          </div>
+          <span class="punch-mobile-team-badge punch-mobile-team-badge--${row.badgeTone}">${escapeHtml(row.badge)}</span>
+        </div>`;
+      })
+      .join("");
+  }
+
+  async function softLoadMobileTeamContext() {
+    if (!isMobilePunchUi()) return;
+    try {
+      const weekStart = mondayIso();
+      const res = await apiFetch(`/admin/rota/weeks/${weekStart}`, { sshrPriority: true });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        mobileRotaSnapshot = null;
+        renderMobileTeamStatus();
+        return;
+      }
+      const weekShifts = data.shifts || [];
+      let attendance = data.attendance?.items || [];
+      if (!attendance.length) {
+        try {
+          const attRes = await apiFetch(`/admin/rota/weeks/${weekStart}/attendance`, {
+            sshrPriority: true,
+          });
+          const attData = await attRes.json().catch(() => ({}));
+          if (attRes.ok) attendance = attData.items || attData.attendance || [];
+        } catch {
+          /* soft fail */
+        }
+      }
+      mobileRotaSnapshot = { shifts: weekShifts, attendance };
+    } catch {
+      mobileRotaSnapshot = null;
+    }
+    renderMobileTeamStatus();
+  }
+
+  function startMobilePunchClock() {
+    stopMobilePunchClock();
+    updateMobileClockFace();
+    mobileClockTimer = window.setInterval(updateMobileClockFace, 15000);
+  }
+
+  function stopMobilePunchClock() {
+    if (mobileClockTimer) {
+      window.clearInterval(mobileClockTimer);
+      mobileClockTimer = null;
+    }
+  }
+
+  function renderMobilePunchShell() {
+    const shell = $("punch-mobile-shell");
+    if (!shell) return;
+    if (!isMobilePunchUi()) {
+      shell.hidden = true;
+      stopMobilePunchClock();
+      return;
+    }
+    shell.hidden = false;
+    startMobilePunchClock();
+    updateMobileStatusBadge();
+    renderMobileGeoCard();
+    renderMobileMyPunches();
+    renderMobileTeamStatus();
+    void refreshMobileGeofence();
+  }
+
+  function openMobileAdminPunch() {
+    const section = $("time-punch");
+    section?.classList.add("punch-manage-open");
+    setActiveTab("log");
+    window.requestAnimationFrame(() => {
+      $("punch-admin-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      $("punch-admin-employee")?.focus();
+    });
+  }
+
+  function openMobilePunchManage() {
+    const section = $("time-punch");
+    section?.classList.add("punch-manage-open");
+    setActiveTab("records");
+    window.requestAnimationFrame(() => {
+      document.querySelector("#time-punch .punch-view-tabs")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
 
   function setActiveTab(tab) {
     activeTab = tab;
@@ -1658,7 +2168,7 @@
       const lastToday = todayPunches[0];
       $("punch-stat-today").textContent = String(todayPunches.length);
       $("punch-stat-today-sub").textContent = lastToday
-        ? `Last punch ${formatTimeShort(lastToday.punched_at)}`
+        ? `Last punch ${formatPunchListTime(lastToday.punched_at)}`
         : "No punches yet";
     }
   }
@@ -1843,6 +2353,78 @@
     const enabledInput = form.querySelector('[name="payroll_hours_report_enabled"]');
     if (emailInput) emailInput.value = tenantProfile.payroll_accountant_email || "";
     if (enabledInput) enabledInput.checked = Boolean(tenantProfile.payroll_hours_report_enabled);
+    renderPunchTimeModeSettings();
+  }
+
+  function renderPunchTimeModeSettings() {
+    const form = $("punch-time-mode-form");
+    if (!form || !tenantProfile) return;
+    const sponsor = Boolean(tenantProfile.holds_sponsor_licence);
+    const mode = sponsor ? "timestamped" : tenantProfile.punch_time_mode || "timestamped";
+    form.querySelectorAll('[name="punch_time_mode"]').forEach((input) => {
+      input.checked = input.value === mode;
+      if (input.value === "presence_only") {
+        input.disabled = sponsor;
+      } else {
+        input.disabled = false;
+      }
+    });
+    const hint = $("punch-time-mode-hint");
+    if (hint) {
+      if (sponsor) {
+        hint.hidden = false;
+        hint.textContent =
+          "Presence-only is locked because this organisation holds a sponsor licence. Exact attendance times must stay visible for Home Office monitoring. Times are always stored either way.";
+      } else {
+        hint.hidden = false;
+        hint.textContent =
+          "Times are always recorded for payroll and audit. Presence-only only changes what staff see on day-to-day clock screens.";
+      }
+    }
+  }
+
+  function setPunchTimeModeStatus(text, tone) {
+    const el = $("punch-time-mode-status");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className =
+      tone === "ok" ? "edit-form-status punch-accountant-status--ok" : "edit-form-status muted";
+  }
+
+  async function savePunchTimeModeSettings() {
+    const form = $("punch-time-mode-form");
+    if (!form) return;
+    const btn = $("punch-time-mode-save-btn");
+    const statusEl = $("punch-time-mode-status");
+    const selected = form.querySelector('[name="punch_time_mode"]:checked')?.value || "timestamped";
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    const action = async () => {
+      const res = await apiFetch("/admin/tenant-profile", {
+        method: "PATCH",
+        body: JSON.stringify({ punch_time_mode: selected }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Save failed");
+      mergeTenantProfile(data);
+      renderPunchTimeModeSettings();
+      return "Clock display saved.";
+    };
+    if (run && btn) {
+      await run(btn, statusEl, {
+        loadingLabel: "Saving…",
+        successMessage: "Clock display saved.",
+        successLabel: "Saved",
+        onAction: action,
+      });
+      return;
+    }
+    setPunchTimeModeStatus("Saving…");
+    try {
+      const message = await action();
+      setPunchTimeModeStatus(message, "ok");
+    } catch (error) {
+      setPunchTimeModeStatus(error.message || "Could not save clock display.");
+    }
   }
 
   function setAccountantStatus(text, tone) {
@@ -2573,6 +3155,11 @@
       $("punch-admin-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
       $("punch-admin-employee")?.focus();
     });
+    $("punch-mobile-clock-btn")?.addEventListener("click", () => openMobileAdminPunch());
+    $("punch-mobile-manage-btn")?.addEventListener("click", () => openMobilePunchManage());
+    $("punch-mobile-geo-card")?.addEventListener("click", () => {
+      void refreshMobileGeofence();
+    });
 
     $("punch-add-site-btn")?.addEventListener("click", () => {
       $("punch-manual-form").hidden = false;
@@ -2705,6 +3292,7 @@
       void submitExportDialog(event);
     });
     $("punch-accountant-save-btn")?.addEventListener("click", () => saveAccountantSettings());
+    $("punch-time-mode-save-btn")?.addEventListener("click", () => savePunchTimeModeSettings());
     $("punch-accountant-send-btn")?.addEventListener("click", () => sendAccountantReportNow());
   }
 
@@ -2751,6 +3339,9 @@
     setActiveTab(activeTab);
     updatePunchStats();
     applyTimePunchRoute();
+    if (isMobilePunchUi()) {
+      void softLoadMobileTeamContext();
+    }
     if (!sites.length && hasBusinessAddress()) {
       await maybeAutoSyncPrimarySite();
     }
@@ -2771,12 +3362,17 @@
       } else {
         startPunchAutoRefresh();
         void refreshPunchFeed({ quiet: true });
+        if (isMobilePunchUi()) {
+          renderMobilePunchShell();
+          void softLoadMobileTeamContext();
+        }
         if (applyTimePunchRoute()) return;
         applyRotaPunchPrefill();
       }
       return;
     }
     stopPunchAutoRefresh();
+    stopMobilePunchClock();
   });
 
   window.addEventListener("admin:address-picked", () => {

@@ -3,18 +3,20 @@
  * Requires html.native-tablet (native-ipad-layout.js).
  */
 
+/* Compact tablet default (7–8" Android / small iPad): denser shell */
 html.native-app.native-tablet {
   --iphone-footer: 0px;
-  --iphone-pad: 24px;
-  --iphone-pad-r: 24px;
-  --tablet-sidebar: 272px;
-  --tablet-content-pad-x: 28px;
-  --tablet-content-pad-y: 28px;
-  --tablet-card-pad: 22px 26px;
-  --tablet-section-title: 1.3rem;
-  --tablet-stat-gap: 14px;
+  --iphone-pad: 16px;
+  --iphone-pad-r: 16px;
+  --tablet-sidebar: 220px;
+  --tablet-content-pad-x: 16px;
+  --tablet-content-pad-y: 16px;
+  --tablet-card-pad: 14px 16px;
+  --tablet-section-title: 1.2rem;
+  --tablet-stat-gap: 12px;
 }
 
+/* Spacious large tablets (≥1024 CSS px) */
 html.native-app.native-tablet-large {
   --tablet-sidebar: 300px;
   --tablet-content-pad-x: 48px;
@@ -850,4 +852,38 @@ html.native-app.native-tablet-large .iphone-chooser__btn strong {
   html.native-app.native-tablet-large .iphone-chooser__actions {
     flex: 0 1 480px;
   }
+}
+
+/* —— Compact tablets: stack desktop dual-panes (keep side-by-side for large only) —— */
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .hr-workspace-layout,
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .rtw-workspace-layout,
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .absence-workspace-layout,
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .rota-builder-layout {
+  flex-direction: column !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) #employees .employees-desktop-layout,
+html.native-app.native-tablet:not(.native-tablet-large) #employees.admin-section--active .employees-desktop-layout {
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) #employees .hr-detail-panel,
+html.native-app.native-tablet:not(.native-tablet-large) #employees #employees-side-panel,
+html.native-app.native-tablet:not(.native-tablet-large) .hr-detail-panel,
+html.native-app.native-tablet:not(.native-tablet-large) .rtw-detail-panel,
+html.native-app.native-tablet:not(.native-tablet-large) .absence-detail-panel {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) .sidebar .nav-link {
+  padding: 9px 12px !important;
+  font-size: 0.92rem !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) main.content {
+  padding: max(10px, env(safe-area-inset-top)) var(--tablet-content-pad-x) var(--tablet-content-pad-y) !important;
 }

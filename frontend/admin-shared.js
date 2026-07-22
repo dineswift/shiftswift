@@ -3,7 +3,12 @@ window.Admin = (() => {
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
     if (window.ShiftSwiftBrand?.resolveApiBase) return window.ShiftSwiftBrand.resolveApiBase();
-    if (window.Capacitor?.isNativePlatform?.()) {
+    if (window.Capacitor?.isNativePlatform?.() || window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      try {
+        localStorage.removeItem("apiBaseUrl");
+      } catch {
+        /* ignore */
+      }
       return window.ShiftSwiftBrand?.urls?.api || "https://api.shiftswifthr.co.uk";
     }
     const stored = localStorage.getItem("apiBaseUrl");
@@ -1073,12 +1078,22 @@ window.Admin = (() => {
     const message = String(error?.message || error || "").trim();
     const lastPath = window.__SSHR_LAST_API?.path;
     const pathHint = lastPath ? ` (${lastPath})` : "";
+    if (/^</.test(message) || /<\s*html[\s>]/i.test(message) || /cloudflare/i.test(message)) {
+      if (/400\s*bad\s*request/i.test(message)) {
+        return `API request was rejected${pathHint}. Pull to refresh or sign out and sign in again.`;
+      }
+      return `Could not load data from the API${pathHint}. Tap Retry.`;
+    }
+    if (/API request was rejected|API is temporarily unavailable|Could not load data from the API/i.test(message)) {
+      return message;
+    }
     if (
       message === "Load failed" ||
       message === "Failed to fetch" ||
-      /could not connect|failed to fetch|load failed|network|timed out|internet connection|native http plugin unavailable/i.test(
+      /^(could not connect|failed to fetch|load failed|network error|internet connection|native http plugin unavailable)/i.test(
         message,
-      )
+      ) ||
+      /timed out/i.test(message)
     ) {
       return `Cannot reach the API${pathHint}. Check your connection, tap Retry, or sign out and sign in again.`;
     }

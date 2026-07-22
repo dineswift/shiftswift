@@ -622,11 +622,12 @@ adminHtml = adminHtml.replace(
   /<meta name="viewport"[^>]*>\s*<script>[\s\S]*?native-app-portal-guard\.js\?v=26[\s\S]*?<\/script>\s*<script>[\s\S]*?native-app-bootstrap\.js\?v=6[\s\S]*?<\/script>\s*/,
   '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />\n',
 );
-const adminScriptsMarker = adminHtml.indexOf('<script src="./session-auth.js?v=11"></script>');
-if (adminScriptsMarker === -1) {
+const adminSessionAuthMatch = adminHtml.match(/<script src="\.\/session-auth\.js(?:\?v=\d+)?"><\/script>/);
+if (!adminSessionAuthMatch) {
   console.error("admin.html layout changed — body script block not found");
   process.exit(1);
 }
+const adminScriptsMarker = adminHtml.indexOf(adminSessionAuthMatch[0]);
 adminHtml =
   adminHtml.slice(0, adminScriptsMarker) +
   '    <script src="./admin-portal-boot.js"></script>\n' +

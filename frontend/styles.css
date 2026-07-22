@@ -1030,6 +1030,37 @@ body.employee-gdpr-locked .sidebar {
   box-shadow: none;
 }
 
+/* Keep Enable MFA + Skip as one joint control block */
+.mfa-enrollment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0.85rem;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 61, 50, 0.22);
+  background: #fff;
+}
+
+.mfa-enrollment-actions .portal-login-submit {
+  margin: 0;
+  border-radius: 0;
+  min-height: 48px;
+  box-shadow: none;
+}
+
+.mfa-enrollment-actions .portal-login-submit--secondary {
+  margin-top: 0;
+  border: 0;
+  border-top: 1px solid rgba(15, 61, 50, 0.18);
+  background: #fff;
+}
+
+.mfa-enrollment-actions .portal-login-submit:not(.portal-login-submit--secondary) {
+  border: 0;
+}
+
 .portal-login-submit--secondary:hover,
 .portal-login-submit--secondary:focus-visible {
   background: rgba(15, 110, 86, 0.06);
@@ -1628,7 +1659,7 @@ body.admin-portal.admin-clock-disabled .nav-link--clock-stub {
 }
 
 body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
-  display: flex !important;
+  display: grid !important;
 }
 
 .nav-link--clock-stub .nav-link__setup {
@@ -2284,8 +2315,20 @@ html.pwa-standalone .mobile-tab-bar {
   color: var(--green-900);
 }
 
-.mobile-panel-title--modules {
+.topbar-avatar-btn--mobile {
   display: none;
+}
+
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) .topbar-avatar-btn--mobile {
+    display: inline-flex;
+  }
+}
+
+.mobile-home-summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-500);
 }
 
 .mobile-subscription-card {
@@ -2329,7 +2372,7 @@ html.pwa-standalone .mobile-tab-bar {
 }
 
 .mobile-more-panel {
-  padding: 0 0 24px;
+  padding: 0 0 28px;
 }
 
 .mobile-more-panel[hidden] {
@@ -2337,16 +2380,18 @@ html.pwa-standalone .mobile-tab-bar {
 }
 
 .mobile-more-menu {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .mobile-more-group {
-  margin: 14px 12px 4px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--ink-500);
+  margin: 12px 4px 2px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
 }
 
 .mobile-more-group:first-child {
@@ -2354,11 +2399,14 @@ html.pwa-standalone .mobile-tab-bar {
 }
 
 .mobile-more-link {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 12px;
-  border-radius: var(--radius-md);
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
   text-decoration: none;
   color: inherit;
   font-weight: 600;
@@ -2367,25 +2415,112 @@ html.pwa-standalone .mobile-tab-bar {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   user-select: none;
+  position: relative;
 }
 
 .mobile-more-link:active {
-  background: rgba(15, 107, 74, 0.08);
-  transform: scale(0.99);
+  background: rgba(15, 107, 74, 0.06);
+  transform: scale(0.995);
 }
 
 .mobile-more-link::after {
   content: "›";
-  color: var(--ink-400);
+  color: #9ca3af;
+  font-size: 1.1rem;
+  font-weight: 400;
+  line-height: 1;
+  grid-column: -1;
+}
+
+.mobile-more-link__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f766e;
+  flex: 0 0 auto;
+}
+
+.mobile-more-link__icon .admin-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-more-link__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.mobile-more-link__title {
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: #111827;
+  line-height: 1.25;
+}
+
+.mobile-more-link__sub {
+  font-size: 0.76rem;
+  font-weight: 450;
+  color: #6b7280;
+  line-height: 1.3;
+}
+
+.mobile-more-link__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mobile-more-link__badge--ok {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+}
+
+.mobile-more-link__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .mobile-more-link--signout {
-  margin-top: 12px;
-  color: #a32d2d;
+  margin-top: 10px;
+  border-color: rgba(185, 28, 28, 0.22);
+  background: #fff;
+  color: #b91c1c;
+}
+
+.mobile-more-link--signout .mobile-more-link__icon {
+  background: rgba(185, 28, 28, 0.1);
+  color: #b91c1c;
+}
+
+.mobile-more-link--signout .mobile-more-link__title {
+  color: #b91c1c;
 }
 
 .mobile-more-link--signout::after {
   content: "";
+}
+
+.mobile-more-link__setup {
+  font-weight: 500;
+  color: #6b7280;
 }
 
 .mobile-compliance-dashboard,
@@ -4781,18 +4916,26 @@ html.pwa-standalone .mobile-tab-bar {
   .overview-main {
     display: none;
   }
-  body[data-mobile-tab="modules"] .overview-main,
-  body[data-mobile-tab="home"] .overview-main {
+  body[data-mobile-tab="modules"] .overview-main {
     display: block;
   }
-  body[data-mobile-tab="modules"] .mobile-panel-title--modules,
-  body[data-mobile-tab="home"] .mobile-panel-title--modules {
+  body[data-mobile-tab="modules"] .mobile-panel-title--modules {
     display: block;
   }
   body[data-mobile-tab="modules"] .overview-section-title--desktop {
     display: none !important;
   }
-  body[data-mobile-tab="home"] .overview-main[hidden] {
+  body[data-mobile-tab="home"] .overview-main,
+  body[data-mobile-tab="home"] .overview-main[hidden],
+  body[data-mobile-tab="home"] .mobile-panel-title--modules {
+    display: none !important;
+  }
+  body[data-mobile-tab="modules"] #overview-metrics,
+  body[data-mobile-tab="modules"] #overview-actions-panel,
+  body[data-mobile-tab="modules"] #overview-setup-checklist,
+  body[data-mobile-tab="modules"] #overview-trial-note,
+  body[data-mobile-tab="modules"] #mobile-home-header,
+  body[data-mobile-tab="modules"] #mobile-subscription-card {
     display: none !important;
   }
   .overview-section-title--desktop {
@@ -4873,16 +5016,17 @@ html.pwa-standalone .mobile-tab-bar {
   .rota-mobile-week-nav {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
+    margin-bottom: 10px;
   }
 
   .rota-mobile-week-btn {
-    min-width: 40px;
-    min-height: 40px;
-    padding: 8px 12px;
-    font-size: 1.1rem;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #0f6e56;
   }
 
   .rota-mobile-week-label-btn {
@@ -4890,40 +5034,56 @@ html.pwa-standalone .mobile-tab-bar {
     border: none;
     background: transparent;
     font: inherit;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
     font-weight: 700;
-    color: var(--green-800);
-    padding: 8px 10px;
+    color: #12251f;
+    padding: 8px 6px;
     border-radius: 10px;
     cursor: pointer;
+    flex: 1 1 auto;
+    text-align: center;
   }
 
   .rota-mobile-week-label-btn:active {
     background: var(--gray-100);
   }
 
+  .rota-mobile-today-btn {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: #0f6e56;
+    border-color: rgba(15, 110, 86, 0.35);
+    white-space: nowrap;
+  }
+
+  body[data-mobile-tab="rota"] #rota-stats-grid {
+    display: none !important;
+  }
+
   .rota-mobile-day-strip {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 6px;
-    margin-bottom: 10px;
+    gap: 4px;
+    margin-bottom: 12px;
   }
 
   .rota-mobile-day-pill {
     appearance: none;
-    border: 2px solid var(--card-border);
-    background: var(--white);
+    border: none;
+    background: transparent;
     border-radius: 12px;
-    padding: 8px 4px 10px;
+    padding: 8px 2px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 2px;
     cursor: pointer;
     font: inherit;
-    min-height: 64px;
+    min-height: 58px;
     position: relative;
-    transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     user-select: none;
@@ -4934,116 +5094,330 @@ html.pwa-standalone .mobile-tab-bar {
   }
 
   .rota-mobile-day-pill.is-selected {
-    border-color: var(--green-700);
-    background: rgba(225, 245, 238, 0.55);
-    box-shadow: 0 0 0 1px rgba(15, 110, 86, 0.08);
+    background: #0f6e56;
+    box-shadow: 0 4px 12px rgba(15, 110, 86, 0.28);
   }
 
   .rota-mobile-day-pill__weekday {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
     font-weight: 700;
-    color: var(--gray-500);
-    text-transform: uppercase;
+    color: #8a9691;
     letter-spacing: 0.04em;
   }
 
   .rota-mobile-day-pill.is-selected .rota-mobile-day-pill__weekday {
-    color: var(--green-800);
+    color: rgba(255, 255, 255, 0.85);
   }
 
   .rota-mobile-day-pill__date {
-    font-size: 1rem;
-    font-weight: 800;
-    color: var(--gray-700);
+    font-size: 0.98rem;
+    font-weight: 750;
+    color: #12251f;
     line-height: 1.1;
   }
 
   .rota-mobile-day-pill.is-selected .rota-mobile-day-pill__date {
-    color: var(--green-800);
+    color: #fff;
   }
 
   .rota-mobile-day-pill__dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 999px;
-    background: var(--gray-300);
+    background: transparent;
     margin-top: 2px;
   }
 
   .rota-mobile-day-pill__dot.has-shifts {
-    background: var(--green-700);
+    background: #0f6e56;
+  }
+
+  .rota-mobile-day-pill.is-selected .rota-mobile-day-pill__dot.has-shifts {
+    background: #fff;
   }
 
   .rota-mobile-day-pill.is-selected .rota-mobile-day-pill__dot:not(.has-shifts) {
-    background: var(--gray-400);
+    background: transparent;
   }
 
+  .rota-mobile-day-summary,
   .rota-mobile-day-status {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
     margin: 0 0 14px;
-    padding: 10px 12px;
-    border-radius: 12px;
+  }
+
+  .rota-mobile-day-summary__head {
+    margin-bottom: 10px;
+  }
+
+  .rota-mobile-day-summary__title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: #12251f;
+    letter-spacing: -0.01em;
+  }
+
+  .rota-mobile-day-summary__meta {
+    margin: 2px 0 0;
     font-size: 0.82rem;
-    line-height: 1.4;
   }
 
-  .rota-mobile-day-status--info {
-    background: var(--gray-100);
-    color: var(--gray-600);
+  .rota-mobile-day-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
   }
 
-  .rota-mobile-day-status--ok {
-    background: rgba(225, 245, 238, 0.65);
-    color: var(--green-800);
+  .rota-mobile-day-stat {
+    display: grid;
+    gap: 1px;
+    padding: 8px 6px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 110, 86, 0.12);
+    background: #fff;
+    text-align: center;
   }
 
-  .rota-mobile-day-status__icon {
-    flex-shrink: 0;
+  .rota-mobile-day-stat strong {
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: #12251f;
+    line-height: 1.1;
   }
 
+  .rota-mobile-day-stat__ok {
+    color: #0f6e56 !important;
+  }
+
+  .rota-mobile-day-stat span {
+    font-size: 0.62rem;
+    color: #6b7a74;
+    font-weight: 600;
+  }
+
+  .rota-mobile-day-board,
   .rota-mobile-staff-list {
     display: grid;
-    gap: 10px;
+    gap: 14px;
   }
 
-  .rota-mobile-staff-card {
-    background: var(--white);
-    border: 1px solid var(--card-border);
-    border-radius: 16px;
-    padding: 14px;
-    box-shadow: var(--shadow-card);
+  .rota-mobile-section__title {
+    margin: 0 0 8px 2px;
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7a74;
+  }
+
+  .rota-mobile-section__list {
     display: grid;
+    gap: 8px;
+  }
+
+  .rota-mobile-empty-line {
+    margin: 0;
+    padding: 8px 2px 2px;
+    font-size: 0.88rem;
+  }
+
+  .rota-mobile-shift-card {
+    position: relative;
+    border-radius: 14px;
+    border: 1px solid rgba(18, 37, 31, 0.1);
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(18, 37, 31, 0.04);
+  }
+
+  .rota-mobile-shift-card__main {
+    appearance: none;
+    width: 100%;
+    border: none;
+    background: transparent;
+    display: grid;
+    grid-template-columns: 4px 40px minmax(0, 1fr);
     gap: 10px;
-  }
-
-  .rota-mobile-staff-card__head {
-    display: flex;
     align-items: center;
-    gap: 12px;
+    padding: 12px 40px 12px 0;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
   }
 
-  .rota-mobile-staff-card__meta {
+  .rota-mobile-shift-card__bar {
+    align-self: stretch;
+    width: 4px;
+    border-radius: 0 3px 3px 0;
+    background: #0f6e56;
+  }
+
+  .rota-mobile-shift-card--leave .rota-mobile-shift-card__bar,
+  .rota-mobile-shift-card--off .rota-mobile-shift-card__bar {
+    background: #c27803;
+  }
+
+  .rota-mobile-shift-card--evening .rota-mobile-shift-card__bar {
+    background: #185fa5;
+  }
+
+  .rota-mobile-shift-card--kitchen .rota-mobile-shift-card__bar {
+    background: #993556;
+  }
+
+  .rota-mobile-shift-card__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .rota-mobile-shift-card__body {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .rota-mobile-shift-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .rota-mobile-shift-card__identity {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .rota-mobile-shift-card__name {
+    font-size: 0.92rem;
+    color: #12251f;
+  }
+
+  .rota-mobile-shift-card__role {
+    font-size: 0.76rem;
+    color: #6b7a74;
+  }
+
+  .rota-mobile-shift-card__time {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #e1f5ee;
+    color: #0f6e56;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .rota-mobile-shift-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    font-size: 0.72rem;
+    color: #6b7a74;
+  }
+
+  .rota-mobile-shift-card__delete {
+    appearance: none;
+    position: absolute;
+    top: 8px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #8a9691;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .rota-mobile-leave-card {
+    border-radius: 14px;
+    border: 1px solid #fac775;
+    background: #fff8eb;
+    overflow: hidden;
+  }
+
+  .rota-mobile-leave-card__main {
+    appearance: none;
+    width: 100%;
+    border: none;
+    background: transparent;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  .rota-mobile-leave-card__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: #faeeda;
+    color: #854f0b;
+  }
+
+  .rota-mobile-leave-card__icon .admin-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .rota-mobile-leave-card__copy {
     display: grid;
     gap: 2px;
     min-width: 0;
   }
 
-  .rota-mobile-staff-card__name {
-    font-size: 0.98rem;
-    color: var(--green-900);
+  .rota-mobile-leave-card__copy strong {
+    color: #12251f;
+    font-size: 0.92rem;
   }
 
-  .rota-mobile-staff-card__role {
-    font-size: 0.8rem;
-    color: var(--gray-500);
+  .rota-mobile-leave-card__copy span {
+    color: #854f0b;
+    font-size: 0.78rem;
+    font-weight: 600;
   }
 
-  .rota-mobile-staff-card__shifts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  .rota-mobile-leave-card__badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #faeeda;
+    color: #854f0b;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .rota-mobile-add-shift {
+    width: 100%;
+    min-height: 46px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(18, 37, 31, 0.18);
+    font-weight: 700;
+    color: #12251f;
+    background: #fff;
+  }
+
+  .rota-mobile-staff-card {
+    display: none;
   }
 
   .rota-mobile-shift-chip-wrap {
@@ -7324,13 +7698,20 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .overview-module-card--empty .overview-module-card__value {
-  color: var(--gray-400);
-  font-weight: 700;
+  color: var(--ink-300, #c4cbc8);
+  font-weight: 500;
 }
 
 .overview-module-card--empty .overview-module-card__sub {
   color: var(--green-800);
   font-weight: 600;
+}
+
+.overview-module-card__value--label {
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--green-800, #0d5c48);
 }
 
 .overview-module-card__icon {
@@ -15196,6 +15577,10 @@ body.rota-week-readonly .rota-builder-hint {
   font-size: 0.84rem;
 }
 
+.leave-employee-filter-banner[hidden] {
+  display: none !important;
+}
+
 .leave-employee-picker {
   position: fixed;
   inset: 0;
@@ -15845,6 +16230,22 @@ body.rota-week-readonly .rota-builder-hint {
 
 .punch-tab-intro {
   margin: 0 0 10px;
+}
+
+.punch-time-mode-option {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0.55rem 0;
+}
+
+.punch-time-mode-option input {
+  margin-top: 0.2rem;
+}
+
+.punch-time-mode-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
 }
 
 .punch-table-head {
