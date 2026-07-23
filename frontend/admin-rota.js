@@ -11,6 +11,8 @@
   let shifts = [];
   let attendanceByShiftId = new Map();
   let attendanceSummary = null;
+  let attendanceItemsCache = [];
+  let pendingShiftRequests = [];
   let pendingRequestCount = 0;
   let employees = [];
   let dirty = false;
@@ -372,6 +374,8 @@
     if (!staff.length) {
       list.innerHTML =
         '<div class="rota-mobile-empty"><p class="muted">No active employees yet.</p><a class="btn" href="#employees">Add employees</a></div>';
+      renderMobileShiftRequests();
+      renderMobileAttendanceFlags();
       return;
     }
 
@@ -428,6 +432,8 @@
         deleteShift(index);
       });
     });
+    renderMobileShiftRequests();
+    renderMobileAttendanceFlags();
   }
 
   function syncMobileNotifyChip() {
@@ -1523,17 +1529,20 @@
   }
 
   function renderAttendanceTable(items) {
+    attendanceItemsCache = items || [];
     const panel = document.getElementById("rota-attendance-panel");
     const tbody = document.getElementById("rota-attendance-body");
     const sub = document.getElementById("rota-attendance-sub");
     if (!panel || !tbody) return;
     if (!items?.length || weekMeta?.status !== "published") {
       panel.hidden = true;
+      renderMobileAttendanceFlags();
       return;
     }
     const flagged = items.filter((row) => row.attendance_status !== "scheduled");
     if (!flagged.length) {
       panel.hidden = true;
+      renderMobileAttendanceFlags();
       return;
     }
     panel.hidden = false;
@@ -1596,6 +1605,7 @@
         );
       });
     });
+    renderMobileAttendanceFlags();
   }
 
   function renderShiftCards() {
@@ -2013,6 +2023,98 @@
     context.textContent = `${employeeName(empId)} · ${new Date(`${dateIso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}`;
   }
 
+  function renderMobileShiftRequests() {
+    const host = document.getElementById("rota-mobile-requests");
+    const section = document.getElementById("rota-mobile-requests-section");
+    if (!host) return;
+    if (!shouldUseMobileRotaBuilder()) {
+      if (section) section.hidden = true;
+      return;
+    }
+    if (section) section.hidden = false;
+    if (!pendingShiftRequests.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No pending cover or swap requests.</p>`;
+      return;
+    }
+    host.innerHTML = pendingShiftRequests
+      .map(
+        (row) => `<article class="leave-mobile-request-card docs-mobile-card">
+          <div class="leave-mobile-request-card__head">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.requester_name)}</strong>
+              <span>${escapeHtml(row.shift_date || "")} · ${escapeHtml(row.start_time || "")}–${escapeHtml(row.end_time || "")}</span>
+            </div>
+            ${requestTypePill(row.request_type)}
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>${escapeHtml(row.note || "No note")}</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--decline" data-reject-request="${row.id}">Reject</button>
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-approve-request="${row.id}">Approve</button>
+          </div>
+        </article>`
+      )
+      .join("");
+
+    host.querySelectorAll("[data-approve-request]").forEach((btn) => {
+      btn.addEventListener("click", () => reviewRequest(Number(btn.getAttribute("data-approve-request")), true));
+    });
+    host.querySelectorAll("[data-reject-request]").forEach((btn) => {
+      btn.addEventListener("click", () => reviewRequest(Number(btn.getAttribute("data-reject-request")), false));
+    });
+  }
+
+  function renderMobileAttendanceFlags() {
+    const host = document.getElementById("rota-mobile-attendance-flags");
+    const section = document.getElementById("rota-mobile-attendance-section");
+    if (!host) return;
+    if (!shouldUseMobileRotaBuilder()) {
+      if (section) section.hidden = true;
+      return;
+    }
+    const flagged = (attendanceItemsCache || []).filter((row) => row.attendance_status !== "scheduled");
+    if (!flagged.length || weekMeta?.status !== "published") {
+      if (section) section.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    if (section) section.hidden = false;
+    const summary = attendanceSummary || {};
+    const summaryBits = [
+      Number(summary.late || 0) ? `${summary.late} late` : "",
+      Number(summary.no_show || 0) ? `${summary.no_show} no show` : "",
+      Number(summary.missing_clock_out || 0) ? `${summary.missing_clock_out} no clock-out` : "",
+    ].filter(Boolean);
+    const summaryLine = summaryBits.length ? `<p class="rota-mobile-attendance-summary muted">${escapeHtml(summaryBits.join(" · "))} this week</p>` : "";
+
+    host.innerHTML = `${summaryLine}${flagged
+      .slice(0, 8)
+      .map((row) => {
+        const dayLabel = new Date(`${row.shift_date}T12:00:00`).toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+        });
+        return `<button type="button" class="leave-mobile-recent-row rota-mobile-attendance-row" data-rota-punch-employee="${row.employee_id || ""}" data-rota-punch-date="${escapeHtml(row.shift_date)}">
+          <div class="leave-mobile-recent-row__main">
+            <strong>${escapeHtml(row.employee_name || "Employee")}</strong>
+            <span>${escapeHtml(dayLabel)} · ${escapeHtml(row.start_time)}–${escapeHtml(row.end_time)}</span>
+          </div>
+          <div class="leave-mobile-recent-row__side">${attendanceStatusPill(row)}</div>
+        </button>`;
+      })
+      .join("")}${flagged.length > 8 ? `<p class="leave-mobile-empty muted">${escapeHtml(String(flagged.length - 8))} more on desktop attendance panel.</p>` : ""}`;
+
+    host.querySelectorAll(".rota-mobile-attendance-row").forEach((btn) => {
+      btn.addEventListener("click", () =>
+        openPunchRecordsForShift(
+          Number(btn.getAttribute("data-rota-punch-employee")) || null,
+          btn.getAttribute("data-rota-punch-date")
+        )
+      );
+    });
+  }
+
   function requestTypePill(type) {
     const raw = String(type || "").trim().toLowerCase();
     const label = raw === "cover" ? "Cover" : raw === "swap" ? "Swap" : type ? String(type) : "—";
@@ -2034,8 +2136,10 @@
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(await readApiError(res, "Could not load shift requests"));
       const rows = data.items || [];
+      pendingShiftRequests = rows;
       pendingRequestCount = rows.length;
       renderRotaStats();
+      renderMobileShiftRequests();
       if (sub) {
         sub.textContent = rows.length
           ? `${rows.length} pending request${rows.length === 1 ? "" : "s"}`
@@ -2048,6 +2152,7 @@
           message: "When staff request cover or a swap in the employee app, they appear here for approval.",
           compact: true,
         })}</td></tr>`;
+        renderMobileShiftRequests();
         return;
       }
       renderTableBody(tbody, {
@@ -2077,7 +2182,9 @@
       });
     } catch {
       pendingRequestCount = 0;
+      pendingShiftRequests = [];
       renderRotaStats();
+      renderMobileShiftRequests();
       if (sub) sub.textContent = "Could not load requests";
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],

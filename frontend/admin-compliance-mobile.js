@@ -119,7 +119,11 @@
     const rtw = overviewData?.modules?.rtw || {};
     const absence = overviewData?.modules?.absence || {};
     const day9 = Number(absence.day9_alerts) || 0;
-    const govLink = document.getElementById("rtw-checklist-link")?.href || "#";
+    const rawGov = document.getElementById("rtw-checklist-link")?.getAttribute("href") || "";
+    const safeGovHref =
+      rawGov && rawGov !== "#" && !/#$/.test(rawGov)
+        ? rawGov
+        : "https://www.gov.uk/government/publications/right-to-work-checks-employers-guide";
 
     host.innerHTML = `
       <header class="compliance-mobile-header">
@@ -127,7 +131,7 @@
         <p class="compliance-mobile-lead muted">
           Recording tools and alerts for UK sponsor duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.
         </p>
-        <a class="btn secondary btn-sm compliance-mobile-gov-link" href="${escapeHtml(govLink)}" target="_blank" rel="noopener">GOV.UK guidance →</a>
+        <a class="btn secondary btn-sm compliance-mobile-gov-link" href="${escapeHtml(safeGovHref)}" target="_blank" rel="noopener">GOV.UK guidance →</a>
       </header>
 
       ${

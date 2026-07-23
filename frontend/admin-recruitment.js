@@ -181,6 +181,8 @@
     $("recruitment-list-view")?.removeAttribute("hidden");
     $("recruitment-detail-view")?.setAttribute("hidden", "");
     activeVacancyId = null;
+    $("recruitment")?.classList.remove("recruitment-mobile-form-open");
+    renderMobileRecruitmentShell();
     if (!window.location.hash.replace("#", "").startsWith("recruitment/")) {
       window.location.hash = "recruitment";
     }
@@ -189,6 +191,7 @@
   function showDetailView() {
     $("recruitment-list-view")?.setAttribute("hidden", "");
     $("recruitment-detail-view")?.removeAttribute("hidden");
+    renderMobileRecruitmentShell();
   }
 
   function sectionLabel(key) {
@@ -239,6 +242,100 @@
       return `<span class="recruitment-badge recruitment-badge--sponsored">Sponsored</span>`;
     }
     return `<span class="recruitment-badge">Standard</span>`;
+  }
+
+  function isMobileRecruitmentUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function renderMobileRecruitmentShell() {
+    const shell = $("recruitment-mobile-shell");
+    if (!shell) return;
+    const section = $("recruitment");
+    const detailOpen = !$("recruitment-detail-view")?.hidden;
+    const formOpen = section?.classList.contains("recruitment-mobile-form-open");
+    if (!isMobileRecruitmentUi() || detailOpen || formOpen) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = false;
+    renderMobileRecruitmentCards();
+  }
+
+  function renderMobileRecruitmentCards() {
+    const host = $("recruitment-mobile-cards");
+    const heading = $("recruitment-mobile-vacancies-heading");
+    if (!host) return;
+
+    const rows = filteredVacancies();
+    const label = statusFilter === "open" ? "Open roles" : "Closed roles";
+    if (heading) heading.textContent = `${label} (${rows.length})`;
+
+    if (!rows.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">${
+        statusFilter === "open"
+          ? "No open roles yet. Tap + New vacancy to start hiring."
+          : "No closed or filled roles yet."
+      }</p>`;
+      return;
+    }
+
+    host.innerHTML = rows
+      .map((row) => {
+        const step = row.current_step || 1;
+        return `<article class="leave-mobile-request-card admin-mobile-case-card__tap" data-vacancy-id="${row.id}" role="button" tabindex="0">
+          <div class="leave-mobile-request-card__head">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.job_title)}</strong>
+              <span>${escapeHtml(row.reference || "")} · ${escapeHtml(departmentLabel(row.department))}</span>
+            </div>
+            <span class="leave-mobile-badge leave-mobile-badge--pending">Step ${escapeHtml(String(step))}</span>
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>${escapeHtml(row.location || "Not set")}</span>
+            <span>${escapeHtml(String(row.candidate_count || 0))} candidates</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-recruitment-open="${row.id}">Open →</button>
+          </div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-vacancy-id]").forEach((card) => {
+      const open = () => {
+        void selectVacancy(Number(card.dataset.vacancyId));
+        void openVacancy(Number(card.dataset.vacancyId));
+      };
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("[data-recruitment-open]")) return;
+        open();
+      });
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+    host.querySelectorAll("[data-recruitment-open]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const id = Number(btn.dataset.recruitmentOpen);
+        void selectVacancy(id);
+        void openVacancy(id);
+      });
+    });
+  }
+
+  function openMobileNewVacancy() {
+    $("recruitment")?.classList.add("recruitment-mobile-form-open");
+    toggleCreatePanel(true);
+    renderMobileRecruitmentShell();
+    window.requestAnimationFrame(() => {
+      $("recruitment-create-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function renderPipelineCards() {
@@ -293,6 +390,7 @@
         openVacancy(Number(btn.dataset.openVacancy));
       });
     });
+    renderMobileRecruitmentShell();
   }
 
   async function renderSidePanel(vacancyId) {
@@ -968,9 +1066,11 @@
       renderGlobalStepper();
       renderPipelineCards();
       renderListTable();
+      renderMobileRecruitmentShell();
     } catch {
       vacancies = [];
       $("recruitment-pipeline-cards").innerHTML = `<p class="muted">Could not load vacancies.</p>`;
+      renderMobileRecruitmentShell();
     }
   }
 
@@ -1061,6 +1161,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Create failed");
         toggleCreatePanel(false);
+        $("recruitment")?.classList.remove("recruitment-mobile-form-open");
         await refreshVacancies();
         await selectVacancy(data.id);
         await openVacancy(data.id, "job_description");
@@ -1098,6 +1199,13 @@
       $("recruitment-closed-tab-btn").classList.toggle("is-active", statusFilter === "closed");
       refreshVacancies().then(() => renderSidePanel(selectedVacancyId));
     });
+
+    $("recruitment-mobile-new-btn")?.addEventListener("click", () => openMobileNewVacancy());
+
+    window.addEventListener("resize", () => {
+      if (!sectionLoaded) return;
+      renderMobileRecruitmentShell();
+    });
   }
 
   async function initRecruitment() {
@@ -1118,6 +1226,7 @@
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section !== "recruitment") return;
     initRecruitment();
+    renderMobileRecruitmentShell();
     const match = window.location.hash.replace("#", "").match(/^recruitment\/(\d+)(?:\/([\w_]+))?$/);
     if (match) openVacancy(Number(match[1]), match[2] || null);
     else showListView();

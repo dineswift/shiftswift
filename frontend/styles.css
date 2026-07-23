@@ -1819,6 +1819,12 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   color: var(--green-800);
 }
 
+.admin-icon__fill {
+  fill: currentColor;
+  opacity: 0.16;
+  stroke: none;
+}
+
 .topbar-brand {
   display: flex;
   align-items: center;
@@ -2204,14 +2210,25 @@ html.pwa-standalone .mobile-tab-bar {
 }
 
 .mobile-tab__icon {
-  display: block;
+  display: grid;
+  place-items: center;
   line-height: 1;
   opacity: 0.85;
+  width: 22px;
+  height: 22px;
+  color: inherit;
 }
 
+.mobile-tab__icon .admin-icon,
+.mobile-tab__icon .mobile-tab__svg,
 .mobile-tab__icon.admin-icon {
   width: 22px;
   height: 22px;
+}
+
+.mobile-tab--active .mobile-tab__icon {
+  opacity: 1;
+  color: var(--green-800);
 }
 
 .mobile-tab__icon-wrap {
@@ -2435,10 +2452,10 @@ html.pwa-standalone .mobile-tab-bar {
 .mobile-more-link__icon {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(15, 118, 110, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.12);
   color: #0f766e;
   flex: 0 0 auto;
 }
@@ -2446,6 +2463,76 @@ html.pwa-standalone .mobile-tab-bar {
 .mobile-more-link__icon .admin-icon {
   width: 18px;
   height: 18px;
+}
+
+.mobile-more-link__icon[data-icon-tone="users"],
+.mobile-more-link__icon[data-icon-tone="user"],
+.mobile-more-link__icon[data-icon-tone="user-plus"] {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.mobile-more-link__icon[data-icon-tone="user-minus"],
+.mobile-more-link__icon[data-icon-tone="door"] {
+  background: rgba(185, 28, 28, 0.1);
+  color: #b91c1c;
+}
+
+.mobile-more-link__icon[data-icon-tone="beach"],
+.mobile-more-link__icon[data-icon-tone="calendar"],
+.mobile-more-link__icon[data-icon-tone="calendar-off"] {
+  background: rgba(8, 145, 178, 0.12);
+  color: #0e7490;
+}
+
+.mobile-more-link__icon[data-icon-tone="clock"] {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+
+.mobile-more-link__icon[data-icon-tone="scale"],
+.mobile-more-link__icon[data-icon-tone="alert"],
+.mobile-more-link__icon[data-icon-tone="shield"] {
+  background: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
+}
+
+.mobile-more-link__icon[data-icon-tone="file-text"],
+.mobile-more-link__icon[data-icon-tone="file"],
+.mobile-more-link__icon[data-icon-tone="clipboard"],
+.mobile-more-link__icon[data-icon-tone="document"],
+.mobile-more-link__icon[data-icon-tone="file-certificate"] {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+}
+
+.mobile-more-link__icon[data-icon-tone="sparkles"],
+.mobile-more-link__icon[data-icon-tone="star"] {
+  background: rgba(219, 39, 119, 0.1);
+  color: #be185d;
+}
+
+.mobile-more-link__icon[data-icon-tone="download"],
+.mobile-more-link__icon[data-icon-tone="folder"] {
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+}
+
+.mobile-more-link__icon[data-icon-tone="card"],
+.mobile-more-link__icon[data-icon-tone="briefcase"] {
+  background: rgba(79, 70, 229, 0.12);
+  color: #4338ca;
+}
+
+.mobile-more-link__icon[data-icon-tone="settings"],
+.mobile-more-link__icon[data-icon-tone="mail"] {
+  background: rgba(71, 85, 105, 0.12);
+  color: #475569;
+}
+
+.mobile-more-link__icon[data-icon-tone="trending-up"] {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0369a1;
 }
 
 .mobile-more-link__copy {
@@ -7715,13 +7802,65 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 
 .overview-module-card__icon {
-  display: inline-flex;
-  color: var(--green-700);
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
 }
 
 .overview-module-card__icon .admin-icon {
   width: 15px;
   height: 15px;
+}
+
+.overview-module-card__icon[data-icon-tone="users"],
+.overview-module-card__icon[data-icon-tone="user-plus"] {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.overview-module-card__icon[data-icon-tone="user-minus"] {
+  background: rgba(185, 28, 28, 0.1);
+  color: #b91c1c;
+}
+
+.overview-module-card__icon[data-icon-tone="beach"],
+.overview-module-card__icon[data-icon-tone="calendar"] {
+  background: rgba(8, 145, 178, 0.12);
+  color: #0e7490;
+}
+
+.overview-module-card__icon[data-icon-tone="clock"] {
+  background: rgba(217, 119, 6, 0.14);
+  color: #b45309;
+}
+
+.overview-module-card__icon[data-icon-tone="scale"],
+.overview-module-card__icon[data-icon-tone="clipboard"],
+.overview-module-card__icon[data-icon-tone="shield"] {
+  background: rgba(124, 58, 237, 0.12);
+  color: #6d28d9;
+}
+
+.overview-module-card__icon[data-icon-tone="file-text"],
+.overview-module-card__icon[data-icon-tone="file-certificate"],
+.overview-module-card__icon[data-icon-tone="folder"] {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0f766e;
+}
+
+.overview-module-card__icon[data-icon-tone="sparkles"] {
+  background: rgba(219, 39, 119, 0.1);
+  color: #be185d;
+}
+
+.overview-module-card__icon[data-icon-tone="passport"],
+.overview-module-card__icon[data-icon-tone="medical"] {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0369a1;
 }
 
 .overview-module-card__title {

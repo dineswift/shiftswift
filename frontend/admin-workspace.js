@@ -180,7 +180,7 @@
     return `
       <a class="overview-module-card${toneClass}${emptyClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
         <span class="overview-module-card__head">
-          <span class="overview-module-card__icon" aria-hidden="true">${iconSvg}</span>
+          <span class="overview-module-card__icon" data-icon-tone="${escapeHtml(icon || "")}" aria-hidden="true">${iconSvg}</span>
           <span class="overview-module-card__head-meta">
             ${lockBadge}
             <span class="overview-module-card__chevron" aria-hidden="true">${window.AdminIcons?.svg?.("chevron") || "›"}</span>
@@ -220,6 +220,8 @@
 
   function updateTopbarMeta(data) {
     const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
+    localStorage.setItem("businessName", businessName);
+    document.title = `${businessName} | Admin Console`;
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
     const avatars = document.querySelectorAll(".topbar-user-menu__avatar, #topbar-mobile-avatar-initials");
@@ -540,6 +542,7 @@
         const disciplinary = m.disciplinary || {};
         const offboarding = m.offboarding || {};
         const contracts = m.contracts || {};
+        const employmentContracts = m.employment_contracts || {};
         const docs = m.documents || {};
         const leave = m.leave || {};
         const qualifications = m.qualifications || {};
@@ -666,11 +669,11 @@
           moduleCard({
             icon: "file-text",
             title: "Employment templates",
-            value: String(contracts.pending_signature ?? 0),
-            sub: contracts.pending_signature ? "Awaiting signature" : "Send an offer letter →",
+            value: String(employmentContracts.pending_signature ?? 0),
+            sub: employmentContracts.pending_signature ? "Awaiting signature" : "Send an offer letter →",
             href: "#employment-contracts",
-            empty: !(contracts.pending_signature ?? 0),
-            tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
+            empty: !(employmentContracts.pending_signature ?? 0),
+            tone: (employmentContracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
             icon: "user-minus",
@@ -681,7 +684,7 @@
             empty: !(offboarding.in_progress ?? 0),
           }),
           moduleCard({
-            icon: "calendar-off",
+            icon: "beach",
             title: "Leave",
             value: String(leave.pending_requests ?? 0),
             sub: leave.pending_requests ? "Awaiting HR approval" : "No pending requests",
@@ -789,6 +792,7 @@
       if (feature && window.Admin?.featureUpgradeMessage) {
         window.Admin.showAdminToast?.(window.Admin.featureUpgradeMessage(feature));
       }
+      window.location.hash = "settings/billing";
     });
   }
 

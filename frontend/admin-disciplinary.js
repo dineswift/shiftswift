@@ -42,6 +42,91 @@
     return `<span class="grievance-status-pill ${cls}">${escapeHtml(text)}</span>`;
   }
 
+  function isMobileDisciplinaryUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function syncDisciplinaryMobileDetailLayout() {
+    const section = $("disciplinary");
+    if (!section) return;
+    const showDetail = isMobileDisciplinaryUi() && Boolean(selectedCaseId);
+    section.classList.toggle("disciplinary-mobile-detail-open", showDetail);
+    renderMobileDisciplinaryShell();
+  }
+
+  function renderMobileDisciplinaryShell() {
+    const shell = $("disciplinary-mobile-shell");
+    if (!shell) return;
+    const detailOpen = $("disciplinary")?.classList.contains("disciplinary-mobile-detail-open");
+    if (!isMobileDisciplinaryUi() || detailOpen) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = false;
+    renderMobileDisciplinaryCards();
+  }
+
+  function renderMobileDisciplinaryCards() {
+    const host = $("disciplinary-mobile-cards");
+    const heading = $("disciplinary-mobile-cases-heading");
+    if (!host) return;
+
+    const openCases = cases.filter((row) => row.status !== "closed");
+    if (heading) heading.textContent = `Open cases (${openCases.length})`;
+
+    if (!openCases.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No open disciplinary cases.</p>`;
+      return;
+    }
+
+    host.innerHTML = openCases
+      .map((row) => {
+        const canClose = row.status !== "closed";
+        return `<article class="leave-mobile-request-card" data-disciplinary-id="${row.id}">
+          <div class="leave-mobile-request-card__head admin-mobile-case-card__tap" data-disciplinary-open="${row.id}" role="button" tabindex="0">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.case_reference)}</strong>
+              <span>${escapeHtml(row.employee_name || row.employee_id)} · ${escapeHtml(misconductLabel(row))}</span>
+            </div>
+            ${statusBadge(row.status, row.status_label)}
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>${severityBadge(row.severity)}</span>
+            <span>${escapeHtml((row.date_reported || "").slice(0, 10) || "—")}</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-disciplinary-open-btn="${row.id}">Open</button>
+            ${canClose ? `<button type="button" class="leave-mobile-action leave-mobile-action--decline" data-disciplinary-close="${row.id}">Close case</button>` : ""}
+          </div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-disciplinary-open]").forEach((el) => {
+      const open = () => void selectCase(Number(el.dataset.disciplinaryOpen));
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+    host.querySelectorAll("[data-disciplinary-open-btn]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void selectCase(Number(btn.dataset.disciplinaryOpenBtn));
+      });
+    });
+    host.querySelectorAll("[data-disciplinary-close]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void closeCase(Number(btn.dataset.disciplinaryClose));
+      });
+    });
+  }
+
   function renderStatusWorkflow(caseData) {
     const host = $("disciplinary-status-workflow");
     if (!host) return;
@@ -158,6 +243,7 @@
     tbody.querySelectorAll(".grievance-case-row").forEach((row) => {
       row.addEventListener("click", () => selectCase(Number(row.dataset.rowId)));
     });
+    renderMobileDisciplinaryShell();
   }
 
   async function loadCases() {
@@ -170,11 +256,13 @@
       renderStats();
       updateRegisterSub();
       updateNextReferencePreview();
+      renderMobileDisciplinaryShell();
     } catch {
       cases = [];
       renderCasesTable();
       renderStats();
       updateRegisterSub();
+      renderMobileDisciplinaryShell();
     }
   }
 
@@ -284,6 +372,7 @@
   async function selectCase(caseId) {
     selectedCaseId = caseId;
     renderCasesTable();
+    syncDisciplinaryMobileDetailLayout();
     const content = $("disciplinary-case-detail-content");
     const empty = $("disciplinary-case-detail-empty");
     if (empty) empty.setAttribute("hidden", "");
@@ -471,6 +560,12 @@
     await loadInvestigators();
     mountCaseForm();
     await loadCases();
+    renderMobileDisciplinaryShell();
+
+    window.addEventListener("resize", () => {
+      if (!sectionReady) return;
+      syncDisciplinaryMobileDetailLayout();
+    });
   }
 
   $("disciplinary-export-btn")?.addEventListener("click", async () => {

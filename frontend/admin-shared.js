@@ -49,7 +49,9 @@ window.Admin = (() => {
 
   const TENANT_ID = resolveWorkspaceTenantId();
   const API_BASE = getApiBase();
-  const businessName = localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
+  function currentBusinessName() {
+    return localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
+  }
 
   async function resolveTenantId() {
     await window.ShiftSwiftSession?.hydrateNativeSession?.();
@@ -88,6 +90,7 @@ window.Admin = (() => {
     }
     if (user.employer_name) {
       localStorage.setItem("businessName", user.employer_name);
+      document.title = `${user.employer_name} | Admin Console`;
     }
     if (user.role) localStorage.setItem("userRole", user.role);
   }
@@ -1427,6 +1430,7 @@ window.Admin = (() => {
         if (link.getAttribute("aria-disabled") === "true") {
           const feature = link.dataset.feature;
           if (feature) showAdminToast(featureUpgradeMessage(feature));
+          window.location.hash = "settings/billing";
           return;
         }
         const href = link.getAttribute("href") || "";
@@ -1679,7 +1683,7 @@ window.Admin = (() => {
     },
   };
 
-  document.title = `${businessName} | Admin Console`;
+  document.title = `${currentBusinessName()} | Admin Console`;
 
   function formatDocumentNotificationSummary(notifications, { uploadedLabel = "Uploaded" } = {}) {
     if (!notifications) return `${uploadedLabel}.`;
@@ -1716,7 +1720,9 @@ window.Admin = (() => {
       return window.ShiftSwiftSession?.getToken?.() || localStorage.getItem("token") || "";
     },
     TENANT_ID,
-    businessName,
+    get businessName() {
+      return currentBusinessName();
+    },
     get formOptions() {
       return formOptions;
     },

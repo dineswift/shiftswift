@@ -18,6 +18,15 @@
     return window.matchMedia("(max-width: 860px)").matches;
   }
 
+  function isNativeShell() {
+    return Boolean(
+      window.Capacitor?.isNativePlatform?.() ||
+        window.__SSHR_BUNDLED_NATIVE_BOOT ||
+        window.__SSHR_PORTAL_GUARD ||
+        document.documentElement.classList.contains("native-app"),
+    );
+  }
+
   function isDetailSection(sectionId) {
     return Boolean(sectionId && !DETAIL_EXEMPT.has(sectionId));
   }
@@ -321,9 +330,21 @@
   function enhanceMoreMenuIcons() {
     document.querySelectorAll("#mobile-more-panel .mobile-more-link[data-more-icon]").forEach((link) => {
       const iconHost = link.querySelector(".mobile-more-link__icon");
-      if (!iconHost || iconHost.childElementCount) return;
+      if (!iconHost) return;
       const name = link.getAttribute("data-more-icon");
+      if (name) iconHost.setAttribute("data-icon-tone", name);
+      if (iconHost.childElementCount) return;
       const markup = window.AdminIcons?.svg?.(name);
+      if (markup) iconHost.innerHTML = markup;
+    });
+  }
+
+  function enhanceTabBarIcons() {
+    document.querySelectorAll("#mobile-tab-bar .mobile-tab[data-tab-icon]").forEach((tab) => {
+      const iconHost = tab.querySelector(".mobile-tab__icon");
+      if (!iconHost || iconHost.childElementCount) return;
+      const name = tab.getAttribute("data-tab-icon");
+      const markup = window.AdminIcons?.svg?.(name, "mobile-tab__svg");
       if (markup) iconHost.innerHTML = markup;
     });
   }
@@ -455,13 +476,16 @@
 
     const profileLink = byStat("profile-changes");
     if (profileLink) {
-      const pending = Number(profileChanges.pending ?? 0);
+      const pending = Number(
+        profileChanges.pending_requests ?? profileChanges.pending ?? 0,
+      );
       setMoreSub(
         profileLink,
         pending > 0
           ? `${pending} pending update${pending === 1 ? "" : "s"}`
           : "Emergency contacts and details",
       );
+      setMoreCount(profileLink, pending);
     }
 
     const subscriptionLink = byStat("subscription");
@@ -482,6 +506,7 @@
   }
 
   function enhanceMoreMenu() {
+    enhanceTabBarIcons();
     enhanceMoreMenuIcons();
     refreshMoreMenuStats();
   }

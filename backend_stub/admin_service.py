@@ -1241,7 +1241,16 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             """,
             (tenant_id,),
         )
-        contracts_pending = int(cur.fetchone()[0])
+        employment_contracts_pending = int(cur.fetchone()[0])
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM tenant_contracts
+            WHERE tenant_id = %s AND status IN ('sent', 'generated')
+            """,
+            (tenant_id,),
+        )
+        service_agreements_pending = int(cur.fetchone()[0])
+        contracts_pending = employment_contracts_pending
 
         from modules.leave.service import count_pending_leave_requests
 
@@ -1549,7 +1558,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "grievance": {"open_cases": open_grievances},
             "disciplinary": {"open_cases": open_disciplinary},
             "offboarding": {"in_progress": offboarding_in_progress},
-            "contracts": {"pending_signature": contracts_pending},
+            "contracts": {"pending_signature": service_agreements_pending},
+            "employment_contracts": {"pending_signature": employment_contracts_pending},
             "documents": {"count": document_count},
             "leave": {"pending_requests": pending_leave_requests},
             "profile_changes": {"pending_requests": pending_profile_changes},

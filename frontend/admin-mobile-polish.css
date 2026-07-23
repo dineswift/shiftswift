@@ -1621,7 +1621,7 @@ html.native-app .employee-shift-reminder-toast span,
   }
 
   /* —— Mobile Time punch overview shell —— */
-  body:has(#mobile-tab-bar) #time-punch:not(.punch-manage-open) > .punch-desktop-chrome {
+  body:has(#mobile-tab-bar) #time-punch:not(.punch-manage-open):has(#punch-mobile-shell:not([hidden])) > .punch-desktop-chrome {
     display: none !important;
   }
 
@@ -1637,7 +1637,7 @@ html.native-app .employee-shift-reminder-toast span,
     display: grid;
   }
 
-  body:has(#mobile-tab-bar) #leave > .leave-desktop-chrome {
+  body:has(#mobile-tab-bar) #leave:has(#leave-mobile-shell:not([hidden])) > .leave-desktop-chrome {
     display: none !important;
   }
 }
@@ -2472,4 +2472,230 @@ body:has(#mobile-tab-bar) #leave:has(#leave-mobile-shell:not([hidden])) .leave-w
 .leave-mobile-add-submit {
   width: 100%;
   min-height: 46px;
+}
+
+/* ── Ops/docs mobile card shells (contracts, templates, employment) ── */
+.docs-mobile-shell {
+  display: none;
+}
+
+body:has(#mobile-tab-bar) .docs-mobile-shell[hidden] {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) .docs-mobile-shell:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 0 20px;
+}
+
+body:has(#mobile-tab-bar) #contracts:has(#contracts-mobile-shell:not([hidden])) > .contracts-desktop-chrome,
+body:has(#mobile-tab-bar) #employment-contracts:has(#employment-contracts-mobile-shell:not([hidden])) > .employment-contracts-desktop-chrome,
+body:has(#mobile-tab-bar) #templates:has(#templates-mobile-shell:not([hidden])) > .templates-desktop-chrome {
+  display: none !important;
+}
+
+.docs-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.docs-mobile-card--selected {
+  border-color: rgba(15, 110, 86, 0.45);
+  box-shadow: 0 0 0 1px rgba(15, 110, 86, 0.12);
+}
+
+.docs-mobile-card__desc {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.docs-mobile-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.docs-mobile-filters .edit-field {
+  min-width: 0;
+}
+
+.docs-mobile-filters .edit-label {
+  font-size: 0.68rem;
+}
+
+.docs-mobile-filters select,
+.docs-mobile-filters input {
+  min-height: 38px;
+  font-size: 0.82rem;
+}
+
+.docs-mobile-stats {
+  margin: 0;
+}
+
+.docs-mobile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.docs-mobile-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.docs-mobile-stat--ok .docs-mobile-stat__value {
+  color: #0f6e56;
+}
+
+.docs-mobile-stat__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #111827;
+}
+
+.docs-mobile-stat__label {
+  font-size: 0.58rem;
+  line-height: 1.2;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Rota mobile extras — shift requests & attendance flags */
+.rota-mobile-extra-section {
+  margin-top: 4px;
+}
+
+.rota-mobile-extra-section[hidden] {
+  display: none !important;
+}
+
+.rota-mobile-requests,
+.rota-mobile-attendance-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rota-mobile-attendance-summary {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+}
+
+.rota-mobile-attendance-row {
+  width: 100%;
+  border: none;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rota-mobile-attendance-row:active {
+  background: #f9fafb;
+}
+
+body:has(#mobile-tab-bar) #global-documents .global-documents-grid > .leave-mobile-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px 8px;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+/* —— Shared admin mobile section shells —— */
+.admin-mobile-shell {
+  display: none;
+}
+
+body:has(#mobile-tab-bar) .admin-mobile-shell[hidden] {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) .admin-mobile-shell:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 0 24px;
+}
+
+body:has(#mobile-tab-bar) #profile-changes:has(#profile-changes-mobile-shell:not([hidden])) > .profile-changes-desktop-chrome {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #profile-changes.profile-changes-mobile-detail-open > .profile-changes-desktop-chrome {
+  display: block !important;
+}
+
+body:has(#mobile-tab-bar) #profile-changes.profile-changes-mobile-detail-open #profile-changes-mobile-shell {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #recruitment:has(#recruitment-mobile-shell:not([hidden])) > .recruitment-desktop-chrome {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #recruitment.recruitment-mobile-form-open #recruitment-list-view {
+  display: block !important;
+}
+
+body:has(#mobile-tab-bar) #recruitment.recruitment-mobile-form-open #recruitment-mobile-shell {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #grievance:has(#grievance-mobile-shell:not([hidden])) > .grievance-desktop-chrome {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #grievance.grievance-mobile-detail-open > .grievance-desktop-chrome {
+  display: block !important;
+}
+
+body:has(#mobile-tab-bar) #grievance.grievance-mobile-detail-open #grievance-mobile-shell {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #disciplinary:has(#disciplinary-mobile-shell:not([hidden])) > .disciplinary-desktop-chrome {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #disciplinary.disciplinary-mobile-detail-open > .disciplinary-desktop-chrome {
+  display: block !important;
+}
+
+body:has(#mobile-tab-bar) #disciplinary.disciplinary-mobile-detail-open #disciplinary-mobile-shell {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #offboarding:has(#offboarding-mobile-shell:not([hidden])) > .offboarding-desktop-chrome {
+  display: none !important;
+}
+
+body:has(#mobile-tab-bar) #offboarding.offboarding-mobile-detail-open > .offboarding-desktop-chrome {
+  display: block !important;
+}
+
+body:has(#mobile-tab-bar) #offboarding.offboarding-mobile-detail-open #offboarding-mobile-shell {
+  display: none !important;
+}
+
+.admin-mobile-case-card__tap {
+  cursor: pointer;
+}
+
+.admin-mobile-case-card__tap:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
 }

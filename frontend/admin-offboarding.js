@@ -27,6 +27,7 @@
   let workflows = [];
   let selectedWorkflowId = null;
   let startBound = false;
+  let sectionReady = false;
 
   function $(id) {
     return document.getElementById(id);
@@ -116,6 +117,91 @@
 
   function canCancel(row) {
     return row.status === "in_progress";
+  }
+
+  function isMobileOffboardingUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function syncOffboardingMobileDetailLayout() {
+    const section = $("offboarding");
+    if (!section) return;
+    const showDetail = isMobileOffboardingUi() && Boolean(selectedWorkflowId);
+    section.classList.toggle("offboarding-mobile-detail-open", showDetail);
+    renderMobileOffboardingShell();
+  }
+
+  function renderMobileOffboardingShell() {
+    const shell = $("offboarding-mobile-shell");
+    if (!shell) return;
+    const detailOpen = $("offboarding")?.classList.contains("offboarding-mobile-detail-open");
+    if (!isMobileOffboardingUi() || detailOpen) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = false;
+    renderMobileOffboardingCards();
+  }
+
+  function renderMobileOffboardingCards() {
+    const host = $("offboarding-mobile-cards");
+    const heading = $("offboarding-mobile-workflows-heading");
+    if (!host) return;
+
+    const active = workflows.filter((row) => row.status === "in_progress");
+    if (heading) heading.textContent = `Active workflows (${active.length})`;
+
+    if (!active.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No active offboarding workflows.</p>`;
+      return;
+    }
+
+    host.innerHTML = active
+      .map((row) => {
+        const showComplete = canComplete(row);
+        return `<article class="leave-mobile-request-card" data-offboarding-id="${row.id}">
+          <div class="leave-mobile-request-card__head admin-mobile-case-card__tap" data-offboarding-open="${row.id}" role="button" tabindex="0">
+            <div class="leave-mobile-request-card__who">
+              <strong>OFF-${escapeHtml(String(row.id))}</strong>
+              <span>${escapeHtml(row.employee_name || row.employee_id)} · ${escapeHtml(row.reason)}</span>
+            </div>
+            ${statusPill(row.status)}
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>ACAS by ${escapeHtml(formatDate(row.acas_appeal_deadline))}</span>
+            <span>${row.sponsorship_cessation_required && !row.sponsorship_cessation_reference ? "Cessation required" : "Started " + escapeHtml(formatDate(row.started_at))}</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-offboarding-open-btn="${row.id}">Open</button>
+            ${showComplete ? `<button type="button" class="leave-mobile-action leave-mobile-action--decline" data-offboarding-complete="${row.id}">Complete</button>` : ""}
+          </div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-offboarding-open]").forEach((el) => {
+      const open = () => void selectWorkflow(Number(el.dataset.offboardingOpen));
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+    host.querySelectorAll("[data-offboarding-open-btn]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void selectWorkflow(Number(btn.dataset.offboardingOpenBtn));
+      });
+    });
+    host.querySelectorAll("[data-offboarding-complete]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void completeWorkflow(Number(btn.dataset.offboardingComplete));
+      });
+    });
   }
 
   function buildReasonPayload() {
@@ -234,12 +320,14 @@
     if (guide) guide.hidden = hasSelection;
     const row = workflows.find((w) => w.id === selectedWorkflowId);
     renderStatusWorkflow(row || null);
+    syncOffboardingMobileDetailLayout();
   }
 
   function clearSelection() {
     selectedWorkflowId = null;
     const content = $("offboarding-detail-content");
     if (content) content.hidden = true;
+    $("offboarding")?.classList.remove("offboarding-mobile-detail-open");
     renderWorkflowsTable();
     syncDetailLayout();
   }
@@ -303,6 +391,7 @@
     tbody.querySelectorAll(".hr-register-row").forEach((row) => {
       row.addEventListener("click", () => selectWorkflow(Number(row.dataset.workflowId)));
     });
+    renderMobileOffboardingShell();
   }
 
   function renderDetailPanel(row) {
@@ -355,6 +444,7 @@
   async function selectWorkflow(workflowId) {
     selectedWorkflowId = workflowId;
     renderWorkflowsTable();
+    syncOffboardingMobileDetailLayout();
     const row = workflows.find((w) => w.id === workflowId);
     if (row) renderDetailPanel(row);
     else syncDetailLayout();
@@ -489,10 +579,25 @@
     await loadEmployeeSelect();
     applyStartEmployeeFromHash();
     await loadWorkflows();
+    renderMobileOffboardingShell();
+
+    if (!sectionReady) {
+      sectionReady = true;
+      window.addEventListener("resize", () => {
+        syncOffboardingMobileDetailLayout();
+      });
+    }
   }
 
   window.addEventListener("admin:section", (event) => {
-    if (event.detail?.section === "offboarding") initOffboardingSection();
+    if (event.detail?.section === "offboarding") {
+      initOffboardingSection();
+      return;
+    }
+    if (selectedWorkflowId) {
+      $("offboarding")?.classList.remove("offboarding-mobile-detail-open");
+      selectedWorkflowId = null;
+    }
   });
 
   window.addEventListener("hashchange", () => {

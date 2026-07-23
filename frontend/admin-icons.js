@@ -1,91 +1,101 @@
-/** Stroke SVG icons for admin overview (consistent cross-platform). */
+/** Modern SVG icons for admin (tabs, More, Modules, empty states). */
 (function () {
   "use strict";
 
+  /* Soft fill + stroke pairs; fill uses currentColor at low opacity via CSS .admin-icon__fill */
   const PATHS = {
     users:
-      '<path d="M9 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M3 21v-2a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v2"/>',
+      '<circle class="admin-icon__fill" cx="12" cy="8" r="3.5"/><circle cx="12" cy="8" r="3.5"/><path d="M5 19.5c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"/>',
     home:
-      '<path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/>',
-    clock: '<path d="M12 7v5l3 3"/><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18"/>',
-    check: '<path d="M5 12l5 5l10-10"/>',
-    alert: '<path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0"/>',
-    card: '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/>',
+      '<path class="admin-icon__fill" d="M4.5 10.8L12 4.5l7.5 6.3V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-5.5h-4V20.5H6A1.5 1.5 0 0 1 4.5 19z"/><path d="M4.5 10.8L12 4.5l7.5 6.3V19a1.5 1.5 0 0 1-1.5 1.5h-4.5v-5.5h-4V20.5H6A1.5 1.5 0 0 1 4.5 19z"/>',
+    clock:
+      '<circle class="admin-icon__fill" cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    alert:
+      '<path class="admin-icon__fill" d="M10.3 4.2L2.1 18.2A1.8 1.8 0 0 0 3.7 21h16.6a1.8 1.8 0 0 0 1.6-2.8L13.7 4.2a1.8 1.8 0 0 0-3.4 0z"/><path d="M10.3 4.2L2.1 18.2A1.8 1.8 0 0 0 3.7 21h16.6a1.8 1.8 0 0 0 1.6-2.8L13.7 4.2a1.8 1.8 0 0 0-3.4 0z"/><path d="M12 9.5v4.2"/><path d="M12 16.8h.01"/>',
+    card:
+      '<rect class="admin-icon__fill" x="3" y="5" width="18" height="14" rx="2.5"/><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/>',
     clipboard:
-      '<path d="M9 5h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="M9 3h6v4H9z"/>',
+      '<rect class="admin-icon__fill" x="7" y="5" width="10" height="15" rx="2"/><path d="M9 4.5h6a1.5 1.5 0 0 1 1.5 1.5v13a2 2 0 0 1-2 2H9.5a2 2 0 0 1-2-2V6A1.5 1.5 0 0 1 9 4.5z"/><path d="M9.5 3h5v3h-5z"/>',
     passport:
-      '<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M8 11h8"/><path d="M8 15h5"/>',
-    medical: '<path d="M12 6v12"/><path d="M6 12h12"/><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18"/>',
+      '<rect class="admin-icon__fill" x="4.5" y="4" width="15" height="16" rx="2"/><rect x="4.5" y="4" width="15" height="16" rx="2"/><path d="M8 11h8"/><path d="M8 15h5"/><circle cx="12" cy="8" r="1.5"/>',
+    medical:
+      '<circle class="admin-icon__fill" cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9"/><path d="M7.5 12h9"/>',
     "map-pin":
-      '<path d="M12 11a2 2 0 1 0 0-4a2 2 0 0 0 0 4"/><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11"/>',
+      '<path class="admin-icon__fill" d="M12 21s7-4.2 7-10.5a7 7 0 1 0-14 0C5 16.8 12 21 12 21z"/><path d="M12 21s7-4.2 7-10.5a7 7 0 1 0-14 0C5 16.8 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.25"/>',
     calendar:
-      '<path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 8h18"/><path d="M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"/>',
+      '<rect class="admin-icon__fill" x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M3.5 9.5h17"/><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M8 13h3"/><path d="M13 13h3"/><path d="M8 16.5h5"/>',
     scale:
-      '<path d="M12 3v18"/><path d="M5 7h14"/><path d="M7 7l-3 6h6z"/><path d="M17 7l-3 6h6z"/>',
-    file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
-    door: '<path d="M13 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M9 12h.01"/><path d="M9 21V3"/>',
+      '<path d="M12 3.5v17"/><path d="M5.5 7h13"/><path class="admin-icon__fill" d="M7.5 7.5l-3 6.5h6z"/><path d="M7.5 7.5l-3 6.5h6z"/><path class="admin-icon__fill" d="M16.5 7.5l-3 6.5h6z"/><path d="M16.5 7.5l-3 6.5h6z"/>',
+    file:
+      '<path class="admin-icon__fill" d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3v5h5"/>',
+    document:
+      '<path class="admin-icon__fill" d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+    door:
+      '<path class="admin-icon__fill" d="M13 4.5h3.5A2 2 0 0 1 18.5 6.5v13a2 2 0 0 1-2 2H13z"/><path d="M13 4.5h3.5A2 2 0 0 1 18.5 6.5v13a2 2 0 0 1-2 2H13"/><path d="M9.5 12h.01"/><path d="M9.5 20.5V3.5"/>',
     beach:
-      '<path d="M3 17h18"/><path d="M6 17c2-4 4-6 6-6s4 2 6 6"/><path d="M12 5v6"/><path d="M9 8l3-3l3 3"/>',
+      '<path d="M3.5 18h17"/><path class="admin-icon__fill" d="M6.5 18c2.2-4.5 4.3-6.8 5.5-6.8S15.3 13.5 17.5 18"/><path d="M6.5 18c2.2-4.5 4.3-6.8 5.5-6.8S15.3 13.5 17.5 18"/><path d="M12 5.5v5.7"/><path d="M9.2 8.2L12 5.5l2.8 2.7"/>',
     folder:
-      '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+      '<path class="admin-icon__fill" d="M3.5 8.5A2 2 0 0 1 5.5 6.5h3.2l1.8 2H18.5a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z"/><path d="M3.5 8.5A2 2 0 0 1 5.5 6.5h3.2l1.8 2H18.5a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z"/>',
     bell:
-      '<path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 3 6v3l2 2H5l2-2v-3a7 7 0 0 1 3-6"/><path d="M10 19a2 2 0 0 0 4 0"/>',
-    menu: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
+      '<path class="admin-icon__fill" d="M10.2 5.2a2 2 0 0 1 3.6 0A6.5 6.5 0 0 1 16.5 11v2.8l1.8 1.8H5.7l1.8-1.8V11a6.5 6.5 0 0 1 2.7-5.8z"/><path d="M10.2 5.2a2 2 0 0 1 3.6 0A6.5 6.5 0 0 1 16.5 11v2.8l1.8 1.8H5.7l1.8-1.8V11a6.5 6.5 0 0 1 2.7-5.8z"/><path d="M10.2 19a2 2 0 0 0 3.6 0"/>',
+    menu: '<path d="M4.5 7.5h15"/><path d="M4.5 12h15"/><path d="M4.5 16.5h15"/>',
+    more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>',
     plug:
-      '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M6 8h12a2 2 0 0 1 2 2v4a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6v-4a2 2 0 0 1 2-2"/>',
+      '<path d="M12 21.5v-4.5"/><path d="M9.5 8V3"/><path d="M14.5 8V3"/><path class="admin-icon__fill" d="M6.5 8.5h11a2 2 0 0 1 2 2v3.2a5.8 5.8 0 0 1-5.8 5.8h-3.4A5.8 5.8 0 0 1 4.5 13.7V10.5a2 2 0 0 1 2-2z"/><path d="M6.5 8.5h11a2 2 0 0 1 2 2v3.2a5.8 5.8 0 0 1-5.8 5.8h-3.4A5.8 5.8 0 0 1 4.5 13.7V10.5a2 2 0 0 1 2-2z"/>',
     building:
-      '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12h12"/><path d="M10 12v4"/><path d="M14 12v4"/><path d="M10 6h4"/>',
+      '<path class="admin-icon__fill" d="M6.5 21.5V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16.5"/><path d="M6.5 21.5V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16.5"/><path d="M6.5 12.5h11"/><path d="M10 12.5v4"/><path d="M14 12.5v4"/><path d="M10 7h4"/>',
     lock:
-      '<path d="M7 11V7a5 5 0 0 1 10 0v4"/><path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2"/>',
+      '<rect class="admin-icon__fill" x="5" y="11" width="14" height="10" rx="2"/><path d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11"/><rect x="5" y="11" width="14" height="10" rx="2"/>',
     layout:
-      '<path d="M3 3h8v8H3z"/><path d="M13 3h8v8h-8z"/><path d="M3 13h8v8H3z"/><path d="M13 13h8v8h-8z"/>',
+      '<rect class="admin-icon__fill" x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect class="admin-icon__fill" x="13" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5"/><rect class="admin-icon__fill" x="3.5" y="13" width="7.5" height="7.5" rx="1.5"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5"/><rect class="admin-icon__fill" x="13" y="13" width="7.5" height="7.5" rx="1.5"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.5"/>',
     settings:
-      '<path d="M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/>',
-    chevron: '<path d="M9 6l6 6l-6 6"/>',
-    "trending-up": '<path d="M3 17l6-6l4 4l8-8"/><path d="M14 7h7v7"/>',
+      '<circle class="admin-icon__fill" cx="12" cy="12" r="3.25"/><circle cx="12" cy="12" r="3.25"/><path d="M12 3.2v2.1"/><path d="M12 18.7v2.1"/><path d="M5.1 5.1l1.5 1.5"/><path d="M17.4 17.4l1.5 1.5"/><path d="M3.2 12h2.1"/><path d="M18.7 12h2.1"/><path d="M5.1 18.9l1.5-1.5"/><path d="M17.4 6.6l1.5-1.5"/>',
+    chevron: '<path d="M9 6.5l6 5.5l-6 5.5"/>',
+    "trending-up": '<path d="M3.5 16.5l6-6l4 4l7-7"/><path d="M14.5 7.5h6v6"/>',
     "user-plus":
-      '<path d="M9 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M3 21v-2a4 4 0 0 1 4-4h4"/><path d="M16 19h6"/><path d="M19 16v6"/>',
+      '<circle class="admin-icon__fill" cx="11" cy="8" r="3.25"/><circle cx="11" cy="8" r="3.25"/><path d="M4 19.5c.7-2.8 2.8-4.5 6.2-4.5"/><path d="M16.5 18.5h5"/><path d="M19 16v5"/>',
     "user-minus":
-      '<path d="M9 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0"/><path d="M3 21v-2a4 4 0 0 1 4-4h10"/><path d="M16 19h6"/>',
+      '<circle class="admin-icon__fill" cx="11" cy="8" r="3.25"/><circle cx="11" cy="8" r="3.25"/><path d="M4 19.5c.7-2.8 2.8-4.5 6.2-4.5H17"/><path d="M16.5 18.5h5"/>',
     "file-text":
-      '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10 9h6"/><path d="M10 13h6"/><path d="M10 17h4"/>',
+      '<path class="admin-icon__fill" d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3v5h5"/><path d="M9.5 12.5h5"/><path d="M9.5 16h5"/><path d="M9.5 19.5h3"/>',
     "file-certificate":
-      '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M10 14l-2 1l2 1l2-1l-2-1"/><path d="M10 10h4"/>',
+      '<path class="admin-icon__fill" d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5v13A2.5 2.5 0 0 0 7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V8z"/><path d="M14 3v5h5"/><circle cx="12" cy="14.5" r="2.2"/><path d="M9.5 10.5h5"/>',
     sparkles:
-      '<path d="M12 3l1.1 3.6L17 8l-3.9 1.4L12 13l-1.1-3.6L7 8l3.9-1.4z"/><path d="M19 14l.7 2.1L22 17l-2.3.9L19 20l-.7-2.1L16 17l2.3-.9z"/><path d="M5 16l.8 2.4L8.2 19l-2.4.8L5 22.2l-.8-2.4L1.8 19l2.4-.8z"/>',
+      '<path class="admin-icon__fill" d="M12 3.2l1.2 3.8L17 8.2l-3.8 1.2L12 13.2l-1.2-3.8L7 8.2l3.8-1.2z"/><path d="M12 3.2l1.2 3.8L17 8.2l-3.8 1.2L12 13.2l-1.2-3.8L7 8.2l3.8-1.2z"/><path d="M19 14.2l.7 2.1L21.8 17l-2.1.7L19 19.8l-.7-2.1L16.2 17l2.1-.7z"/><path d="M5.2 16l.8 2.3L8.3 19l-2.3.8L5.2 22.1l-.8-2.3L2.1 19l2.3-.7z"/>',
     star:
-      '<path d="M12 3.5l2.6 5.3l5.8.8l-4.2 4.1l1 5.8L12 16.8L6.8 19.5l1-5.8L3.6 9.6l5.8-.8z"/>',
+      '<path class="admin-icon__fill" d="M12 3.8l2.4 4.9l5.4.8l-3.9 3.8l.9 5.4L12 16.2l-4.8 2.5l.9-5.4L4.2 9.5l5.4-.8z"/><path d="M12 3.8l2.4 4.9l5.4.8l-3.9 3.8l.9 5.4L12 16.2l-4.8 2.5l.9-5.4L4.2 9.5l5.4-.8z"/>',
     "calendar-off":
-      '<path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 8h18"/><path d="M5 6h14a2 2 0 0 1 2 2v2"/><path d="M16 16l-8-8"/><path d="M8 16l8-8"/>',
+      '<path d="M8 3v4"/><path d="M16 3v4"/><path d="M3.5 9.5h17"/><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M15.5 15.5l-7-7"/><path d="M8.5 15.5l7-7"/>',
     "external-link":
-      '<path d="M12 6h6v6"/><path d="M10 14L18 6"/><path d="M15 10h3v9H6v-12h9"/>',
-    download: '<path d="M12 3v12"/><path d="M8 11l4 4l4-4"/><path d="M4 21h16"/>',
-    plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+      '<path d="M12 6.5h5.5V12"/><path d="M10.5 13.5L17.5 6.5"/><path d="M15 11.5h3v8.5H5.5V8.5H14"/>',
+    download: '<path d="M12 3.5v11"/><path d="M8.2 11.2L12 15l3.8-3.8"/><path d="M4.5 20.5h15"/>',
+    plus: '<path d="M12 5.5v13"/><path d="M5.5 12h13"/>',
     trash:
-      '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+      '<path d="M4 7h16"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path class="admin-icon__fill" d="M6.5 7.5h11V19a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2z"/><path d="M6.5 7.5h11V19a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2z"/><path d="M10.5 11.5v6"/><path d="M13.5 11.5v6"/>',
     mail:
-      '<path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2"/><path d="M22 6l-10 7L2 6"/>',
+      '<rect class="admin-icon__fill" x="3.5" y="5.5" width="17" height="13" rx="2.5"/><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M4.2 7.2L12 13.2l7.8-6"/>',
     phone:
-      '<path d="M22 16.92v3a2 2 0 0 1-2.18 2a19.8 19.8 0 0 1-8.63-3.07a19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/>',
+      '<path class="admin-icon__fill" d="M21.5 16.7v2.7a1.8 1.8 0 0 1-2 1.8 17.8 17.8 0 0 1-7.8-2.8 17.5 17.5 0 0 1-5.4-5.4A17.8 17.8 0 0 1 3.5 4.5a1.8 1.8 0 0 1 1.8-2h2.7a1.8 1.8 0 0 1 1.8 1.55c.12.86.33 1.7.65 2.5a1.8 1.8 0 0 1-.4 1.9L8.5 10a14.4 14.4 0 0 0 5.4 5.4l1.15-1.15a1.8 1.8 0 0 1 1.9-.4c.8.32 1.64.53 2.5.65a1.8 1.8 0 0 1 1.55 1.8z"/><path d="M21.5 16.7v2.7a1.8 1.8 0 0 1-2 1.8 17.8 17.8 0 0 1-7.8-2.8 17.5 17.5 0 0 1-5.4-5.4A17.8 17.8 0 0 1 3.5 4.5a1.8 1.8 0 0 1 1.8-2h2.7a1.8 1.8 0 0 1 1.8 1.55c.12.86.33 1.7.65 2.5a1.8 1.8 0 0 1-.4 1.9L8.5 10a14.4 14.4 0 0 0 5.4 5.4l1.15-1.15a1.8 1.8 0 0 1 1.9-.4c.8.32 1.64.53 2.5.65a1.8 1.8 0 0 1 1.55 1.8z"/>',
     cake:
-      '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16h16"/><path d="M12 7v4"/><path d="M12 3.5a1.5 1.5 0 0 1 0 3"/>',
+      '<path d="M19.5 20.5v-7a2 2 0 0 0-2-2h-11a2 2 0 0 0-2 2v7"/><path d="M4.5 16h15"/><path d="M12 7.5v4"/><path d="M12 4a1.4 1.4 0 0 1 0 2.8"/>',
     heart:
-      '<path d="M19.5 12.57L12 20l-7.5-7.43A5 5 0 0 1 12 5.06a5 5 0 0 1 7.5 7.51z"/>',
+      '<path class="admin-icon__fill" d="M19.2 12.4L12 19.5l-7.2-7.1A4.6 4.6 0 0 1 12 5.5a4.6 4.6 0 0 1 7.2 6.9z"/><path d="M19.2 12.4L12 19.5l-7.2-7.1A4.6 4.6 0 0 1 12 5.5a4.6 4.6 0 0 1 7.2 6.9z"/>',
     briefcase:
-      '<path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M4 6h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"/><path d="M2 12h20"/>',
+      '<path d="M9.5 6.5V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v1.5"/><rect class="admin-icon__fill" x="3.5" y="6.5" width="17" height="14" rx="2.5"/><rect x="3.5" y="6.5" width="17" height="14" rx="2.5"/><path d="M3.5 12h17"/>',
     shield:
-      '<path d="M12 3l8 3v6c0 5-3.5 8.5-8 9c-4.5-.5-8-4-8-9V6z"/><path d="M9 12l2 2l4-4"/>',
+      '<path class="admin-icon__fill" d="M12 3.5l7.5 2.8v5.4c0 4.7-3.2 8-7.5 8.5-4.3-.5-7.5-3.8-7.5-8.5V6.3z"/><path d="M12 3.5l7.5 2.8v5.4c0 4.7-3.2 8-7.5 8.5-4.3-.5-7.5-3.8-7.5-8.5V6.3z"/><path d="M9.2 12.2l2 2l3.6-3.6"/>',
     user:
-      '<path d="M12 7a4 4 0 1 0 0-8a4 4 0 0 0 0 8"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/>',
-    search: '<path d="M10 10a6 6 0 1 1 0-12a6 6 0 0 1 0 12"/><path d="M14.5 14.5L20 20"/>',
+      '<circle class="admin-icon__fill" cx="12" cy="8" r="3.5"/><circle cx="12" cy="8" r="3.5"/><path d="M5 19.5c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"/>',
+    search: '<circle cx="11" cy="11" r="6"/><path d="M16 16l4.2 4.2"/>',
   };
 
   function svg(name, className) {
     const body = PATHS[name];
     if (!body) return "";
     const cls = className ? ` admin-icon ${className}` : " admin-icon";
-    return `<svg class="${cls.trim()}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+    return `<svg class="${cls.trim()}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
   }
 
-  window.AdminIcons = { svg };
+  window.AdminIcons = { svg, paths: PATHS };
 })();

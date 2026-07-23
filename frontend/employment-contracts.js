@@ -52,6 +52,121 @@
     return `<span class="contracts-status-pill ${cls}">${escapeHtml(label)}</span>`;
   }
 
+  function mobileStatusBadge(status) {
+    const label = STATUS_LABELS[status] || status || "Draft";
+    if (status === "signed") {
+      return `<span class="leave-mobile-badge leave-mobile-badge--approved">${escapeHtml(label)}</span>`;
+    }
+    if (status === "sent") {
+      return `<span class="leave-mobile-badge leave-mobile-badge--pending">${escapeHtml(label)}</span>`;
+    }
+    if (status === "declined" || status === "expired") {
+      return `<span class="leave-mobile-badge leave-mobile-badge--declined">${escapeHtml(label)}</span>`;
+    }
+    return `<span class="leave-mobile-badge">${escapeHtml(label)}</span>`;
+  }
+
+  function isMobileEmploymentContractsUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function renderMobileEmploymentStats() {
+    const host = $("employment-contracts-mobile-stats");
+    if (!host) return;
+    const stats = contractStats();
+    host.innerHTML = `<div class="docs-mobile-stat-grid">
+      <div class="docs-mobile-stat"><span class="docs-mobile-stat__value">${escapeHtml(String(stats.total))}</span><span class="docs-mobile-stat__label">Contracts</span></div>
+      <div class="docs-mobile-stat"><span class="docs-mobile-stat__value">${escapeHtml(String(stats.draft))}</span><span class="docs-mobile-stat__label">Draft</span></div>
+      <div class="docs-mobile-stat"><span class="docs-mobile-stat__value">${escapeHtml(String(stats.sent))}</span><span class="docs-mobile-stat__label">Awaiting</span></div>
+      <div class="docs-mobile-stat docs-mobile-stat--ok"><span class="docs-mobile-stat__value">${escapeHtml(String(stats.signed))}</span><span class="docs-mobile-stat__label">Signed</span></div>
+    </div>`;
+  }
+
+  function renderMobileEmploymentContractsList() {
+    const host = $("employment-contracts-mobile-list");
+    if (!host) return;
+    if (!contracts.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No employment contracts yet — generate one from the desktop workspace or HR Templates.</p>`;
+      return;
+    }
+    host.innerHTML = contracts
+      .map((row) => {
+        const selected = selectedContractId === row.id ? " docs-mobile-card--selected" : "";
+        const canSend = row.status !== "signed" && row.employee_email;
+        const actions = canSend
+          ? `<button type="button" class="leave-mobile-action leave-mobile-action--approve" data-employment-send="${row.id}">Send for signature</button>
+             <button type="button" class="leave-mobile-action" data-employment-open="${row.id}">Open</button>`
+          : `<button type="button" class="leave-mobile-action leave-mobile-action--approve" data-employment-open="${row.id}">Open</button>`;
+        return `<article class="leave-mobile-request-card docs-mobile-card${selected}" data-contract-id="${row.id}">
+          <div class="leave-mobile-request-card__head">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.employee_name)}</strong>
+              <span>${escapeHtml(row.contract_number)} · ${escapeHtml(row.title)}</span>
+            </div>
+            ${mobileStatusBadge(row.status)}
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>v${escapeHtml(row.platform_template_version || "?")}</span>
+            <span>${signedColumnHtml(row)}</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">${actions}</div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-employment-open]").forEach((btn) => {
+      btn.addEventListener("click", () => selectContract(Number(btn.getAttribute("data-employment-open"))));
+    });
+    host.querySelectorAll("[data-employment-send]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.getAttribute("data-employment-send"));
+        selectContract(id, { scroll: false }).then(() => sendContract(id));
+      });
+    });
+  }
+
+  function renderMobileEmploymentTemplatesList() {
+    const host = $("employment-contracts-mobile-templates");
+    if (!host) return;
+    if (!templates.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No contract templates loaded.</p>`;
+      return;
+    }
+    host.innerHTML = templates
+      .map((tpl) => {
+        const preContract = PRE_CONTRACT_TEMPLATE_IDS.has(tpl.id);
+        return `<article class="leave-mobile-request-card docs-mobile-card docs-mobile-card--template">
+          <div class="leave-mobile-request-card__head">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(tpl.title)}</strong>
+              <span>Platform v${escapeHtml(tpl.platform_version)} · ${tpl.source === "acas" ? "ACAS-aligned" : "ShiftSwift"}</span>
+            </div>
+            ${preContract ? '<span class="leave-mobile-badge">Pre-employment</span>' : ""}
+          </div>
+          <p class="docs-mobile-card__desc muted">${escapeHtml(tpl.description || "")}</p>
+          <div class="leave-mobile-request-card__actions">
+            <a class="leave-mobile-action" href="#templates">Customise</a>
+          </div>
+        </article>`;
+      })
+      .join("");
+  }
+
+  function renderMobileEmploymentContractsShell() {
+    const shell = $("employment-contracts-mobile-shell");
+    if (!shell) return;
+    if (!isMobileEmploymentContractsUi()) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = Boolean(selectedContractId);
+    if (shell.hidden) return;
+    renderMobileEmploymentStats();
+    renderMobileEmploymentContractsList();
+    renderMobileEmploymentTemplatesList();
+  }
+
   function formatDate(value) {
     if (!value) return "Not set";
     try {
@@ -206,6 +321,7 @@
     if (content) content.hidden = true;
     renderContractsTable();
     syncDetailLayout();
+    renderMobileEmploymentContractsShell();
   }
 
   function signedColumnHtml(row) {
@@ -240,6 +356,7 @@
     if (!templates.length) {
       list.innerHTML =
         '<p class="muted">No employment contract templates seeded. Run <code>python scripts/seed_hr_templates.py</code> after deploy.</p>';
+      renderMobileEmploymentTemplatesList();
       return;
     }
     list.innerHTML = templates
@@ -266,6 +383,7 @@
         </article>`;
       })
       .join("");
+    renderMobileEmploymentTemplatesList();
   }
 
   function renderContractsTable() {
@@ -317,6 +435,7 @@
       renderContractsTable();
       renderStats();
       updateRegisterSub();
+      renderMobileEmploymentContractsShell();
       if (selectedContractId) {
         await selectContract(selectedContractId, { scroll: false });
       } else {
@@ -331,6 +450,7 @@
       renderStats();
       updateRegisterSub();
       syncDetailLayout();
+      renderMobileEmploymentContractsShell();
     }
   }
 
@@ -389,6 +509,7 @@
   async function selectContract(id, { scroll = true } = {}) {
     selectedContractId = id;
     renderContractsTable();
+    renderMobileEmploymentContractsShell();
     try {
       const res = await apiFetch(`/employment-contracts/${id}`);
       if (!res.ok) throw new Error("Load failed");
@@ -591,6 +712,7 @@
     await loadTemplates();
     await populateGenerateSelects();
     await loadContracts();
+    renderMobileEmploymentContractsShell();
   }
 
   function bindSectionEvents() {
@@ -602,6 +724,10 @@
     window.addEventListener("hashchange", () => {
       if (parseHashBaseSection(window.location.hash) !== "employment-contracts") return;
       applyStartEmployeeFromHash();
+    });
+    window.addEventListener("resize", () => {
+      if (!sectionBound) return;
+      renderMobileEmploymentContractsShell();
     });
     if (parseHashBaseSection(window.location.hash) === "employment-contracts") initEmploymentContractsSection();
   }
