@@ -1,7 +1,7 @@
 # Google Play release checklist — ShiftSwift HR Android
 
 Package: `co.uk.shiftswifthr.app`  
-Current target version: **1.3** (versionCode **14**) — aligned with iOS.
+Current target version: **1.3.8** (versionCode **22**, targetSdk **36**). iOS marketing version is **1.5** (build 16).
 
 ## One-time setup
 
@@ -57,10 +57,10 @@ AAB path: `android/app/build/outputs/bundle/release/app-release.aab`
 | Bundled login + employee/admin portals | Same `www` bundle |
 | Phone layout (bottom tabs) | Yes |
 | Tablet layout (sidebar) | Yes — Android tablets + iPad |
-| Geolocation / clock-in | Yes |
+| Geolocation / clock-in | Yes (admin + employee boots) |
 | Local shift alerts | Yes |
-| Remote push (FCM / APNs) | Wired; needs Firebase + server keys |
-| Version | 1.3 / 14 on both platforms |
+| Remote push (FCM / APNs) | Client wired; server needs `FIREBASE_SERVICE_ACCOUNT_JSON` + APNs |
+| Version | Android **1.3.8 / 22** · iOS **1.5 / 16** |
 
 ## Notes
 

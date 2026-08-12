@@ -20,7 +20,8 @@
   }
 
   function loginUrlForPortal(portal) {
-    return portal === "employee" ? "./employee-login.html" : "./business-login.html";
+    // Unified sign-in handles email OTP after password for all portals.
+    return "./sign-in.html";
   }
 
   function forgotUrlForPortal(portal) {
@@ -208,10 +209,16 @@
           new_password: data.new_password,
           accept_employee_gdpr: Boolean(data.accept_employee_gdpr),
         });
-        setStatus(status, result.message || "Password updated.", true);
+        setStatus(
+          status,
+          result.message ||
+            "Password updated. Next sign-in will email you a 6-digit code unless Face ID or an authenticator app is set up.",
+          true,
+        );
         setTimeout(() => {
-          window.location.href = loginUrlForPortal(resetPortal);
-        }, 1500);
+          const next = `${loginUrlForPortal(resetPortal)}?passwordReset=1`;
+          window.location.href = next;
+        }, 1800);
       } catch (error) {
         setStatus(status, friendlyError(error.message), false);
       }

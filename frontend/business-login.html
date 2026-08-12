@@ -192,28 +192,38 @@
                 </div>
               </div>
 
-              <div id="mfa-panel" class="portal-login-card-body" hidden>
-                <div class="portal-login-card-head">
-                  <h1>Two-factor authentication</h1>
-                  <p class="portal-login-card-lead">Verify for <strong data-mfa-user></strong>.</p>
-                </div>
-                <form id="mfa-form" class="portal-login-form">
-                  <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
-                    Verify with Face ID
-                  </button>
-                  <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or enter authenticator code</p>
-                  <label>
-                    Authenticator code
-                    <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
-                  </label>
-                  <label class="portal-login-remember portal-login-remember--mfa">
-                    <input type="checkbox" id="login-remember-device-mfa" checked />
-                    <span>Trust this device for 30 days</span>
-                  </label>
-                  <p id="mfa-verify-status" class="form-error-message" hidden></p>
-                  <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
-                </form>
-              </div>
+                            <div id="mfa-panel" class="portal-login-card-body" hidden>
+                          <div class="portal-login-card-head">
+                            <h1 id="mfa-panel-title">Check your email</h1>
+                            <p class="portal-login-card-lead" id="mfa-panel-lead">We sent a 6-digit code to <strong data-mfa-user></strong>.</p>
+                          </div>
+                          <form id="mfa-form" class="portal-login-form">
+                            <label id="mfa-code-label" class="mfa-code-field">
+                              <span id="mfa-code-label-text">Email code</span>
+                              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+                            </label>
+                            <p class="muted mfa-resend-row" id="mfa-resend-wrap">
+                              <button type="button" class="portal-login-inline-link" id="mfa-resend-btn">Resend email code</button>
+                            </p>
+                            <label class="unified-login-remember-device portal-login-remember--mfa" id="mfa-remember-wrap">
+                              <input type="checkbox" id="login-remember-device-mfa" checked />
+                              <span>Trust this device for 30 days</span>
+                            </label>
+                            <p id="mfa-verify-status" class="form-error-message" hidden></p>
+                            <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+                            <div class="native-login-mfa-alt" id="mfa-alt-methods" hidden>
+                              <button type="button" class="portal-login-inline-link" id="mfa-use-email-btn" hidden>Use email code</button>
+                              <button type="button" class="portal-login-inline-link" id="mfa-use-totp-btn" hidden>Use authenticator app</button>
+                            </div>
+                            <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or</p>
+                            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
+                              Verify with Face ID
+                            </button>
+                            <p class="portal-login-secure-note">
+                              <button type="button" class="portal-login-inline-link" id="mfa-back-signin">Back to sign in</button>
+                            </p>
+                          </form>
+                        </div>
             </section>
 
             <p class="portal-login-footnote muted portal-login-footnote--streamlined">
@@ -237,7 +247,7 @@
     <script src="./native-keyboard.js?v=1"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./admin-pwa.js?v=8"></script>
-    <script src="./login.js?v=brandkit-v22"></script>
+    <script src="./login.js?v=brandkit-v26"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>

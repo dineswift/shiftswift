@@ -5,6 +5,8 @@ Standalone Capacitor **iOS** app. Android lives in the sibling folder `../androi
 **Version:** 1.5 (build 16)  
 **Bundle ID:** `co.uk.shiftswifthr.app`
 
+Push entitlements use `aps-environment=production` (App Store / TestFlight). Associated Domains are set for Universal Links (`applinks:app.shiftswifthr.co.uk`, `applinks:www.shiftswifthr.co.uk`); AASA lives at `frontend/.well-known/apple-app-site-association`.
+
 ## Setup
 
 ```bash

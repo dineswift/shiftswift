@@ -80,7 +80,7 @@
     },
     security: {
       title: "Security",
-      subtitle: "Two-factor authentication for your HR admin sign-in.",
+      subtitle: "Email sign-in codes, Face ID, and optional authenticator app.",
     },
     addons: {
       title: "Add-ons & integrations",
@@ -1661,7 +1661,10 @@
     }
 
     const enabled = Boolean(status.mfa_enabled);
+    const totpEnabled =
+      status.totp_enabled != null ? Boolean(status.totp_enabled) : Boolean(enabled);
     const required = Boolean(status.policy_required);
+    const emailDefault = Boolean(status.email_mfa_default);
     const passkeys = Array.isArray(status.passkeys) ? status.passkeys : [];
     const canPasskey = Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
     const passkeyRows =
@@ -1680,18 +1683,32 @@
             .join("")}</ul>`
         : `<p class="muted">No Face ID / Touch ID devices registered yet.</p>`;
 
+    const summaryLines = [];
+    if (emailDefault) {
+      summaryLines.push(
+        "After your password, sign-in sends a <strong>6-digit code to your email</strong> by default.",
+      );
+    }
+    if (required) {
+      summaryLines.push(
+        "Your organisation also requires an authenticator app or Face ID / Touch ID.",
+      );
+    } else {
+      summaryLines.push(
+        "You can optionally add Face ID / Touch ID or an authenticator app as alternatives.",
+      );
+    }
+
     host.innerHTML = `
       <div class="settings-security-summary">
-        <p><strong>Status:</strong> ${enabled ? "Two-factor authentication is ON" : "Not enabled yet"}</p>
-        <p class="muted">${
-          required
-            ? "Your organisation requires a second factor at sign-in (authenticator app or Face ID / Touch ID)."
-            : "You can optionally enable Face ID / Touch ID or an authenticator app for extra security."
-        }</p>
+        <p><strong>Email codes:</strong> ${emailDefault ? "On (default at sign-in)" : "Off on this server"}</p>
+        <p><strong>Authenticator app:</strong> ${totpEnabled ? "On" : "Not set"}</p>
+        <p><strong>Face ID / Touch ID:</strong> ${passkeys.length ? `${passkeys.length} device${passkeys.length === 1 ? "" : "s"}` : "Not set"}</p>
+        <p class="muted">${summaryLines.join(" ")}</p>
       </div>
       <div class="settings-security-passkey-block">
         <h4>Face ID / Touch ID</h4>
-        <p class="muted">Unlock this account on compatible Apple devices and browsers without typing a code every time.</p>
+        <p class="muted">Optional alternative to the email code on compatible Apple devices and browsers.</p>
         ${
           canPasskey
             ? `
@@ -1703,24 +1720,29 @@
             : `<p class="muted">Face ID / Touch ID is available in Safari or Chrome on a device that supports passkeys. Open this page on your iPhone or Mac to enable it.</p>`
         }
       </div>
-      <div id="settings-mfa-setup-block" ${enabled ? "hidden" : ""}>
-        <h4>Set up authenticator</h4>
-        <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator.</p>
+      <div id="settings-mfa-setup-block" ${totpEnabled ? "hidden" : ""}>
+        <h4>Authenticator app (optional)</h4>
+        <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator as an alternative to email codes.</p>
         <button type="button" class="btn outline" id="settings-mfa-start">Generate QR code</button>
         <div id="settings-mfa-qr-area" hidden>
           <div class="mfa-enrollment-qr-wrap"><img id="settings-mfa-qr" alt="Authenticator QR code" width="180" height="180" /></div>
           <p class="muted">Manual key: <code id="settings-mfa-secret"></code></p>
           <label class="edit-field">Verification code<input type="text" id="settings-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
-          <button type="button" class="btn" id="settings-mfa-enable">Enable two-factor authentication</button>
+          <button type="button" class="btn" id="settings-mfa-enable">Enable authenticator app</button>
         </div>
         <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>
       </div>
       <div id="settings-mfa-disable-block" ${enabled ? "" : "hidden"}>
-        <h4>Turn off two-factor authentication</h4>
+        <h4>Turn off authenticator / Face ID MFA</h4>
+        <p class="muted">${
+          emailDefault
+            ? "Removes the authenticator app and Face ID MFA flag. Email sign-in codes remain required."
+            : "Removes authenticator and Face ID MFA from this account."
+        }</p>
         ${required ? '<p class="muted">Required by policy — contact platform support if you need an exception.</p>' : ""}
         <label class="edit-field">Password<input type="password" id="settings-mfa-disable-password" autocomplete="current-password" /></label>
-        <label class="edit-field">Authenticator code<input type="text" id="settings-mfa-disable-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
-        <button type="button" class="btn ghost" id="settings-mfa-disable" ${required ? "disabled" : ""}>Disable two-factor authentication</button>
+        <label class="edit-field">Authenticator code<input type="text" id="settings-mfa-disable-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="Required if authenticator is on" /></label>
+        <button type="button" class="btn ghost" id="settings-mfa-disable" ${required ? "disabled" : ""}>Disable optional MFA</button>
         <p class="muted" id="settings-mfa-disable-status-line" aria-live="polite"></p>
       </div>`;
 

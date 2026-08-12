@@ -348,6 +348,29 @@ def password_reset_email(*, role_label: str, reset_url: str, reset_hours: int) -
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def login_email_mfa_code(*, code: str, minutes: int) -> EmailContent:
+    subject = f"{APP_NAME} — your sign-in code"
+    text = (
+        f"Hello,\n\n"
+        f"Your {APP_NAME} sign-in code is:\n\n"
+        f"{code}\n\n"
+        f"This code expires in {minutes} minutes. If you did not try to sign in, ignore this email "
+        f"and consider changing your password.\n\n"
+        f"{APP_NAME}\n"
+        f"Reply: {SUPPORT_EMAIL}\n"
+    )
+    html = render_email(
+        preheader=f"Your sign-in code is {code}.",
+        title="Your sign-in code",
+        intro="Use this code to finish signing in to ShiftSwift HR.",
+        paragraphs=[
+            f"<strong style=\"font-size:28px;letter-spacing:4px\">{code}</strong>",
+            f"This code expires in {minutes} minutes. If you did not try to sign in, you can ignore this email.",
+        ],
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def workspace_user_invite_email(
     *,
     role_label: str,

@@ -10,6 +10,7 @@
     "app-icons.js",
     "native-geolocation.js",
     "native-shift-alerts.js",
+    "android-fcm-flag.js",
     "native-remote-push.js",
     "push-notifications.js",
     "mobile-shell.js",

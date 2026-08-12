@@ -33,6 +33,9 @@ Edit `backend_stub/.env` (copy from `backend_stub/.env.production.example` if mi
 - `FORCE_HTTPS=1`
 - `CORS_ALLOW_ORIGINS=https://app.shiftswifthr.co.uk,https://www.shiftswifthr.co.uk`
 - `TRUSTED_HOSTS=api.shiftswifthr.co.uk,app.shiftswifthr.co.uk,www.shiftswifthr.co.uk`
+- Native push (optional but required for Android FCM / iOS APNs delivery):
+  - `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID=co.uk.shiftswifthr.app`, `APNS_USE_SANDBOX=false`
+  - `FIREBASE_SERVICE_ACCOUNT_JSON=/absolute/path/to/firebase-adminsdk.json` (store under `backend_stub/secrets/`, gitignored)
 
 ## 4. PostgreSQL (once per server)
 

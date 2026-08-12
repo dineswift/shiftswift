@@ -34,6 +34,14 @@ const LOGIN_MODES = {
 let pendingEnrollmentToken = null;
 let pendingChallenge = null;
 let pendingMfaUsername = "";
+let pendingMfaMethod = "email";
+let pendingMfaMeta = {
+  passkeyAvailable: false,
+  totpAvailable: false,
+  emailAvailable: true,
+  emailHint: "",
+  emailSent: false,
+};
 
 function isNativeLoginApp() {
   try {
@@ -443,6 +451,59 @@ function setStatus(message) {
   setNativeStatusMessage(document.getElementById("login-status"), message);
 }
 
+function isEmployeeOnBusinessLoginError(message) {
+  return /employee account|employee sign-in page/i.test(String(message || ""));
+}
+
+function isHrOnEmployeeLoginError(message) {
+  return /HR admin account|business sign-in page/i.test(String(message || ""));
+}
+
+function employeeLoginUrl(username) {
+  const params = new URLSearchParams();
+  const email = String(username || "").trim();
+  if (email) params.set("username", email);
+  const native = /(?:\?|&)source=native(?:&|$)/i.test(window.location.search) || /source=native/i.test(window.location.href);
+  if (native) params.set("source", "native");
+  const qs = params.toString();
+  return qs ? `./employee-login.html?${qs}` : "./employee-login.html";
+}
+
+function businessLoginUrl(username) {
+  const params = new URLSearchParams();
+  const email = String(username || "").trim();
+  if (email) params.set("username", email);
+  const native = /(?:\?|&)source=native(?:&|$)/i.test(window.location.search) || /source=native/i.test(window.location.href);
+  if (native) params.set("source", "native");
+  const qs = params.toString();
+  return qs ? `./business-login.html?${qs}` : "./business-login.html";
+}
+
+function maybeRedirectWrongPortal(message, endpoint, username) {
+  if (endpoint.includes("business") && isEmployeeOnBusinessLoginError(message)) {
+    setStatus("Employee account detected — opening employee sign-in…");
+    window.setTimeout(() => {
+      window.location.replace(employeeLoginUrl(username));
+    }, 600);
+    return true;
+  }
+  if (endpoint.includes("employee") && isHrOnEmployeeLoginError(message)) {
+    setStatus("HR admin account detected — opening business sign-in…");
+    window.setTimeout(() => {
+      window.location.replace(businessLoginUrl(username));
+    }, 600);
+    return true;
+  }
+  return false;
+}
+
+function prefillUsernameFromQuery() {
+  const email = new URLSearchParams(window.location.search).get("username");
+  if (!email) return;
+  const input = document.querySelector('#portal-login-form input[name="username"]');
+  if (input && !input.value) input.value = email;
+}
+
 function friendlyLoginError(message, endpoint, username) {
   if (message === "Failed to fetch" || message === "Load failed") {
     const host = window.location.hostname;
@@ -549,30 +610,117 @@ function redirectForRole(data, fallback) {
   return fallback;
 }
 
-function showMfaStep(username, passkeyAvailable = false) {
+function showMfaStep(username, meta = {}) {
   pendingMfaUsername = String(username || "");
+  const passkeyAvailable = Boolean(
+    typeof meta === "boolean" ? meta : meta.passkeyAvailable ?? meta.passkey_available,
+  );
+  const totpAvailable = Boolean(typeof meta === "object" && (meta.totpAvailable ?? meta.totp_available));
+  const emailFlag =
+    typeof meta === "object" ? meta.emailAvailable ?? meta.email_mfa_available : undefined;
+  const emailAvailable = emailFlag !== false;
+  const emailHint =
+    (typeof meta === "object" && (meta.emailHint || meta.email_hint)) || pendingMfaUsername;
+  const emailSent = Boolean(typeof meta === "object" && (meta.emailSent ?? meta.email_sent));
+  const serverMessage = typeof meta === "object" ? String(meta.message || "") : "";
+  const defaultMethod = String(
+    (typeof meta === "object" && (meta.defaultMethod || meta.default_mfa_method)) || "",
+  ).toLowerCase();
+  pendingMfaMeta = {
+    passkeyAvailable,
+    totpAvailable,
+    emailAvailable,
+    emailHint,
+    emailSent,
+  };
+  // Prefer email whenever authenticator is not the only/default path.
+  if (defaultMethod === "totp" && totpAvailable && !emailAvailable) pendingMfaMethod = "totp";
+  else if (emailAvailable) pendingMfaMethod = "email";
+  else if (totpAvailable) pendingMfaMethod = "totp";
+  else pendingMfaMethod = "email";
+
   syncLoginPanels("mfa");
+  applyMfaMethodUi();
+  if (serverMessage) setStatus(serverMessage);
+  else if (pendingMfaMethod === "email" && emailSent) {
+    setStatus("Check your inbox and spam folder for the 6-digit code.");
+  } else if (pendingMfaMethod === "email" && !emailSent) {
+    setStatus("Sending email code…");
+    void ensureEmailCodeSent();
+  }
   const mfaPanel = document.getElementById("mfa-panel");
-  if (mfaPanel) {
-    const userLabel = mfaPanel.querySelector("[data-mfa-user]");
-    if (userLabel) userLabel.textContent = username;
-    const lead = mfaPanel.querySelector(".portal-login-card-lead");
-    const canPasskey =
-      Boolean(passkeyAvailable) && Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
-    if (lead) {
-      lead.innerHTML = canPasskey
-        ? `Verify with Face ID or enter the 6-digit code for <strong data-mfa-user>${escapeLoginHtml(username)}</strong>.`
-        : `Enter the 6-digit code for <strong data-mfa-user>${escapeLoginHtml(username)}</strong>.`;
-    }
-    const passkeyBtn = document.getElementById("mfa-passkey-btn");
-    const divider = document.getElementById("mfa-passkey-divider");
-    if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
-    if (divider) divider.hidden = !canPasskey;
-    if (canPasskey) {
-      focusLoginInput(passkeyBtn);
+  focusLoginInput(mfaPanel?.querySelector('input[name="code"]'));
+}
+
+async function ensureEmailCodeSent() {
+  if (!pendingChallenge) return;
+  try {
+    const data = await postJson("/auth/mfa/send-email-code", {
+      challenge_token: pendingChallenge,
+    });
+    if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+    pendingMfaMeta.emailSent = true;
+    pendingMfaMethod = "email";
+    applyMfaMethodUi();
+    setStatus(data.message || "We emailed a 6-digit code. Check your inbox and spam folder.");
+  } catch (error) {
+    setStatus(error.message || "Could not email your sign-in code. Tap Resend to try again.");
+  }
+}
+
+function applyMfaMethodUi() {
+  const mfaPanel = document.getElementById("mfa-panel");
+  if (!mfaPanel) return;
+  const { passkeyAvailable, totpAvailable, emailAvailable, emailHint, emailSent } = pendingMfaMeta;
+  const canPasskey = passkeyAvailable && Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+  const resolved =
+    pendingMfaMethod === "totp" && totpAvailable
+      ? "totp"
+      : emailAvailable || !totpAvailable
+        ? "email"
+        : "totp";
+  pendingMfaMethod = resolved;
+
+  const title = document.getElementById("mfa-panel-title");
+  if (title) title.textContent = resolved === "email" ? "Check your email" : "Authenticator code";
+
+  const lead = document.getElementById("mfa-panel-lead") || mfaPanel.querySelector(".portal-login-card-lead");
+  if (lead) {
+    if (resolved === "email") {
+      const hint = escapeLoginHtml(emailHint || pendingMfaUsername);
+      lead.innerHTML = emailSent
+        ? `We emailed a 6-digit code to <strong data-mfa-user>${hint}</strong>. Check inbox and spam.`
+        : `Enter the 6-digit code we email to <strong data-mfa-user>${hint}</strong>.`;
     } else {
-      focusLoginInput(mfaPanel.querySelector('input[name="code"]'));
+      lead.innerHTML = `Enter the 6-digit code from your authenticator app for <strong data-mfa-user>${escapeLoginHtml(pendingMfaUsername)}</strong>.`;
     }
+  }
+
+  const labelText = document.getElementById("mfa-code-label-text");
+  if (labelText) labelText.textContent = resolved === "email" ? "Email code" : "Authenticator code";
+  const codeInput = mfaPanel.querySelector('input[name="code"]');
+  if (codeInput) codeInput.value = "";
+
+  const passkeyBtn = document.getElementById("mfa-passkey-btn");
+  const divider = document.getElementById("mfa-passkey-divider");
+  if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
+  if (divider) divider.hidden = !canPasskey;
+
+  const resendWrap = document.getElementById("mfa-resend-wrap");
+  if (resendWrap) resendWrap.hidden = resolved !== "email" || !emailAvailable;
+
+  const alt = document.getElementById("mfa-alt-methods");
+  const useEmailBtn = document.getElementById("mfa-use-email-btn");
+  const useTotpBtn = document.getElementById("mfa-use-totp-btn");
+  if (alt) alt.hidden = !(emailAvailable && totpAvailable);
+  if (useEmailBtn) useEmailBtn.hidden = !(emailAvailable && resolved !== "email");
+  if (useTotpBtn) useTotpBtn.hidden = !(totpAvailable && resolved !== "totp");
+
+  const signInRemember = document.getElementById("login-remember-device");
+  const mfaRemember = document.getElementById("login-remember-device-mfa");
+  if (signInRemember && mfaRemember && !mfaRemember.dataset.synced) {
+    mfaRemember.checked = signInRemember.checked;
+    mfaRemember.dataset.synced = "1";
   }
 }
 
@@ -601,13 +749,18 @@ function bindMfaForm() {
       .trim()
       .replace(/\s+/g, "");
     if (!code || code.length < 6) {
-      setStatus("Enter the 6-digit code from your authenticator app.");
+      setStatus(
+        pendingMfaMethod === "email"
+          ? "Enter the 6-digit code from your email."
+          : "Enter the 6-digit code from your authenticator app.",
+      );
       return;
     }
     try {
       const data = await postJson("/auth/mfa/verify", {
         challenge_token: pendingChallenge,
         code,
+        method: pendingMfaMethod === "totp" ? "totp" : "email",
         remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
         device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || undefined,
       });
@@ -616,6 +769,79 @@ function bindMfaForm() {
       setStatus(error.message || "Invalid authentication code");
     }
   });
+
+  const resendBtn = document.getElementById("mfa-resend-btn");
+  if (resendBtn && !resendBtn.dataset.bound) {
+    resendBtn.dataset.bound = "1";
+    resendBtn.addEventListener("click", async () => {
+      if (!pendingChallenge) {
+        setStatus("Session expired. Sign in again.");
+        return;
+      }
+      setStatus("Sending a new code…");
+      resendBtn.disabled = true;
+      try {
+        const data = await postJson("/auth/mfa/send-email-code", {
+          challenge_token: pendingChallenge,
+        });
+        if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+        pendingMfaMethod = "email";
+        applyMfaMethodUi();
+        setStatus(data.message || "We sent a new code to your email.");
+      } catch (error) {
+        setStatus(error.message || "Could not resend code");
+      } finally {
+        window.setTimeout(() => {
+          resendBtn.disabled = false;
+        }, 2000);
+      }
+    });
+  }
+
+  const useEmailBtn = document.getElementById("mfa-use-email-btn");
+  if (useEmailBtn && !useEmailBtn.dataset.bound) {
+    useEmailBtn.dataset.bound = "1";
+    useEmailBtn.addEventListener("click", async () => {
+      pendingMfaMethod = "email";
+      applyMfaMethodUi();
+      setStatus("Sending email code…");
+      try {
+        const data = await postJson("/auth/mfa/send-email-code", {
+          challenge_token: pendingChallenge,
+        });
+        if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+        applyMfaMethodUi();
+        setStatus(data.message || "We sent a code to your email.");
+        focusLoginInput(document.querySelector('#mfa-form input[name="code"]'));
+      } catch (error) {
+        setStatus(error.message || "Could not send email code");
+      }
+    });
+  }
+
+  const useTotpBtn = document.getElementById("mfa-use-totp-btn");
+  if (useTotpBtn && !useTotpBtn.dataset.bound) {
+    useTotpBtn.dataset.bound = "1";
+    useTotpBtn.addEventListener("click", () => {
+      pendingMfaMethod = "totp";
+      applyMfaMethodUi();
+      setStatus("");
+      focusLoginInput(document.querySelector('#mfa-form input[name="code"]'));
+    });
+  }
+
+  const backBtn = document.getElementById("mfa-back-signin");
+  if (backBtn && !backBtn.dataset.bound) {
+    backBtn.dataset.bound = "1";
+    backBtn.addEventListener("click", () => {
+      pendingChallenge = null;
+      pendingMfaMethod = "email";
+      const mfaRemember = document.getElementById("login-remember-device-mfa");
+      if (mfaRemember) delete mfaRemember.dataset.synced;
+      syncLoginPanels("signin");
+      setStatus("");
+    });
+  }
 
   const passkeyBtn = document.getElementById("mfa-passkey-btn");
   if (passkeyBtn && !passkeyBtn.dataset.bound) {
@@ -674,7 +900,7 @@ function bindPortalLogin() {
         pendingMfaUsername = data.username || payload.username || "";
         pendingRedirect = redirectForRole(data, mode.redirect);
         setStatus("");
-        showMfaStep(pendingMfaUsername, Boolean(data.passkey_available));
+        showMfaStep(pendingMfaUsername, data);
         return;
       }
       if (data.mfa_enrollment_required && data.enrollment_token) {
@@ -685,7 +911,9 @@ function bindPortalLogin() {
       }
       await storeSessionAndGo(data, redirectForRole(data, mode.redirect));
     } catch (error) {
-      setStatus(friendlyLoginError(error.message, mode.endpoint, payload.username));
+      const friendly = friendlyLoginError(error.message, mode.endpoint, payload.username);
+      if (maybeRedirectWrongPortal(error.message, mode.endpoint, payload.username)) return;
+      setStatus(friendly);
     }
   });
 }
@@ -725,6 +953,7 @@ function initDedicatedLogin(mode) {
   activeLoginMode = mode;
   initNativeLoginStability();
   switchLoginMode(mode);
+  prefillUsernameFromQuery();
   bindPortalLogin();
   bindMfaEnrollmentHandlers();
   bindForgotPasswordLink();
@@ -837,7 +1066,7 @@ function bindUnifiedLogin() {
         pendingChallenge = data.challenge_token;
         pendingMfaUsername = data.username || payload.username || "";
         setStatus("");
-        showMfaStep(pendingMfaUsername, Boolean(data.passkey_available));
+        showMfaStep(pendingMfaUsername, data);
         return;
       }
       if (data.mfa_enrollment_required && data.enrollment_token) {
@@ -943,7 +1172,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
         pendingMfaUsername = data.username || payload.username || "";
         pendingRedirect = redirectUrl;
         setStatus("");
-        showMfaStep(pendingMfaUsername, Boolean(data.passkey_available));
+        showMfaStep(pendingMfaUsername, data);
         return;
       }
       if (data.mfa_enrollment_required && data.enrollment_token) {
@@ -953,7 +1182,9 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
       }
       await storeSessionAndGo(data, redirectUrl);
     } catch (error) {
-      setStatus(friendlyLoginError(error.message, endpoint, payload.username));
+      const friendly = friendlyLoginError(error.message, endpoint, payload.username);
+      if (maybeRedirectWrongPortal(error.message, endpoint, payload.username)) return;
+      setStatus(friendly);
     }
   });
 }

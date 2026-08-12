@@ -826,9 +826,10 @@
         ["Database", settings.database_configured ? "Connected" : "Not configured"],
         ["API health", escapeHtml(health.status || "unknown")],
         ["SMTP", settings.smtp?.configured ? "Configured" : "Not configured"],
-        ["Master MFA required", settings.master_require_mfa ? "Yes" : "No"],
-        ["HR MFA required", settings.business_require_mfa ? "Yes" : "No"],
-        ["Employee MFA required", settings.employee_require_mfa ? "Yes" : "No"],
+        ["Email codes after password", settings.login_require_email_mfa ? "Yes (default)" : "No"],
+        ["Master authenticator required", settings.master_require_mfa ? "Yes" : "No"],
+        ["HR authenticator required", settings.business_require_mfa ? "Yes" : "No"],
+        ["Employee authenticator required", settings.employee_require_mfa ? "Yes" : "No"],
       ]);
     } catch (error) {
       host.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
@@ -886,8 +887,9 @@
       host.innerHTML = `
         ${renderKeyValueGrid([
           ["Username", escapeHtml(profile.username)],
-          ["MFA", mfaEnabled ? "Enabled" : "Not enabled"],
-          ["MFA enabled at", escapeHtml(formatDate(profile.mfa_enabled_at))],
+          ["Email codes", "Default after password (when SMTP is configured)"],
+          ["Authenticator app", mfaEnabled ? "Enabled" : "Not set"],
+          ["Authenticator enabled at", escapeHtml(formatDate(profile.mfa_enabled_at))],
         ])}
         <form id="master-change-password-form" class="master-form">
           <h3>Change password</h3>
@@ -897,22 +899,22 @@
           <p class="master-inline-status muted" id="master-password-status" aria-live="polite"></p>
         </form>
         <section id="master-enable-mfa-section" class="master-form"${mfaEnabled ? " hidden" : ""}>
-          <h3>Enable two-factor authentication</h3>
-          <p class="muted">Required before launch — scan a QR code with Google Authenticator, Authy, or Microsoft Authenticator.</p>
+          <h3>Authenticator app (optional)</h3>
+          <p class="muted">Email codes are already required at sign-in. Add Google Authenticator, Authy, or Microsoft Authenticator as an alternative.</p>
           <button type="button" class="master-btn master-btn--gold" id="master-mfa-start">Generate QR code</button>
           <div id="master-mfa-qr-area" hidden>
             <div class="master-mfa-qr-wrap"><img id="master-mfa-qr" alt="Authenticator QR code" width="180" height="180" /></div>
             <p class="muted">Manual key: <code id="master-mfa-secret"></code></p>
             <label>Verification code<input type="text" id="master-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="123456" /></label>
-            <button type="button" class="master-btn master-btn--gold" id="master-mfa-enable">Enable MFA</button>
+            <button type="button" class="master-btn master-btn--gold" id="master-mfa-enable">Enable authenticator</button>
           </div>
           <p class="master-inline-status muted" id="master-mfa-setup-status" aria-live="polite"></p>
         </section>
         <form id="master-disable-mfa-form" class="master-form"${mfaEnabled ? "" : " hidden"}>
-          <h3>Disable MFA</h3>
-          <p class="muted">Turns off authenticator codes on this master account.</p>
+          <h3>Disable authenticator</h3>
+          <p class="muted">Removes the authenticator app. Email sign-in codes remain required when SMTP is configured.</p>
           <label>Current password<input type="password" name="current_password" required autocomplete="current-password" /></label>
-          <button type="submit" class="master-btn master-btn--ghost">Disable MFA</button>
+          <button type="submit" class="master-btn master-btn--ghost">Disable authenticator</button>
           <p class="master-inline-status muted" id="master-mfa-status" aria-live="polite"></p>
         </form>`;
 

@@ -647,3 +647,28 @@ adminHtml = adminHtml.replace(
 );
 fs.writeFileSync(path.join(www, "admin.html"), adminHtml);
 console.log("wrote www/admin.html");
+
+// Android FCM is only safe when google-services.json matches this app id.
+// Without it, Capacitor PushNotifications.register() can crash the process.
+const googleServicesPath = path.join(root, "android/app/google-services.json");
+let androidFcmEnabled = false;
+if (fs.existsSync(googleServicesPath)) {
+  try {
+    const googleServices = JSON.parse(fs.readFileSync(googleServicesPath, "utf8"));
+    androidFcmEnabled = (googleServices.client || []).some(
+      (client) =>
+        client?.client_info?.android_client_info?.package_name === "co.uk.shiftswifthr.app",
+    );
+  } catch {
+    androidFcmEnabled = false;
+  }
+}
+fs.writeFileSync(
+  path.join(www, "android-fcm-flag.js"),
+  `window.__SSHR_ANDROID_FCM__ = ${androidFcmEnabled ? "true" : "false"};\n`,
+);
+console.log(
+  androidFcmEnabled
+    ? "wrote www/android-fcm-flag.js (FCM enabled)"
+    : "wrote www/android-fcm-flag.js (FCM disabled — add google-services.json for co.uk.shiftswifthr.app)",
+);

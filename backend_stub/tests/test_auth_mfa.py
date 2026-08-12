@@ -110,13 +110,14 @@ def test_business_mfa_enrollment_token_round_trip() -> None:
 
 
 def test_auth_policy_defaults() -> None:
-    from auth_policy import business_require_mfa_hr, employee_require_mfa
+    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
     from modules.master.security import master_require_mfa
 
     dev = _dev_settings()
     assert not business_require_mfa_hr(dev)
     assert not employee_require_mfa(dev)
     assert not master_require_mfa(dev)
+    assert login_require_email_mfa(dev)
 
     prod = Settings(
         app_env="production",
@@ -136,6 +137,7 @@ def test_auth_policy_defaults() -> None:
     assert not business_require_mfa_hr(prod)
     assert not employee_require_mfa(prod)
     assert not master_require_mfa(prod)
+    assert login_require_email_mfa(prod)
 
 
 def test_portal_allows_user() -> None:
@@ -239,6 +241,16 @@ def test_mfa_skip_enrollment_route_on_auth_router() -> None:
 
     paths = {getattr(route, "path", None) for route in auth_routes.router.routes}
     assert "/mfa/skip-enrollment" in paths or "/auth/mfa/skip-enrollment" in paths
+    assert "/mfa/send-email-code" in paths or "/auth/mfa/send-email-code" in paths
+
+
+def test_email_mfa_helpers() -> None:
+    from auth_email_mfa import looks_like_email, mask_email
+
+    assert looks_like_email("hr@example.com")
+    assert not looks_like_email("not-an-email")
+    assert mask_email("hr@example.com").endswith("@example.com")
+    assert "*" in mask_email("hr@example.com")
 
 
 def test_mfa_skip_enrollment_business_and_master() -> None:

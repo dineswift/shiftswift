@@ -194,7 +194,13 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function applyNativeClasses() {
     if (!isNativeApp()) return;
-    document.documentElement.classList.add("native-app", "pwa-standalone", "ios-device");
+    document.documentElement.classList.add("native-app", "pwa-standalone");
+    const nativePlatform = String(window.Capacitor?.getPlatform?.() || "").toLowerCase();
+    if (nativePlatform === "ios") {
+      document.documentElement.classList.add("ios-device");
+    } else if (nativePlatform === "android") {
+      document.documentElement.classList.add("android-device");
+    }
     if (document.body) document.body.classList.add("native-app", "pwa-standalone");
     try {
       localStorage.setItem("sshrNativeApp", "1");

@@ -258,4 +258,4 @@ def complete_password_reset(
         user_agent=user_agent,
         success=True,
     )
-    return {"message": "Password updated. You can sign in with your new password."}
+    return {"message": "Password updated. Sign in with your new password — we will email a 6-digit verification code."}

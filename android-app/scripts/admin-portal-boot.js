@@ -3,13 +3,14 @@
  * Bundled App://localhost only.
  */
 (function iphoneAdminPortalBoot() {
-  const BUILD = "64";
+  const BUILD = "85";
 
   const SCRIPTS = [
     "auth-guard.js",
     "portal-pwa-stability.js",
     "admin-pwa.js",
     "native-shift-alerts.js",
+    "android-fcm-flag.js",
     "native-remote-push.js",
     "mobile-shell.js",
     "mobile-tables.js",
@@ -34,6 +35,7 @@
     "admin-offboarding.js",
     "admin-templates.js",
     "admin-global-documents.js",
+    "native-geolocation.js",
     "admin-time-punch.js",
     "admin-rota.js",
     "admin-leave.js",
@@ -223,10 +225,64 @@
     }
   }
 
+  async function probeNativeHttp() {
+    const cap = window.Capacitor;
+    const out = [];
+    const platform = String(cap?.getPlatform?.() || "").toLowerCase();
+    const apiBase =
+      window.ShiftSwiftSession?.getApiBase?.() ||
+      window.ShiftSwiftBrand?.getApiBase?.() ||
+      "https://api.shiftswifthr.co.uk";
+    const token = localStorage.getItem("token") || "";
+    const tenantId = localStorage.getItem("tenantId") || "";
+    const authHeaders = { Accept: "application/json" };
+    if (token) authHeaders.Authorization = `Bearer ${token}`;
+    if (tenantId) authHeaders["X-Tenant-Id"] = String(tenantId);
+    out.push(`platform=${platform || "?"}`);
+
+    async function hit(label, path, withAuth) {
+      const url = `${apiBase}${path}`;
+      const headers = withAuth ? authHeaders : { Accept: "application/json" };
+      try {
+        if (platform === "ios") {
+          try {
+            if (cap?.registerPlugin) cap.registerPlugin("ShiftSwiftHttp");
+          } catch {
+            /* ignore */
+          }
+          if (cap?.Plugins?.ShiftSwiftHttp || cap?.nativePromise) {
+            const res = await cap.nativePromise("ShiftSwiftHttp", "request", {
+              url,
+              method: "GET",
+              headers,
+              connectTimeout: 12000,
+              readTimeout: 12000,
+            });
+            out.push(`${label}=${res?.status || "?"}`);
+            return;
+          }
+        }
+        const res = await fetch(url, { method: "GET", headers });
+        out.push(`${label}=${res.status}`);
+      } catch (error) {
+        out.push(`${label}Err=${String(error?.message || error || "fail").slice(0, 70)}`);
+      }
+    }
+
+    await hit("health", "/health", false);
+    await hit("healthAuth", "/health", true);
+    await hit("overview", "/admin/overview", true);
+
+    window.__SSHR_HTTP_PROBE = out.join(" · ");
+    console.info("[SSHR HTTP probe]", window.__SSHR_HTTP_PROBE);
+    return window.__SSHR_HTTP_PROBE;
+  }
+
   function showBootError(message) {
     const grid = document.getElementById("overview-metrics");
     if (!grid) return;
-    grid.innerHTML = `<div class="overview-error"><p class="muted">${message}</p><button type="button" class="btn outline btn-sm" id="admin-boot-retry-btn">Retry</button></div>`;
+    const probe = window.__SSHR_HTTP_PROBE ? `<p class="muted" style="font-size:12px">${window.__SSHR_HTTP_PROBE}</p>` : "";
+    grid.innerHTML = `<div class="overview-error"><p class="muted">${message}</p>${probe}<button type="button" class="btn outline btn-sm" id="admin-boot-retry-btn">Retry</button></div>`;
     document.getElementById("admin-boot-retry-btn")?.addEventListener("click", () => {
       void loadPortalData(true).then(() => refreshActiveSection());
     });
@@ -330,7 +386,7 @@
   }
 
   function schedulePortalRetries() {
-    [4000].forEach((delayMs) => {
+    [2500, 5500].forEach((delayMs) => {
       window.setTimeout(async () => {
         const section =
           window.Admin?.resolveSectionFromHash?.(window.location.hash) ||
@@ -339,10 +395,26 @@
         const employeesLoaded = window.ShiftSwiftAdminEmployees?.getEmployeesCount?.() > 0;
         const overviewOk = Boolean(document.getElementById("overview-metrics")?.querySelector(".hr-stat-card"));
         const sectionPanel = document.getElementById(section);
+        const rotaMessage = document.getElementById("rota-admin-message");
+        const rotaFailed =
+          section === "rota" &&
+          (rotaMessage?.dataset?.type === "error" ||
+            /could not load|cannot reach|business not set|sign in again/i.test(
+              String(rotaMessage?.textContent || ""),
+            ) ||
+            !document.getElementById("rota-week-label")?.textContent?.trim());
         const sectionEmpty =
           sectionPanel?.classList.contains("admin-section--active") &&
-          !sectionPanel?.querySelector(".overview-error, .hr-stat-card, .data-table tbody tr, .lifecycle-employee-card, .card, .edit-form");
-        if (employeesLoaded && overviewOk && !sectionEmpty) return;
+          !sectionPanel?.querySelector(
+            ".overview-error, .hr-stat-card, .data-table tbody tr, .lifecycle-employee-card, .edit-form",
+          );
+        if (employeesLoaded && overviewOk && !sectionEmpty && !rotaFailed) return;
+        if (section === "rota" || rotaFailed) {
+          window.dispatchEvent(new CustomEvent("admin:portal-native-retry"));
+          window.dispatchEvent(new CustomEvent("admin:rota-mobile-open"));
+          refreshActiveSection();
+          return;
+        }
         await loadPortalData(true);
         window.dispatchEvent(new CustomEvent("admin:portal-native-retry"));
         refreshActiveSection();
@@ -357,6 +429,10 @@
 
     try {
       localStorage.setItem("sshrUnifiedNativeApp", "1");
+      localStorage.setItem("apiBaseUrl", "https://api.shiftswifthr.co.uk");
+      if (window.ShiftSwiftBrand?.urls) {
+        window.ShiftSwiftBrand.urls.api = "https://api.shiftswifthr.co.uk";
+      }
     } catch {
       /* ignore */
     }
@@ -373,6 +449,7 @@
         );
         return;
       }
+      await probeNativeHttp();
 
       window.__SSHR_NATIVE_SESSION_READY = true;
       window.dispatchEvent(new CustomEvent("shiftswift:native-session-ready"));

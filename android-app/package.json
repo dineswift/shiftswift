@@ -1,7 +1,7 @@
 {
   "name": "shiftswifthr-android-app",
   "private": true,
-  "version": "1.3.3",
+  "version": "1.3.8",
   "description": "ShiftSwift HR — Android Capacitor app (bundled login + employee/admin portals)",
   "scripts": {
     "sync:www": "node scripts/sync-www.mjs",

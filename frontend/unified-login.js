@@ -6,6 +6,14 @@
   let pendingRedirect = "./admin.html";
   let pendingEnrollmentToken = null;
   let pendingEmail = "";
+  let pendingMfaMethod = "email";
+  let pendingMfaMeta = {
+    passkeyAvailable: false,
+    totpAvailable: false,
+    emailAvailable: true,
+    emailHint: "",
+    emailSent: false,
+  };
 
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
@@ -363,13 +371,35 @@
     if (mfaPanel) mfaPanel.hidden = true;
     if (enrollmentPanel) enrollmentPanel.hidden = true;
     setLoginStep("signin");
+    const mfaRemember = document.getElementById("login-remember-device-mfa");
+    if (mfaRemember) delete mfaRemember.dataset.synced;
     const lead = document.getElementById("login-lead");
     if (lead) lead.textContent = "Enter your work email and password.";
     setStatus("");
   }
 
-  function showMfaStep(username, passkeyAvailable = false) {
+  function showMfaStep(username, meta = {}) {
     pendingEmail = username || pendingEmail || normalizeEmail(getEmailInput()?.value);
+    const passkeyAvailable = Boolean(meta.passkeyAvailable ?? meta.passkey_available);
+    const totpAvailable = Boolean(meta.totpAvailable ?? meta.totp_available);
+    const emailFlag = meta.emailAvailable ?? meta.email_mfa_available;
+    const emailAvailable = emailFlag !== false;
+    const emailHint = meta.emailHint || meta.email_hint || username || pendingEmail;
+    const emailSent = Boolean(meta.emailSent ?? meta.email_sent);
+    const serverMessage = String(meta.message || "");
+    const defaultMethod = String(meta.defaultMethod || meta.default_mfa_method || "").toLowerCase();
+    pendingMfaMeta = {
+      passkeyAvailable,
+      totpAvailable,
+      emailAvailable,
+      emailHint,
+      emailSent,
+    };
+    if (defaultMethod === "totp" && totpAvailable && !emailAvailable) pendingMfaMethod = "totp";
+    else if (emailAvailable) pendingMfaMethod = "email";
+    else if (totpAvailable) pendingMfaMethod = "totp";
+    else pendingMfaMethod = "email";
+
     const loginShell = document.getElementById("login-shell");
     const mfaPanel = document.getElementById("mfa-panel");
     const enrollmentPanel = document.getElementById("mfa-enrollment-panel");
@@ -378,24 +408,98 @@
     setLoginStep("mfa");
     if (mfaPanel) {
       mfaPanel.hidden = false;
-      const userLabel = mfaPanel.querySelector("[data-mfa-user]");
-      if (userLabel) userLabel.textContent = username;
-      const lead = mfaPanel.querySelector(".portal-login-card-lead");
-      if (lead) {
-        lead.textContent = passkeyAvailable
-          ? "Verify with Face ID / Touch ID or enter your authenticator code."
-          : "Enter the 6-digit code from your authenticator app.";
-      }
-      const passkeyBtn = document.getElementById("mfa-passkey-btn");
-      if (passkeyBtn) {
-        passkeyBtn.hidden = !(passkeyAvailable && window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
-      }
-      const divider = document.getElementById("mfa-passkey-divider");
-      if (divider) {
-        divider.hidden = !(passkeyAvailable && window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+      applyMfaMethodUi();
+      if (serverMessage) setStatus(serverMessage);
+      else if (pendingMfaMethod === "email" && emailSent) {
+        setStatus("Check your inbox and spam folder for the 6-digit code.");
+      } else if (pendingMfaMethod === "email" && !emailSent) {
+        setStatus("Sending email code…");
+        void ensureEmailCodeSent();
       }
       mfaPanel.querySelector('input[name="code"]')?.focus();
     }
+  }
+
+  async function ensureEmailCodeSent() {
+    if (!pendingChallenge) return;
+    try {
+      const data = await postJson("/auth/mfa/send-email-code", {
+        challenge_token: pendingChallenge,
+      });
+      if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+      pendingMfaMeta.emailSent = true;
+      pendingMfaMethod = "email";
+      applyMfaMethodUi();
+      setStatus(data.message || "We emailed a 6-digit code. Check your inbox and spam folder.");
+    } catch (error) {
+      setStatus(error.message || "Could not email your sign-in code. Tap Resend to try again.");
+    }
+  }
+
+  function applyMfaMethodUi() {
+    const mfaPanel = document.getElementById("mfa-panel");
+    if (!mfaPanel) return;
+    const { passkeyAvailable, totpAvailable, emailAvailable, emailHint, emailSent } = pendingMfaMeta;
+    const canPasskey = passkeyAvailable && Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+    const method =
+      pendingMfaMethod === "totp" && totpAvailable
+        ? "totp"
+        : emailAvailable || !totpAvailable
+          ? "email"
+          : "totp";
+    pendingMfaMethod = method;
+
+    const title = document.getElementById("mfa-panel-title");
+    if (title) title.textContent = method === "email" ? "Check your email" : "Authenticator code";
+
+    const lead = document.getElementById("mfa-panel-lead") || mfaPanel.querySelector(".portal-login-card-lead");
+    if (lead) {
+      if (method === "email") {
+        const hint = escapeHtml(emailHint || pendingEmail);
+        lead.innerHTML = emailSent
+          ? `We emailed a 6-digit code to <strong data-mfa-user>${hint}</strong>. Check inbox and spam.`
+          : `Enter the 6-digit code we email to <strong data-mfa-user>${hint}</strong>.`;
+      } else {
+        lead.innerHTML = `Enter the 6-digit code from your authenticator app for <strong data-mfa-user>${escapeHtml(pendingEmail)}</strong>.`;
+      }
+    }
+
+    const labelText = document.getElementById("mfa-code-label-text");
+    if (labelText) {
+      labelText.textContent = method === "email" ? "Email code" : "Authenticator code";
+    }
+    const codeInput = mfaPanel.querySelector('input[name="code"]');
+    if (codeInput) codeInput.value = "";
+
+    const passkeyBtn = document.getElementById("mfa-passkey-btn");
+    if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
+    const divider = document.getElementById("mfa-passkey-divider");
+    if (divider) divider.hidden = !canPasskey;
+
+    const resendWrap = document.getElementById("mfa-resend-wrap");
+    if (resendWrap) resendWrap.hidden = method !== "email" || !emailAvailable;
+
+    const alt = document.getElementById("mfa-alt-methods");
+    const useEmailBtn = document.getElementById("mfa-use-email-btn");
+    const useTotpBtn = document.getElementById("mfa-use-totp-btn");
+    if (alt) alt.hidden = !(emailAvailable && totpAvailable);
+    if (useEmailBtn) useEmailBtn.hidden = !(emailAvailable && method !== "email");
+    if (useTotpBtn) useTotpBtn.hidden = !(totpAvailable && method !== "totp");
+
+    const signInRemember = document.getElementById("login-remember-device");
+    const mfaRemember = document.getElementById("login-remember-device-mfa");
+    if (signInRemember && mfaRemember && !mfaRemember.dataset.synced) {
+      mfaRemember.checked = signInRemember.checked;
+      mfaRemember.dataset.synced = "1";
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   function bindKeyboardScroll() {
@@ -515,19 +619,97 @@
         setStatus("Verifying code…");
         const code = normalizeMfaCode(new FormData(mfaForm).get("code"));
         if (!code || code.length < 6) {
-          setStatus("Enter the 6-digit code from your authenticator app.");
+          setStatus(
+            pendingMfaMethod === "email"
+              ? "Enter the 6-digit code from your email."
+              : "Enter the 6-digit code from your authenticator app.",
+          );
           return;
         }
         try {
           const data = await postJson("/auth/mfa/verify", {
             challenge_token: pendingChallenge,
             code,
+            method: pendingMfaMethod === "totp" ? "totp" : "email",
             ...mfaRememberPayload(),
           });
           await finishAuthSuccess(data, pendingEmail, redirectForRole(data, pendingRedirect));
         } catch (error) {
           setStatus(error.message || "Verification failed");
         }
+      });
+    }
+
+    const resendBtn = document.getElementById("mfa-resend-btn");
+    if (resendBtn && !resendBtn.dataset.boundUnified) {
+      resendBtn.dataset.boundUnified = "1";
+      resendBtn.addEventListener("click", async () => {
+        if (!pendingChallenge) {
+          setStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setStatus("Sending a new code…");
+        resendBtn.disabled = true;
+        try {
+          const data = await postJson("/auth/mfa/send-email-code", {
+            challenge_token: pendingChallenge,
+          });
+          if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+          pendingMfaMethod = "email";
+          applyMfaMethodUi();
+          setStatus(data.message || "We sent a new code to your email.");
+        } catch (error) {
+          setStatus(error.message || "Could not resend code");
+        } finally {
+          window.setTimeout(() => {
+            resendBtn.disabled = false;
+          }, 2000);
+        }
+      });
+    }
+
+    const useEmailBtn = document.getElementById("mfa-use-email-btn");
+    if (useEmailBtn && !useEmailBtn.dataset.boundUnified) {
+      useEmailBtn.dataset.boundUnified = "1";
+      useEmailBtn.addEventListener("click", async () => {
+        pendingMfaMethod = "email";
+        applyMfaMethodUi();
+        setStatus("Sending email code…");
+        try {
+          const data = await postJson("/auth/mfa/send-email-code", {
+            challenge_token: pendingChallenge,
+          });
+          if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+          applyMfaMethodUi();
+          setStatus(data.message || "We sent a code to your email.");
+          document.querySelector('#mfa-form input[name="code"]')?.focus();
+        } catch (error) {
+          setStatus(error.message || "Could not send email code");
+        }
+      });
+    }
+
+    const useTotpBtn = document.getElementById("mfa-use-totp-btn");
+    if (useTotpBtn && !useTotpBtn.dataset.boundUnified) {
+      useTotpBtn.dataset.boundUnified = "1";
+      useTotpBtn.addEventListener("click", () => {
+        pendingMfaMethod = "totp";
+        applyMfaMethodUi();
+        setStatus("");
+        document.querySelector('#mfa-form input[name="code"]')?.focus();
+      });
+    }
+
+    const backBtn = document.getElementById("mfa-back-signin");
+    if (backBtn && !backBtn.dataset.boundUnified) {
+      backBtn.dataset.boundUnified = "1";
+      backBtn.addEventListener("click", () => {
+        pendingChallenge = null;
+        pendingMfaMethod = "email";
+        const mfaRemember = document.getElementById("login-remember-device-mfa");
+        if (mfaRemember) delete mfaRemember.dataset.synced;
+        showLoginForm();
       });
     }
 
@@ -654,9 +836,24 @@
   function showMasterLoginNotice() {
     try {
       const notice = sessionStorage.getItem("masterLoginNotice");
-      if (!notice) return;
-      sessionStorage.removeItem("masterLoginNotice");
-      setStatus(notice);
+      if (notice) {
+        sessionStorage.removeItem("masterLoginNotice");
+        setStatus(notice);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("passwordReset") === "1") {
+        setStatus(
+          "Password updated. Sign in with your new password — we will email a 6-digit code next.",
+        );
+        params.delete("passwordReset");
+        const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash || ""}`;
+        window.history.replaceState({}, "", clean);
+      }
     } catch {
       /* ignore */
     }
@@ -747,8 +944,7 @@
         if (data.mfa_required && data.challenge_token) {
           pendingChallenge = data.challenge_token;
           pendingEmail = email;
-          setStatus("");
-          showMfaStep(data.username || email, Boolean(data.passkey_available));
+          showMfaStep(data.username || email, data);
           return;
         }
         if (data.mfa_enrollment_required && data.enrollment_token) {

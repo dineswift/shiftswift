@@ -114,59 +114,89 @@
 
   let booted = false;
 
+  function androidFirebaseConfigured() {
+    // Set at sync time when android/app/google-services.json is present.
+    try {
+      if (platform() !== "android") return true;
+      if (window.__SSHR_ANDROID_FCM__ === true) return true;
+      if (window.ShiftSwiftBrand?.androidFcmEnabled === true) return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
   async function registerForRemotePush() {
     if (!isNative() || booted) return { ok: false, reason: "skipped" };
     const plugin = pushPlugin();
     if (!plugin?.register) return { ok: false, reason: "unsupported" };
+    if (!androidFirebaseConfigured()) {
+      console.warn("[ShiftSwiftNativePush] skip Android FCM — google-services.json not configured");
+      return { ok: false, reason: "firebase_not_configured" };
+    }
 
     booted = true;
 
-    plugin.addListener("registration", async (event) => {
-      const deviceToken = event?.value;
-      if (!deviceToken) return;
-      try {
-        localStorage.setItem("sshrNativePushToken", deviceToken);
-      } catch {
-        /* ignore */
-      }
-      await subscribeToken(deviceToken);
-    });
-
-    plugin.addListener("registrationError", (error) => {
-      console.warn("[ShiftSwiftNativePush] registration failed", error);
-    });
-
-    plugin.addListener("pushNotificationReceived", (notification) => {
-      window.ShiftSwiftPush?.playAlertSound?.();
-      const title = notification?.title || notification?.data?.title || "ShiftSwift HR";
-      const body = notification?.body || notification?.data?.body || "";
-      window.ShiftSwiftNativeShiftAlerts?.showInAppAlertBanner?.(title, body);
-    });
-
-    plugin.addListener("pushNotificationActionPerformed", (action) => {
-      const data = action?.notification?.data || {};
-      if (data.url) {
+    try {
+      plugin.addListener("registration", async (event) => {
+        const deviceToken = event?.value;
+        if (!deviceToken) return;
         try {
-          window.location.href = data.url;
+          localStorage.setItem("sshrNativePushToken", deviceToken);
         } catch {
           /* ignore */
         }
-      }
-    });
+        try {
+          await subscribeToken(deviceToken);
+        } catch (error) {
+          console.warn("[ShiftSwiftNativePush] subscribe failed", error);
+        }
+      });
 
-    if (plugin.checkPermissions && plugin.requestPermissions) {
-      const current = await plugin.checkPermissions();
-      if ((current?.receive || "prompt") !== "granted") {
-        const requested = await plugin.requestPermissions();
-        if ((requested?.receive || "denied") !== "granted") {
-          return { ok: false, reason: "denied" };
+      plugin.addListener("registrationError", (error) => {
+        console.warn("[ShiftSwiftNativePush] registration failed", error);
+      });
+
+      plugin.addListener("pushNotificationReceived", (notification) => {
+        try {
+          window.ShiftSwiftPush?.playAlertSound?.();
+          const title = notification?.title || notification?.data?.title || "ShiftSwift HR";
+          const body = notification?.body || notification?.data?.body || "";
+          window.ShiftSwiftNativeShiftAlerts?.showInAppAlertBanner?.(title, body);
+        } catch {
+          /* ignore */
+        }
+      });
+
+      plugin.addListener("pushNotificationActionPerformed", (action) => {
+        const data = action?.notification?.data || {};
+        if (data.url) {
+          try {
+            window.location.href = data.url;
+          } catch {
+            /* ignore */
+          }
+        }
+      });
+
+      if (plugin.checkPermissions && plugin.requestPermissions) {
+        const current = await plugin.checkPermissions();
+        if ((current?.receive || "prompt") !== "granted") {
+          const requested = await plugin.requestPermissions();
+          if ((requested?.receive || "denied") !== "granted") {
+            return { ok: false, reason: "denied" };
+          }
         }
       }
-    }
 
-    await ensureAndroidChannel(plugin);
-    await plugin.register();
-    return { ok: true };
+      await ensureAndroidChannel(plugin);
+      await plugin.register();
+      return { ok: true };
+    } catch (error) {
+      // Missing google-services.json / Firebase init must never crash the app for reviewers.
+      console.warn("[ShiftSwiftNativePush] register aborted", error);
+      return { ok: false, reason: error?.message || "register_failed" };
+    }
   }
 
   window.ShiftSwiftNativeRemotePush = {

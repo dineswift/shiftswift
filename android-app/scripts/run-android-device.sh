@@ -7,16 +7,29 @@ ANDROID="$ROOT/android"
 BUNDLE_ID="co.uk.shiftswifthr.app"
 DEVICE_ID="${1:-}"
 
+java_major() {
+  local home="${1:-}"
+  [[ -n "$home" && -x "$home/bin/java" ]] || return 1
+  "$home/bin/java" -version 2>&1 | awk -F[\".] '/version/ { print $2; exit }'
+}
+
 resolve_java_home() {
-  if [[ -n "${JAVA_HOME:-}" ]]; then
+  if [[ "$(java_major "${JAVA_HOME:-}")" == "21" ]]; then
     return
   fi
   if /usr/libexec/java_home -v 21 >/dev/null 2>&1; then
     export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
-    return
+    if [[ "$(java_major "$JAVA_HOME")" == "21" ]]; then
+      return
+    fi
   fi
   local gradle_jdk=""
-  gradle_jdk="$(find "$HOME/.gradle/jdks" -path "*/Contents/Home" -type d 2>/dev/null | head -1 || true)"
+  while IFS= read -r candidate; do
+    if [[ "$(java_major "$candidate")" == "21" ]]; then
+      gradle_jdk="$candidate"
+      break
+    fi
+  done < <(find "$HOME/.gradle/jdks" -path "*/Contents/Home" -type d 2>/dev/null | sort -r)
   if [[ -n "$gradle_jdk" ]]; then
     export JAVA_HOME="$gradle_jdk"
     return
@@ -32,7 +45,11 @@ export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:
 
 cd "$ROOT"
 node scripts/sync-www.mjs
+# Guard PushNotifications against missing Firebase (same crash fix as Play archive)
+node scripts/patch-push-firebase-guard.mjs
 npx cap sync android
+# cap sync can refresh plugin sources — re-apply after sync
+node scripts/patch-push-firebase-guard.mjs
 node scripts/apply-android-branding.mjs
 
 # macOS sometimes duplicates res files ("config 2.xml") which breaks Gradle.
