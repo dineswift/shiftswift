@@ -80,7 +80,7 @@
     },
     security: {
       title: "Security",
-      subtitle: "Email sign-in codes, Face ID, and optional authenticator app.",
+      subtitle: "Email sign-in codes, optional authenticator, and Face ID when enabled on the server.",
     },
     addons: {
       title: "Add-ons & integrations",
@@ -1665,8 +1665,13 @@
       status.totp_enabled != null ? Boolean(status.totp_enabled) : Boolean(enabled);
     const required = Boolean(status.policy_required);
     const emailDefault = Boolean(status.email_mfa_default);
-    const passkeys = Array.isArray(status.passkeys) ? status.passkeys : [];
-    const canPasskey = Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+    const passkeysFeature = Boolean(status.passkeys_enabled);
+    window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(passkeysFeature);
+    const passkeys = passkeysFeature && Array.isArray(status.passkeys) ? status.passkeys : [];
+    const canPasskey =
+      passkeysFeature &&
+      Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) &&
+      !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.();
     const passkeyRows =
       passkeys.length > 0
         ? `<ul class="settings-passkey-list">${passkeys
@@ -1691,11 +1696,15 @@
     }
     if (required) {
       summaryLines.push(
-        "Your organisation also requires an authenticator app or Face ID / Touch ID.",
+        passkeysFeature
+          ? "Your organisation also requires an authenticator app or Face ID / Touch ID."
+          : "Your organisation also requires an authenticator app.",
       );
     } else {
       summaryLines.push(
-        "You can optionally add Face ID / Touch ID or an authenticator app as alternatives.",
+        passkeysFeature
+          ? "You can optionally add Face ID / Touch ID or an authenticator app as alternatives."
+          : "You can optionally add an authenticator app as an alternative.",
       );
     }
 
@@ -1703,12 +1712,22 @@
       <div class="settings-security-summary">
         <p><strong>Email codes:</strong> ${emailDefault ? "On (default at sign-in)" : "Off on this server"}</p>
         <p><strong>Authenticator app:</strong> ${totpEnabled ? "On" : "Not set"}</p>
-        <p><strong>Face ID / Touch ID:</strong> ${passkeys.length ? `${passkeys.length} device${passkeys.length === 1 ? "" : "s"}` : "Not set"}</p>
+        ${
+          passkeysFeature
+            ? `<p><strong>Face ID / Touch ID:</strong> ${
+                passkeys.length
+                  ? `${passkeys.length} device${passkeys.length === 1 ? "" : "s"}`
+                  : "Not set"
+              }</p>`
+            : ""
+        }
         <p class="muted">${summaryLines.join(" ")}</p>
       </div>
-      <div class="settings-security-passkey-block">
+      ${
+        passkeysFeature
+          ? `<div class="settings-security-passkey-block">
         <h4>Face ID / Touch ID</h4>
-        <p class="muted">Optional alternative to the email code on compatible Apple devices and browsers.</p>
+        <p class="muted">Optional alternative to the email code on compatible iPhone / iPad browsers (not shown on desktop sign-in).</p>
         ${
           canPasskey
             ? `
@@ -1717,9 +1736,11 @@
           ${passkeys.length ? "Add another device" : "Enable Face ID / Touch ID"}
         </button>
         <p class="muted" id="settings-passkey-status-line" aria-live="polite"></p>`
-            : `<p class="muted">Face ID / Touch ID is available in Safari or Chrome on a device that supports passkeys. Open this page on your iPhone or Mac to enable it.</p>`
+            : `<p class="muted">Face ID / Touch ID can be set up from Safari on iPhone or iPad. Desktop sign-in uses email codes instead.</p>`
         }
-      </div>
+      </div>`
+          : ""
+      }
       <div id="settings-mfa-setup-block" ${totpEnabled ? "hidden" : ""}>
         <h4>Authenticator app (optional)</h4>
         <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator as an alternative to email codes.</p>
@@ -1733,11 +1754,15 @@
         <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>
       </div>
       <div id="settings-mfa-disable-block" ${enabled ? "" : "hidden"}>
-        <h4>Turn off authenticator / Face ID MFA</h4>
+        <h4>Turn off ${passkeysFeature ? "authenticator / Face ID MFA" : "authenticator MFA"}</h4>
         <p class="muted">${
           emailDefault
-            ? "Removes the authenticator app and Face ID MFA flag. Email sign-in codes remain required."
-            : "Removes authenticator and Face ID MFA from this account."
+            ? passkeysFeature
+              ? "Removes the authenticator app and Face ID MFA flag. Email sign-in codes remain required."
+              : "Removes the authenticator app. Email sign-in codes remain required."
+            : passkeysFeature
+              ? "Removes authenticator and Face ID MFA from this account."
+              : "Removes authenticator MFA from this account."
         }</p>
         ${required ? '<p class="muted">Required by policy — contact platform support if you need an exception.</p>' : ""}
         <label class="edit-field">Password<input type="password" id="settings-mfa-disable-password" autocomplete="current-password" /></label>

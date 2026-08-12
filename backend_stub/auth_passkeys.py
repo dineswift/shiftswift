@@ -34,6 +34,19 @@ PASSKEY_CHALLENGE_MINUTES = int(os.getenv("PASSKEY_CHALLENGE_MINUTES", "5"))
 PASSKEY_RP_NAME = os.getenv("PASSKEY_RP_NAME", "ShiftSwift HR")
 
 
+def passkeys_enabled() -> bool:
+    """Feature flag — Face ID / passkeys only when PASSKEYS_ENABLED=1."""
+    raw = os.getenv("PASSKEYS_ENABLED")
+    if raw is None:
+        return False
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def require_passkeys_enabled() -> None:
+    if not passkeys_enabled():
+        raise PermissionError("Face ID / Touch ID sign-in is not enabled on this server")
+
+
 def _normalize_username(username: str) -> str:
     return username.strip().lower()
 
@@ -231,6 +244,11 @@ def user_has_passkeys(*, conn: Any, username: str) -> bool:
             (email,),
         )
         return cur.fetchone() is not None
+
+
+def user_passkeys_usable(*, conn: Any, username: str) -> bool:
+    """True when passkeys feature is enabled and this account has at least one credential."""
+    return passkeys_enabled() and user_has_passkeys(conn=conn, username=username)
 
 
 def delete_passkey(*, conn: Any, username: str, passkey_id: int) -> bool:

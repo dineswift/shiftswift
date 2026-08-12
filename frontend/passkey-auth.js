@@ -150,7 +150,45 @@
     return data;
   }
 
+  function isDesktopLoginSurface() {
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) return false;
+      if (window.ShiftSwiftNativeApp?.isCapacitorNative?.()) return false;
+    } catch {
+      /* ignore */
+    }
+    const ua = String(navigator.userAgent || "");
+    // Phones / tablets only — desktop (including Mac Touch ID browsers) stays password + email code.
+    if (/iPhone|iPod|iPad|Android/i.test(ua)) return false;
+    if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) return false; // iPadOS desktop UA
+    return true;
+  }
+
+  let backendPasskeysEnabled = null;
+  let backendPasskeysProbe = null;
+
+  async function refreshBackendPasskeysEnabled() {
+    if (backendPasskeysProbe) return backendPasskeysProbe;
+    backendPasskeysProbe = (async () => {
+      try {
+        const data = await fetchJson("/auth/passkey/status", { method: "GET" });
+        backendPasskeysEnabled = Boolean(data.passkeys_enabled);
+      } catch {
+        backendPasskeysEnabled = false;
+      }
+      return backendPasskeysEnabled;
+    })();
+    try {
+      return await backendPasskeysProbe;
+    } finally {
+      backendPasskeysProbe = null;
+    }
+  }
+
   function canUsePasskeys() {
+    if (isDesktopLoginSurface()) return false;
+    // Require an explicit server allow — never show Face ID while the flag is unknown/off.
+    if (backendPasskeysEnabled !== true) return false;
     if (!window.PublicKeyCredential || !navigator.credentials?.create) return false;
     // Capacitor / Ionic WebViews expose WebAuthn APIs but RP ID / Associated Domains
     // usually fail — hide Face ID CTAs so authenticator codes stay the clear path.
@@ -163,6 +201,13 @@
       /* ignore */
     }
     return true;
+  }
+
+  async function canUsePasskeysAsync() {
+    if (isDesktopLoginSurface()) return false;
+    const enabled = await refreshBackendPasskeysEnabled();
+    if (!enabled) return false;
+    return canUsePasskeys();
   }
 
   function isPasskeyOptIn() {
@@ -198,20 +243,125 @@
 
   async function hasPasskeys(email) {
     const normalized = normalizeEmail(email);
-    if (!normalized || !canUsePasskeys()) return false;
+    if (!normalized) return false;
+    if (!(await canUsePasskeysAsync())) return false;
     try {
       const data = await fetchJson(
         `/auth/passkey/status?username=${encodeURIComponent(normalized)}`,
         { method: "GET" },
       );
+      if (data.passkeys_enabled === false) {
+        backendPasskeysEnabled = false;
+        return false;
+      }
+      backendPasskeysEnabled = true;
       return Boolean(data.has_passkeys);
     } catch {
       return false;
     }
   }
 
+  async function refreshPasskeyButton(email) {
+    const button = document.getElementById("login-passkey-btn");
+    const wrap = document.getElementById("login-passkey-wrap");
+    const supported = await canUsePasskeysAsync();
+    if (wrap) wrap.hidden = !supported;
+    if (!button || !supported) {
+      if (button) button.hidden = true;
+      return;
+    }
+    const normalized = normalizeEmail(email) || lastLoginEmail();
+    if (!normalized) {
+      button.hidden = true;
+      return;
+    }
+    button.hidden = !(await hasPasskeys(normalized));
+  }
+
+  function notePasskeysEnabledFromServer(value) {
+    if (typeof value === "boolean") backendPasskeysEnabled = value;
+  }
+
+  function bindPasskeyUi() {
+    const wrap = document.getElementById("login-passkey-wrap");
+    const checkbox = document.getElementById("login-use-passkey");
+    const button = document.getElementById("login-passkey-btn");
+    const emailInput = document.getElementById("login-email");
+    // Hide immediately on desktop; confirm backend flag async for mobile.
+    if (wrap) wrap.hidden = !canUsePasskeys() || isDesktopLoginSurface();
+    if (button) button.hidden = true;
+    void (async () => {
+      const supported = await canUsePasskeysAsync();
+      if (wrap) wrap.hidden = !supported;
+      if (!supported && button) button.hidden = true;
+      if (supported) await refreshPasskeyButton(emailInput?.value || lastLoginEmail());
+    })();
+    if (button && !button.dataset.boundPasskey) {
+      button.dataset.boundPasskey = "1";
+      button.addEventListener("click", async () => {
+        const email = normalizeEmail(emailInput?.value || lastLoginEmail());
+        if (!email) {
+          document.getElementById("login-status").textContent = "Enter your work email first.";
+          return;
+        }
+        button.disabled = true;
+        const status = document.getElementById("login-status");
+        try {
+          if (!(await hasPasskeys(email))) {
+            if (status) {
+              status.hidden = false;
+              status.textContent =
+                "Face ID is not set up on this account yet. Sign in with your password once — keep “Use Face ID next time” checked to register this device.";
+            }
+            return;
+          }
+          if (status) {
+            status.hidden = false;
+            status.textContent = "Waiting for Face ID…";
+          }
+          const data = await loginWithPasskey(email, { silent: false });
+          if (!data?.access_token) throw new Error("Face ID sign-in failed");
+          await finishPasskeyLogin(data, email);
+        } catch (error) {
+          if (status) {
+            status.hidden = false;
+            status.textContent = error.message || "Face ID sign-in failed";
+          }
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+    if (checkbox && !checkbox.dataset.boundPasskey) {
+      checkbox.dataset.boundPasskey = "1";
+      checkbox.addEventListener("change", () => {
+        try {
+          localStorage.setItem(PASSKEY_OPT_IN_KEY, checkbox.checked ? "1" : "0");
+        } catch {
+          /* ignore */
+        }
+      });
+      try {
+        const stored = localStorage.getItem(PASSKEY_OPT_IN_KEY);
+        if (stored === "0") checkbox.checked = false;
+        if (stored === "1") checkbox.checked = true;
+      } catch {
+        /* ignore */
+      }
+    }
+    if (emailInput && !emailInput.dataset.boundPasskey) {
+      emailInput.dataset.boundPasskey = "1";
+      emailInput.addEventListener("blur", () => {
+        void refreshPasskeyButton(emailInput.value);
+      });
+      emailInput.addEventListener("change", () => {
+        void refreshPasskeyButton(emailInput.value);
+      });
+    }
+  }
+
   async function registerPasskey(email) {
-    if (!canUsePasskeys() || !isPasskeyOptIn()) return false;
+    if (!(await canUsePasskeysAsync()) || !isPasskeyOptIn()) return false;
     try {
       await registerPasskeyOnDevice({ enableMfa: false });
       return true;
@@ -221,7 +371,7 @@
   }
 
   async function registerPasskeyOnDevice({ enableMfa = false, deviceLabel } = {}) {
-    if (!canUsePasskeys()) {
+    if (!(await canUsePasskeysAsync())) {
       throw new Error("Face ID / Touch ID is not available in this browser");
     }
     const token = localStorage.getItem("token");
@@ -259,7 +409,7 @@
 
   async function loginWithPasskey(email, { silent = false } = {}) {
     const normalized = normalizeEmail(email);
-    if (!normalized || !canUsePasskeys()) return null;
+    if (!normalized || !(await canUsePasskeysAsync())) return null;
     try {
       const begin = await fetchJson("/auth/passkey/login/options", {
         method: "POST",
@@ -289,7 +439,7 @@
 
   async function verifyMfaWithPasskey(mfaChallengeToken, email) {
     const normalized = normalizeEmail(email);
-    if (!normalized || !canUsePasskeys() || !mfaChallengeToken) {
+    if (!normalized || !(await canUsePasskeysAsync()) || !mfaChallengeToken) {
       throw new Error("Face ID is not available on this device");
     }
     const begin = await fetchJson("/auth/mfa/passkey/options", {
@@ -320,7 +470,7 @@
   }
 
   async function enrollMfaWithPasskey(enrollmentToken) {
-    if (!canUsePasskeys() || !enrollmentToken) {
+    if (!(await canUsePasskeysAsync()) || !enrollmentToken) {
       throw new Error("Face ID is not available on this device");
     }
     const begin = await fetchJson("/auth/mfa/passkey/enroll/options", {
@@ -346,6 +496,8 @@
   }
 
   async function tryAutoLogin(email) {
+    if (isDesktopLoginSurface()) return false;
+    if (!(await canUsePasskeysAsync()) || !isPasskeyOptIn()) return false;
     const target = normalizeEmail(email) || lastLoginEmail();
     if (!target) return false;
     if (!(await hasPasskeys(target))) return false;
@@ -387,98 +539,11 @@
     return true;
   }
 
-  async function refreshPasskeyButton(email) {
-    const button = document.getElementById("login-passkey-btn");
-    if (!button || !canUsePasskeys()) {
-      if (button) button.hidden = true;
-      return;
-    }
-    const normalized = normalizeEmail(email) || lastLoginEmail();
-    if (!normalized) {
-      button.hidden = true;
-      return;
-    }
-    button.hidden = !(await hasPasskeys(normalized));
-  }
-
-  function bindPasskeyUi() {
-    const wrap = document.getElementById("login-passkey-wrap");
-    const checkbox = document.getElementById("login-use-passkey");
-    const button = document.getElementById("login-passkey-btn");
-    const emailInput = document.getElementById("login-email");
-    const supported = canUsePasskeys();
-    if (wrap) wrap.hidden = !supported;
-    if (button) {
-      button.hidden = true;
-      button.addEventListener("click", async () => {
-        const email = normalizeEmail(emailInput?.value || lastLoginEmail());
-        if (!email) {
-          document.getElementById("login-status").textContent = "Enter your work email first.";
-          return;
-        }
-        button.disabled = true;
-        const status = document.getElementById("login-status");
-        try {
-          if (!(await hasPasskeys(email))) {
-            if (status) {
-              status.hidden = false;
-              status.textContent =
-                "Face ID is not set up on this account yet. Sign in with your password once — keep “Use Face ID next time” checked to register this device.";
-            }
-            return;
-          }
-          if (status) {
-            status.hidden = true;
-            status.textContent = "";
-          }
-          const data = await loginWithPasskey(email, { silent: false });
-          if (data?.access_token) {
-            await finishPasskeyLogin(data, email);
-            return;
-          }
-          if (status) {
-            status.hidden = false;
-            status.textContent = "Face ID sign-in was cancelled.";
-          }
-        } catch (error) {
-          if (status) {
-            status.hidden = false;
-            status.textContent = error instanceof Error ? error.message : "Face ID sign-in failed";
-          }
-        } finally {
-          button.disabled = false;
-        }
-      });
-    }
-    if (checkbox) {
-      checkbox.addEventListener("change", () => {
-        try {
-          localStorage.setItem(PASSKEY_OPT_IN_KEY, checkbox.checked ? "1" : "0");
-        } catch {
-          /* ignore */
-        }
-      });
-      try {
-        const stored = localStorage.getItem(PASSKEY_OPT_IN_KEY);
-        if (stored === "0" || stored === "1") checkbox.checked = stored === "1";
-      } catch {
-        /* ignore */
-      }
-    }
-    let refreshTimer = null;
-    const schedulePasskeyButtonRefresh = () => {
-      window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => {
-        void refreshPasskeyButton(emailInput?.value);
-      }, 280);
-    };
-    emailInput?.addEventListener("input", schedulePasskeyButtonRefresh);
-    emailInput?.addEventListener("blur", schedulePasskeyButtonRefresh);
-    void refreshPasskeyButton(emailInput?.value || lastLoginEmail());
-  }
-
   window.ShiftSwiftPasskeyAuth = {
     canUsePasskeys,
+    canUsePasskeysAsync,
+    isDesktopLoginSurface,
+    notePasskeysEnabledFromServer,
     isPasskeyOptIn,
     rememberLastEmail,
     lastLoginEmail,

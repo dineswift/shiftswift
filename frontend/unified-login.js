@@ -279,6 +279,9 @@
 
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
     window.ShiftSwiftPasskeyAuth?.rememberLastEmail?.(email);
+    if (typeof data.passkeys_enabled === "boolean") {
+      window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(data.passkeys_enabled);
+    }
     if (window.ShiftSwiftPasskeyAuth?.isPasskeyOptIn?.()) {
       try {
         await window.ShiftSwiftPasskeyAuth.registerPasskey(email);
@@ -380,7 +383,12 @@
 
   function showMfaStep(username, meta = {}) {
     pendingEmail = username || pendingEmail || normalizeEmail(getEmailInput()?.value);
-    const passkeyAvailable = Boolean(meta.passkeyAvailable ?? meta.passkey_available);
+    if (typeof meta.passkeys_enabled === "boolean") {
+      window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(meta.passkeys_enabled);
+    }
+    const featureOn = meta.passkeys_enabled !== false;
+    const passkeyAvailable =
+      featureOn && Boolean(meta.passkeyAvailable ?? meta.passkey_available);
     const totpAvailable = Boolean(meta.totpAvailable ?? meta.totp_available);
     const emailFlag = meta.emailAvailable ?? meta.email_mfa_available;
     const emailAvailable = emailFlag !== false;
@@ -440,7 +448,10 @@
     const mfaPanel = document.getElementById("mfa-panel");
     if (!mfaPanel) return;
     const { passkeyAvailable, totpAvailable, emailAvailable, emailHint, emailSent } = pendingMfaMeta;
-    const canPasskey = passkeyAvailable && Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+    const canPasskey =
+      Boolean(passkeyAvailable) &&
+      Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) &&
+      !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.();
     const method =
       pendingMfaMethod === "totp" && totpAvailable
         ? "totp"
@@ -475,6 +486,15 @@
     if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
     const divider = document.getElementById("mfa-passkey-divider");
     if (divider) divider.hidden = !canPasskey;
+    if (passkeyAvailable && !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.()) {
+      void (async () => {
+        const ok =
+          Boolean(passkeyAvailable) &&
+          Boolean(await window.ShiftSwiftPasskeyAuth?.canUsePasskeysAsync?.());
+        if (passkeyBtn) passkeyBtn.hidden = !ok;
+        if (divider) divider.hidden = !ok;
+      })();
+    }
 
     const resendWrap = document.getElementById("mfa-resend-wrap");
     if (resendWrap) resendWrap.hidden = method !== "email" || !emailAvailable;
@@ -582,10 +602,26 @@
     if (userLabel) userLabel.textContent = `Account: ${data.username || "your account"}`;
 
     setEnrollmentStatus("Preparing authenticator…");
-    const passkeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
-    if (passkeyBtn) {
-      passkeyBtn.hidden = !window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.();
+    if (typeof data.passkeys_enabled === "boolean") {
+      window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(data.passkeys_enabled);
     }
+    const passkeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
+    const enrollLead = document.querySelector("#mfa-enrollment-panel .portal-login-card-lead");
+    if (passkeyBtn) passkeyBtn.hidden = !window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.();
+    if (enrollLead) {
+      enrollLead.textContent = window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()
+        ? "Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings."
+        : "Set up an authenticator app — optional; you can skip and enable it later in settings.";
+    }
+    void (async () => {
+      const ok = Boolean(await window.ShiftSwiftPasskeyAuth?.canUsePasskeysAsync?.());
+      if (passkeyBtn) passkeyBtn.hidden = !ok;
+      if (enrollLead) {
+        enrollLead.textContent = ok
+          ? "Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings."
+          : "Set up an authenticator app — optional; you can skip and enable it later in settings.";
+      }
+    })();
     try {
       const setup = await postJson("/auth/mfa/setup", null, pendingEnrollmentToken);
       const secretEl = document.getElementById("mfa-enrollment-secret");

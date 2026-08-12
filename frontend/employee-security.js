@@ -39,7 +39,8 @@
       status.totp_enabled != null ? Boolean(status.totp_enabled) : Boolean(enabled);
     const required = Boolean(status.policy_required);
     const emailDefault = Boolean(status.email_mfa_default);
-    const passkeys = Array.isArray(status.passkeys) ? status.passkeys : [];
+    const passkeysFeature = Boolean(status.passkeys_enabled);
+    const passkeys = passkeysFeature && Array.isArray(status.passkeys) ? status.passkeys : [];
 
     const summary = [];
     if (emailDefault) {
@@ -55,7 +56,15 @@
       <div class="settings-security-summary">
         <p><strong>Email codes:</strong> ${emailDefault ? "On (default at sign-in)" : "Off on this server"}</p>
         <p><strong>Authenticator app:</strong> ${totpEnabled ? "On" : "Not set"}</p>
-        ${passkeys.length ? `<p><strong>Face ID / Touch ID:</strong> ${passkeys.length} device${passkeys.length === 1 ? "" : "s"}</p>` : ""}
+        ${
+          passkeysFeature
+            ? `<p><strong>Face ID / Touch ID:</strong> ${
+                passkeys.length
+                  ? `${passkeys.length} device${passkeys.length === 1 ? "" : "s"}`
+                  : "Available on iPhone / iPad when enabled"
+              }</p>`
+            : ""
+        }
         <p class="muted">${escapeHtml(summary.join(" "))}</p>
       </div>
       <div id="employee-mfa-setup-block" ${totpEnabled ? "hidden" : ""}>

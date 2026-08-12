@@ -217,6 +217,7 @@ def _login_response(
     mfa_enabled = False
     totp_available = False
     passkey_available = False
+    passkeys_feature = False
     email_mfa_policy = login_require_email_mfa(settings)
     email_mfa_available = looks_like_email(user.username) and smtp_configured()
     if settings.use_db and settings.database_url:
@@ -226,9 +227,10 @@ def _login_response(
                 row = fetch_user_mfa(cur, user.username)
             mfa_enabled = bool(row and row.get("mfa_enabled"))
             totp_available = bool(row and row.get("mfa_enabled") and row.get("totp_secret"))
-            from auth_passkeys import user_has_passkeys
+            from auth_passkeys import passkeys_enabled, user_passkeys_usable
 
-            passkey_available = user_has_passkeys(conn=conn, username=user.username)
+            passkeys_feature = passkeys_enabled()
+            passkey_available = user_passkeys_usable(conn=conn, username=user.username)
         finally:
             conn.close()
 
@@ -278,7 +280,12 @@ def _login_response(
             "role": user.role,
             "expires_in": MFA_ENROLLMENT_MINUTES * 60,
             "passkey_available": passkey_available,
-            "message": "Secure your account with Face ID / Touch ID or an authenticator app.",
+            "passkeys_enabled": passkeys_feature,
+            "message": (
+                "Secure your account with Face ID / Touch ID or an authenticator app."
+                if passkeys_feature
+                else "Secure your account with an authenticator app."
+            ),
         }
 
     if mfa_required:
@@ -409,6 +416,7 @@ def _login_response(
             "passkey_available": passkey_available,
             "totp_available": totp_available,
             "email_mfa_available": "email" in methods,
+            "passkeys_enabled": passkeys_feature,
             "mfa_methods": methods,
             "default_mfa_method": default_method,
             "email_sent": email_sent,
@@ -940,7 +948,7 @@ def mfa_disable(
 @router.get("/mfa/status")
 def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> dict[str, object]:
     from auth_email_mfa import looks_like_email
-    from auth_passkeys import list_passkeys
+    from auth_passkeys import list_passkeys, passkeys_enabled
     from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
     from core.notifications import smtp_configured
 
@@ -948,7 +956,12 @@ def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> 
     try:
         with conn.cursor() as cur:
             user = fetch_user_mfa(cur, current_user.username)
-        passkeys = list_passkeys(conn=conn, username=current_user.username) if user else []
+        passkeys_feature = passkeys_enabled()
+        passkeys = (
+            list_passkeys(conn=conn, username=current_user.username)
+            if user and passkeys_feature
+            else []
+        )
     finally:
         conn.close()
     if not user:
@@ -972,6 +985,7 @@ def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> 
         "mfa_enabled": bool(user.get("mfa_enabled")),
         "totp_enabled": totp_enabled,
         "email_mfa_default": email_mfa_default,
+        "passkeys_enabled": passkeys_feature,
         "role": user["role"],
         "policy_required": policy_required,
         "has_passkeys": bool(passkeys),
@@ -1206,6 +1220,11 @@ class MfaPasskeyEnrollVerifyRequest(BaseModel):
 
 @router.post("/mfa/passkey/options")
 def mfa_passkey_options(request: Request, payload: MfaPasskeyOptionsRequest) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     """Begin Face ID / Touch ID verification during MFA (after password)."""
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
@@ -1234,6 +1253,11 @@ def mfa_passkey_options(request: Request, payload: MfaPasskeyOptionsRequest) -> 
 
 @router.post("/mfa/passkey/verify")
 def mfa_passkey_verify(request: Request, payload: MfaPasskeyVerifyRequest) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     """Complete MFA with Face ID / Touch ID instead of an authenticator code."""
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
@@ -1323,6 +1347,11 @@ def mfa_passkey_enroll_options(
     payload: MfaPasskeyEnrollOptionsRequest | None = None,
 ) -> dict[str, object]:
     """Register Face ID / Touch ID to satisfy mandatory MFA enrollment."""
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
     current_user, mode = identity
@@ -1358,6 +1387,11 @@ def mfa_passkey_enroll_verify(
     identity: Annotated[tuple[AuthUser, Literal["session", "enrollment"]], Depends(get_mfa_setup_user)],
 ) -> dict[str, object]:
     """Finish MFA enrollment with Face ID / Touch ID and sign in."""
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
     current_user, mode = identity
@@ -1424,15 +1458,20 @@ def mfa_passkey_enroll_verify(
 
 
 @router.get("/passkey/status")
-def passkey_status(username: str) -> dict[str, object]:
-    if not settings.use_db or not settings.database_url:
-        return {"available": False, "has_passkeys": False}
-    from auth_passkeys import user_has_passkeys
+def passkey_status(username: str = "") -> dict[str, object]:
+    from auth_passkeys import passkeys_enabled, user_has_passkeys
 
+    enabled = passkeys_enabled()
+    if not enabled:
+        return {"passkeys_enabled": False, "available": False, "has_passkeys": False}
+    if not settings.use_db or not settings.database_url:
+        return {"passkeys_enabled": True, "available": False, "has_passkeys": False}
+    if not username.strip():
+        return {"passkeys_enabled": True, "available": True, "has_passkeys": False}
     conn = _db_conn()
     try:
         has = user_has_passkeys(conn=conn, username=username)
-        return {"available": True, "has_passkeys": has}
+        return {"passkeys_enabled": True, "available": True, "has_passkeys": has}
     finally:
         conn.close()
 
@@ -1443,6 +1482,11 @@ def passkey_register_options(
     current_user: Annotated[AuthUser, Depends(get_current_user)],
     payload: PasskeyRegisterOptionsRequest | None = None,
 ) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_passkeys import registration_options, resolve_request_origin
@@ -1468,6 +1512,11 @@ def passkey_register_verify(
     request: Request,
     current_user: Annotated[AuthUser, Depends(get_current_user)],
 ) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_mfa import enable_mfa_with_passkey
@@ -1497,6 +1546,11 @@ def passkey_register_verify(
 
 @router.get("/passkey/list")
 def passkey_list(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_passkeys import list_passkeys
@@ -1524,6 +1578,11 @@ def passkey_delete(
     passkey_id: int,
     current_user: Annotated[AuthUser, Depends(get_current_user)],
 ) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_passkeys import delete_passkey, list_passkeys
@@ -1554,6 +1613,11 @@ def passkey_delete(
 
 @router.post("/passkey/login/options")
 def passkey_login_options(request: Request, payload: PasskeyLoginOptionsRequest) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_passkeys import authentication_options, resolve_request_origin
@@ -1574,6 +1638,11 @@ def passkey_login_options(request: Request, payload: PasskeyLoginOptionsRequest)
 
 @router.post("/passkey/login/verify")
 def passkey_login_verify(request: Request, payload: PasskeyLoginVerifyRequest) -> dict[str, object]:
+    from auth_passkeys import require_passkeys_enabled
+    try:
+        require_passkeys_enabled()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="Passkeys require database")
     from auth_passkeys import complete_authentication, resolve_request_origin

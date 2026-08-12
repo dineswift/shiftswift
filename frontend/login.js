@@ -269,9 +269,28 @@ async function startMfaEnrollment(data, redirectUrl) {
   setEnrollmentStatus("Preparing authenticator…");
   const enrollPasskeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
   const enrollPasskeyDivider = document.getElementById("mfa-enrollment-passkey-divider");
-  const canPasskey = Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
-  if (enrollPasskeyBtn) enrollPasskeyBtn.hidden = !canPasskey;
-  if (enrollPasskeyDivider) enrollPasskeyDivider.hidden = !canPasskey;
+  if (typeof data.passkeys_enabled === "boolean") {
+    window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(data.passkeys_enabled);
+  }
+  const enrollLead = document.querySelector("#mfa-enrollment-panel .portal-login-card-lead");
+  const canPasskeySync = Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+  if (enrollPasskeyBtn) enrollPasskeyBtn.hidden = !canPasskeySync;
+  if (enrollPasskeyDivider) enrollPasskeyDivider.hidden = !canPasskeySync;
+  if (enrollLead) {
+    enrollLead.textContent = canPasskeySync
+      ? "Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings."
+      : "Set up an authenticator app — optional; you can skip and enable it later in settings.";
+  }
+  void (async () => {
+    const ok = Boolean(await window.ShiftSwiftPasskeyAuth?.canUsePasskeysAsync?.());
+    if (enrollPasskeyBtn) enrollPasskeyBtn.hidden = !ok;
+    if (enrollPasskeyDivider) enrollPasskeyDivider.hidden = !ok;
+    if (enrollLead) {
+      enrollLead.textContent = ok
+        ? "Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings."
+        : "Set up an authenticator app — optional; you can skip and enable it later in settings.";
+    }
+  })();
   try {
     const setup = await postJsonAuth("/auth/mfa/setup", {}, pendingEnrollmentToken);
     const secretEl = document.getElementById("mfa-enrollment-secret");
@@ -612,9 +631,14 @@ function redirectForRole(data, fallback) {
 
 function showMfaStep(username, meta = {}) {
   pendingMfaUsername = String(username || "");
-  const passkeyAvailable = Boolean(
-    typeof meta === "boolean" ? meta : meta.passkeyAvailable ?? meta.passkey_available,
-  );
+  if (typeof meta === "object" && meta && typeof meta.passkeys_enabled === "boolean") {
+    window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(meta.passkeys_enabled);
+  }
+  const featureOn =
+    typeof meta !== "object" || meta == null || meta.passkeys_enabled !== false;
+  const passkeyAvailable =
+    featureOn &&
+    Boolean(typeof meta === "boolean" ? meta : meta.passkeyAvailable ?? meta.passkey_available);
   const totpAvailable = Boolean(typeof meta === "object" && (meta.totpAvailable ?? meta.totp_available));
   const emailFlag =
     typeof meta === "object" ? meta.emailAvailable ?? meta.email_mfa_available : undefined;
@@ -672,7 +696,10 @@ function applyMfaMethodUi() {
   const mfaPanel = document.getElementById("mfa-panel");
   if (!mfaPanel) return;
   const { passkeyAvailable, totpAvailable, emailAvailable, emailHint, emailSent } = pendingMfaMeta;
-  const canPasskey = passkeyAvailable && Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.());
+  const canPasskey =
+    passkeyAvailable &&
+    Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) &&
+    !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.();
   const resolved =
     pendingMfaMethod === "totp" && totpAvailable
       ? "totp"
@@ -683,6 +710,19 @@ function applyMfaMethodUi() {
 
   const title = document.getElementById("mfa-panel-title");
   if (title) title.textContent = resolved === "email" ? "Check your email" : "Authenticator code";
+
+  const passkeyBtn = document.getElementById("mfa-passkey-btn");
+  const divider = document.getElementById("mfa-passkey-divider");
+  if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
+  if (divider) divider.hidden = !canPasskey;
+  if (passkeyAvailable && !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.()) {
+    void (async () => {
+      const ok =
+        passkeyAvailable && Boolean(await window.ShiftSwiftPasskeyAuth?.canUsePasskeysAsync?.());
+      if (passkeyBtn) passkeyBtn.hidden = !ok;
+      if (divider) divider.hidden = !ok;
+    })();
+  }
 
   const lead = document.getElementById("mfa-panel-lead") || mfaPanel.querySelector(".portal-login-card-lead");
   if (lead) {
@@ -700,11 +740,6 @@ function applyMfaMethodUi() {
   if (labelText) labelText.textContent = resolved === "email" ? "Email code" : "Authenticator code";
   const codeInput = mfaPanel.querySelector('input[name="code"]');
   if (codeInput) codeInput.value = "";
-
-  const passkeyBtn = document.getElementById("mfa-passkey-btn");
-  const divider = document.getElementById("mfa-passkey-divider");
-  if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
-  if (divider) divider.hidden = !canPasskey;
 
   const resendWrap = document.getElementById("mfa-resend-wrap");
   if (resendWrap) resendWrap.hidden = resolved !== "email" || !emailAvailable;
