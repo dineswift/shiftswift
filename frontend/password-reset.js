@@ -212,7 +212,7 @@
         setStatus(
           status,
           result.message ||
-            "Password updated. Next sign-in will email you a 6-digit code unless Face ID or an authenticator app is set up.",
+            "Password updated. Next sign-in will email you a 6-digit code unless an authenticator app is already set up.",
           true,
         );
         setTimeout(() => {

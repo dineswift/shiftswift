@@ -339,11 +339,12 @@ def _login_response(
             email_mfa_available = True
 
         if not methods:
+            face_hint = " / Face ID" if passkeys_feature else ""
             raise HTTPException(
                 status_code=503,
                 detail=(
                     "Sign-in verification is required, but no verification method is available. "
-                    "Configure SMTP so we can email a code, or set up an authenticator app / Face ID."
+                    f"Configure SMTP so we can email a code, or set up an authenticator app{face_hint}."
                 ),
             )
 

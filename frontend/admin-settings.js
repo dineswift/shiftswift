@@ -80,7 +80,7 @@
     },
     security: {
       title: "Security",
-      subtitle: "Email sign-in codes, optional authenticator, and Face ID when enabled on the server.",
+      subtitle: "Email sign-in codes and optional authenticator app.",
     },
     addons: {
       title: "Add-ons & integrations",
