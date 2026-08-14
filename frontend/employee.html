@@ -15,26 +15,51 @@
     </script>
     <script>
       (function () {
-        try {
-          if (!window.Capacitor?.isNativePlatform?.()) return;
+        function injectBundled(file) {
+          var scheme = "App";
+          try {
+            scheme = String(
+              window.Capacitor?.config?.server?.iosScheme ||
+                window.Capacitor?.config?.ios?.scheme ||
+                scheme,
+            );
+          } catch (e) {
+            /* ignore */
+          }
+          var script = document.createElement("script");
+          script.src = scheme + "://localhost/" + file + "?v=46";
+          script.async = false;
+          (document.head || document.documentElement).appendChild(script);
+        }
+        function bootBundledNativeShell() {
+          if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) {
+            return false;
+          }
           window.__SSHR_BUNDLED_NATIVE_BOOT = true;
-          var scheme =
-            window.Capacitor.config && window.Capacitor.config.ios
-              ? window.Capacitor.config.ios.scheme
-              : "App";
-          if (!scheme) scheme = "App";
-          document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-portal-guard.js?v=28"><\/script>',
-          );
-          document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-bootstrap.js?v=27"><\/script>',
-          );
-        } catch (e) {
-          /* ignore */
+          if (!document.querySelector('[data-sshr-bundled-portal-guard]')) {
+            injectBundled("native-app-portal-guard.js");
+            document.querySelector('script[src*="native-app-portal-guard.js"]')?.setAttribute(
+              "data-sshr-bundled-portal-guard",
+              "1",
+            );
+          }
+          if (!document.querySelector('[data-sshr-native-bootstrap]')) {
+            injectBundled("native-app-bootstrap.js");
+            document.querySelector('script[src*="native-app-bootstrap.js"]')?.setAttribute(
+              "data-sshr-native-bootstrap",
+              "1",
+            );
+          }
+          return true;
+        }
+        if (!bootBundledNativeShell()) {
+          var tries = 0;
+          var timer = window.setInterval(function () {
+            tries += 1;
+            if (bootBundledNativeShell() || tries > 400) {
+              window.clearInterval(timer);
+            }
+          }, 25);
         }
       })();
     </script>
@@ -60,8 +85,8 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v135" />
-    <link rel="stylesheet" href="./admin-mobile-polish.css?v=1" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v152" />
+    <link rel="stylesheet" href="./employee-mobile-polish.css?v=4" />
   </head>
   <body class="employee-portal">
     <script>
@@ -141,7 +166,7 @@
             </a>
           </div>
           <div class="stack topbar-actions topbar-actions--desktop">
-            <a class="btn ghost" href="./employee-login.html" data-sign-out>Sign out</a>
+            <a class="btn ghost" href="#" data-sign-out>Sign out</a>
           </div>
           <button type="button" class="btn ghost btn-sm topbar-signout-btn topbar-signout-btn--mobile" data-sign-out>Sign out</button>
           <button
@@ -152,6 +177,7 @@
             title="Shift alerts"
           >
             <span class="employee-topbar-alerts-btn__icon" data-icon="bell" aria-hidden="true"></span>
+            <span class="employee-topbar-alerts-btn__badge" id="employee-topbar-alerts-badge" hidden>0</span>
           </button>
         </div>
 
@@ -164,7 +190,7 @@
             <a class="mobile-more-link" href="#notes">Notes from HR</a>
             <a class="mobile-more-link" href="#security">Security</a>
             <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
-            <a class="mobile-more-link mobile-more-link--signout" href="./employee-login.html" data-sign-out>Sign out</a>
+            <a class="mobile-more-link mobile-more-link--signout" href="#" data-sign-out>Sign out</a>
           </nav>
         </div>
 
@@ -178,6 +204,10 @@
                 <span class="employee-home-role-pill">Employee</span>
               </div>
               <p class="sr-only" id="employee-welcome">Loading your account…</p>
+              <div class="employee-home-today" id="employee-home-today" hidden>
+                <p class="employee-home-today__label">Today</p>
+                <p class="employee-home-today__value" id="employee-home-today-value">No published shift today</p>
+              </div>
             </header>
 
             <div class="employee-desktop-top">
@@ -297,7 +327,7 @@
             </div>
 
             <p id="punch-message" class="punch-message" aria-live="polite"></p>
-            <h3>Your punch sites</h3>
+            <h3 class="punch-sites-heading">Your punch sites</h3>
             <ul id="punch-sites" class="punch-site-list muted">
               <li>Loading…</li>
             </ul>
@@ -521,7 +551,7 @@
           <header class="section-header">
             <div>
               <h2>Security</h2>
-              <p class="muted">Protect your employee account with an authenticator app.</p>
+              <p class="muted">Email codes at sign-in, plus an optional authenticator app.</p>
             </div>
           </header>
           <article class="card">
@@ -602,13 +632,21 @@
     </dialog>
 
     <script src="./brand-config.js?v=brand-v5"></script>
-    <script src="./session-auth.js?v=4"></script>
-    <script src="./auth-guard.js?v=security-v6"></script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./session-auth.js?v=4"><\/script>');
+        document.write('<script src="./auth-guard.js?v=security-v6"><\/script>');
+      }
+    </script>
     <script src="./portal-pwa-stability.js?v=2"></script>
     <script src="./employee-pwa.js?v=8"></script>
-    <script src="./native-geolocation.js?v=1"></script>
-    <script src="./native-shift-alerts.js?v=1"></script>
-    <script src="./push-notifications.js?v=4"></script>
+    <script src="./native-geolocation.js?v=2"></script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./native-shift-alerts.js?v=2"><\/script>');
+        document.write('<script src="./push-notifications.js?v=5"><\/script>');
+      }
+    </script>
     <script
       src="./portal-pwa-install.js?v=4"
       data-portal="employee"
@@ -616,20 +654,26 @@
       data-manifest="./employee-manifest.webmanifest?v=8"
       data-sw="./employee-sw.js?v=15"
     ></script>
-    <script src="./mobile-shell.js?v=6"></script>
+    <script src="./mobile-shell.js?v=9"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=2"></script>
-    <script src="./employee-mobile.js?v=7"></script>
+    <script src="./employee-mobile.js?v=8"></script>
     <script src="./action-feedback.js?v=3"></script>
-    <script src="./employee.js?v=11"></script>
-    <script src="./employee-push-alerts.js?v=3"></script>
-    <script src="./employee-time-punch.js?v=11"></script>
+    <script src="./employee.js?v=12"></script>
+    <script>
+      (function () {
+        if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
+        document.write('<script src="./employee-push-alerts.js?v=7"><\/script>');
+        document.write('<script src="./portal-notifications.js?v=3"><\/script>');
+      })();
+    </script>
+    <script src="./employee-time-punch.js?v=16"></script>
     <script src="./employee-timesheet.js?v=2"></script>
-    <script src="./employee-rota.js?v=8"></script>
-    <script src="./employee-shift-reminders.js?v=2"></script>
+    <script src="./employee-rota.js?v=10"></script>
+    <script src="./employee-shift-reminders.js?v=3"></script>
     <script src="./employee-documents.js?v=6"></script>
     <script src="./employee-notes.js?v=2"></script>
-    <script src="./employee-security.js?v=2"></script>
+    <script src="./employee-security.js?v=3"></script>
     <script src="./employee-leave.js?v=4"></script>
     <script src="./employee-my-details.js?v=2"></script>
       <script src="./cookie-consent.js?v=1"></script>

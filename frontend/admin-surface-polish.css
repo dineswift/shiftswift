@@ -1,0 +1,356 @@
+/**
+ * ShiftSwift admin surface polish — Overview design language across sections.
+ * Coloured stat accents, clearer empty states, tighter section chrome.
+ */
+
+/* ── Stat cards (all HR grids) ── */
+.hr-stats-grid .hr-stat-card,
+.rtw-stats-grid .rtw-stat-card,
+.absence-stats-grid .absence-stat-card,
+.punch-stats-grid .hr-stat-card,
+.leave-stats-grid .hr-stat-card,
+.employment-stats-grid .hr-stat-card,
+.disciplinary-stats-grid .hr-stat-card,
+.rota-stats-grid .hr-stat-card {
+  border-left: 3px solid var(--green-500);
+  padding-left: 12px;
+}
+
+.hr-stats-grid .hr-stat-card__icon,
+.rtw-stats-grid .rtw-stat-card__icon,
+.absence-stats-grid .absence-stat-card__icon,
+.punch-stats-grid .hr-stat-card__icon,
+.leave-stats-grid .hr-stat-card__icon,
+.employment-stats-grid .hr-stat-card__icon,
+.disciplinary-stats-grid .hr-stat-card__icon,
+.rota-stats-grid .hr-stat-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: var(--green-100);
+  color: var(--green-700);
+}
+
+.hr-stats-grid .hr-stat-card__icon .admin-icon,
+.rtw-stats-grid .rtw-stat-card__icon .admin-icon,
+.absence-stats-grid .absence-stat-card__icon .admin-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.hr-stats-grid .hr-stat-card--ok,
+.rtw-stats-grid .rtw-stat-card--ok,
+.absence-stats-grid .absence-stat-card--ok,
+.leave-stats-grid .hr-stat-card--ok,
+.employment-stats-grid .hr-stat-card--ok,
+.disciplinary-stats-grid .hr-stat-card--ok,
+.rota-stats-grid .hr-stat-card--ok {
+  border-left-color: var(--green-300);
+}
+
+.hr-stats-grid .hr-stat-card--ok .hr-stat-card__icon,
+.leave-stats-grid .hr-stat-card--ok .hr-stat-card__icon,
+.employment-stats-grid .hr-stat-card--ok .hr-stat-card__icon,
+.disciplinary-stats-grid .hr-stat-card--ok .hr-stat-card__icon,
+.rota-stats-grid .hr-stat-card--ok .hr-stat-card__icon {
+  background: rgba(157, 225, 203, 0.35);
+  color: var(--green-800);
+}
+
+.hr-stats-grid .hr-stat-card--warn,
+.rtw-stats-grid .rtw-stat-card--warn,
+.absence-stats-grid .absence-stat-card--warn,
+.leave-stats-grid .hr-stat-card--warn,
+.employment-stats-grid .hr-stat-card--warn,
+.disciplinary-stats-grid .hr-stat-card--warn,
+.rota-stats-grid .hr-stat-card--warn {
+  border-left-color: var(--amber);
+}
+
+.hr-stats-grid .hr-stat-card--warn .hr-stat-card__icon,
+.leave-stats-grid .hr-stat-card--warn .hr-stat-card__icon,
+.employment-stats-grid .hr-stat-card--warn .hr-stat-card__icon,
+.disciplinary-stats-grid .hr-stat-card--warn .hr-stat-card__icon,
+.rota-stats-grid .hr-stat-card--warn .hr-stat-card__icon {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.hr-stats-grid .hr-stat-card--danger,
+.rtw-stats-grid .rtw-stat-card--danger,
+.absence-stats-grid .absence-stat-card--danger,
+.disciplinary-stats-grid .hr-stat-card--danger {
+  border-left-color: #dc2626;
+}
+
+.hr-stats-grid .hr-stat-card--danger .hr-stat-card__icon,
+.disciplinary-stats-grid .hr-stat-card--danger .hr-stat-card__icon {
+  background: #fff1f1;
+  color: #b42318;
+}
+
+/* ── Empty states ── */
+.admin-empty-state,
+.compliance-empty-state,
+.rota-empty-state,
+.lifecycle-empty-state {
+  border: 1px dashed rgba(15, 110, 86, 0.22);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #f7fcf9 0%, #ffffff 72%);
+}
+
+.admin-empty-state__message,
+.compliance-empty-state p,
+.rota-empty-state .muted {
+  color: var(--gray-500);
+}
+
+.admin-empty-state__action {
+  border-left: 3px solid var(--green-500);
+}
+
+.compliance-empty-state__icon,
+.admin-empty-state__icon {
+  background: var(--green-100);
+  color: var(--green-800);
+  border: 1px solid rgba(15, 110, 86, 0.12);
+}
+
+/* ── Section headers ── */
+body.admin-portal .section-header h2 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  color: var(--green-900);
+}
+
+body.admin-portal .section-header .muted {
+  max-width: 42rem;
+  line-height: 1.5;
+}
+
+body.admin-portal .admin-section > .card,
+body.admin-portal .admin-section .hr-workspace,
+body.admin-portal .admin-section .rtw-workspace,
+body.admin-portal .admin-section .absence-workspace {
+  border-color: rgba(15, 46, 34, 0.1);
+  box-shadow: 0 1px 2px rgba(15, 46, 34, 0.03);
+}
+
+/* ── Status workflow pills ── */
+.hr-status-workflow {
+  gap: 8px;
+}
+
+.hr-status-workflow [data-status],
+.hr-status-chip,
+.leave-status-chip,
+.status-pill {
+  border-radius: 999px;
+}
+
+/* ── Settings hub ── */
+.settings-hub-card {
+  border-left: 3px solid transparent;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.settings-hub-card:hover,
+.settings-hub-card:focus-visible {
+  border-left-color: var(--green-500);
+  box-shadow: 0 8px 20px rgba(15, 46, 34, 0.06);
+  transform: translateY(-1px);
+}
+
+.settings-hub-card__icon {
+  background: var(--green-100) !important;
+  color: var(--green-800) !important;
+}
+
+.settings-topbar {
+  border-left: 3px solid var(--green-500);
+}
+
+/* Cases / grievance list rows */
+#grievance .cases-list-item,
+#disciplinary .cases-list-item,
+#offboarding .lifecycle-list-item {
+  border-left: 3px solid transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+#grievance .cases-list-item:hover,
+#disciplinary .cases-list-item:hover,
+#offboarding .lifecycle-list-item:hover {
+  border-left-color: var(--green-500);
+  background: #f7fbf9;
+}
+
+#grievance .cases-list-item--open,
+#disciplinary .cases-list-item--open {
+  border-left-color: var(--amber);
+}
+
+/* ── Employees register ── */
+#employees .employees-register-table tbody tr:hover,
+#employees .data-table tbody tr:hover {
+  background: #f7fbf9;
+}
+
+#employees .employees-page-header h2,
+#recruitment .recruitment-page-header h2,
+#grievance .cases-page-header h2,
+#disciplinary .cases-page-header h2 {
+  letter-spacing: -0.02em;
+}
+
+.employees-quick-add,
+.recruitment-board,
+.leave-request-card,
+.lifecycle-card,
+.cases-card,
+.offboarding-card {
+  border-radius: var(--radius-md);
+}
+
+/* List / case cards — subtle accent when interactive */
+#grievance .card,
+#disciplinary .card,
+#offboarding .card,
+#recruitment .card,
+#leave .card,
+#profile-changes .card {
+  border-color: rgba(15, 46, 34, 0.1);
+}
+
+#leave .leave-request-row--pending,
+#leave tr[data-status="pending"],
+#leave .leave-row--pending {
+  border-left: 3px solid var(--amber);
+}
+
+#leave .leave-request-row--approved,
+#leave tr[data-status="approved"] {
+  border-left: 3px solid var(--green-300);
+}
+
+/* ── Time punch ── */
+#time-punch .punch-stats-grid .hr-stat-card:nth-child(1) {
+  border-left-color: var(--green-700);
+}
+
+#time-punch .punch-stats-grid .hr-stat-card:nth-child(2) {
+  border-left-color: var(--green-300);
+}
+
+#time-punch .punch-site-card,
+#time-punch .punch-log-card {
+  border-radius: var(--radius-md);
+  border-color: rgba(15, 46, 34, 0.1);
+}
+
+#time-punch .punch-site-card:hover {
+  border-color: rgba(15, 110, 86, 0.28);
+  box-shadow: 0 6px 16px rgba(15, 46, 34, 0.05);
+}
+
+/* ── Compliance / RTW / Absence ── */
+#compliance .compliance-empty-state,
+#compliance-rtw .compliance-empty-state,
+.rtw-workspace .compliance-empty-state,
+.absence-workspace .compliance-empty-state {
+  margin: 8px 0;
+  padding: 28px 18px;
+}
+
+.rtw-stats-grid .rtw-stat-card,
+.absence-stats-grid .absence-stat-card {
+  background: var(--white);
+}
+
+.rtw-stats-grid .rtw-stat-card--clear,
+.rtw-stats-grid .rtw-stat-card--danger,
+.absence-stats-grid .absence-stat-card--danger {
+  border-left-color: #dc2626;
+}
+
+.rtw-stats-grid .rtw-stat-card--clear .rtw-stat-card__icon,
+.absence-stats-grid .absence-stat-card--danger .absence-stat-card__icon {
+  background: #fff1f1;
+  color: #b42318;
+}
+
+.rtw-stats-grid .rtw-stat-card--neutral {
+  border-left-color: var(--green-700);
+}
+
+.absence-stats-grid .absence-stat-card__icon,
+.rtw-stats-grid .rtw-stat-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: var(--green-100);
+  color: var(--green-700);
+  font-size: 0.85rem;
+}
+
+/* ── Templates / tools ── */
+#templates .card,
+#global-documents .card,
+#contracts .card,
+#employment-contracts .card {
+  border-color: rgba(15, 46, 34, 0.1);
+}
+
+#templates .template-card,
+#global-documents .global-doc-card {
+  border-left: 3px solid transparent;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#templates .template-card:hover,
+#global-documents .global-doc-card:hover {
+  border-left-color: var(--green-500);
+  box-shadow: 0 8px 18px rgba(15, 46, 34, 0.05);
+}
+
+/* ── Filters / toolbars ── */
+body.admin-portal .filter-bar,
+body.admin-portal .section-toolbar,
+body.admin-portal .list-toolbar {
+  border-radius: var(--radius-md);
+  background: #fbfdfc;
+  border: 1px solid rgba(15, 46, 34, 0.08);
+}
+
+/* ── Tables ── */
+body.admin-portal .data-table thead th,
+body.admin-portal table.admin-table thead th {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  font-weight: 800;
+  background: #f7faf8;
+}
+
+body.admin-portal .data-table tbody td,
+body.admin-portal table.admin-table tbody td {
+  border-color: rgba(15, 46, 34, 0.06);
+}
+
+/* ── Page shell breathing room ── */
+body.admin-portal .admin-section {
+  gap: 14px;
+}
+
+body.admin-portal .hr-stats-grid {
+  gap: 10px;
+}

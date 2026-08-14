@@ -73,29 +73,79 @@
       }
       const now = ctx.currentTime;
       const tones = [
-        { offset: 0, freq: 880 },
-        { offset: 0.28, freq: 988 },
-        { offset: 0.56, freq: 880 },
+        { offset: 0, freq: 784 },
+        { offset: 0.16, freq: 988 },
+        { offset: 0.34, freq: 1174 },
       ];
       tones.forEach(({ offset, freq }) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "square";
+        osc.type = "sine";
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.42, now + offset + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.38, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.2);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now + offset);
-        osc.stop(now + offset + 0.24);
+        osc.stop(now + offset + 0.22);
       });
     } catch {
       /* ignore — device may block audio until user gesture */
     }
   }
 
+  async function getNativeLocalStatus() {
+    if (window.ShiftSwiftNativeShiftAlerts?.getPermissionStatus) {
+      const status = await window.ShiftSwiftNativeShiftAlerts.getPermissionStatus();
+      if (status.supported) return status;
+    }
+    const plugin = window.ShiftSwiftNativeShiftAlerts?.getNotificationsPlugin?.()
+      || window.Capacitor?.Plugins?.LocalNotifications;
+    if (!isCapacitorNative() || !plugin?.checkPermissions) return null;
+    try {
+      const result = await plugin.checkPermissions();
+      const permission = result?.display || "prompt";
+      let enabled = false;
+      try {
+        enabled = localStorage.getItem("sshrNativeShiftAlerts") === "1" && permission === "granted";
+      } catch {
+        /* ignore */
+      }
+      return { supported: true, permission, enabled };
+    } catch {
+      return { supported: true, permission: "prompt", enabled: false };
+    }
+  }
+
+  function isCapacitorNative() {
+    try {
+      return Boolean(
+        window.Capacitor?.isNativePlatform?.() ||
+          window.__SSHR_BUNDLED_NATIVE_BOOT ||
+          window.__SSHR_PORTAL_GUARD ||
+          document.documentElement.classList.contains("native-app") ||
+          document.documentElement.classList.contains("capacitor-native"),
+      );
+    } catch {
+      return false;
+    }
+  }
+
   async function getStatus({ apiBase, token, tenantId }) {
+    if (isCapacitorNative()) {
+      const native = await getNativeLocalStatus();
+      if (native) {
+        return {
+          supported: true,
+          permission: native.permission === "granted" ? "granted" : native.permission,
+          subscribed: Boolean(native.enabled),
+          serverEnabled: true,
+          nativeLocal: true,
+        };
+      }
+    }
+
     if (window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
       const native = await window.ShiftSwiftNativeShiftAlerts.getPermissionStatus();
       if (native.supported) {
@@ -147,8 +197,22 @@
      * Only prompts once per device unless force=true.
      */
     async promptSubscribe({ apiBase, token, tenantId, reason, force = false }) {
-      if (window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
-        return window.ShiftSwiftNativeShiftAlerts.enableAlerts();
+      if (isCapacitorNative() || window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
+        if (window.ShiftSwiftNativeShiftAlerts?.enableAlerts) {
+          return window.ShiftSwiftNativeShiftAlerts.enableAlerts();
+        }
+        const plugin = window.ShiftSwiftNativeShiftAlerts?.getNotificationsPlugin?.()
+      || window.Capacitor?.Plugins?.LocalNotifications;
+        if (plugin?.requestPermissions) {
+          const result = await plugin.requestPermissions();
+          if ((result?.display || "denied") !== "granted") return { ok: false, reason: "denied" };
+          try {
+            localStorage.setItem("sshrNativeShiftAlerts", "1");
+          } catch {
+            /* ignore */
+          }
+          return { ok: true };
+        }
       }
       if (!token || !tenantId) return { ok: false, reason: "not_signed_in" };
       if (!force && localStorage.getItem(PROMPT_KEY) === "1") {
@@ -182,8 +246,16 @@
     },
 
     async enableAlerts({ apiBase, token, tenantId }) {
-      if (window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
-        const result = await window.ShiftSwiftNativeShiftAlerts.enableAlerts();
+      if (isCapacitorNative() || window.ShiftSwiftNativeShiftAlerts?.isNative?.()) {
+        const result = window.ShiftSwiftNativeShiftAlerts?.enableAlerts
+          ? await window.ShiftSwiftNativeShiftAlerts.enableAlerts()
+          : await window.ShiftSwiftPush.promptSubscribe({
+              apiBase,
+              token,
+              tenantId,
+              reason: "Shift reminders enabled.",
+              force: true,
+            });
         if (result.ok) {
           playAlertSound();
           window.dispatchEvent(new CustomEvent("employee:shift-alerts-enabled"));
@@ -205,16 +277,30 @@
     },
   };
 
+  const CLOCK_ALERT_TYPES = new Set([
+    "shift_reminder",
+    "shift_end_reminder",
+    "clock_in",
+    "clock_out",
+    "missed_clock_in",
+    "missed_clock_in_early",
+  ]);
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data?.type === "SHIFT_ALERT") {
+        const alertType = event.data.alert_type || "general";
+        const urgent = Boolean(event.data.urgent || CLOCK_ALERT_TYPES.has(alertType));
         playAlertSound();
-        if (event.data?.urgent && "vibrate" in navigator) {
+        if (urgent && "vibrate" in navigator) {
           try {
             navigator.vibrate([400, 120, 400, 120, 400]);
           } catch {
             /* ignore */
           }
+        }
+        if (window.ShiftSwiftPortalNotifications?.refreshAdmin) {
+          window.ShiftSwiftPortalNotifications.refreshAdmin();
         }
       }
     });

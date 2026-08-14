@@ -1,6 +1,11 @@
 /** HR process templates — optional AI drafting via subscription add-on. */
 (async function initAdminTemplates() {
-  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, isAddonEnabled } = window.Admin;
+  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, isAddonEnabled, showAdminToast } = window.Admin;
+
+  function templatesToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   let controlsBound = false;
   let selectedId = null;
@@ -25,6 +30,93 @@
     return String(cat || "")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function isMobileTemplatesUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function editorIsOpen() {
+    return !document.getElementById("template-editor-panel")?.hidden;
+  }
+
+  function populateMobileCategoryFilter() {
+    const select = document.getElementById("templates-mobile-category-filter");
+    if (!select) return;
+    const categories = [...new Set(listCache.map((item) => item.category).filter(Boolean))].sort((a, b) => {
+      const ai = CATEGORY_ORDER.indexOf(a);
+      const bi = CATEGORY_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    select.innerHTML =
+      `<option value="">All categories</option>` +
+      categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(categoryLabel(c))}</option>`).join("");
+    select.value = categoryFilter;
+  }
+
+  function renderMobileTemplatesList() {
+    const host = document.getElementById("templates-mobile-list");
+    if (!host) return;
+    const rows = filteredTemplates();
+    if (!listCache.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No HR templates seeded. Run scripts/seed_hr_templates.py.</p>`;
+      return;
+    }
+    if (!rows.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No templates match your filter.</p>`;
+      return;
+    }
+    host.innerHTML = rows
+      .map((row) => {
+        const selected = selectedId === row.id ? " docs-mobile-card--selected" : "";
+        return `<article class="leave-mobile-request-card docs-mobile-card${selected}" data-template-id="${escapeHtml(row.id)}">
+          <div class="leave-mobile-request-card__head">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.display_title)}</strong>
+              <span>${escapeHtml(categoryLabel(row.category))} · v${escapeHtml(row.platform_version)}</span>
+            </div>
+            ${syncStatusPill(row)}
+          </div>
+          <p class="docs-mobile-card__desc muted">${escapeHtml(row.description || "")}</p>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-template-open="${escapeHtml(row.id)}">Open</button>
+            <button type="button" class="leave-mobile-action" data-template-download="${escapeHtml(row.id)}">Download</button>
+          </div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-template-open]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-template-open");
+        selectTemplate(id);
+        openEditor(id);
+      });
+    });
+    host.querySelectorAll("[data-template-download]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        const id = btn.getAttribute("data-template-download");
+        const item = listCache.find((t) => t.id === id);
+        downloadHrTemplate(id, item?.is_customised ? "effective" : "platform", event.currentTarget);
+      });
+    });
+  }
+
+  function renderMobileTemplatesShell() {
+    const shell = document.getElementById("templates-mobile-shell");
+    if (!shell) return;
+    if (!isMobileTemplatesUi()) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = editorIsOpen();
+    if (shell.hidden) return;
+    populateMobileCategoryFilter();
+    renderMobileTemplatesList();
   }
 
   function templateDownloadFormat() {
@@ -216,6 +308,7 @@
     setEditorOpen(false);
     const status = document.getElementById("template-save-status");
     if (status) status.textContent = "";
+    renderMobileTemplatesShell();
   }
 
   function renderUpdatesBanner(data) {
@@ -354,6 +447,7 @@
     if (selectedId) {
       renderTemplateSidePanel(listCache.find((t) => t.id === selectedId));
     }
+    renderMobileTemplatesShell();
   }
 
   async function loadTemplateList() {
@@ -367,10 +461,12 @@
       renderUpdatesBanner(data);
       populateCategoryFilter();
       renderTemplateTable();
+      renderMobileTemplatesShell();
     } catch {
       listCache = [];
       tbody.innerHTML = '<tr><td colspan="4" class="muted">Could not load templates.</td></tr>';
       renderTemplateSidePanel(null);
+      renderMobileTemplatesShell();
     }
   }
 
@@ -446,6 +542,7 @@
 
     panel.hidden = false;
     setEditorOpen(true);
+    renderMobileTemplatesShell();
     panel.scrollIntoView({ behavior: "smooth", block: "start" });
 
     const titleEl = document.getElementById("template-editor-title");
@@ -503,7 +600,7 @@
     const res = await apiFetch(`/hr-templates/${selectedId}/apply-platform-update`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || "Update failed");
+      templatesToast(data.detail || "Update failed", "error");
       return;
     }
     await loadTemplateList();
@@ -515,7 +612,7 @@
     const res = await apiFetch(`/hr-templates/${selectedId}/reset`, { method: "POST" });
     if (!res.ok) {
       const err = await res.json();
-      alert(err.detail || "Reset failed");
+      templatesToast(err.detail || "Reset failed", "error");
       return;
     }
     await loadTemplateList();
@@ -557,12 +654,35 @@
 
     document.getElementById("hr-templates-category-filter")?.addEventListener("change", (e) => {
       categoryFilter = e.target.value;
+      const mobileFilter = document.getElementById("templates-mobile-category-filter");
+      if (mobileFilter) mobileFilter.value = categoryFilter;
       renderTemplateTable();
     });
 
     document.getElementById("hr-templates-search")?.addEventListener("input", (e) => {
       searchFilter = e.target.value;
+      const mobileSearch = document.getElementById("templates-mobile-search");
+      if (mobileSearch) mobileSearch.value = searchFilter;
       renderTemplateTable();
+    });
+
+    document.getElementById("templates-mobile-category-filter")?.addEventListener("change", (e) => {
+      categoryFilter = e.target.value;
+      const desktopFilter = document.getElementById("hr-templates-category-filter");
+      if (desktopFilter) desktopFilter.value = categoryFilter;
+      renderTemplateTable();
+    });
+
+    document.getElementById("templates-mobile-search")?.addEventListener("input", (e) => {
+      searchFilter = e.target.value;
+      const desktopSearch = document.getElementById("hr-templates-search");
+      if (desktopSearch) desktopSearch.value = searchFilter;
+      renderTemplateTable();
+    });
+
+    window.addEventListener("resize", () => {
+      if (!controlsBound) return;
+      renderMobileTemplatesShell();
     });
 
     document.getElementById("template-body-input")?.addEventListener("input", schedulePreview);
@@ -591,6 +711,7 @@
     await syncAiAddonNotice();
     await loadAiStatus();
     await loadTemplateList();
+    renderMobileTemplatesShell();
     const pendingId = sessionStorage.getItem("templatesOpenId");
     if (pendingId) {
       sessionStorage.removeItem("templatesOpenId");

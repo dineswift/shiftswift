@@ -13,12 +13,25 @@
     <script src="./portal-sw-guard.js?v=2"></script>
     <script>
       (function () {
+        if (/[?&]legacy=1(?:&|$)/.test(location.search)) return;
+        if (/[?&]source=native(?:&|$)/.test(location.search)) return;
+        if (window.Capacitor?.isNativePlatform?.()) return;
+        var target = "./sign-in.html";
+        var qs = location.search || "";
+        if (!/[?&]portal=/.test(qs)) target += (qs ? qs + "&" : "?") + "portal=employee";
+        else target += qs;
+        location.replace(target);
+      })();
+    </script>
+    <script>
+      (function () {
         try {
-          var cap = window.Capacitor;
-          if (!cap?.isNativePlatform?.()) return;
-          if (cap.config?.appId !== "co.uk.shiftswifthr.app") return;
-          var scheme = cap.config?.ios?.scheme || "App";
-          window.location.replace(scheme + "://localhost/index.html");
+          if (!window.Capacitor?.isNativePlatform?.()) return;
+          var scheme = window.Capacitor?.config?.ios?.scheme || "App";
+          var boot = document.createElement("script");
+          boot.src = scheme + "://localhost/native-unified-login-redirect.js?v=37";
+          boot.async = false;
+          (document.head || document.documentElement).appendChild(boot);
         } catch (e) {}
       })();
     </script>
@@ -30,7 +43,7 @@
     <title>ShiftSwift Employee | Sign in</title>
     <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
   </head>
-  <body class="portal-login-page portal-login-page--employee" data-login-page="employee">
+  <body class="portal-login-page portal-login-page--employee login-step-signin" data-login-page="employee">
     <div class="portal-login-shell">
       <header class="portal-login-brand">
         <a href="./employee-login.html" aria-label="Employee sign in">
@@ -39,7 +52,7 @@
         <p class="portal-login-brand-copy">Employee portal &amp; time clock</p>
       </header>
 
-      <section class="portal-login-card portal-login-card--employee portal-login-card--has-install" id="portal-login-card">
+      <section class="portal-login-card portal-login-card--employee portal-login-card--has-install login-steps-host login-step-signin" id="portal-login-card">
         <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
           <div class="portal-pwa-install-banner__copy">
             <strong id="portal-pwa-install-title">Get Employee app</strong>
@@ -100,7 +113,7 @@
             </p>
             <p class="portal-login-alt-note">
               One login for everyone —
-              <a class="portal-login-inline-link" href="./native-app-login.html">Sign in with work email</a>
+              <a class="portal-login-inline-link" href="./sign-in.html">Sign in with work email</a>
             </p>
           </form>
 
@@ -110,11 +123,15 @@
           <div class="portal-login-card-head">
             <h1>Set up authenticator</h1>
             <p class="portal-login-card-lead">
-              Two-factor authentication is required. Scan the QR code in Google Authenticator, Authy, or Microsoft Authenticator, then enter a 6-digit code.
+              Recommended for account security. Scan a QR code in Google Authenticator / Authy, or skip and enable later in settings.
             </p>
           </div>
           <div class="portal-login-form">
             <p id="mfa-enrollment-user" class="muted"></p>
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-passkey-btn" hidden>
+              Use Face ID / Touch ID
+            </button>
+            <p class="muted native-login-mfa-divider" id="mfa-enrollment-passkey-divider" hidden>or use an authenticator app</p>
             <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
               <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
             </div>
@@ -125,21 +142,43 @@
               <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
             </label>
             <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
-            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+            <div class="mfa-enrollment-actions">
+              <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+              <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
+            </div>
           </div>
         </div>
 
         <div id="mfa-panel" class="portal-login-card-body" hidden>
           <div class="portal-login-card-head">
-            <h1>Two-factor authentication</h1>
-            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+            <h1 id="mfa-panel-title">Check your email</h1>
+            <p class="portal-login-card-lead" id="mfa-panel-lead">We sent a 6-digit code to <strong data-mfa-user></strong>.</p>
           </div>
           <form id="mfa-form" class="portal-login-form">
-            <label>
-              Authenticator code
+            <label id="mfa-code-label" class="mfa-code-field">
+              <span id="mfa-code-label-text">Email code</span>
               <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
             </label>
+            <p class="muted mfa-resend-row" id="mfa-resend-wrap">
+              <button type="button" class="portal-login-inline-link" id="mfa-resend-btn">Resend email code</button>
+            </p>
+            <label class="unified-login-remember-device portal-login-remember--mfa" id="mfa-remember-wrap">
+              <input type="checkbox" id="login-remember-device-mfa" checked />
+              <span>Trust this device for 30 days</span>
+            </label>
+            <p id="mfa-verify-status" class="form-error-message" hidden></p>
             <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+            <div class="native-login-mfa-alt" id="mfa-alt-methods" hidden>
+              <button type="button" class="portal-login-inline-link" id="mfa-use-email-btn" hidden>Use email code</button>
+              <button type="button" class="portal-login-inline-link" id="mfa-use-totp-btn" hidden>Use authenticator app</button>
+            </div>
+            <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or</p>
+            <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
+              Verify with Face ID
+            </button>
+            <p class="portal-login-secure-note">
+              <button type="button" class="portal-login-inline-link" id="mfa-back-signin">Back to sign in</button>
+            </p>
           </form>
         </div>
       </section>
@@ -151,9 +190,12 @@
       </p>
     </div>
     <script src="./session-auth.js?v=3"></script>
+    <script src="./trusted-device.js?v=3"></script>
+    <script src="./passkey-auth.js?v=7"></script>
+    <script src="./native-keyboard.js?v=1"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./employee-pwa.js?v=7"></script>
-    <script src="./login.js?v=brandkit-v17"></script>
+    <script src="./login.js?v=brandkit-v26"></script>
     <script>
       window.ShiftSwiftEmployeePwa?.registerEmployeeSw?.();
     </script>

@@ -111,6 +111,10 @@ We aim to keep HR data in the UK/EEA. If data is transferred outside the UK, we 
 
 If we process your data as **controller** (e.g. your sign-up details), you may request access, correction, erasure, restriction, or portability where applicable. Contact legal@datasoftwareanalytics.co.uk.
 
+To request deletion of some or all personal data, or deletion of your ShiftSwift HR account, use https://www.shiftswifthr.co.uk/delete-account.html (including the data-only section at `#delete-data`).
+
+For employee HR data, contact your employer first. They are the controller.
+
 For **employee HR data**, contact your employer first. They are the controller.
 
 You may complain to the **Information Commissioner's Office (ICO)**: https://ico.org.uk

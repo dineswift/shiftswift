@@ -3,7 +3,12 @@ window.Admin = (() => {
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
     if (window.ShiftSwiftBrand?.resolveApiBase) return window.ShiftSwiftBrand.resolveApiBase();
-    if (window.Capacitor?.isNativePlatform?.()) {
+    if (window.Capacitor?.isNativePlatform?.() || window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      try {
+        localStorage.removeItem("apiBaseUrl");
+      } catch {
+        /* ignore */
+      }
       return window.ShiftSwiftBrand?.urls?.api || "https://api.shiftswifthr.co.uk";
     }
     const stored = localStorage.getItem("apiBaseUrl");
@@ -44,11 +49,336 @@ window.Admin = (() => {
 
   const TENANT_ID = resolveWorkspaceTenantId();
   const API_BASE = getApiBase();
-  const businessName = localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
+  function currentBusinessName() {
+    return localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
+  }
 
   async function resolveTenantId() {
     await window.ShiftSwiftSession?.hydrateNativeSession?.();
+    const fromToken = window.ShiftSwiftSession?.readTokenTenantId?.();
+    if (fromToken) {
+      try {
+        sessionStorage.setItem("sshrVerifiedTenantId", fromToken);
+      } catch {
+        /* ignore */
+      }
+      if (localStorage.getItem("tenantId") !== fromToken) {
+        localStorage.setItem("tenantId", fromToken);
+      }
+      return fromToken;
+    }
+    try {
+      const verified = sessionStorage.getItem("sshrVerifiedTenantId");
+      if (verified) return verified;
+    } catch {
+      /* ignore */
+    }
     return resolveWorkspaceTenantId();
+  }
+
+  function rememberVerifiedTenant(tenantId, user = {}) {
+    if (tenantId == null || tenantId === "") return;
+    const tid = String(tenantId);
+    const prev = localStorage.getItem("tenantId");
+    if (prev && prev !== tid) invalidateEmployeesListCache();
+    localStorage.setItem("tenantId", tid);
+    try {
+      sessionStorage.setItem("sshrVerifiedTenantId", tid);
+      sessionStorage.setItem("sshrVerifiedTenantAt", String(Date.now()));
+    } catch {
+      /* ignore */
+    }
+    if (user.employer_name) {
+      localStorage.setItem("businessName", user.employer_name);
+      document.title = `${user.employer_name} | Admin Console`;
+    }
+    if (user.role) localStorage.setItem("userRole", user.role);
+  }
+
+  async function verifyAdminSession(force = false) {
+    const nativeBoot =
+      window.__SSHR_BUNDLED_NATIVE_BOOT || Boolean(window.Capacitor?.isNativePlatform?.());
+    if (nativeBoot) {
+      try {
+        const cached = sessionStorage.getItem("sshrVerifiedTenantId");
+        const cachedAt = Number(sessionStorage.getItem("sshrVerifiedTenantAt") || 0);
+        if (!force && cached && Date.now() - cachedAt < 120000) {
+          return { tenant_id: cached };
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    await window.ShiftSwiftSession?.hydrateNativeSession?.({ force: Boolean(force) });
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    const tenantId = resolveWorkspaceTenantId();
+    const res = await window.ShiftSwiftSession.fetchWithAuth(
+      "/auth/verify",
+      {},
+      {
+        apiBase: getApiBase(),
+        tenantId: tenantId || undefined,
+        forceLogoutOn401: false,
+      },
+    );
+    if (!res.ok) {
+      throw new Error(await readApiError(res, "Session verification failed"));
+    }
+    const user = await parseApiJson(res);
+    if (user?.role === "employee") {
+      window.location.replace(
+        window.ShiftSwiftSession?.buildNativePortalRedirectUrl?.("employee.html") || "./employee.html",
+      );
+      throw new Error("Wrong portal");
+    }
+    if (user?.tenant_id != null) {
+      rememberVerifiedTenant(user.tenant_id, user);
+    }
+    if (user?.username) localStorage.setItem("adminUsername", user.username);
+    if (user?.display_name) {
+      localStorage.setItem("adminDisplayName", user.display_name);
+      localStorage.setItem("adminFirstName", (user.display_name.split(/\s+/)[0] || user.display_name).trim());
+    }
+    await window.ShiftSwiftSession?.persistNativeSession?.();
+    const mobileBusiness = document.getElementById("mobile-business-name");
+    if (mobileBusiness && user?.employer_name) mobileBusiness.textContent = user.employer_name;
+    window.AdminMobile?.refreshGreeting?.();
+    return user;
+  }
+
+  function normalizeEmployeeRow(row) {
+    if (!row || typeof row !== "object") return null;
+    const id = Number(row.id);
+    if (!Number.isFinite(id)) return null;
+    let first_name = String(row.first_name || row.firstName || row.given_name || "").trim();
+    let last_name = String(row.last_name || row.lastName || row.family_name || "").trim();
+    if (!first_name && !last_name) {
+      const full = String(row.display_name || row.name || row.label || "").trim();
+      if (full) {
+        const parts = full.split(/\s+/);
+        first_name = parts[0] || "";
+        last_name = parts.slice(1).join(" ");
+      }
+    }
+    return {
+      ...row,
+      id,
+      first_name: first_name || "Employee",
+      last_name: last_name || "",
+      status: row.status || "active",
+      job_title: row.job_title || row.jobTitle || "",
+      department: row.department || "",
+      email: row.email || "",
+    };
+  }
+
+  function normalizeEmployeeListPayload(data) {
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data?.items)) list = data.items;
+    else if (Array.isArray(data?.employees)) list = data.employees;
+    else if (Array.isArray(data?.data)) list = data.data;
+    return list.map(normalizeEmployeeRow).filter(Boolean);
+  }
+
+  let employeesListCache = null;
+  let employeesListCacheAt = 0;
+  let employeesListInflight = null;
+
+  function invalidateEmployeesListCache() {
+    employeesListCache = null;
+    employeesListCacheAt = 0;
+  }
+
+  function peekEmployeesListCache() {
+    return employeesListCache?.length ? employeesListCache.slice() : null;
+  }
+
+  function overviewActiveEmployeeCount() {
+    return Number(adminOverviewCache?.modules?.employees?.active ?? 0);
+  }
+
+  async function ensureOverviewForEmployees() {
+    if (adminOverviewCache?.modules?.employees) return adminOverviewCache;
+    try {
+      return await fetchAdminOverview(true);
+    } catch {
+      return adminOverviewCache;
+    }
+  }
+
+  function employeesFromOverviewRegister() {
+    const rows = adminOverviewCache?.modules?.employees?.register;
+    if (!Array.isArray(rows) || !rows.length) return null;
+    return normalizeEmployeeListPayload({ items: rows });
+  }
+
+  function employeesApiPath() {
+    return window.Capacitor?.isNativePlatform?.() || window.__SSHR_BUNDLED_NATIVE_BOOT
+      ? "/admin/employees?view=register"
+      : "/admin/employees";
+  }
+
+  function isNativeEmployeesContext() {
+    return Boolean(window.Capacitor?.isNativePlatform?.() || window.__SSHR_BUNDLED_NATIVE_BOOT);
+  }
+
+  function recordEmployeesFetchTrace(res, extra) {
+    recordNativeApiTrace("/admin/employees", res, extra);
+  }
+
+  function cacheEmployeesList(items) {
+    employeesListCache = items;
+    employeesListCacheAt = Date.now();
+    return items.slice();
+  }
+
+  async function fetchEmployeesFromApi() {
+    window.ShiftSwiftNativeApiFetch?.bootWhenReady?.();
+    const res = await apiFetch(employeesApiPath());
+    if (!res.ok) {
+      throw new Error(await readApiError(res, `Could not load employees (HTTP ${res.status})`));
+    }
+    const data = await parseApiJson(res);
+    const items = normalizeEmployeeListPayload(data);
+    recordEmployeesFetchTrace(res, {
+      tenantId: await resolveTenantId(),
+      count: items.length,
+      transport: window.__SSHR_LAST_TRANSPORT,
+    });
+    return items;
+  }
+
+  function scheduleEmployeesApiRefresh() {
+    if (employeesListRefreshScheduled) return;
+    employeesListRefreshScheduled = true;
+    window.setTimeout(function () {
+      employeesListRefreshScheduled = false;
+      void fetchEmployeesList({ force: true, background: true }).catch(() => null);
+    }, 800);
+  }
+
+  let employeesListRefreshScheduled = false;
+
+  async function fetchEmployeesList(options = {}) {
+    const force = Boolean(options.force);
+    const background = Boolean(options.background);
+    const maxAgeMs = Number(options.maxAgeMs) || 45000;
+    if (force && !background) {
+      invalidateEmployeesListCache();
+    }
+    if (!force && employeesListCache && Date.now() - employeesListCacheAt < maxAgeMs) {
+      if (employeesListCache.length > 0 || overviewActiveEmployeeCount() === 0) {
+        return employeesListCache.slice();
+      }
+    }
+    if (employeesListInflight) return employeesListInflight;
+
+    employeesListInflight = (async () => {
+      let needsVerify = true;
+      try {
+        const cached = sessionStorage.getItem("sshrVerifiedTenantId");
+        const cachedAt = Number(sessionStorage.getItem("sshrVerifiedTenantAt") || 0);
+        if (cached && Date.now() - cachedAt < 120000) needsVerify = false;
+      } catch {
+        /* ignore */
+      }
+      if (needsVerify && isNativeEmployeesContext()) {
+        await verifyAdminSession().catch(() => null);
+      }
+      const tenantId = await resolveTenantId();
+
+      if (isNativeEmployeesContext() && !force) {
+        await ensureOverviewForEmployees().catch(() => null);
+        const overviewItems = employeesFromOverviewRegister();
+        if (overviewItems?.length) {
+          cacheEmployeesList(overviewItems);
+          recordEmployeesFetchTrace(null, {
+            tenantId,
+            count: overviewItems.length,
+            transport: "overview.register",
+          });
+          scheduleEmployeesApiRefresh();
+          return overviewItems.slice();
+        }
+      }
+
+      const attempts = isNativeEmployeesContext() ? 2 : 1;
+      let lastError = null;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        try {
+          let items = await fetchEmployeesFromApi();
+          const overview = await ensureOverviewForEmployees();
+          const activeCount = Number(overview?.modules?.employees?.active ?? 0);
+          if (!items.length && activeCount > 0) {
+            await verifyAdminSession(true).catch(() => null);
+            await resolveTenantId();
+            for (let retry = 0; retry < 3 && !items.length; retry += 1) {
+              await new Promise((resolve) => window.setTimeout(resolve, 450 * (retry + 1)));
+              try {
+                items = await fetchEmployeesFromApi();
+              } catch {
+                /* retry */
+              }
+            }
+          }
+          if (!items.length && activeCount > 0) {
+            const overviewItems = employeesFromOverviewRegister();
+            if (overviewItems?.length) {
+              items = overviewItems;
+            }
+          }
+          if (!items.length && activeCount > 0) {
+            throw new Error(
+              `Employee register returned none but your dashboard shows ${activeCount} active (tenant ${tenantId || "?"}).`,
+            );
+          }
+          if (background) {
+            if (items.length) {
+              cacheEmployeesList(items);
+              window.dispatchEvent(new CustomEvent("admin:employees-cache-ready"));
+            }
+            return items.slice();
+          }
+          return cacheEmployeesList(items);
+        } catch (error) {
+          lastError = error;
+          const overviewItems = employeesFromOverviewRegister();
+          if (overviewItems?.length) {
+            recordEmployeesFetchTrace(null, {
+              tenantId,
+              count: overviewItems.length,
+              transport: "overview.register",
+              error: String(error?.message || error || "request failed"),
+            });
+            if (background) {
+              return overviewItems.slice();
+            }
+            return cacheEmployeesList(overviewItems);
+          }
+          recordEmployeesFetchTrace(null, {
+            tenantId,
+            transport: window.__SSHR_LAST_TRANSPORT,
+            error: String(error?.message || error || "request failed"),
+          });
+          if (attempt < attempts - 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 500 * (attempt + 1)));
+          }
+        }
+      }
+      throw lastError || new Error("Could not load employees");
+    })();
+
+    try {
+      return await employeesListInflight;
+    } finally {
+      employeesListInflight = null;
+    }
+  }
+
+  function getAdminOverviewCache() {
+    return adminOverviewCache;
   }
 
   async function ensureHrPortal() {
@@ -66,7 +396,15 @@ window.Admin = (() => {
     }
   }
 
-  void ensureHrPortal();
+  function deferBundledNativeAdminPrefetch(fn) {
+    if (window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      window.addEventListener("admin:deferred-ready", () => void fn(), { once: true });
+      return;
+    }
+    void fn();
+  }
+
+  deferBundledNativeAdminPrefetch(ensureHrPortal);
 
   let formOptions = null;
   let tenantFeatures = {
@@ -174,14 +512,32 @@ window.Admin = (() => {
   }
 
   async function apiFetch(path, options = {}) {
+    if (window.__SSHR_BUNDLED_NATIVE_BOOT && !sessionStorage.getItem("sshrVerifiedTenantId")) {
+      await verifyAdminSession().catch(() => null);
+    }
     const tenantId = await resolveTenantId();
     if (!tenantId) {
       throw new Error("Business not set. Sign in again.");
     }
-    return window.ShiftSwiftSession.fetchWithAuth(path, options, {
-      apiBase: getApiBase(),
-      tenantId,
-    });
+    const headers = {
+      ...(options.headers || {}),
+      "X-Tenant-Id": String(tenantId),
+    };
+    try {
+      const response = await window.ShiftSwiftSession.fetchWithAuth(path, { ...options, headers }, {
+        apiBase: getApiBase(),
+        tenantId,
+      });
+      recordNativeApiTrace(path, response, { tenantId, transport: window.__SSHR_LAST_TRANSPORT });
+      return response;
+    } catch (error) {
+      recordNativeApiTrace(path, null, {
+        tenantId,
+        transport: window.__SSHR_LAST_TRANSPORT,
+        error: String(error?.message || error || "request failed"),
+      });
+      throw error;
+    }
   }
 
   let tenantProfileSnapshot = null;
@@ -345,7 +701,7 @@ window.Admin = (() => {
     }
   }
 
-  void prefetchTenantProfile();
+  deferBundledNativeAdminPrefetch(prefetchTenantProfile);
 
   window.addEventListener("admin:tenant-profile-saved", (event) => {
     if (!event.detail || typeof event.detail !== "object") return;
@@ -360,43 +716,71 @@ window.Admin = (() => {
 
   async function loadTenantFeatures() {
     try {
-      const res = await apiFetch("/admin/overview");
-      if (!res.ok) return tenantFeatures;
-      const data = await res.json();
-      tenantFeatures = {
-        payroll_enabled: Boolean(data.payroll_enabled),
-        sponsor_compliance_enabled: Boolean(data.sponsor_compliance_enabled),
-        sponsor_licence_acknowledged: Boolean(data.sponsor_licence_acknowledged),
-        holds_sponsor_licence: Boolean(data.holds_sponsor_licence),
-        grievance_enabled: Boolean(data.grievance_enabled),
-        disciplinary_enabled: Boolean(data.disciplinary_enabled),
-        audit_export_enabled: Boolean(data.audit_export_enabled),
-        multi_site_enabled: Boolean(data.multi_site_enabled),
-        api_access_enabled: Boolean(data.api_access_enabled),
-        rota_mode: data.rota_mode || "basic",
-        rota_mode_options: Array.isArray(data.rota_mode_options) ? data.rota_mode_options : ["basic"],
-        rota_week_start_day: Number.isFinite(Number(data.rota_week_start_day))
-          ? Number(data.rota_week_start_day)
-          : 0,
-        rota_advanced_addon: Boolean(data.rota_advanced_addon),
-        rota_multi_site_addon: Boolean(data.rota_multi_site_addon),
-        rota_advanced_enabled: Boolean(data.rota_advanced_enabled),
-        rota_multi_site_enabled: Boolean(data.rota_multi_site_enabled),
-        crm_addon: Boolean(data.crm_addon),
-        crm_addon_monthly_gbp: data.crm_addon_monthly_gbp,
-        ai_document_addon: Boolean(data.ai_document_addon),
-        ai_document_addon_monthly_gbp: data.ai_document_addon_monthly_gbp,
-        time_clock_enabled: Boolean(data.time_clock_enabled),
-        plan_display_name: data.plan_display_name || "Essentials",
-        plan_tier: data.plan_tier || "starter",
-        sponsored_employees: Number(data.sponsored_employees || 0),
-        rota_mode_labels: data.rota_mode_labels || {},
-        rota_modes_all: Array.isArray(data.rota_modes_all) ? data.rota_modes_all : ["basic"],
-        upgrade_messages: data.upgrade_messages || {},
-      };
+      await fetchAdminOverview(false);
     } catch {
       /* keep previous values */
     }
+    return tenantFeatures;
+  }
+
+  let adminOverviewCache = null;
+  let adminOverviewInflight = null;
+
+  async function fetchAdminOverview(force = false) {
+    if (!force && adminOverviewCache) return adminOverviewCache;
+    if (adminOverviewInflight) return adminOverviewInflight;
+    adminOverviewInflight = (async () => {
+      await window.ShiftSwiftSession?.hydrateNativeSession?.({ force: Boolean(force) });
+      window.ShiftSwiftNativeApiFetch?.boot?.();
+      const res = await apiFetch("/admin/overview");
+      if (!res.ok) throw new Error(await readApiError(res, "Overview unavailable"));
+      const data = await parseApiJson(res);
+      adminOverviewCache = data;
+      applyOverviewToTenantFeatures(data);
+      applyFeatureGates();
+      return data;
+    })();
+    try {
+      return await adminOverviewInflight;
+    } finally {
+      adminOverviewInflight = null;
+    }
+  }
+
+  function applyOverviewToTenantFeatures(data) {
+    if (!data || typeof data !== "object") return tenantFeatures;
+    tenantFeatures = {
+      payroll_enabled: Boolean(data.payroll_enabled),
+      sponsor_compliance_enabled: Boolean(data.sponsor_compliance_enabled),
+      sponsor_licence_acknowledged: Boolean(data.sponsor_licence_acknowledged),
+      holds_sponsor_licence: Boolean(data.holds_sponsor_licence),
+      grievance_enabled: Boolean(data.grievance_enabled),
+      disciplinary_enabled: Boolean(data.disciplinary_enabled),
+      audit_export_enabled: Boolean(data.audit_export_enabled),
+      multi_site_enabled: Boolean(data.multi_site_enabled),
+      api_access_enabled: Boolean(data.api_access_enabled),
+      rota_mode: data.rota_mode || "basic",
+      rota_mode_options: Array.isArray(data.rota_mode_options) ? data.rota_mode_options : ["basic"],
+      rota_week_start_day: Number.isFinite(Number(data.rota_week_start_day))
+        ? Number(data.rota_week_start_day)
+        : 0,
+      rota_advanced_addon: Boolean(data.rota_advanced_addon),
+      rota_multi_site_addon: Boolean(data.rota_multi_site_addon),
+      rota_advanced_enabled: Boolean(data.rota_advanced_enabled),
+      rota_multi_site_enabled: Boolean(data.rota_multi_site_enabled),
+      crm_addon: Boolean(data.crm_addon),
+      crm_addon_monthly_gbp: data.crm_addon_monthly_gbp,
+      ai_document_addon: Boolean(data.ai_document_addon),
+      ai_document_addon_monthly_gbp: data.ai_document_addon_monthly_gbp,
+      time_clock_enabled: Boolean(data.time_clock_enabled),
+      plan_display_name: data.plan_display_name || "Essentials",
+      plan_tier: data.plan_tier || "starter",
+      sponsored_employees: Number(data.sponsored_employees || 0),
+      rota_mode_labels: data.rota_mode_labels || {},
+      rota_modes_all: Array.isArray(data.rota_modes_all) ? data.rota_modes_all : ["basic"],
+      upgrade_messages: data.upgrade_messages || {},
+    };
+    localStorage.setItem("adminTimeClockEnabled", tenantFeatures.time_clock_enabled ? "true" : "false");
     return tenantFeatures;
   }
 
@@ -565,7 +949,6 @@ window.Admin = (() => {
     if (baseSection === "payroll" || baseSection === "export") return "overview";
     if (baseSection === "overview-actions") return "overview";
     if (baseSection.startsWith("compliance")) return "compliance";
-    if (baseSection === "time-punch" && !tenantFeatures.time_clock_enabled) return "overview";
     if (baseSection === "promotions" && !isPlatformAdmin()) return "overview";
     const sectionEl = document.getElementById(baseSection);
     const feature = sectionEl?.dataset?.feature;
@@ -574,10 +957,8 @@ window.Admin = (() => {
   }
 
   async function loadEmployees() {
-    const res = await apiFetch("/admin/employees");
-    if (!res.ok) throw new Error("Could not load employees");
-    const data = await res.json();
-    const options = (data.items || []).map((emp) => ({
+    const items = await fetchEmployeesList();
+    const options = items.map((emp) => ({
       id: emp.id,
       value: String(emp.id),
       label: `${emp.first_name} ${emp.last_name}${emp.job_title ? `, ${emp.job_title}` : ""}`,
@@ -594,7 +975,16 @@ window.Admin = (() => {
   }
 
   async function downloadAuthenticated(path, filename) {
-    const res = await apiFetch(path);
+    let res;
+    try {
+      res = await apiFetch(path);
+    } catch (error) {
+      const message = String(error?.message || error || "").trim();
+      if (message === "Load failed" || message === "Failed to fetch") {
+        throw new Error("Download failed — check your connection and try again.");
+      }
+      throw error;
+    }
     if (!res.ok) throw new Error("Download failed");
     let name = filename;
     const disposition = res.headers.get("Content-Disposition") || "";
@@ -609,21 +999,108 @@ window.Admin = (() => {
     URL.revokeObjectURL(url);
   }
 
-  async function loadFormOptions() {
-    if (formOptions) return formOptions;
-    const res = await apiFetch("/admin/metadata");
-    if (!res.ok) throw new Error("Could not load form options");
-    formOptions = await res.json();
-    if (formOptions.brand) {
-      window.ShiftSwiftBrand?.mergeBrand?.(formOptions.brand);
-      window.ShiftSwiftBrand?.applyBrandDom?.();
+  async function loadFormOptions(force = false) {
+    if (formOptions && !force) return formOptions;
+    if (force) formOptions = null;
+    const attempts = window.Capacitor?.isNativePlatform?.() ? 3 : 1;
+    let lastError = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        window.ShiftSwiftNativeApiFetch?.bootWhenReady?.();
+        const res = await apiFetch("/admin/metadata");
+        if (!res.ok) throw new Error("Could not load form options");
+        formOptions = await res.json();
+        if (formOptions.brand) {
+          window.ShiftSwiftBrand?.mergeBrand?.(formOptions.brand);
+          window.ShiftSwiftBrand?.applyBrandDom?.();
+        }
+        void loadEmployees().catch(() => {
+          if (formOptions) formOptions.employees = [];
+        });
+        return formOptions;
+      } catch (error) {
+        lastError = error;
+        if (attempt < attempts - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 450 * (attempt + 1)));
+        }
+      }
     }
+    throw lastError || new Error("Could not load form options");
+  }
+
+  function parseApiDetail(data, fallback = "Request failed") {
+    const detail = data?.detail ?? data?.message;
+    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (detail && typeof detail === "object") {
+      if (typeof detail.message === "string" && detail.message.trim()) return detail.message.trim();
+    }
+    if (Array.isArray(data?.detail)) {
+      const first = data.detail.find((item) => item?.msg)?.msg;
+      if (first) return String(first);
+    }
+    return fallback;
+  }
+
+  async function parseApiJson(res) {
+    if (window.ShiftSwiftNativeApiFetch?.parseResponseJson) {
+      return window.ShiftSwiftNativeApiFetch.parseResponseJson(res);
+    }
+    return res.json();
+  }
+
+  function recordNativeApiTrace(path, res, extra = {}) {
+    if (!window.__SSHR_BUNDLED_NATIVE_BOOT && !window.Capacitor?.isNativePlatform?.()) return;
     try {
-      await loadEmployees();
+      window.__SSHR_LAST_API = {
+        path,
+        url: res?.url || `${getApiBase()}${path}`,
+        status: res?.status,
+        ok: res?.ok,
+        at: Date.now(),
+        ...extra,
+      };
     } catch {
-      formOptions.employees = [];
+      /* ignore */
     }
-    return formOptions;
+  }
+
+  async function readApiError(res, fallback = "Request failed") {
+    try {
+      const data = await parseApiJson(res);
+      return parseApiDetail(data, fallback);
+    } catch (error) {
+      if (error?.message && !/^HTTP \d+$/i.test(error.message)) return error.message;
+      if (res.status === 401) return "Session expired. Sign out and sign in again.";
+      if (res.status === 403) return "You do not have access to this workspace.";
+      if (res.status === 402) return "Subscription required for this feature.";
+      return `${fallback} (HTTP ${res.status})`;
+    }
+  }
+
+  function friendlyNativeError(error, fallback = "Request failed") {
+    const message = String(error?.message || error || "").trim();
+    const lastPath = window.__SSHR_LAST_API?.path;
+    const pathHint = lastPath ? ` (${lastPath})` : "";
+    if (/^</.test(message) || /<\s*html[\s>]/i.test(message) || /cloudflare/i.test(message)) {
+      if (/400\s*bad\s*request/i.test(message)) {
+        return `API request was rejected${pathHint}. Pull to refresh or sign out and sign in again.`;
+      }
+      return `Could not load data from the API${pathHint}. Tap Retry.`;
+    }
+    if (/API request was rejected|API is temporarily unavailable|Could not load data from the API/i.test(message)) {
+      return message;
+    }
+    if (
+      message === "Load failed" ||
+      message === "Failed to fetch" ||
+      /^(could not connect|failed to fetch|load failed|network error|internet connection|native http plugin unavailable)/i.test(
+        message,
+      ) ||
+      /timed out/i.test(message)
+    ) {
+      return `Cannot reach the API${pathHint}. Check your connection, tap Retry, or sign out and sign in again.`;
+    }
+    return message || fallback;
   }
 
   function escapeHtml(value) {
@@ -865,6 +1342,7 @@ window.Admin = (() => {
 
   function initNavigation() {
     bindNavIcons();
+    if (window.__SSHR_HASH_ROUTING_READY) return;
     const sections = [...document.querySelectorAll(".admin-section")];
     const links = [...document.querySelectorAll(".nav-link[data-section]")];
     const sidebarCtl =
@@ -952,18 +1430,21 @@ window.Admin = (() => {
         if (link.getAttribute("aria-disabled") === "true") {
           const feature = link.dataset.feature;
           if (feature) showAdminToast(featureUpgradeMessage(feature));
+          window.location.hash = "settings/billing";
           return;
         }
-        const target = link.dataset.section;
-        if (target === "promotions" && !isPlatformAdmin()) {
+        const href = link.getAttribute("href") || "";
+        const hashTarget = (href.startsWith("#") ? href.slice(1) : "") || link.dataset.section || "overview";
+        const targetSection = hashTarget.split("/")[0] || "overview";
+        if (targetSection === "promotions" && !isPlatformAdmin()) {
           window.location.hash = "overview";
           return;
         }
-        const current = parseHashPath(window.location.hash).baseSection;
-        if (current === target) {
+        const current = parseHashPath(window.location.hash).path;
+        if (current === hashTarget) {
           routeFromHash();
         } else {
-          window.location.hash = target;
+          window.location.hash = hashTarget;
         }
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
@@ -1202,7 +1683,35 @@ window.Admin = (() => {
     },
   };
 
-  document.title = `${businessName} | Admin Console`;
+  document.title = `${currentBusinessName()} | Admin Console`;
+
+  function formatDocumentNotificationSummary(notifications, { uploadedLabel = "Uploaded" } = {}) {
+    if (!notifications) return `${uploadedLabel}.`;
+    const sent = Number(notifications.emails_sent ?? 0);
+    const skipped = Number(notifications.emails_skipped ?? 0);
+    const pushes = Number(notifications.pushes_sent ?? 0);
+    const failures = Array.isArray(notifications.email_failures) ? notifications.email_failures : [];
+    const parts = [`${uploadedLabel}.`];
+    if (sent > 0) parts.push(`${sent} email${sent === 1 ? "" : "s"} sent`);
+    if (pushes > 0) parts.push(`${pushes} app alert${pushes === 1 ? "" : "s"}`);
+    if (skipped > 0 && sent === 0) parts.push(`${skipped} not emailed`);
+    if (failures.length) {
+      const detail = failures
+        .slice(0, 2)
+        .map((item) => `${item.name || "Staff"}: ${item.error || "failed"}`)
+        .join("; ");
+      parts.push(detail);
+    }
+    return parts.join(" · ");
+  }
+
+  function documentNotificationNeedsResend(notifications) {
+    if (!notifications) return false;
+    const failures = Array.isArray(notifications.email_failures) ? notifications.email_failures : [];
+    const sent = Number(notifications.emails_sent ?? 0);
+    const skipped = Number(notifications.emails_skipped ?? 0);
+    return failures.length > 0 || (skipped > 0 && sent === 0);
+  }
 
   return {
     API_BASE,
@@ -1211,7 +1720,9 @@ window.Admin = (() => {
       return window.ShiftSwiftSession?.getToken?.() || localStorage.getItem("token") || "";
     },
     TENANT_ID,
-    businessName,
+    get businessName() {
+      return currentBusinessName();
+    },
     get formOptions() {
       return formOptions;
     },
@@ -1238,6 +1749,15 @@ window.Admin = (() => {
     },
     loadFormOptions,
     loadTenantFeatures,
+    fetchAdminOverview,
+    fetchEmployeesList,
+    peekEmployeesListCache,
+    invalidateEmployeesListCache,
+    getAdminOverviewCache,
+    verifyAdminSession,
+    rememberVerifiedTenant,
+    normalizeEmployeeListPayload,
+    applyOverviewToTenantFeatures,
     applyFeatureGates,
     isFeatureEnabled,
     isAddonEnabled,
@@ -1245,6 +1765,10 @@ window.Admin = (() => {
     downloadAuthenticated,
     isPlatformAdmin,
     escapeHtml,
+    parseApiDetail,
+    parseApiJson,
+    readApiError,
+    friendlyNativeError,
     statusClass,
     statusPill,
     mountEditForm,
@@ -1258,5 +1782,7 @@ window.Admin = (() => {
     parseHashBaseSection,
     resolveSectionFromHash,
     routeFromHash: () => window.Admin.routeFromHash?.(),
+    formatDocumentNotificationSummary,
+    documentNotificationNeedsResend,
   };
 })();

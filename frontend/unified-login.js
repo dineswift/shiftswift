@@ -6,6 +6,14 @@
   let pendingRedirect = "./admin.html";
   let pendingEnrollmentToken = null;
   let pendingEmail = "";
+  let pendingMfaMethod = "email";
+  let pendingMfaMeta = {
+    passkeyAvailable: false,
+    totpAvailable: false,
+    emailAvailable: true,
+    emailHint: "",
+    emailSent: false,
+  };
 
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
@@ -34,18 +42,47 @@
     return url;
   }
 
+  function setStatusMessage(el, message) {
+    if (!el) return;
+    el.textContent = message || "";
+    el.hidden = !message;
+  }
+
+  function ensureMfaVerifyStatus() {
+    let status = document.getElementById("mfa-verify-status");
+    if (status) return status;
+    const form = document.getElementById("mfa-form");
+    if (!form) return null;
+    status = document.createElement("p");
+    status.id = "mfa-verify-status";
+    status.className = "form-error-message";
+    status.hidden = true;
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) form.insertBefore(status, submit);
+    else form.appendChild(status);
+    return status;
+  }
+
   function setStatus(message) {
-    const status = document.getElementById("login-status");
-    if (!status) return;
-    status.textContent = message || "";
-    status.hidden = !message;
+    if (document.body.classList.contains("login-step-mfa")) {
+      setStatusMessage(ensureMfaVerifyStatus(), message);
+      return;
+    }
+    if (document.body.classList.contains("login-step-enroll")) {
+      setEnrollmentStatus(message);
+      return;
+    }
+    setStatusMessage(document.getElementById("login-status"), message);
   }
 
   function setEnrollmentStatus(message) {
-    const status = document.getElementById("mfa-enrollment-status");
-    if (!status) return;
-    status.textContent = message || "";
-    status.hidden = !message;
+    setStatusMessage(document.getElementById("mfa-enrollment-status"), message);
+  }
+
+  function normalizeMfaCode(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\s+/g, "");
   }
 
   async function postJson(path, body, bearerToken, options = {}) {
@@ -64,10 +101,12 @@
       const reqInit = {
         method: "POST",
         headers,
-        body: body ? JSON.stringify(body) : undefined,
+        body: JSON.stringify(body == null ? {} : body),
         signal: controller?.signal,
       };
-      if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+      if (window.ShiftSwiftNativeApiFetch?.isCapacitorHttpEnabled?.()) {
+        response = await fetch(url, reqInit);
+      } else if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
         response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
       } else {
         response = await fetch(url, reqInit);
@@ -84,6 +123,11 @@
     if (!response.ok) {
       const detail = data.detail;
       const message = typeof detail === "string" ? detail : Array.isArray(detail) ? detail[0]?.msg : null;
+      if (response.status === 404 && String(path).includes("skip-enrollment")) {
+        throw new Error(
+          "Skip MFA is not available on this server yet. Enter a code from your authenticator app, or deploy the latest API.",
+        );
+      }
       throw new Error(message || data.message || "Request failed");
     }
     return data;
@@ -97,6 +141,7 @@
     if (data.access_token) localStorage.setItem("token", data.access_token);
     if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
     if (data.role) localStorage.setItem("userRole", data.role);
+    if (data.workspace_role) localStorage.setItem("workspaceRole", data.workspace_role);
     if (data.tenant_id) {
       localStorage.setItem("masterTenantId", data.tenant_id);
       localStorage.setItem("tenantId", data.tenant_id);
@@ -181,6 +226,10 @@
 
   async function maybeEnableBiometricUnlock() {
     if (!isNativeShell()) return;
+    if (window.ShiftSwiftTrustedDevice?.maybeEnableBiometricUnlock) {
+      await window.ShiftSwiftTrustedDevice.maybeEnableBiometricUnlock();
+      return;
+    }
     if (window.ShiftSwiftTrustedDevice?.isBiometricUnlockEnabled?.()) return;
     const canUse = await window.ShiftSwiftTrustedDevice?.canUseBiometricUnlock?.();
     if (!canUse) return;
@@ -196,15 +245,54 @@
   }
 
   async function finishAuthSuccess(data, email, redirect) {
+    if (email) {
+      try {
+        localStorage.setItem("employeeUsername", email);
+      } catch {
+        /* ignore */
+      }
+    }
     if (window.ShiftSwiftSession?.storeSession) {
-      window.ShiftSwiftSession.storeSession(data);
+      window.ShiftSwiftSession.storeSession({ ...data, username: data?.username || email });
     } else {
-      storeSession(data);
+      storeSession({ ...data, username: data?.username || email });
     }
-    if (window.ShiftSwiftSession?.persistNativeSession) {
+    if (window.ShiftSwiftSession?.confirmNativeSessionPersisted) {
+      await window.ShiftSwiftSession.confirmNativeSessionPersisted();
+    } else if (window.ShiftSwiftSession?.persistNativeSession) {
       await window.ShiftSwiftSession.persistNativeSession();
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
     }
+    window.ShiftSwiftSession?.bridgeNativeSessionForNextPage?.();
+
+    if (isNativeShell()) {
+      const leaf = (() => {
+        try {
+          const parsed = new URL(String(redirect), window.location.href);
+          const name = parsed.pathname.split("/").filter(Boolean).pop();
+          return name && /\.html$/i.test(name) ? name : "admin.html";
+        } catch {
+          return "admin.html";
+        }
+      })();
+      redirect =
+        window.ShiftSwiftSession?.buildNativePortalRedirectUrl?.(leaf) ||
+        window.ShiftSwiftSession?.nativePortalRedirectAfterLogin?.(data, redirect) ||
+        redirect;
+    }
+
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
+    window.ShiftSwiftPasskeyAuth?.rememberLastEmail?.(email);
+    if (typeof data.passkeys_enabled === "boolean") {
+      window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(data.passkeys_enabled);
+    }
+    if (window.ShiftSwiftPasskeyAuth?.isPasskeyOptIn?.()) {
+      try {
+        await window.ShiftSwiftPasskeyAuth.registerPasskey(email);
+      } catch {
+        /* optional — password login still succeeded */
+      }
+    }
     await maybeEnableBiometricUnlock();
     markPostLoginTransition();
     window.location.replace(redirect);
@@ -290,13 +378,40 @@
     if (mfaPanel) mfaPanel.hidden = true;
     if (enrollmentPanel) enrollmentPanel.hidden = true;
     setLoginStep("signin");
+    const mfaRemember = document.getElementById("login-remember-device-mfa");
+    if (mfaRemember) delete mfaRemember.dataset.synced;
     const lead = document.getElementById("login-lead");
     if (lead) lead.textContent = "Enter your work email and password.";
     setStatus("");
   }
 
-  function showMfaStep(username) {
+  function showMfaStep(username, meta = {}) {
     pendingEmail = username || pendingEmail || normalizeEmail(getEmailInput()?.value);
+    if (typeof meta.passkeys_enabled === "boolean") {
+      window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(meta.passkeys_enabled);
+    }
+    const featureOn = meta.passkeys_enabled !== false;
+    const passkeyAvailable =
+      featureOn && Boolean(meta.passkeyAvailable ?? meta.passkey_available);
+    const totpAvailable = Boolean(meta.totpAvailable ?? meta.totp_available);
+    const emailFlag = meta.emailAvailable ?? meta.email_mfa_available;
+    const emailAvailable = emailFlag !== false;
+    const emailHint = meta.emailHint || meta.email_hint || username || pendingEmail;
+    const emailSent = Boolean(meta.emailSent ?? meta.email_sent);
+    const serverMessage = String(meta.message || "");
+    const defaultMethod = String(meta.defaultMethod || meta.default_mfa_method || "").toLowerCase();
+    pendingMfaMeta = {
+      passkeyAvailable,
+      totpAvailable,
+      emailAvailable,
+      emailHint,
+      emailSent,
+    };
+    if (defaultMethod === "totp" && totpAvailable && !emailAvailable) pendingMfaMethod = "totp";
+    else if (emailAvailable) pendingMfaMethod = "email";
+    else if (totpAvailable) pendingMfaMethod = "totp";
+    else pendingMfaMethod = "email";
+
     const loginShell = document.getElementById("login-shell");
     const mfaPanel = document.getElementById("mfa-panel");
     const enrollmentPanel = document.getElementById("mfa-enrollment-panel");
@@ -305,30 +420,149 @@
     setLoginStep("mfa");
     if (mfaPanel) {
       mfaPanel.hidden = false;
-      const userLabel = mfaPanel.querySelector("[data-mfa-user]");
-      if (userLabel) userLabel.textContent = username;
+      applyMfaMethodUi();
+      if (serverMessage) setStatus(serverMessage);
+      else if (pendingMfaMethod === "email" && emailSent) {
+        setStatus("Check your inbox and spam folder for the 6-digit code.");
+      } else if (pendingMfaMethod === "email" && !emailSent) {
+        setStatus("Sending email code…");
+        void ensureEmailCodeSent();
+      }
       mfaPanel.querySelector('input[name="code"]')?.focus();
     }
   }
 
+  async function ensureEmailCodeSent() {
+    if (!pendingChallenge) return;
+    try {
+      const data = await postJson("/auth/mfa/send-email-code", {
+        challenge_token: pendingChallenge,
+      });
+      if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+      pendingMfaMeta.emailSent = true;
+      pendingMfaMethod = "email";
+      applyMfaMethodUi();
+      setStatus(data.message || "We emailed a 6-digit code. Check your inbox and spam folder.");
+    } catch (error) {
+      setStatus(error.message || "Could not email your sign-in code. Tap Resend to try again.");
+    }
+  }
+
+  function applyMfaMethodUi() {
+    const mfaPanel = document.getElementById("mfa-panel");
+    if (!mfaPanel) return;
+    const { passkeyAvailable, totpAvailable, emailAvailable, emailHint, emailSent } = pendingMfaMeta;
+    const canPasskey =
+      Boolean(passkeyAvailable) &&
+      Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) &&
+      !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.();
+    const method =
+      pendingMfaMethod === "totp" && totpAvailable
+        ? "totp"
+        : emailAvailable || !totpAvailable
+          ? "email"
+          : "totp";
+    pendingMfaMethod = method;
+
+    const title = document.getElementById("mfa-panel-title");
+    if (title) title.textContent = method === "email" ? "Check your email" : "Authenticator code";
+
+    const lead = document.getElementById("mfa-panel-lead") || mfaPanel.querySelector(".portal-login-card-lead");
+    if (lead) {
+      if (method === "email") {
+        const hint = escapeHtml(emailHint || pendingEmail);
+        lead.innerHTML = emailSent
+          ? `We emailed a 6-digit code to <strong data-mfa-user>${hint}</strong>. Check inbox and spam.`
+          : `Enter the 6-digit code we email to <strong data-mfa-user>${hint}</strong>.`;
+      } else {
+        lead.innerHTML = `Enter the 6-digit code from your authenticator app for <strong data-mfa-user>${escapeHtml(pendingEmail)}</strong>.`;
+      }
+    }
+
+    const labelText = document.getElementById("mfa-code-label-text");
+    if (labelText) {
+      labelText.textContent = method === "email" ? "Email code" : "Authenticator code";
+    }
+    const codeInput = mfaPanel.querySelector('input[name="code"]');
+    if (codeInput) codeInput.value = "";
+
+    const passkeyBtn = document.getElementById("mfa-passkey-btn");
+    if (passkeyBtn) passkeyBtn.hidden = !canPasskey;
+    const divider = document.getElementById("mfa-passkey-divider");
+    if (divider) divider.hidden = !canPasskey;
+    if (passkeyAvailable && !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.()) {
+      void (async () => {
+        const ok =
+          Boolean(passkeyAvailable) &&
+          Boolean(await window.ShiftSwiftPasskeyAuth?.canUsePasskeysAsync?.());
+        if (passkeyBtn) passkeyBtn.hidden = !ok;
+        if (divider) divider.hidden = !ok;
+      })();
+    }
+
+    const resendWrap = document.getElementById("mfa-resend-wrap");
+    if (resendWrap) resendWrap.hidden = method !== "email" || !emailAvailable;
+
+    const alt = document.getElementById("mfa-alt-methods");
+    const useEmailBtn = document.getElementById("mfa-use-email-btn");
+    const useTotpBtn = document.getElementById("mfa-use-totp-btn");
+    if (alt) alt.hidden = !(emailAvailable && totpAvailable);
+    if (useEmailBtn) useEmailBtn.hidden = !(emailAvailable && method !== "email");
+    if (useTotpBtn) useTotpBtn.hidden = !(totpAvailable && method !== "totp");
+
+    const signInRemember = document.getElementById("login-remember-device");
+    const mfaRemember = document.getElementById("login-remember-device-mfa");
+    if (signInRemember && mfaRemember && !mfaRemember.dataset.synced) {
+      mfaRemember.checked = signInRemember.checked;
+      mfaRemember.dataset.synced = "1";
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   function bindKeyboardScroll() {
+    if (window.ShiftSwiftNativeKeyboard?.bind) {
+      window.ShiftSwiftNativeKeyboard.bind({ scope: "login" });
+      return;
+    }
     const viewport = window.visualViewport;
-    if (!viewport) return;
+    if (!viewport || window.__SSHR_UNIFIED_KEYBOARD_BOUND__) return;
+    window.__SSHR_UNIFIED_KEYBOARD_BOUND__ = true;
     const root = document.documentElement;
+    let lastInset = -1;
+    let rafId = 0;
     const adjust = () => {
-      const keyboardInset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-      root.style.setProperty("--native-keyboard-inset", `${keyboardInset}px`);
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        const raw = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        const inset = raw < 48 ? 0 : Math.round(raw / 8) * 8;
+        if (Math.abs(inset - lastInset) < 8) return;
+        lastInset = inset;
+        root.style.setProperty("--native-keyboard-inset", `${inset}px`);
+        root.classList.toggle("native-keyboard-open", inset > 0);
+      });
     };
-    viewport.addEventListener("resize", adjust);
-    viewport.addEventListener("scroll", adjust);
+    viewport.addEventListener("resize", adjust, { passive: true });
     adjust();
   }
 
   function scrollLoginControlIntoView(element) {
-    if (!element) return;
+    if (!element || !isNativeShell()) return;
+    // Instant scroll — smooth + keyboard inset fighting causes shake on iOS
     window.setTimeout(() => {
-      element.scrollIntoView({ block: "center", behavior: "smooth" });
-    }, 280);
+      try {
+        element.scrollIntoView({ block: "nearest", behavior: "auto" });
+      } catch {
+        /* ignore */
+      }
+    }, 120);
   }
 
   function defaultPortalInfo() {
@@ -372,16 +606,38 @@
     if (userLabel) userLabel.textContent = `Account: ${data.username || "your account"}`;
 
     setEnrollmentStatus("Preparing authenticator…");
+    if (typeof data.passkeys_enabled === "boolean") {
+      window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(data.passkeys_enabled);
+    }
+    const passkeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
+    const enrollLead = document.querySelector("#mfa-enrollment-panel .portal-login-card-lead");
+    if (passkeyBtn) passkeyBtn.hidden = !window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.();
+    if (enrollLead) {
+      enrollLead.textContent = window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()
+        ? "Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings."
+        : "Set up an authenticator app — optional; you can skip and enable it later in settings.";
+    }
+    void (async () => {
+      const ok = Boolean(await window.ShiftSwiftPasskeyAuth?.canUsePasskeysAsync?.());
+      if (passkeyBtn) passkeyBtn.hidden = !ok;
+      if (enrollLead) {
+        enrollLead.textContent = ok
+          ? "Use Face ID / Touch ID or set up an authenticator app — optional; you can skip and enable it later in settings."
+          : "Set up an authenticator app — optional; you can skip and enable it later in settings.";
+      }
+    })();
     try {
       const setup = await postJson("/auth/mfa/setup", null, pendingEnrollmentToken);
       const secretEl = document.getElementById("mfa-enrollment-secret");
       const qrImg = document.getElementById("mfa-enrollment-qr");
       const qrWrap = document.getElementById("mfa-enrollment-qr-wrap");
       if (secretEl) secretEl.textContent = setup.manual_secret || "";
-      if (qrImg && setup.otpauth_uri) {
-        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setup.otpauth_uri)}`;
+      if (qrImg && (setup.qr_data_uri || setup.otpauth_uri)) {
+        qrImg.src =
+          setup.qr_data_uri ||
+          `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(setup.otpauth_uri)}`;
       }
-      if (qrWrap) qrWrap.hidden = !setup.otpauth_uri;
+      if (qrWrap) qrWrap.hidden = !(setup.qr_data_uri || setup.otpauth_uri);
       setEnrollmentStatus("");
       document.getElementById("mfa-enrollment-code")?.focus();
     } catch (error) {
@@ -401,16 +657,155 @@
           return;
         }
         setStatus("Verifying code…");
-        const code = new FormData(mfaForm).get("code");
+        const code = normalizeMfaCode(new FormData(mfaForm).get("code"));
+        if (!code || code.length < 6) {
+          setStatus(
+            pendingMfaMethod === "email"
+              ? "Enter the 6-digit code from your email."
+              : "Enter the 6-digit code from your authenticator app.",
+          );
+          return;
+        }
         try {
           const data = await postJson("/auth/mfa/verify", {
             challenge_token: pendingChallenge,
             code,
+            method: pendingMfaMethod === "totp" ? "totp" : "email",
             ...mfaRememberPayload(),
           });
           await finishAuthSuccess(data, pendingEmail, redirectForRole(data, pendingRedirect));
         } catch (error) {
           setStatus(error.message || "Verification failed");
+        }
+      });
+    }
+
+    const resendBtn = document.getElementById("mfa-resend-btn");
+    if (resendBtn && !resendBtn.dataset.boundUnified) {
+      resendBtn.dataset.boundUnified = "1";
+      resendBtn.addEventListener("click", async () => {
+        if (!pendingChallenge) {
+          setStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setStatus("Sending a new code…");
+        resendBtn.disabled = true;
+        try {
+          const data = await postJson("/auth/mfa/send-email-code", {
+            challenge_token: pendingChallenge,
+          });
+          if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+          pendingMfaMethod = "email";
+          applyMfaMethodUi();
+          setStatus(data.message || "We sent a new code to your email.");
+        } catch (error) {
+          setStatus(error.message || "Could not resend code");
+        } finally {
+          window.setTimeout(() => {
+            resendBtn.disabled = false;
+          }, 2000);
+        }
+      });
+    }
+
+    const useEmailBtn = document.getElementById("mfa-use-email-btn");
+    if (useEmailBtn && !useEmailBtn.dataset.boundUnified) {
+      useEmailBtn.dataset.boundUnified = "1";
+      useEmailBtn.addEventListener("click", async () => {
+        pendingMfaMethod = "email";
+        applyMfaMethodUi();
+        setStatus("Sending email code…");
+        try {
+          const data = await postJson("/auth/mfa/send-email-code", {
+            challenge_token: pendingChallenge,
+          });
+          if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
+          applyMfaMethodUi();
+          setStatus(data.message || "We sent a code to your email.");
+          document.querySelector('#mfa-form input[name="code"]')?.focus();
+        } catch (error) {
+          setStatus(error.message || "Could not send email code");
+        }
+      });
+    }
+
+    const useTotpBtn = document.getElementById("mfa-use-totp-btn");
+    if (useTotpBtn && !useTotpBtn.dataset.boundUnified) {
+      useTotpBtn.dataset.boundUnified = "1";
+      useTotpBtn.addEventListener("click", () => {
+        pendingMfaMethod = "totp";
+        applyMfaMethodUi();
+        setStatus("");
+        document.querySelector('#mfa-form input[name="code"]')?.focus();
+      });
+    }
+
+    const backBtn = document.getElementById("mfa-back-signin");
+    if (backBtn && !backBtn.dataset.boundUnified) {
+      backBtn.dataset.boundUnified = "1";
+      backBtn.addEventListener("click", () => {
+        pendingChallenge = null;
+        pendingMfaMethod = "email";
+        const mfaRemember = document.getElementById("login-remember-device-mfa");
+        if (mfaRemember) delete mfaRemember.dataset.synced;
+        showLoginForm();
+      });
+    }
+
+    const mfaPasskeyBtn = document.getElementById("mfa-passkey-btn");
+    if (mfaPasskeyBtn && !mfaPasskeyBtn.dataset.boundUnified) {
+      mfaPasskeyBtn.dataset.boundUnified = "1";
+      mfaPasskeyBtn.addEventListener("click", async () => {
+        if (!pendingChallenge) {
+          setStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setStatus("Waiting for Face ID…");
+        mfaPasskeyBtn.disabled = true;
+        try {
+          const data = await window.ShiftSwiftPasskeyAuth.verifyMfaWithPasskey(
+            pendingChallenge,
+            pendingEmail || normalizeEmail(getEmailInput()?.value),
+          );
+          await finishAuthSuccess(data, pendingEmail, redirectForRole(data, pendingRedirect));
+        } catch (error) {
+          setStatus(error.message || "Face ID verification failed");
+        } finally {
+          mfaPasskeyBtn.disabled = false;
+        }
+      });
+    }
+
+    const enrollPasskeyBtn = document.getElementById("mfa-enrollment-passkey-btn");
+    if (enrollPasskeyBtn && !enrollPasskeyBtn.dataset.boundUnified) {
+      enrollPasskeyBtn.dataset.boundUnified = "1";
+      enrollPasskeyBtn.addEventListener("click", async () => {
+        if (!pendingEnrollmentToken) {
+          setEnrollmentStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setEnrollmentStatus("Setting up Face ID…");
+        enrollPasskeyBtn.disabled = true;
+        try {
+          const data = await window.ShiftSwiftPasskeyAuth.enrollMfaWithPasskey(pendingEnrollmentToken);
+          await finishAuthSuccess(
+            data,
+            pendingEmail || data.username || "",
+            portalUrl(data.redirect_url || pendingRedirect),
+          );
+        } catch (error) {
+          const raw = String(error?.message || "").trim();
+          if (/^(Load failed|Failed to fetch)$/i.test(raw) || /rpid did not match|related origins/i.test(raw)) {
+            setEnrollmentStatus(
+              "Face ID could not start on this device. Scan the QR code and enter the 6-digit code to continue — you can enable Face ID later in Settings.",
+            );
+          } else {
+            setEnrollmentStatus(raw || "Could not enable Face ID — try the authenticator app instead");
+          }
+          enrollPasskeyBtn.disabled = false;
         }
       });
     }
@@ -424,8 +819,8 @@
           showLoginForm();
           return;
         }
-        const code = document.getElementById("mfa-enrollment-code")?.value?.trim();
-        if (!code) {
+        const code = normalizeMfaCode(document.getElementById("mfa-enrollment-code")?.value);
+        if (!code || code.length < 6) {
           setEnrollmentStatus("Enter the 6-digit code from your authenticator app.");
           return;
         }
@@ -448,14 +843,57 @@
         }
       });
     }
+
+    const skipBtn = document.getElementById("mfa-enrollment-skip");
+    if (skipBtn && !skipBtn.dataset.boundUnified) {
+      skipBtn.dataset.boundUnified = "1";
+      skipBtn.addEventListener("click", async () => {
+        if (!pendingEnrollmentToken) {
+          setEnrollmentStatus("Session expired. Sign in again.");
+          showLoginForm();
+          return;
+        }
+        setEnrollmentStatus("Continuing without MFA…");
+        skipBtn.disabled = true;
+        const enableBtn = document.getElementById("mfa-enrollment-submit");
+        if (enableBtn) enableBtn.disabled = true;
+        try {
+          const data = await postJson("/auth/mfa/skip-enrollment", null, pendingEnrollmentToken);
+          await finishAuthSuccess(
+            data,
+            pendingEmail || data.username || "",
+            portalUrl(data.redirect_url || pendingRedirect),
+          );
+        } catch (error) {
+          setEnrollmentStatus(error.message || "Could not skip MFA setup");
+          skipBtn.disabled = false;
+          if (enableBtn) enableBtn.disabled = false;
+        }
+      });
+    }
   }
 
   function showMasterLoginNotice() {
     try {
       const notice = sessionStorage.getItem("masterLoginNotice");
-      if (!notice) return;
-      sessionStorage.removeItem("masterLoginNotice");
-      setStatus(notice);
+      if (notice) {
+        sessionStorage.removeItem("masterLoginNotice");
+        setStatus(notice);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("passwordReset") === "1") {
+        setStatus(
+          "Password updated. Sign in with your new password — we will email a 6-digit code next.",
+        );
+        params.delete("passwordReset");
+        const clean = `${window.location.pathname}${params.toString() ? `?${params}` : ""}${window.location.hash || ""}`;
+        window.history.replaceState({}, "", clean);
+      }
     } catch {
       /* ignore */
     }
@@ -480,8 +918,17 @@
     showMasterLoginNotice();
     bindKeyboardScroll();
     bindUnifiedLogin();
-    if (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.()) return;
-    if (await window.ShiftSwiftSession?.redirectIfLoggedIn?.()) return;
+    window.ShiftSwiftPasskeyAuth?.bindPasskeyUi?.();
+    let bouncedFromPortal = false;
+    try {
+      bouncedFromPortal = sessionStorage.getItem("sshrAuthBouncedToLogin") === "1";
+      if (bouncedFromPortal) sessionStorage.removeItem("sshrAuthBouncedToLogin");
+    } catch {
+      /* ignore */
+    }
+    if (!bouncedFromPortal && (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.())) return;
+    if (!bouncedFromPortal && (await window.ShiftSwiftPasskeyAuth?.tryAutoLogin?.())) return;
+    if (!bouncedFromPortal && (await window.ShiftSwiftSession?.redirectIfLoggedIn?.())) return;
     revealLoginShell();
     showLoginForm();
   }
@@ -494,7 +941,17 @@
     bindMfaForms();
 
     const forgotLink = document.getElementById("forgot-password-link");
-    if (forgotLink) forgotLink.href = portalUrl(DEFAULT_FORGOT);
+    if (forgotLink) {
+      const href = portalUrl(DEFAULT_FORGOT);
+      forgotLink.href = href;
+      if (!forgotLink.dataset.boundForgot) {
+        forgotLink.dataset.boundForgot = "1";
+        forgotLink.addEventListener("click", (event) => {
+          event.preventDefault();
+          window.location.assign(forgotLink.href || href);
+        });
+      }
+    }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -527,8 +984,7 @@
         if (data.mfa_required && data.challenge_token) {
           pendingChallenge = data.challenge_token;
           pendingEmail = email;
-          setStatus("");
-          showMfaStep(data.username || email);
+          showMfaStep(data.username || email, data);
           return;
         }
         if (data.mfa_enrollment_required && data.enrollment_token) {

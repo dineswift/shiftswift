@@ -1,0 +1,889 @@
+/**
+ * ShiftSwift HR — iPad / tablet layout (native Capacitor).
+ * Requires html.native-tablet (native-ipad-layout.js).
+ */
+
+/* Compact tablet default (7–8" Android / small iPad): denser shell */
+html.native-app.native-tablet {
+  --iphone-footer: 0px;
+  --iphone-pad: 16px;
+  --iphone-pad-r: 16px;
+  --tablet-sidebar: 220px;
+  --tablet-content-pad-x: 16px;
+  --tablet-content-pad-y: 16px;
+  --tablet-card-pad: 14px 16px;
+  --tablet-section-title: 1.2rem;
+  --tablet-stat-gap: 12px;
+}
+
+/* Spacious large tablets (≥1024 CSS px) */
+html.native-app.native-tablet-large {
+  --tablet-sidebar: 300px;
+  --tablet-content-pad-x: 48px;
+  --tablet-content-pad-y: 36px;
+  --tablet-card-pad: 26px 32px;
+  --tablet-section-title: 1.5rem;
+  --tablet-stat-gap: 18px;
+  --iphone-pad: 32px;
+  --iphone-pad-r: 32px;
+}
+
+/* —— Shell: sidebar + main (undo mobile drawer / bottom tabs) —— */
+html.native-app.native-tablet body.admin-portal,
+html.native-app.native-tablet body.employee-portal {
+  height: auto !important;
+  overflow: auto !important;
+}
+
+html.native-app.native-tablet body:has(#mobile-tab-bar) {
+  height: auto !important;
+  overflow: auto !important;
+}
+
+html.native-app.native-tablet body:has(#mobile-tab-bar) .app {
+  display: grid !important;
+  grid-template-columns: var(--tablet-sidebar) minmax(0, 1fr) !important;
+  min-height: 100dvh !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+html.native-app.native-tablet .sidebar {
+  position: sticky !important;
+  top: 0 !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  inset: auto !important;
+  width: var(--tablet-sidebar) !important;
+  min-width: var(--tablet-sidebar) !important;
+  max-width: var(--tablet-sidebar) !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  transform: none !important;
+  translate: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  z-index: 2 !important;
+  box-shadow: none !important;
+  border-right: 1px solid var(--card-border, #e5e7eb) !important;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom)) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-app.native-tablet .sidebar .nav-link {
+  padding: 11px 14px !important;
+  font-size: 0.92rem !important;
+  border-radius: 10px !important;
+}
+
+html.native-app.native-tablet-large .sidebar .nav-link {
+  padding: 12px 16px !important;
+  font-size: 0.96rem !important;
+}
+
+html.native-app.native-tablet .sidebar .brand-name,
+html.native-app.native-tablet .sidebar .sidebar-brand__name {
+  font-size: 1rem !important;
+}
+
+html.native-app.native-tablet-large .sidebar .brand-name,
+html.native-app.native-tablet-large .sidebar .sidebar-brand__name {
+  font-size: 1.08rem !important;
+}
+
+html.native-app.native-tablet .sidebar.sidebar--open {
+  transform: none !important;
+}
+
+html.native-app.native-tablet .sidebar-close,
+html.native-app.native-tablet .sidebar-overlay,
+html.native-app.native-tablet #mobile-tab-bar,
+html.native-app.native-tablet #mobile-more-panel,
+html.native-app.native-tablet .mobile-home-header,
+html.native-app.native-tablet .mobile-back-btn,
+html.native-app.native-tablet .sidebar-toggle,
+html.native-app.native-tablet .mobile-panel-title--modules {
+  display: none !important;
+}
+
+html.native-app.native-tablet main.content {
+  overflow: visible !important;
+  overflow-y: visible !important;
+  padding: max(12px, env(safe-area-inset-top)) var(--tablet-content-pad-x) var(--tablet-content-pad-y) !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+html.native-app.native-tablet .card {
+  padding: var(--tablet-card-pad) !important;
+  border-radius: 16px !important;
+}
+
+html.native-app.native-tablet .admin-section > .section-header h2,
+html.native-app.native-tablet .section-header h2 {
+  font-size: var(--tablet-section-title) !important;
+}
+
+html.native-app.native-tablet .edit-form--cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html.native-app.native-tablet .edit-form > label input,
+html.native-app.native-tablet .edit-form > label select,
+html.native-app.native-tablet .edit-form > label textarea,
+html.native-app.native-tablet .portal-login-form input {
+  min-height: 48px !important;
+  font-size: 1rem !important;
+}
+
+html.native-app.native-tablet body:has(#mobile-tab-bar) main.content {
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+}
+
+/* —— Top bar: desktop style —— */
+html.native-app.native-tablet .topbar.app-mobile-header {
+  position: relative !important;
+  top: auto !important;
+  margin: 0 0 16px !important;
+  padding: 0 0 10px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--card-border, #e5e7eb) !important;
+}
+
+html.native-app.native-tablet .topbar-brand__logo,
+html.native-app.native-tablet .topbar-brand .app-mark {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  max-width: 44px !important;
+  border-radius: 11px !important;
+}
+
+html.native-app.native-tablet .topbar-brand__name {
+  font-size: 1rem !important;
+}
+
+html.native-app.native-tablet .topbar-brand__app {
+  font-size: 0.75rem !important;
+}
+
+html.native-app.native-tablet .topbar-actions--desktop,
+html.native-app.native-tablet .topbar-user-menu--desktop {
+  display: flex !important;
+}
+
+html.native-app.native-tablet .topbar-signout-btn--mobile {
+  display: none !important;
+}
+
+html.native-app.native-tablet .topbar-tagline {
+  display: block !important;
+}
+
+/* —— Admin overview —— */
+html.native-app.native-tablet .section-header--desktop {
+  display: flex !important;
+}
+
+html.native-app.native-tablet .overview-section-title--desktop {
+  display: block !important;
+}
+
+html.native-app.native-tablet .overview-main,
+html.native-app.native-tablet body[data-mobile-tab="home"] .overview-main,
+html.native-app.native-tablet body[data-mobile-tab="modules"] .overview-main {
+  display: block !important;
+}
+
+html.native-app.native-tablet body.admin-portal .overview-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: var(--tablet-stat-gap) !important;
+}
+
+html.native-app.native-tablet body.admin-portal .overview-module-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: var(--tablet-stat-gap) !important;
+}
+
+html.native-app.native-tablet-large body.admin-portal .overview-stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+html.native-app.native-tablet-large body.admin-portal .overview-module-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+html.native-app.native-tablet .admin-mobile-compliance-only {
+  display: none !important;
+}
+
+/* —— Rota: full desktop builder —— */
+html.native-app.native-tablet .rota-desktop-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+html.native-app.native-tablet .rota-builder-subbar,
+html.native-app.native-tablet #rota-list-panel,
+html.native-app.native-tablet .rota-builder-footer,
+html.native-app.native-tablet #rota-advanced-panel,
+html.native-app.native-tablet .rota-builder-hint,
+html.native-app.native-tablet .rota-desktop-only {
+  display: revert !important;
+}
+
+html.native-app.native-tablet body[data-mobile-tab="rota"] .rota-desktop-row,
+html.native-app.native-tablet body[data-mobile-tab="rota"] .rota-builder-subbar,
+html.native-app.native-tablet body[data-mobile-tab="rota"] #rota-list-panel,
+html.native-app.native-tablet body[data-mobile-tab="rota"] .rota-builder-footer,
+html.native-app.native-tablet body[data-mobile-tab="rota"] #rota-advanced-panel {
+  display: revert !important;
+}
+
+html.native-app.native-tablet .rota-mobile-only,
+html.native-app.native-tablet .rota-mobile-footer,
+html.native-app.native-tablet #rota-view-list {
+  display: none !important;
+}
+
+html.native-app.native-tablet body[data-mobile-tab="rota"] .rota-mobile-only,
+html.native-app.native-tablet body[data-mobile-tab="rota"] .rota-mobile-footer {
+  display: none !important;
+}
+
+/* —— Compliance: full section —— */
+html.native-app.native-tablet #compliance > .section-header,
+html.native-app.native-tablet #compliance > #sponsor-enabled-banner,
+html.native-app.native-tablet #compliance > #sponsor-duties-section,
+html.native-app.native-tablet #compliance > #sponsor-licence-ack-panel,
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > .section-header,
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-enabled-banner,
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-duties-section,
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-licence-ack-panel {
+  display: block !important;
+}
+
+html.native-app.native-tablet body.compliance-mobile-drill .admin-section.admin-section--active {
+  display: block !important;
+}
+
+/* —— Employee portal —— */
+html.native-app.native-tablet body.employee-portal .employee-home {
+  display: block !important;
+}
+
+html.native-app.native-tablet body.employee-portal .employee-desktop-table-wrap {
+  display: block !important;
+}
+
+html.native-app.native-tablet body.employee-portal .employee-doc-cards {
+  display: none !important;
+}
+
+html.native-app.native-tablet body.employee-portal .section-header--desktop {
+  display: flex !important;
+}
+
+html.native-app.native-tablet .sshr-action-toast-host {
+  bottom: max(20px, env(safe-area-inset-bottom)) !important;
+}
+
+/* —— Workspace panes: desktop side-by-side —— */
+html.native-app.native-tablet body:has(#mobile-tab-bar) .hr-workspace-layout,
+html.native-app.native-tablet body:has(#mobile-tab-bar) .rtw-workspace-layout,
+html.native-app.native-tablet body:has(#mobile-tab-bar) .absence-workspace-layout,
+html.native-app.native-tablet body:has(#mobile-tab-bar) .rota-builder-layout {
+  flex-direction: row !important;
+  min-height: auto !important;
+}
+
+html.native-app.native-tablet body:has(#mobile-tab-bar) .hr-main-pane,
+html.native-app.native-tablet body:has(#mobile-tab-bar) .absence-main-pane {
+  overflow: visible !important;
+  padding: revert !important;
+}
+
+html.native-app.native-tablet #compliance-mobile-hub {
+  display: none !important;
+}
+
+/* —— Employees: force desktop register + side panel (860px CSS hides these on iPad) —— */
+html.native-app.native-tablet #employees .employees-mobile-only,
+html.native-app.native-tablet #employees.admin-section--active .employees-mobile-only {
+  display: none !important;
+}
+
+html.native-app.native-tablet #employees .employees-lifecycle-hub,
+html.native-app.native-tablet #employees #employees-mobile-cards {
+  display: none !important;
+}
+
+html.native-app.native-tablet #employees .employees-desktop-only,
+html.native-app.native-tablet #employees.admin-section--active .employees-desktop-only,
+html.native-app.native-tablet #employees .employees-desktop-table,
+html.native-app.native-tablet #employees.admin-section--active .employees-desktop-table,
+html.native-app.native-tablet #employees .employees-quick-add-panel,
+html.native-app.native-tablet #employees.admin-section--active .employees-quick-add-panel,
+html.native-app.native-tablet #employees #employees-side-panel,
+html.native-app.native-tablet #employees.admin-section--active #employees-side-panel {
+  display: block !important;
+}
+
+html.native-app.native-tablet #employees .employees-desktop-layout,
+html.native-app.native-tablet #employees.admin-section--active .employees-desktop-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch !important;
+  gap: 16px !important;
+  min-height: 420px !important;
+}
+
+html.native-app.native-tablet #employees .hr-detail-panel,
+html.native-app.native-tablet #employees #employees-side-panel {
+  flex: 0 0 min(400px, 36vw) !important;
+  width: min(400px, 36vw) !important;
+  min-width: 280px !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto !important;
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+}
+
+html.native-app.native-tablet-large #employees .hr-detail-panel,
+html.native-app.native-tablet-large #employees #employees-side-panel {
+  flex-basis: min(440px, 34vw) !important;
+  width: min(440px, 34vw) !important;
+}
+
+html.native-app.native-tablet #employees .hr-register-row {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+html.native-app.native-tablet #employees .employee-record-field input,
+html.native-app.native-tablet #employees .employee-record-field textarea,
+html.native-app.native-tablet #employees .employee-record-field select,
+html.native-app.native-tablet #employees .lifecycle-accordion-toggle,
+html.native-app.native-tablet #employees .lifecycle-step-edit,
+html.native-app.native-tablet #employees .employee-record-link,
+html.native-app.native-tablet #employees .employee-back-link {
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
+html.native-app.native-tablet #employees .employee-record-field input,
+html.native-app.native-tablet #employees .employee-record-field textarea,
+html.native-app.native-tablet #employees .employee-record-field select {
+  font-size: 16px !important;
+  min-height: 44px;
+}
+
+html.native-app.native-tablet #employees #employees-detail-view:not([hidden]) {
+  display: block !important;
+}
+
+html.native-app.native-tablet #employees #employees-list-view[hidden] {
+  display: none !important;
+}
+
+html.native-app.native-tablet #employees .lifecycle-accordion-toggle,
+html.native-app.native-tablet #employees .lifecycle-accordion-chevron-btn,
+html.native-app.native-tablet #employees .lifecycle-step-edit {
+  min-height: 44px;
+}
+
+html.native-app.native-tablet #employees .employees-page-header .employees-lifecycle-shortcuts,
+html.native-app.native-tablet #employees .employees-lifecycle-shortcuts[hidden] {
+  display: flex !important;
+  visibility: visible !important;
+}
+
+html.native-app.native-tablet body.admin-portal.admin-mobile-detail .hr-detail-panel:not(#employees-side-panel),
+html.native-app.native-tablet body.admin-portal.admin-mobile-detail .edit-panel:not(.employee-workspace) {
+  position: relative !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: none !important;
+  border-radius: inherit !important;
+  box-shadow: none !important;
+}
+html.native-app.native-tablet .hr-workspace-layout,
+html.native-app.native-tablet .rtw-workspace-layout,
+html.native-app.native-tablet .absence-workspace-layout,
+html.native-app.native-tablet .rota-builder-layout {
+  flex-direction: row !important;
+  min-height: auto !important;
+}
+
+html.native-app.native-tablet .hr-detail-panel,
+html.native-app.native-tablet .rtw-detail-panel,
+html.native-app.native-tablet .absence-detail-panel {
+  flex: 0 0 min(380px, 34vw) !important;
+  width: min(380px, 34vw) !important;
+  min-width: 260px !important;
+  max-height: none !important;
+  position: relative !important;
+  inset: auto !important;
+  pointer-events: auto !important;
+}
+
+html.native-app.native-tablet .rota-desktop-only,
+html.native-app.native-tablet .section-header--desktop,
+html.native-app.native-tablet .overview-section-title--desktop {
+  display: revert !important;
+}
+
+html.native-app.native-tablet .rota-mobile-only,
+html.native-app.native-tablet .admin-mobile-compliance-only {
+  display: none !important;
+}
+
+html.native-app.native-tablet body.admin-portal .sidebar .nav-link,
+html.native-app.native-tablet body.admin-portal main.content a,
+html.native-app.native-tablet body.admin-portal main.content button,
+html.native-app.native-tablet body.admin-portal main.content input,
+html.native-app.native-tablet body.admin-portal main.content select,
+html.native-app.native-tablet body.admin-portal main.content textarea,
+html.native-app.native-tablet body.admin-portal main.content label {
+  pointer-events: auto !important;
+  touch-action: manipulation;
+}
+
+/* —— Leave + other modules —— */
+html.native-app.native-tablet body:has(#mobile-tab-bar) .leave-mobile-cards {
+  display: none !important;
+}
+
+html.native-app.native-tablet body:has(#mobile-tab-bar) .leave-desktop-table-wrap {
+  display: block !important;
+}
+
+/* —— Settings: desktop hub + panels on all iPads —— */
+html.native-app.native-tablet #settings .settings-main {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 16px !important;
+}
+
+html.native-app.native-tablet #settings .settings-topbar,
+html.native-app.native-tablet #settings .settings-workspace--detail .settings-topbar {
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  padding: 18px 22px !important;
+}
+
+html.native-app.native-tablet #settings .settings-workspace--hub .settings-topbar {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+html.native-app.native-tablet #settings .settings-back-btn {
+  grid-column: auto !important;
+  justify-self: auto !important;
+  font-size: 0.88rem !important;
+  padding: 8px 14px !important;
+}
+
+html.native-app.native-tablet #settings .settings-topbar__copy {
+  grid-column: auto !important;
+}
+
+html.native-app.native-tablet #settings .settings-plan-badge {
+  grid-column: auto !important;
+  width: auto !important;
+}
+
+html.native-app.native-tablet #settings .settings-topbar__title {
+  font-size: 1.25rem !important;
+}
+
+html.native-app.native-tablet-large #settings .settings-topbar__title {
+  font-size: 1.4rem !important;
+}
+
+html.native-app.native-tablet #settings .settings-topbar__subtitle {
+  font-size: 0.9rem !important;
+}
+
+html.native-app.native-tablet #settings .settings-hub {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+html.native-app.native-tablet-large #settings .settings-hub {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+}
+
+html.native-app.native-tablet #settings .settings-hub-card {
+  padding: 18px 20px !important;
+  border-radius: 14px !important;
+}
+
+html.native-app.native-tablet-large #settings .settings-hub-card {
+  padding: 22px 24px !important;
+}
+
+html.native-app.native-tablet #settings .settings-hub-card__icon {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 12px !important;
+}
+
+html.native-app.native-tablet-large #settings .settings-hub-card__icon {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+html.native-app.native-tablet #settings .settings-hub-card__title {
+  font-size: 1rem !important;
+}
+
+html.native-app.native-tablet-large #settings .settings-hub-card__title {
+  font-size: 1.06rem !important;
+}
+
+html.native-app.native-tablet #settings .settings-hub-card__sub {
+  font-size: 0.84rem !important;
+}
+
+html.native-app.native-tablet #settings .settings-doc-toolbar {
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+}
+
+html.native-app.native-tablet #settings .settings-doc-toolbar__actions {
+  align-items: flex-end !important;
+  flex-shrink: 0 !important;
+}
+
+html.native-app.native-tablet #settings .settings-accordion {
+  grid-template-columns: 240px minmax(0, 1fr) !important;
+  gap: 4px 24px !important;
+}
+
+html.native-app.native-tablet-large #settings .settings-accordion {
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+}
+
+html.native-app.native-tablet #settings .settings-accordion-item {
+  grid-template-columns: subgrid !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+html.native-app.native-tablet #settings .settings-accordion-body {
+  grid-column: 2 !important;
+  padding: 0 !important;
+}
+
+html.native-app.native-tablet #settings .settings-accordion-chevron {
+  display: none !important;
+}
+
+html.native-app.native-tablet #settings .settings-nav__item {
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  font-size: 0.9rem !important;
+}
+
+html.native-app.native-tablet #settings .settings-feature-toggle {
+  padding: 18px 20px !important;
+}
+
+html.native-app.native-tablet #settings .settings-feature-toggle__title {
+  font-size: 1rem !important;
+}
+
+/* —— Employee settings-style sections —— */
+html.native-app.native-tablet body.employee-portal #my-details .edit-form--cols-2,
+html.native-app.native-tablet body.employee-portal #security .edit-form--cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html.native-app.native-tablet-large body.employee-portal .employee-home-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+/* —— Wider iPad (landscape / 13") —— */
+@media (min-width: 1024px) {
+  html.native-app.native-tablet .app {
+    grid-template-columns: var(--tablet-sidebar) minmax(0, 1fr) !important;
+  }
+
+  html.native-app.native-tablet .topbar-brand__logo,
+  html.native-app.native-tablet .topbar-brand .app-mark {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+  }
+
+  html.native-app.native-tablet .topbar-brand__name {
+    font-size: 1.125rem !important;
+  }
+}
+
+/* —— Login / chooser —— */
+html.native-app.native-tablet body.portal-login-page {
+  align-items: center !important;
+  min-height: 100dvh !important;
+  padding:
+    max(20px, env(safe-area-inset-top))
+    max(32px, env(safe-area-inset-left))
+    max(24px, env(safe-area-inset-bottom))
+    max(32px, env(safe-area-inset-right)) !important;
+  background:
+    radial-gradient(ellipse 80% 60% at 90% 0%, rgba(29, 158, 117, 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(15, 110, 86, 0.1), transparent 50%),
+    linear-gradient(165deg, #e8f2ed 0%, #f3f5f4 42%, #f7f6f2 100%) !important;
+}
+
+html.native-app.native-tablet .portal-login-shell,
+html.native-app.native-tablet body.portal-login-page--native-stable .portal-login-shell {
+  max-width: 480px !important;
+  width: 100% !important;
+  margin: auto !important;
+  padding: 24px 20px 32px !important;
+  gap: 16px !important;
+}
+
+html.native-app.native-tablet-large .portal-login-shell,
+html.native-app.native-tablet-large body.portal-login-page--native-stable .portal-login-shell {
+  max-width: 540px !important;
+  padding: 32px 24px 36px !important;
+}
+
+html.native-app.native-tablet .portal-login-card {
+  padding: 26px 26px 30px !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 24px 56px rgba(15, 23, 42, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset !important;
+}
+
+html.native-app.native-tablet .portal-login-card-head h1,
+html.native-app.native-tablet .portal-login-card-head--streamlined h1 {
+  font-size: 1.55rem !important;
+}
+
+html.native-app.native-tablet-large .portal-login-card-head h1,
+html.native-app.native-tablet-large .portal-login-card-head--streamlined h1 {
+  font-size: 1.75rem !important;
+}
+
+html.native-app.native-tablet .portal-login-card-lead {
+  font-size: 0.95rem !important;
+  line-height: 1.55 !important;
+}
+
+html.native-app.native-tablet .portal-login-brand-logo,
+html.native-app.native-tablet .portal-login-brand .app-mark {
+  width: 56px !important;
+  height: 56px !important;
+}
+
+html.native-app.native-tablet-large .portal-login-brand-logo,
+html.native-app.native-tablet-large .portal-login-brand .app-mark {
+  width: 64px !important;
+  height: 64px !important;
+}
+
+html.native-app.native-tablet .portal-login-submit,
+html.native-app.native-tablet .btn.portal-login-submit {
+  min-height: 52px !important;
+  font-size: 1.02rem !important;
+  border-radius: 12px !important;
+}
+
+html.native-app.native-tablet .portal-login-page--unified .portal-login-shell {
+  justify-content: center !important;
+  padding: 32px 28px !important;
+}
+
+html.native-app.native-tablet .portal-login-page--unified .native-login-hero {
+  max-width: 460px !important;
+  margin-inline: auto !important;
+  padding-bottom: 48px !important;
+}
+
+html.native-app.native-tablet-large .portal-login-page--unified .native-login-hero {
+  max-width: 520px !important;
+}
+
+html.native-app.native-tablet .portal-login-page--unified .native-login-sheet {
+  max-width: 460px !important;
+  margin-inline: auto !important;
+  border-radius: 0 0 24px 24px !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
+}
+
+html.native-app.native-tablet-large .portal-login-page--unified .native-login-sheet {
+  max-width: 520px !important;
+}
+
+html.native-app.native-tablet .portal-login-page--unified .native-login-hero__title {
+  font-size: 2rem !important;
+}
+
+html.native-app.native-tablet-large .portal-login-page--unified .native-login-hero__title {
+  font-size: 2.25rem !important;
+}
+
+html.native-app.native-tablet .iphone-chooser {
+  min-height: 100dvh;
+  padding:
+    max(28px, env(safe-area-inset-top))
+    max(40px, env(safe-area-inset-left))
+    max(32px, env(safe-area-inset-bottom))
+    max(40px, env(safe-area-inset-right));
+  background:
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(93, 202, 165, 0.25), transparent 55%),
+    linear-gradient(165deg, #0a5a47 0%, #0f6e56 42%, #0d4d3d 100%) !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__mark {
+  width: 84px !important;
+  height: 84px !important;
+  margin-bottom: 18px !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__title {
+  font-size: 1.85rem !important;
+  margin-bottom: 8px !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__lead {
+  font-size: 1.02rem !important;
+  max-width: 340px !important;
+  margin-bottom: 32px !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__actions {
+  width: min(100%, 440px) !important;
+  gap: 14px !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__btn {
+  padding: 18px 20px !important;
+  border-radius: 16px !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__btn strong {
+  font-size: 1.1rem !important;
+}
+
+html.native-app.native-tablet .iphone-chooser__btn span {
+  font-size: 0.88rem !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser {
+  gap: 64px !important;
+  padding-inline: max(56px, env(safe-area-inset-left)) max(56px, env(safe-area-inset-right)) !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser__mark {
+  width: 96px !important;
+  height: 96px !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser__title {
+  font-size: 2.35rem !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser__lead {
+  font-size: 1.12rem !important;
+  max-width: 420px !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser__actions {
+  width: min(100%, 480px) !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser__btn {
+  padding: 22px 24px !important;
+}
+
+html.native-app.native-tablet-large .iphone-chooser__btn strong {
+  font-size: 1.18rem !important;
+}
+
+@media (min-width: 900px) {
+  html.native-app.native-tablet .iphone-chooser {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    text-align: left;
+  }
+
+  html.native-app.native-tablet .iphone-chooser__intro {
+    flex: 0 1 380px;
+  }
+
+  html.native-app.native-tablet .iphone-chooser__actions {
+    flex: 0 1 420px;
+  }
+
+  html.native-app.native-tablet-large .iphone-chooser {
+    gap: 80px !important;
+  }
+
+  html.native-app.native-tablet-large .iphone-chooser__intro {
+    flex: 0 1 440px;
+  }
+
+  html.native-app.native-tablet-large .iphone-chooser__actions {
+    flex: 0 1 480px;
+  }
+}
+
+/* —— Compact tablets: stack desktop dual-panes (keep side-by-side for large only) —— */
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .hr-workspace-layout,
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .rtw-workspace-layout,
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .absence-workspace-layout,
+html.native-app.native-tablet:not(.native-tablet-large) body:has(#mobile-tab-bar) .rota-builder-layout {
+  flex-direction: column !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) #employees .employees-desktop-layout,
+html.native-app.native-tablet:not(.native-tablet-large) #employees.admin-section--active .employees-desktop-layout {
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) #employees .hr-detail-panel,
+html.native-app.native-tablet:not(.native-tablet-large) #employees #employees-side-panel,
+html.native-app.native-tablet:not(.native-tablet-large) .hr-detail-panel,
+html.native-app.native-tablet:not(.native-tablet-large) .rtw-detail-panel,
+html.native-app.native-tablet:not(.native-tablet-large) .absence-detail-panel {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) .sidebar .nav-link {
+  padding: 9px 12px !important;
+  font-size: 0.92rem !important;
+}
+
+html.native-app.native-tablet:not(.native-tablet-large) main.content {
+  padding: max(10px, env(safe-area-inset-top)) var(--tablet-content-pad-x) var(--tablet-content-pad-y) !important;
+}

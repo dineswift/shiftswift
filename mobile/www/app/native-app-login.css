@@ -545,3 +545,11 @@ html.native-app body.portal-login-page--unified {
     box-shadow: 0 20px 52px rgba(7, 25, 18, 0.14);
   }
 }
+
+.portal-login-submit--secondary {
+  margin-top: 10px;
+  background: transparent;
+  color: var(--portal-login-accent, #0f6e56);
+  border: 1.5px solid currentColor;
+  box-shadow: none;
+}

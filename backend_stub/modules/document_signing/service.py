@@ -152,7 +152,10 @@ def send_document_for_signature(
 
     signing_url = f"{frontend_base.rstrip('/')}/sign-contract.html?token={token}&type=document"
     from core.email_templates import document_signing_email
-    from core.notifications import queue_email_notification
+    from core.notifications import require_email_delivered, send_email_content, smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
 
     content = document_signing_email(
         signatory_name=contact["name"],
@@ -160,23 +163,25 @@ def send_document_for_signature(
         reference_code=reference,
         signing_url=signing_url,
     )
-    queue_email_notification(
+    delivery = send_email_content(
         conn=conn,
         tenant_id=tenant_id,
-        subject=content.subject,
-        body=content.text,
+        content=content,
         purpose="document_signing",
         to=contact["email"],
+        audience="employee",
         payload={
             "document_id": document_id,
             "signing_request_id": request_id,
             "signing_url": signing_url,
             "type": "document_signing",
-            "audience": "employee",
+            "employee_id": employee_id,
             "html_body": content.html,
         },
+        deliver_now=True,
         commit=False,
     )
+    require_email_delivered(delivery)
     conn.commit()
     return {
         "signing_request_id": request_id,
@@ -185,6 +190,88 @@ def send_document_for_signature(
         "signatory_email": contact["email"],
         "signing_url": signing_url,
         "expires_at": expires.isoformat(),
+        "email_sent": True,
+    }
+
+
+def resend_document_signing_email(
+    *,
+    conn: Any,
+    tenant_id: int,
+    employee_id: int,
+    document_id: int,
+    frontend_base: str,
+) -> dict[str, Any]:
+    """Resend the signing email for the latest active signing request."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, signing_token, signing_token_expires_at, reference_code, status
+            FROM employee_document_signing_requests
+            WHERE tenant_id = %s
+              AND employee_id = %s
+              AND source_document_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (tenant_id, employee_id, document_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError("No signing request found for this document")
+    request_id, token, expires, reference, status = row
+    if status != "sent":
+        raise ValueError("Signing request is not waiting for signature")
+    if expires and expires < _utcnow():
+        raise ValueError("Signing link has expired — send for signature again")
+
+    doc = get_employee_document(
+        tenant_id=tenant_id, employee_id=employee_id, document_id=document_id, conn=conn
+    )
+    if not doc:
+        raise LookupError("Document not found")
+    contact = _employee_contact(conn=conn, tenant_id=tenant_id, employee_id=employee_id)
+    signing_url = f"{frontend_base.rstrip('/')}/sign-contract.html?token={token}&type=document"
+
+    from core.email_templates import document_signing_email
+    from core.notifications import require_email_delivered, send_email_content, smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
+
+    content = document_signing_email(
+        signatory_name=contact["name"],
+        document_title=str(doc.get("title") or "Document"),
+        reference_code=str(reference),
+        signing_url=signing_url,
+    )
+    delivery = send_email_content(
+        conn=conn,
+        tenant_id=tenant_id,
+        content=content,
+        purpose="document_signing",
+        to=contact["email"],
+        audience="employee",
+        payload={
+            "document_id": document_id,
+            "signing_request_id": request_id,
+            "signing_url": signing_url,
+            "type": "document_signing",
+            "employee_id": employee_id,
+            "html_body": content.html,
+        },
+        deliver_now=True,
+        commit=False,
+    )
+    require_email_delivered(delivery)
+    conn.commit()
+    return {
+        "signing_request_id": request_id,
+        "reference_code": reference,
+        "signatory_email": contact["email"],
+        "signing_url": signing_url,
+        "email_sent": True,
+        "message": f"Signing email resent to {contact['email']}",
     }
 
 

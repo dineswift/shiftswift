@@ -1,0 +1,718 @@
+/**
+ * ShiftSwift HR — iPhone app UI tightening (bundled Capacitor shell).
+ * Scoped to native unified app only; does not affect web/PWA.
+ */
+html.native-app.capacitor-native,
+html.native-app.iphone-app {
+  --iphone-pad: max(14px, env(safe-area-inset-left));
+  --iphone-pad-r: max(14px, env(safe-area-inset-right));
+  --iphone-footer: calc(56px + env(safe-area-inset-bottom));
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Android gesture / cutout insets (phones + tablets) */
+html.native-app.native-android {
+  --iphone-pad: max(14px, env(safe-area-inset-left, 0px));
+  --iphone-pad-r: max(14px, env(safe-area-inset-right, 0px));
+  --iphone-footer: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Keep phone login readable on all iPhone / Android phone sizes */
+html.native-app.native-phone .iphone-chooser__actions {
+  width: min(100%, 340px);
+}
+
+html.native-app.native-phone .portal-login-shell {
+  width: 100%;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+html.native-app.capacitor-native body {
+  background: #f3f5f4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* —— Login —— */
+html.native-app.capacitor-native body.portal-login-page--unified {
+  background: #f9f8f4;
+}
+
+html.native-app.capacitor-native .native-login-hero {
+  padding-bottom: 22px;
+}
+
+html.native-app.capacitor-native .native-login-sheet,
+html.native-app.capacitor-native .portal-login-card {
+  border-radius: 20px 20px 0 0;
+}
+
+html.native-app.capacitor-native .native-login-sheet {
+  margin-top: -18px;
+  box-shadow: 0 -6px 28px rgba(10, 34, 25, 0.08);
+}
+
+/* Split login (business / employee) — scrollable MFA, stable status slots */
+html.native-app.iphone-app body.portal-login-page--native-stable {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  padding-bottom: max(env(safe-area-inset-bottom), var(--native-keyboard-inset, 0px));
+  /* Avoid layout thrash while typing */
+  transition: none;
+}
+
+html.native-app.iphone-app.native-keyboard-open body.portal-login-page--native-stable {
+  /* Keep page pinned while keyboard is open — stops bounce/shake */
+  position: relative;
+}
+
+html.native-app.iphone-app body.portal-login-page--native-stable .portal-login-shell {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+
+html.native-app.iphone-app .portal-login-forgot {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 4px;
+  margin: -8px -4px;
+  position: relative;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.native-app.iphone-app .portal-login-card.login-steps-host > .portal-login-card-body {
+  padding-bottom: 8px;
+}
+
+html.native-app.iphone-app .portal-login-card.login-steps-host.login-step-signin > #mfa-enrollment-panel,
+html.native-app.iphone-app .portal-login-card.login-steps-host.login-step-signin > #mfa-panel,
+html.native-app.iphone-app .portal-login-card.login-steps-host.login-step-mfa > #login-shell,
+html.native-app.iphone-app .portal-login-card.login-steps-host.login-step-mfa > #mfa-enrollment-panel,
+html.native-app.iphone-app .portal-login-card.login-steps-host.login-step-enroll > #login-shell,
+html.native-app.iphone-app .portal-login-card.login-steps-host.login-step-enroll > #mfa-panel {
+  display: none !important;
+}
+
+html.native-app.iphone-app .portal-login-form .form-error-message {
+  min-height: 2.6rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+html.native-app.iphone-app .portal-login-form .form-error-message.is-empty {
+  visibility: hidden;
+}
+
+html.native-app.iphone-app .portal-login-remember--mfa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #12352c;
+}
+
+html.native-app.iphone-app .portal-login-remember--mfa input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #0f6e56;
+}
+
+/* Compact MFA enrollment — one screen, Skip always visible */
+html.native-app.iphone-app.login-step-enroll .portal-login-brand,
+html.native-app.iphone-app.login-step-enroll .portal-login-footnote,
+html.native-app.iphone-app.login-step-enroll .native-login-build,
+html.native-app.iphone-app body.login-step-enroll .portal-login-brand,
+html.native-app.iphone-app body.login-step-enroll .portal-login-footnote,
+html.native-app.iphone-app body.login-step-enroll .native-login-build {
+  display: none !important;
+}
+
+html.native-app.iphone-app.login-step-enroll .portal-login-shell,
+html.native-app.iphone-app body.login-step-enroll .portal-login-shell {
+  padding: max(8px, env(safe-area-inset-top)) 12px 0;
+  max-width: 100%;
+}
+
+html.native-app.iphone-app.login-step-enroll #portal-login-card,
+html.native-app.iphone-app body.login-step-enroll #portal-login-card {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+html.native-app.iphone-app #mfa-enrollment-panel.mfa-enrollment--native:not([hidden]),
+html.native-app.iphone-app #mfa-panel:not([hidden]) {
+  display: flex !important;
+  flex-direction: column;
+}
+
+html.native-app.iphone-app #mfa-enrollment-panel.mfa-enrollment--native:not([hidden]) {
+  max-height: calc(100dvh - env(safe-area-inset-top) - 8px);
+  padding: 0 4px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-open-wrap {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+}
+
+html.native-app.iphone-app .mfa-enrollment-head {
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-head h1 {
+  font-size: 1.15rem;
+  margin: 0 0 4px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-head .portal-login-card-lead {
+  font-size: 0.8rem;
+  margin: 0;
+  line-height: 1.35;
+  color: var(--gray-500, #6b6a65);
+}
+
+/* Email MFA step — keep copy/controls readable on the white login card */
+html.native-app.iphone-app #mfa-panel .portal-login-card-head h1,
+html.native-app.iphone-app #mfa-panel-title {
+  color: var(--text, #141413);
+}
+
+html.native-app.iphone-app #mfa-panel .portal-login-card-lead,
+html.native-app.iphone-app #mfa-panel-lead {
+  color: var(--gray-500, #6b6a65);
+}
+
+html.native-app.iphone-app #mfa-panel .mfa-code-field,
+html.native-app.iphone-app #mfa-code-label-text {
+  color: var(--gray-500, #6b6a65);
+}
+
+html.native-app.iphone-app #mfa-panel .mfa-resend-row,
+html.native-app.iphone-app #mfa-resend-wrap {
+  margin: 0.35rem 0 0.75rem;
+}
+
+html.native-app.iphone-app #mfa-panel .native-login-mfa-alt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+html.native-app.iphone-app #mfa-panel .portal-login-inline-link,
+html.native-app.iphone-app #mfa-resend-btn,
+html.native-app.iphone-app #mfa-back-signin {
+  color: var(--green-700, #0f6e56);
+}
+
+html.native-app.iphone-app .mfa-enrollment-user {
+  font-size: 0.76rem;
+  margin: 8px 0 6px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 8px 4px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-qr-wrap {
+  margin: 2px 0 6px;
+  min-height: 0 !important;
+}
+
+html.native-app.iphone-app .mfa-enrollment-qr-wrap img {
+  width: 112px !important;
+  height: 112px !important;
+}
+
+html.native-app.iphone-app .mfa-enrollment-manual {
+  margin: 0 0 8px;
+  font-size: 0.76rem;
+}
+
+html.native-app.iphone-app .mfa-enrollment-manual summary {
+  cursor: pointer;
+  color: var(--gray-500, #6b6a65);
+  font-weight: 600;
+  list-style: none;
+}
+
+html.native-app.iphone-app .mfa-enrollment-manual summary::-webkit-details-marker {
+  display: none;
+}
+
+html.native-app.iphone-app .mfa-enrollment-manual .mfa-enrollment-secret {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.7rem;
+  padding: 8px;
+  word-break: break-all;
+}
+
+html.native-app.iphone-app .mfa-enrollment-code-label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+html.native-app.iphone-app .mfa-enrollment-code-label input {
+  min-height: 44px;
+}
+
+html.native-app.iphone-app #mfa-enrollment-panel .form-error-message {
+  min-height: 1.4rem;
+  font-size: 0.78rem;
+  margin-top: 4px;
+}
+
+html.native-app.iphone-app .mfa-enrollment-actions {
+  flex-shrink: 0;
+  display: grid;
+  gap: 8px;
+  padding: 10px 8px max(10px, env(safe-area-inset-bottom));
+  background: var(--white, #fff);
+  border-top: 1px solid var(--card-border, #dddcd6);
+}
+
+html.native-app.iphone-app .mfa-enrollment-actions .portal-login-submit {
+  min-height: 44px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+html.native-app.capacitor-native .portal-login-form .btn.primary {
+  min-height: 48px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+/* —— Employee shell (phone only — iPad uses sidebar via iphone-app-ipad.css) —— */
+html.native-app.capacitor-native:not(.native-tablet) body.employee-portal .sidebar,
+html.native-app.capacitor-native:not(.native-tablet) body.employee-portal #sidebar-toggle {
+  display: none !important;
+}
+
+html.native-app.capacitor-native:not(.native-tablet) body.employee-portal:has(#mobile-tab-bar) main.content {
+  padding: 6px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .topbar.app-mobile-header {
+  padding: 2px var(--iphone-pad-r) 4px var(--iphone-pad);
+  padding-top: max(2px, env(safe-area-inset-top));
+  margin-bottom: 0;
+  background: #f3f5f4;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+html.native-app.capacitor-native body.employee-portal[data-mobile-tab="home"] .topbar.app-mobile-header {
+  background: transparent;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .topbar-brand__logo,
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .topbar-brand .app-mark {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  max-width: 34px !important;
+  border-radius: 9px;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .topbar-brand__name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .topbar-brand__app {
+  font-size: 0.58rem;
+}
+
+html.native-app.capacitor-native .topbar-signout-btn--mobile {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  border-radius: 10px;
+}
+
+html.native-app.capacitor-native .employee-topbar-alerts-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+/* Home hero — solid green + white text (do not let polish dark text win) */
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-hero {
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(152deg, #0c5e4a 0%, #0f6e56 48%, #15906f 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(15, 110, 86, 0.18);
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-greeting,
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-name,
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-employer,
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-today__value {
+  color: #fff !important;
+}
+
+html.native-app.capacitor-native .employee-home-greeting {
+  font-size: 0.74rem;
+  opacity: 0.9;
+  margin: 0 0 1px;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-name {
+  font-size: 1.12rem;
+  margin-bottom: 4px;
+  line-height: 1.15;
+}
+
+html.native-app.capacitor-native .employee-home-meta {
+  gap: 6px;
+}
+
+html.native-app.capacitor-native .employee-home-employer {
+  font-size: 0.72rem;
+  opacity: 0.94;
+}
+
+html.native-app.capacitor-native .employee-home-role-pill {
+  font-size: 0.6rem;
+  padding: 2px 7px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-today {
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-today__label {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+/* Alerts + quick actions */
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-alerts-banner {
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-quick {
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
+html.native-app.capacitor-native .employee-quick-btn {
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  min-height: 42px;
+}
+
+html.native-app.capacitor-native .employee-home-section-title {
+  font-size: 0.66rem;
+  margin-bottom: 6px;
+  letter-spacing: 0.07em;
+}
+
+/* Home cards — 2-column tiles */
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 10px 9px;
+  min-height: 0;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-card__chevron {
+  display: none;
+}
+
+html.native-app.capacitor-native .employee-home-card__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+html.native-app.capacitor-native .employee-home-card__icon .admin-icon,
+html.native-app.capacitor-native .employee-home-card__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-card__title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #12352c;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .employee-home-card__value {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5c6b66;
+  line-height: 1.3;
+}
+
+/* Tab bar */
+html.native-app.capacitor-native:not(.native-tablet) #mobile-tab-bar {
+  display: flex;
+  padding: 5px var(--iphone-pad-r) max(4px, env(safe-area-inset-bottom)) var(--iphone-pad);
+  border-top: 0.5px solid rgba(15, 23, 42, 0.09);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 -1px 0 rgba(15, 23, 42, 0.04), 0 -6px 20px rgba(15, 23, 42, 0.05);
+}
+
+html.native-app.capacitor-native .mobile-tab {
+  min-height: 48px;
+  gap: 2px;
+  border-radius: 10px;
+}
+
+html.native-app.capacitor-native .mobile-tab--active {
+  color: #0f6e56;
+  font-weight: 700;
+}
+
+html.native-app.capacitor-native .mobile-tab--active .mobile-tab__icon-wrap {
+  background: rgba(15, 110, 86, 0.1);
+  border-radius: 10px;
+  padding: 3px 10px;
+}
+
+html.native-app.capacitor-native .mobile-tab--active .mobile-tab__icon-wrap::after {
+  bottom: -4px;
+  width: 5px;
+  height: 5px;
+  background: #0f6e56;
+  opacity: 1;
+}
+
+html.native-app.capacitor-native .topbar-signout-btn--mobile {
+  display: none !important;
+}
+
+html.native-app.capacitor-native .overview-module-card__value--label {
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+html.native-app.capacitor-native .overview-module-card--empty .overview-module-card__value {
+  color: #c5ceca;
+  font-weight: 500;
+}
+
+html.native-app.capacitor-native .mobile-tab__label {
+  font-size: 0.62rem;
+  letter-spacing: 0.01em;
+}
+
+html.native-app.capacitor-native .mobile-tab__icon-wrap .admin-icon,
+html.native-app.capacitor-native .mobile-tab__icon-wrap svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* More panel */
+html.native-app.capacitor-native .mobile-more-panel {
+  margin: 0 calc(-1 * var(--iphone-pad-r)) 0 calc(-1 * var(--iphone-pad));
+  padding: 14px var(--iphone-pad-r) max(12px, env(safe-area-inset-bottom)) var(--iphone-pad);
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+  box-shadow: 0 -8px 28px rgba(15, 23, 42, 0.1);
+}
+
+html.native-app.capacitor-native .mobile-panel-title {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+html.native-app.capacitor-native .mobile-more-link {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+html.native-app.capacitor-native .mobile-more-link:active {
+  background: #f0f4f2;
+}
+
+/* Section pages */
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .admin-section > .section-header {
+  margin-bottom: 10px;
+}
+
+html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .admin-section > .section-header h2 {
+  font-size: 1.1rem;
+}
+
+html.native-app.capacitor-native body.employee-portal .card {
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+html.native-app.capacitor-native body.employee-portal .btn {
+  border-radius: 11px;
+}
+
+html.native-app.capacitor-native body.employee-portal .mobile-back-btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+
+/* Admin portal (production shell in native WebView) */
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) main.content {
+  padding: 6px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .topbar.app-mobile-header {
+  padding: 2px var(--iphone-pad-r) 4px var(--iphone-pad);
+  padding-top: max(2px, env(safe-area-inset-top));
+  background: #f3f5f4;
+  box-shadow: none;
+}
+
+html.native-app.capacitor-native:not(.native-tablet) body.admin-portal:has(#mobile-tab-bar) .sidebar {
+  display: none !important;
+}
+
+html.native-app.capacitor-native:not(.native-tablet) body.admin-portal:has(#mobile-tab-bar) #sidebar-toggle {
+  display: none !important;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .mobile-home-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(152deg, #0c5e4a 0%, #0f6e56 48%, #15906f 100%);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(15, 110, 86, 0.18);
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .mobile-greeting {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  opacity: 0.9;
+  line-height: 1.2;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .mobile-business-name {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1.15;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .mobile-business-name:not(:empty)::before {
+  content: none;
+  margin: 0;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .overview-stats-grid {
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .overview-module-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .overview-module-card {
+  border-radius: 12px;
+  min-height: 0;
+  padding: 10px 10px 9px;
+  box-shadow: 0 2px 6px rgba(18, 53, 44, 0.04);
+  background: linear-gradient(160deg, #f7faf8 0%, #eef6f2 100%);
+  border: 1px solid rgba(15, 110, 86, 0.12);
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .overview-module-card__chevron {
+  display: none;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="home"] .overview-main,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="home"] .mobile-panel-title--modules {
+  display: none !important;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] .overview-main {
+  display: block !important;
+}
+
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #overview-metrics,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #overview-actions-panel,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #mobile-home-header,
+html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar)[data-mobile-tab="modules"] #mobile-subscription-card {
+  display: none !important;
+}
+
+html.native-app.capacitor-native .sshr-action-toast-host {
+  bottom: calc(var(--iphone-footer) + 8px);
+}
+
+/* Tighter press + no shell slide on native */
+html.native-app.iphone-app .btn:active:not(:disabled),
+html.native-app.iphone-app .mobile-tab:active,
+html.native-app.iphone-app .topbar-icon-btn:active {
+  transform: none !important;
+}
+
+html.native-app.iphone-app .mobile-tab:active {
+  opacity: 0.72;
+}
+
+html.native-app.iphone-app body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
+  animation: none !important;
+}

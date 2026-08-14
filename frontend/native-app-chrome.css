@@ -25,14 +25,14 @@ html.native-app .app {
 html.native-app .topbar,
 html.native-app .app-mobile-header,
 html.native-app .employee-app .topbar {
-  padding-top: max(12px, env(safe-area-inset-top));
-  padding-left: max(12px, env(safe-area-inset-left));
-  padding-right: max(12px, env(safe-area-inset-right));
+  padding-top: max(2px, env(safe-area-inset-top));
+  padding-left: max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
 }
 
 html.native-app body.admin-mobile-detail .topbar,
 html.native-app body.employee-mobile-detail .topbar {
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding-top: max(2px, env(safe-area-inset-top));
 }
 
 html.native-app .mobile-more-sheet,
@@ -64,6 +64,107 @@ html.native-app .section-actions .btn,
 html.native-app .hr-detail-foot .btn,
 html.native-app .employment-detail-foot .btn {
   min-height: 40px;
+}
+
+html.native-app body.employee-portal.portal-startup-pending .app > main.content,
+html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,
+html.native-app body.employee-portal .employee-app,
+html.native-app body.employee-portal #mobile-tab-bar,
+html.native-app.capacitor-native body.employee-portal .employee-app,
+html.native-app.capacitor-native body.employee-portal #mobile-tab-bar {
+  pointer-events: auto !important;
+}
+
+/* Soft tab / section enter — opacity only; disabled on native (see pulseContentEnter) */
+@keyframes mobile-shell-enter {
+  from {
+    opacity: 0.72;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 860px) {
+  body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
+    animation: mobile-shell-enter 0.14s ease both;
+  }
+
+  body.admin-mobile-more-open #mobile-more-panel,
+  body.employee-portal.employee-mobile-more-open #mobile-more-panel {
+    animation: mobile-shell-enter 0.14s ease both;
+  }
+}
+
+@media (max-width: 860px) and (prefers-reduced-motion: reduce) {
+  body:has(#mobile-tab-bar) main.content.mobile-shell-enter,
+  body.admin-mobile-more-open #mobile-more-panel,
+  body.employee-portal.employee-mobile-more-open #mobile-more-panel {
+    animation: none;
+  }
+}
+
+/* Native: never slide/fade the whole shell — feels loose vs fixed tab bar */
+html.native-app body:has(#mobile-tab-bar) main.content.mobile-shell-enter,
+html.native-app body.admin-mobile-more-open #mobile-more-panel,
+html.native-app body.employee-portal.employee-mobile-more-open #mobile-more-panel,
+html.capacitor-native body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
+  animation: none !important;
+}
+
+/* One-shot startup reveal — don't leave opacity transition on for the session */
+html.native-app body.portal-startup-ready .app > main.content,
+html.native-app body.portal-startup-ready #mobile-tab-bar {
+  transition: none !important;
+}
+
+/* Tighter press feedback on native */
+html.native-app .btn:active:not(:disabled):not(.btn--busy) {
+  transform: none;
+  opacity: 0.88;
+}
+
+html.native-app .mobile-tab:active {
+  transform: none;
+  opacity: 0.75;
+}
+
+html.native-app .topbar-icon-btn:active {
+  transform: none;
+  opacity: 0.8;
+}
+
+/* Keep focused form fields above the soft keyboard without reflowing the shell */
+html.native-app.native-keyboard-open body:has(#mobile-tab-bar) main.content {
+  scroll-padding-bottom: calc(28px + var(--native-keyboard-inset, 0px)) !important;
+}
+
+html.native-app.native-keyboard-open {
+  overscroll-behavior-y: none;
+}
+
+/* Stable shell height — avoid 100dvh thrash when keyboard opens */
+html.native-app body,
+html.native-app .employee-app,
+html.native-app .admin-portal .app,
+html.native-app .app {
+  min-height: 100svh;
+}
+
+html.native-app body:has(#mobile-tab-bar) .app {
+  height: 100svh;
+  max-height: 100svh;
+}
+
+/* Detail mode: no empty tab-bar padding when bar is hidden */
+html.native-app body.admin-mobile-detail:has(#mobile-tab-bar) main.content,
+html.native-app body.employee-mobile-detail:has(#mobile-tab-bar) main.content {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+}
+
+html.native-app body.employee-portal.no-scroll main.content {
+  touch-action: auto !important;
+  overflow: auto !important;
 }
 
 .sshr-action-toast-host {
@@ -154,56 +255,21 @@ html.native-app.ios-device .portal-login-page--unified {
   }
 }
 
-html.native-app .punch-card--clock-widget {
-  gap: 14px;
-}
-
-html.native-app .punch-work-state-label--working {
-  color: var(--green-800, #166534);
-  font-weight: 600;
-}
-
-html.native-app .punch-work-state-label--out {
-  color: var(--text-muted, #64748b);
-}
-
-html.native-app .punch-clock-actions__phase--main {
-  display: grid;
-  gap: 10px;
-}
-
-html.native-app .punch-clock-primary--out.is-active-out:not(:disabled) {
-  background: var(--green-700, #0f6e56) !important;
-  border-color: var(--green-700, #0f6e56) !important;
-  color: #fff !important;
-  box-shadow: 0 8px 20px rgba(15, 110, 86, 0.24);
-  font-weight: 700;
-  min-height: 52px;
-  font-size: 1.02rem;
-}
-
-html.native-app .punch-clock-primary--out.is-idle-out:not(:disabled),
-html.native-app .punch-clock-primary--out:disabled {
-  background: #f3f4f6 !important;
-  border-color: #d1d5db !important;
-  color: #9ca3af !important;
-  box-shadow: none;
-  min-height: 48px;
-}
-
-html.native-app .punch-clock-secondary--out.is-active-out:not(:disabled) {
-  background: var(--green-700, #0f6e56) !important;
-  border-color: var(--green-700, #0f6e56) !important;
-  color: #fff !important;
-}
-
-html.native-app .punch-geofence-status {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-}
-
 html.native-app .employee-shift-reminder-toast {
   bottom: calc(78px + env(safe-area-inset-bottom));
   z-index: 1200;
+}
+
+/* Punch clock — native uses same rules as employee-mobile-polish (bundled via employee.html) */
+html.native-app.employee-portal #time-clock .btn.outline.punch-clock-primary--out.is-active-out:not(:disabled),
+html.native-app.employee-portal #time-clock .punch-clock-primary--out.is-active-out:not(:disabled) {
+  background: var(--green-700, #0f6e56) !important;
+  border-color: var(--green-700, #0f6e56) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 22px rgba(15, 110, 86, 0.26);
+  font-weight: 700;
+}
+
+html.native-app.employee-portal #time-clock .punch-clock-primary.is-ready:not(:disabled) {
+  box-shadow: 0 8px 22px rgba(15, 110, 86, 0.26);
 }

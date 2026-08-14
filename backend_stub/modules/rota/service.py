@@ -543,6 +543,74 @@ def publish_week(
     return result
 
 
+def resend_week_notifications(
+    *,
+    tenant_id: int,
+    week_start: date,
+    conn: Any,
+    employee_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    """Resend rota emails and push alerts for an already-published week."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, status
+            FROM rota_weeks
+            WHERE tenant_id = %s AND week_start = %s
+            """,
+            (tenant_id, week_start),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise RotaValidationError("No rota for this week", field="week_start")
+        week_id, status = int(row[0]), str(row[1])
+        if status != "published":
+            raise RotaValidationError(
+                "Publish the rota before resending staff notifications",
+                field="status",
+            )
+        cur.execute(
+            "SELECT COUNT(*) FROM rota_shifts WHERE tenant_id = %s AND rota_week_id = %s",
+            (tenant_id, week_id),
+        )
+        if int(cur.fetchone()[0]) == 0:
+            raise RotaValidationError("No shifts on this rota week", field="shifts")
+
+    _, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    if employee_ids is not None:
+        allowed = {int(eid) for eid in employee_ids}
+        scheduled = {int(s["employee_id"]) for s in shifts}
+        missing = allowed - scheduled
+        if missing:
+            raise RotaValidationError(
+                "One or more selected staff are not scheduled on this rota week",
+                field="employee_ids",
+            )
+        if not allowed:
+            raise RotaValidationError("Select at least one staff member to resend", field="employee_ids")
+
+    from modules.rota.notifications import notify_rota_published
+
+    notifications = notify_rota_published(
+        tenant_id=tenant_id,
+        week_start=week_start,
+        shifts=shifts,
+        conn=conn,
+        resend=True,
+        employee_ids=employee_ids,
+    )
+    target_count = len(employee_ids) if employee_ids is not None else notifications.get("employees_notified", 0)
+    return {
+        "week_start": week_start.isoformat(),
+        "notifications": notifications,
+        "message": (
+            f"Rota notifications resent to {target_count} staff"
+            if employee_ids is not None
+            else "Rota notifications resent"
+        ),
+    }
+
+
 def copy_week_from_previous(
     *,
     tenant_id: int,

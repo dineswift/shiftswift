@@ -1,4 +1,4 @@
-/** Trusted device + optional Face ID quick unlock for native app and PWA login. */
+/** Trusted device + optional Face ID / fingerprint quick unlock for native app and PWA login. */
 (function initShiftSwiftTrustedDevice() {
   const TRUST_PREFIX = "sshrDeviceTrust:";
   const DEVICE_ID_KEY = "sshrDeviceId";
@@ -6,7 +6,14 @@
   const TRUST_DAYS_DEFAULT = 30;
 
   function isNativeShell() {
-    return Boolean(window.ShiftSwiftNativeApp?.isCapacitorNative?.());
+    try {
+      return Boolean(
+        window.ShiftSwiftNativeApp?.isCapacitorNative?.() ||
+          window.Capacitor?.isNativePlatform?.(),
+      );
+    } catch {
+      return false;
+    }
   }
 
   function normalizeEmail(value) {
@@ -35,6 +42,18 @@
       return `ShiftSwift HR (${platform})`;
     }
     return "ShiftSwift HR (browser)";
+  }
+
+  function unlockReasonLabel(biometryType) {
+    const type = String(biometryType || "").toLowerCase();
+    if (type.includes("face")) return "Unlock with Face ID";
+    if (type.includes("touch") || type.includes("fingerprint") || type.includes("finger")) {
+      return "Unlock with fingerprint";
+    }
+    const platform = String(window.Capacitor?.getPlatform?.() || "").toLowerCase();
+    if (platform === "ios") return "Sign in with Face ID";
+    if (platform === "android") return "Sign in with biometrics";
+    return "Unlock ShiftSwift HR";
   }
 
   async function preferencesPlugin() {
@@ -133,39 +152,83 @@
   }
 
   async function biometricPlugin() {
-    return (
-      window.Capacitor?.Plugins?.BiometricAuth ||
-      window.Capacitor?.Plugins?.NativeBiometric ||
-      null
-    );
+    const plugins = window.Capacitor?.Plugins || {};
+    return plugins.BiometricAuth || plugins.NativeBiometric || null;
+  }
+
+  async function checkBiometryInfo() {
+    const plugin = await biometricPlugin();
+    if (!plugin) return { available: false, biometryType: "", plugin: null };
+    try {
+      if (plugin.checkBiometry) {
+        const result = await plugin.checkBiometry();
+        const available = Boolean(result?.isAvailable ?? result?.available);
+        const biometryType =
+          result?.biometryType ||
+          (Array.isArray(result?.biometryTypes) ? result.biometryTypes[0] : "") ||
+          "";
+        return { available, biometryType, plugin, raw: result };
+      }
+      if (plugin.isAvailable) {
+        const result = await plugin.isAvailable();
+        return {
+          available: Boolean(result?.isAvailable ?? result?.available ?? result),
+          biometryType: result?.biometryType || "",
+          plugin,
+          raw: result,
+        };
+      }
+      return {
+        available: Boolean(plugin.verify || plugin.authenticate),
+        biometryType: "",
+        plugin,
+      };
+    } catch {
+      return { available: false, biometryType: "", plugin };
+    }
   }
 
   async function canUseBiometricUnlock() {
+    // Safari / Chrome WebAuthn Face ID (when PASSKEYS_ENABLED) is a separate path.
+    if (!isNativeShell() && window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) return true;
     if (!isNativeShell()) return false;
-    const plugin = await biometricPlugin();
-    if (!plugin) return false;
-    if (plugin.checkBiometry) {
-      try {
-        const result = await plugin.checkBiometry();
-        return Boolean(result?.isAvailable ?? result?.available);
-      } catch {
-        return false;
-      }
-    }
-    return Boolean(plugin.verify || plugin.authenticate);
+    const info = await checkBiometryInfo();
+    return Boolean(info.available);
   }
 
   async function verifyBiometricUnlock(reason) {
-    const plugin = await biometricPlugin();
-    if (!plugin) return true;
-    const message = reason || "Unlock ShiftSwift HR";
+    const info = await checkBiometryInfo();
+    const plugin = info.plugin;
+    if (!plugin) return false;
+    const message = reason || unlockReasonLabel(info.biometryType);
     try {
       if (plugin.authenticate) {
-        await plugin.authenticate({ reason: message, cancelTitle: "Use password" });
+        await plugin.authenticate({
+          reason: message,
+          cancelTitle: "Use password",
+          allowDeviceCredential: true,
+          iosFallbackTitle: "Use passcode",
+          androidTitle: "ShiftSwift HR",
+          androidSubtitle: message,
+          androidConfirmationRequired: false,
+        });
+        return true;
+      }
+      if (plugin.verifyIdentity) {
+        await plugin.verifyIdentity({
+          reason: message,
+          title: "ShiftSwift HR",
+          subtitle: message,
+          negativeButtonText: "Use password",
+        });
         return true;
       }
       if (plugin.verify) {
-        const result = await plugin.verify({ reason: message, title: "ShiftSwift HR" });
+        const result = await plugin.verify({
+          reason: message,
+          title: "ShiftSwift HR",
+          negativeButtonText: "Use password",
+        });
         return Boolean(result?.verified ?? result?.success ?? true);
       }
     } catch {
@@ -174,12 +237,29 @@
     return false;
   }
 
+  async function maybeEnableBiometricUnlock() {
+    if (!isNativeShell()) return false;
+    if (isBiometricUnlockEnabled()) return true;
+    const canUse = await canUseBiometricUnlock();
+    if (!canUse) return false;
+    setBiometricUnlockEnabled(true);
+    return true;
+  }
+
   async function tryQuickUnlock() {
-    if (!window.ShiftSwiftSession?.hydrateNativeSession) return false;
-    await window.ShiftSwiftSession.hydrateNativeSession();
-    if (!window.ShiftSwiftSession.hasSession()) return false;
+    if (window.ShiftSwiftSession?.hydrateNativeSession) {
+      await window.ShiftSwiftSession.hydrateNativeSession();
+    }
+    if (!window.ShiftSwiftSession?.hasSession?.()) {
+      if (window.ShiftSwiftPasskeyAuth?.tryAutoLogin) {
+        return Boolean(await window.ShiftSwiftPasskeyAuth.tryAutoLogin());
+      }
+      return false;
+    }
     if (isBiometricUnlockEnabled()) {
-      const ok = await verifyBiometricUnlock("Sign in with Face ID");
+      const info = await checkBiometryInfo();
+      if (!info.available) return false;
+      const ok = await verifyBiometricUnlock(unlockReasonLabel(info.biometryType));
       if (!ok) return false;
     }
     return Boolean(await window.ShiftSwiftSession.redirectIfLoggedIn?.());
@@ -189,6 +269,7 @@
     TRUST_DAYS_DEFAULT,
     getDeviceId,
     deviceLabel,
+    unlockReasonLabel,
     getTrustedToken,
     setTrustedToken,
     clearTrustedToken,
@@ -198,6 +279,8 @@
     setBiometricUnlockEnabled,
     canUseBiometricUnlock,
     verifyBiometricUnlock,
+    maybeEnableBiometricUnlock,
+    checkBiometryInfo,
     tryQuickUnlock,
   };
 })();

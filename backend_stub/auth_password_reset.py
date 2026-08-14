@@ -90,6 +90,10 @@ def send_account_setup_email(
 ) -> str:
     """Send a branded setup/reset email and return the setup URL."""
     from core.email_templates import EmailContent
+    from core.notifications import smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
 
     _, reset_url = create_password_reset_token(
         conn=conn,
@@ -254,4 +258,4 @@ def complete_password_reset(
         user_agent=user_agent,
         success=True,
     )
-    return {"message": "Password updated. You can sign in with your new password."}
+    return {"message": "Password updated. Sign in with your new password — we will email a 6-digit verification code."}

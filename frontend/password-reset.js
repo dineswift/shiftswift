@@ -20,7 +20,8 @@
   }
 
   function loginUrlForPortal(portal) {
-    return portal === "employee" ? "./employee-login.html" : "./business-login.html";
+    // Unified sign-in handles email OTP after password for all portals.
+    return "./sign-in.html";
   }
 
   function forgotUrlForPortal(portal) {
@@ -74,7 +75,11 @@
   }
 
   async function getJson(path) {
-    const response = await fetch(`${apiBase()}${path}`);
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    const url = `${apiBase()}${path}`;
+    const response = window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+      ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, {})
+      : await fetch(url);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = data.detail;
@@ -85,11 +90,16 @@
   }
 
   async function postJson(path, body) {
-    const response = await fetch(`${apiBase()}${path}`, {
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    const url = `${apiBase()}${path}`;
+    const reqInit = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
+    };
+    const response = window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+      ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit)
+      : await fetch(url, reqInit);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const detail = data.detail;
@@ -199,10 +209,16 @@
           new_password: data.new_password,
           accept_employee_gdpr: Boolean(data.accept_employee_gdpr),
         });
-        setStatus(status, result.message || "Password updated.", true);
+        setStatus(
+          status,
+          result.message ||
+            "Password updated. Next sign-in will email you a 6-digit code unless an authenticator app is already set up.",
+          true,
+        );
         setTimeout(() => {
-          window.location.href = loginUrlForPortal(resetPortal);
-        }, 1500);
+          const next = `${loginUrlForPortal(resetPortal)}?passwordReset=1`;
+          window.location.href = next;
+        }, 1800);
       } catch (error) {
         setStatus(status, friendlyError(error.message), false);
       }

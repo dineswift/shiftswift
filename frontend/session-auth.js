@@ -2,8 +2,9 @@
 (function () {
   const EMPLOYEE_LOGIN_URL = "./employee-login.html";
   const BUSINESS_LOGIN_URL = "./business-login.html";
-  const UNIFIED_LOGIN_URL = "./native-app-login.html";
-  const NATIVE_UNIFIED_LOGIN_URL = "./native-app-login.html?source=native";
+  const UNIFIED_LOGIN_URL = "./sign-in.html";
+  const NATIVE_UNIFIED_LOGIN_URL = "./sign-in.html?source=native";
+  const LEGACY_UNIFIED_LOGIN_URL = "./native-app-login.html";
   const NATIVE_SESSION_KEYS = ["token", "refreshToken", "tenantId", "userRole", "masterTenantId"];
   const IDENTITY_KEYS = [
     "adminUsername",
@@ -45,12 +46,15 @@
       return window.ShiftSwiftNativeApp.unifiedNativeLoginUrl();
     }
     try {
-      if (
-        window.Capacitor?.isNativePlatform?.() &&
-        window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
-      ) {
-        const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html?build=27&v=27`;
+      const scheme =
+        window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+        (window.Capacitor?.getPlatform?.() === "android"
+          ? window.Capacitor?.config?.server?.androidScheme || "https"
+          : window.Capacitor?.config?.server?.iosScheme ||
+            window.Capacitor?.config?.ios?.scheme ||
+            (window.Capacitor?.isNativePlatform?.() ? "App" : "capacitor"));
+      if (window.Capacitor?.isNativePlatform?.()) {
+        return `${scheme}://localhost/index.html?build=27&v=39`;
       }
     } catch {
       /* ignore */
@@ -88,8 +92,73 @@
     }
   }
 
+  function bundledPortalUrl(path) {
+    const clean = String(path || "").replace(/^\.\//, "");
+    if (window.ShiftSwiftNativeBundledUrl?.assetUrl) {
+      const url = window.ShiftSwiftNativeBundledUrl.assetUrl(clean, "bundled-portal");
+      try {
+        const parsed = new URL(url);
+        if (parsed.searchParams.get("source") !== "native") {
+          parsed.searchParams.set("source", "native");
+        }
+        return parsed.toString();
+      } catch {
+        return url;
+      }
+    }
+    try {
+      const scheme =
+        window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+        (window.Capacitor?.getPlatform?.() === "android"
+          ? window.Capacitor?.config?.server?.androidScheme || "https"
+          : window.Capacitor?.config?.server?.iosScheme ||
+            window.Capacitor?.config?.ios?.scheme ||
+            "App");
+      const parsed = new URL(`${scheme}://localhost/${clean}`);
+      parsed.searchParams.set("source", "native");
+      return parsed.toString();
+    } catch {
+      return `./${clean}?source=native`;
+    }
+  }
+
+  const BUNDLED_UNIFIED_PORTALS = new Set(["employee.html", "admin.html"]);
+
+  function isUnifiedIphoneApp() {
+    try {
+      if (getCapacitorAppId() === "co.uk.shiftswifthr.app") return true;
+      if (localStorage.getItem("sshrUnifiedNativeApp") === "1") return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
+  function shouldBundleUnifiedPortal(path) {
+    const clean = String(path || "").replace(/^\.\//, "");
+    if (!BUNDLED_UNIFIED_PORTALS.has(clean)) return false;
+    if (isCapacitorUnifiedApp()) return true;
+    if (getCapacitorAppId() === "co.uk.shiftswifthr.app") return true;
+    try {
+      if (localStorage.getItem("sshrUnifiedNativeApp") === "1") return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
+  function bundledRelativePortalUrl(path) {
+    const clean = String(path || "").replace(/^\.\//, "");
+    if (isNativeSource()) return `./${clean}`;
+    return `./${clean}?source=native`;
+  }
+
   function portalUrl(path) {
     const clean = String(path || "admin.html").replace(/^\.\//, "");
+    if (shouldBundleUnifiedPortal(clean)) {
+      if (isBundledNativeShell()) return bundledRelativePortalUrl(clean);
+      return bundledPortalUrl(clean);
+    }
     if (isCapacitorNative() || isNativeSource()) {
       return withNativeSource(`https://app.shiftswifthr.co.uk/${clean}`);
     }
@@ -104,25 +173,62 @@
     }
   }
 
+  function isUnifiedNativeLoginContext() {
+    try {
+      if (window.ShiftSwiftNativeApp?.isUnifiedNativeApp?.()) return true;
+      if (getCapacitorAppId() === "co.uk.shiftswifthr.app") return true;
+      if (isCapacitorUnifiedApp()) return true;
+      if (localStorage.getItem("sshrUnifiedNativeApp") === "1") return true;
+    } catch {
+      /* ignore */
+    }
+    return false;
+  }
+
   function resolveLoginUrl(explicit) {
     if (explicit) return explicit;
-    if (getCapacitorAppId() === "co.uk.shiftswifthr.app") return unifiedNativeLoginUrl();
-    if (isCapacitorUnifiedApp()) return unifiedNativeLoginUrl();
+    if (isUnifiedNativeLoginContext()) {
+      if (isCapacitorNative()) {
+        const role = localStorage.getItem("userRole");
+        if (role === "employee") {
+          return (
+            window.ShiftSwiftNativeApp?.capacitorAssetUrl?.("employee-login.html?source=native") ||
+            bundledPortalUrl("employee-login.html")
+          );
+        }
+        return (
+          window.ShiftSwiftNativeApp?.capacitorAssetUrl?.("business-login.html?source=native") ||
+          bundledPortalUrl("business-login.html")
+        );
+      }
+      return UNIFIED_LOGIN_URL;
+    }
     const nativeLogin = window.ShiftSwiftNativeApp?.resolveNativeLoginUrl?.();
     if (nativeLogin) return nativeLogin;
-    const role = localStorage.getItem("userRole");
-    if (role === "employee") return EMPLOYEE_LOGIN_URL;
-    if (document.body?.classList?.contains("employee-portal")) return EMPLOYEE_LOGIN_URL;
-    if (document.body?.dataset?.loginPage === "employee") return EMPLOYEE_LOGIN_URL;
+    if (isCapacitorNative()) {
+      const role = localStorage.getItem("userRole");
+      if (role === "employee") return EMPLOYEE_LOGIN_URL;
+      return BUSINESS_LOGIN_URL;
+    }
     const path = window.location.pathname || "";
-    if (/employee(-login)?\.html$/i.test(path)) return EMPLOYEE_LOGIN_URL;
+    if (/employee(-login)?\.html$/i.test(path) && /[?&]legacy=1/.test(window.location.search || "")) {
+      return EMPLOYEE_LOGIN_URL;
+    }
+    if (/business-login\.html$/i.test(path) && /[?&]legacy=1/.test(window.location.search || "")) {
+      return BUSINESS_LOGIN_URL;
+    }
     return UNIFIED_LOGIN_URL;
   }
 
   function getApiBase() {
     if (window.ShiftSwiftBrand?.getApiBase) return window.ShiftSwiftBrand.getApiBase();
     if (window.ShiftSwiftBrand?.resolveApiBase) return window.ShiftSwiftBrand.resolveApiBase();
-    if (isCapacitorNative()) {
+    if (isCapacitorNative() || window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      try {
+        localStorage.removeItem("apiBaseUrl");
+      } catch {
+        /* ignore */
+      }
       return window.ShiftSwiftBrand?.urls?.api || "https://api.shiftswifthr.co.uk";
     }
     const stored = localStorage.getItem("apiBaseUrl");
@@ -162,16 +268,52 @@
     }
   }
 
+  function readTokenTenantId() {
+    const token = getToken();
+    if (!token) return null;
+    try {
+      const part = token.split(".")[1];
+      if (!part) return null;
+      const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+      if (payload?.tenant_id == null || payload?.tenant_id === "") return null;
+      return String(payload.tenant_id);
+    } catch {
+      return null;
+    }
+  }
+
   async function hydrateNativeSession(options = {}) {
     const force = Boolean(options.force);
+    const overwrite = Boolean(options.overwrite);
     if (!isCapacitorNative()) return;
-    if (nativeHydrated && !force) return;
+    if (nativeHydrated && !force && !overwrite) return;
     try {
       const prefs = await preferencesPlugin();
       if (!prefs?.get) return;
       for (const key of NATIVE_SESSION_KEYS) {
         const { value } = await prefs.get({ key: `sshr:${key}` });
-        if (value) localStorage.setItem(key, value);
+        if (!value) continue;
+        const current = localStorage.getItem(key);
+        if (!current || overwrite) {
+          localStorage.setItem(key, value);
+        }
+      }
+      for (const key of ["employeeUsername", "employeeDisplayName", "employeeFirstName"]) {
+        const { value } = await prefs.get({ key: `sshr:${key}` });
+        if (!value) continue;
+        const current = localStorage.getItem(key);
+        if (!current || overwrite) {
+          localStorage.setItem(key, value);
+        }
+      }
+      const tokenTenant = readTokenTenantId();
+      if (tokenTenant) {
+        localStorage.setItem("tenantId", tokenTenant);
+        try {
+          sessionStorage.setItem("sshrVerifiedTenantId", tokenTenant);
+        } catch {
+          /* ignore */
+        }
       }
       nativeHydrated = true;
     } catch {
@@ -209,12 +351,27 @@
       localStorage.setItem("userRole", data.role);
       void persistNativeKey("userRole", data.role);
     }
+    if (data.workspace_role) {
+      localStorage.setItem("workspaceRole", String(data.workspace_role));
+      void persistNativeKey("workspaceRole", String(data.workspace_role));
+    }
     if (data.tenant_id != null) {
       const tid = String(data.tenant_id);
       localStorage.setItem("tenantId", tid);
       void persistNativeKey("tenantId", tid);
       localStorage.setItem("masterTenantId", tid);
       void persistNativeKey("masterTenantId", tid);
+      try {
+        sessionStorage.setItem("sshrVerifiedTenantId", tid);
+        sessionStorage.setItem("sshrVerifiedTenantAt", String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+    }
+    const username = data.username || data.email || "";
+    if (username) {
+      localStorage.setItem("employeeUsername", String(username));
+      void persistNativeKey("employeeUsername", String(username));
     }
   }
 
@@ -223,6 +380,165 @@
     await Promise.all(
       NATIVE_SESSION_KEYS.map((key) => persistNativeKey(key, localStorage.getItem(key) || "")),
     );
+  }
+
+  function bridgeNativeSessionForNextPage() {
+    if (!isCapacitorNative()) return;
+    try {
+      const payload = { ts: Date.now() };
+      for (const key of NATIVE_SESSION_KEYS) {
+        const value = localStorage.getItem(key);
+        if (value) payload[key] = value;
+      }
+      sessionStorage.setItem("sshrNativeSessionBridge", JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function restoreNativeSessionBridge() {
+    if (!isCapacitorNative()) return false;
+    try {
+      const raw = sessionStorage.getItem("sshrNativeSessionBridge");
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data?.ts || Date.now() - data.ts > 120000) {
+        sessionStorage.removeItem("sshrNativeSessionBridge");
+        return false;
+      }
+      let restored = false;
+      for (const key of NATIVE_SESSION_KEYS) {
+        if (data[key]) {
+          localStorage.setItem(key, String(data[key]));
+          restored = true;
+        }
+      }
+      sessionStorage.removeItem("sshrNativeSessionBridge");
+      return restored;
+    } catch {
+      return false;
+    }
+  }
+
+  function consumeNativeSessionHandoff() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("sshr_handoff");
+      if (!encoded) return false;
+      const json = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+      const data = JSON.parse(json);
+      if (!data?.ts || Date.now() - data.ts > 120000) return false;
+      for (const key of NATIVE_SESSION_KEYS) {
+        if (data[key]) localStorage.setItem(key, String(data[key]));
+      }
+      params.delete("sshr_handoff");
+      const query = params.toString();
+      const clean = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash || ""}`;
+      window.history.replaceState(null, "", clean);
+      window.__SSHR_HANDOFF_CONSUMED = true;
+      void persistNativeSession();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function appendSessionHandoffToUrl(url) {
+    if (!isCapacitorNative()) return url;
+    const payload = { ts: Date.now() };
+    for (const key of NATIVE_SESSION_KEYS) {
+      const value = localStorage.getItem(key);
+      if (value) payload[key] = value;
+    }
+    const encoded = btoa(JSON.stringify(payload))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
+    try {
+      const parsed = new URL(String(url), window.location.href);
+      parsed.searchParams.set("sshr_handoff", encoded);
+      return parsed.toString();
+    } catch {
+      const join = String(url).includes("?") ? "&" : "?";
+      return `${url}${join}sshr_handoff=${encodeURIComponent(encoded)}`;
+    }
+  }
+
+  function buildNativePortalRedirectUrl(path) {
+    const clean = String(path || "employee.html").replace(/^\.\//, "");
+    if (shouldBundleUnifiedPortal(clean)) {
+      const base = isBundledNativeShell() ? bundledRelativePortalUrl(clean) : bundledPortalUrl(clean);
+      return appendSessionHandoffToUrl(base);
+    }
+    return appendSessionHandoffToUrl(portalUrl(clean));
+  }
+
+  function buildNativeEmployeePortalUrl() {
+    return buildNativePortalRedirectUrl("employee.html");
+  }
+
+  function isMasterTenantId(tenantId) {
+    if (tenantId == null) return false;
+    const masterId = localStorage.getItem("masterTenantId") || "999";
+    return String(tenantId) === String(masterId);
+  }
+
+  function nativePortalRedirectAfterLogin(data, fallbackRedirect) {
+    let path = "admin.html";
+    if (data?.role === "employee") {
+      path = "employee.html";
+    } else if (data?.role === "admin" && isMasterTenantId(data?.tenant_id)) {
+      path = "master.html";
+    } else {
+      try {
+        const parsed = new URL(String(fallbackRedirect || ""), window.location.href);
+        const leaf = parsed.pathname.split("/").filter(Boolean).pop();
+        if (leaf && /\.html$/i.test(leaf)) path = leaf;
+      } catch {
+        /* keep admin default */
+      }
+    }
+    return buildNativePortalRedirectUrl(path);
+  }
+
+  async function confirmNativeSessionPersisted() {
+    if (!isCapacitorNative()) return;
+    bridgeNativeSessionForNextPage();
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await persistNativeSession();
+      try {
+        const prefs = await preferencesPlugin();
+        if (!prefs?.get) return;
+        const token = await prefs.get({ key: "sshr:token" });
+        const refresh = await prefs.get({ key: "sshr:refreshToken" });
+        if (token?.value || refresh?.value) return;
+      } catch {
+        /* ignore */
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+    }
+  }
+
+  async function waitForNativeSession(options = {}) {
+    consumeNativeSessionHandoff();
+    restoreNativeSessionBridge();
+    const postLogin = sessionStorage.getItem("sshrPostLoginTransition") === "1";
+    const maxMs = Number(options.maxMs) || (postLogin ? 10000 : 4000);
+    const deadline = Date.now() + maxMs;
+
+    while (Date.now() < deadline) {
+      restoreNativeSessionBridge();
+      await hydrateNativeSession({ force: true });
+      if (hasSession()) {
+        if (!getToken() && getRefreshToken()) {
+          await refreshAccessToken();
+          await hydrateNativeSession({ force: true });
+        }
+        if (hasSession()) return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+    }
+    return hasSession();
   }
 
   async function clearSession() {
@@ -242,6 +558,8 @@
     );
     try {
       sessionStorage.setItem("sshrSignedOut", "1");
+      sessionStorage.removeItem("sshrVerifiedTenantId");
+      sessionStorage.removeItem("sshrVerifiedTenantAt");
     } catch {
       /* ignore */
     }
@@ -260,6 +578,68 @@
     window.location.replace(loginUrl || resolveLoginUrl());
   }
 
+  function isApiRequestUrl(url) {
+    try {
+      const parsed = new URL(String(url), window.location.href);
+      return (
+        /(^|\.)api\.shiftswifthr\.co\.uk$/i.test(parsed.host) ||
+        (parsed.hostname === "localhost" && parsed.port === "3000")
+      );
+    } catch {
+      return /api\.shiftswifthr\.co\.uk/i.test(String(url || ""));
+    }
+  }
+
+  function canUseProductionWebApiFetch(url) {
+    if (!isCapacitorNative() || !isApiRequestUrl(url)) return false;
+    try {
+      return /(^|\.)app\.shiftswifthr\.co\.uk$/i.test(window.location.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  function isTransientNetworkError(error) {
+    const msg = String(error?.message || error || "").toLowerCase();
+    return (
+      msg.includes("could not connect") ||
+      msg.includes("failed to fetch") ||
+      msg.includes("load failed") ||
+      msg.includes("network") ||
+      msg.includes("timed out") ||
+      msg.includes("internet connection") ||
+      msg.includes("hostname could not be found")
+    );
+  }
+
+  async function nativeApiRequest(url, init = {}) {
+    const target = String(url);
+    if (!isCapacitorNative() || !isApiRequestUrl(target)) {
+      return fetch(target, init);
+    }
+
+    if (canUseProductionWebApiFetch(target)) {
+      return fetch(target, init);
+    }
+
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+
+    const http = window.ShiftSwiftNativeApiFetch;
+    if (http?.nativeAwareFetch) {
+      // nativeAwareFetch already queues + times out — do not wrap in a second race
+      // that can fire while the request is still waiting in the shared queue.
+      return http.nativeAwareFetch(target, init);
+    }
+    if (http?.nativeHttpRequest) {
+      return http.nativeHttpRequest(target, init);
+    }
+    if (http?.isCapacitorHttpEnabled?.()) {
+      const capFetch = http.getCapacitorFetch?.() || window.fetch.bind(window);
+      return capFetch(target, init);
+    }
+    return fetch(target, init);
+  }
+
   async function refreshAccessToken(apiBase) {
     if (refreshInFlight) return refreshInFlight;
     await hydrateNativeSession();
@@ -269,11 +649,14 @@
     const base = apiBase || getApiBase();
     refreshInFlight = (async () => {
       try {
-        const response = await fetch(`${base}/auth/refresh`, {
+        const url = `${base}/auth/refresh`;
+        const reqInit = {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: refresh }),
-        });
+        };
+        let response;
+        response = await nativeApiRequest(url, reqInit);
         const data = await response.json().catch(() => ({}));
         if (!response.ok) return false;
         storeSession(data);
@@ -306,24 +689,21 @@
       const verifyUrl = `${getApiBase()}/auth/verify`;
       const reqInit = { headers: authHeaders({ json: false }) };
       let response;
-      if (isCapacitorNative() && window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
-        response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(verifyUrl, reqInit);
-      } else {
-        response = await fetch(verifyUrl, reqInit);
-      }
+      response = await nativeApiRequest(verifyUrl, reqInit);
       if (!response.ok) {
+        if (isCapacitorNative() && hasSession()) return true;
         await clearSession();
         return false;
       }
       return true;
     } catch {
-      if (isCapacitorNative()) return false;
-      return Boolean(getToken());
+      return Boolean(getToken() || getRefreshToken());
     }
   }
 
   async function redirectIfLoggedIn() {
     try {
+      if (sessionStorage.getItem("sshrAuthBouncedToLogin") === "1") return false;
       if (sessionStorage.getItem("sshrSignedOut") === "1") {
         sessionStorage.removeItem("sshrSignedOut");
         await clearSession();
@@ -332,7 +712,7 @@
     } catch {
       /* ignore */
     }
-    await hydrateNativeSession();
+    await waitForNativeSession({ maxMs: 6000 });
     if (!(await canUseStoredSession())) return false;
     await persistNativeSession();
     try {
@@ -342,16 +722,22 @@
     }
     window.ShiftSwiftNativeApp?.hideSplash?.();
     if (isMasterAdminSession()) {
-      window.location.replace(portalUrl("master.html"));
+      window.location.replace(
+        isCapacitorNative() ? buildNativePortalRedirectUrl("master.html") : portalUrl("master.html"),
+      );
       return true;
     }
     const role = localStorage.getItem("userRole");
     if (role === "employee") {
-      window.location.replace(portalUrl("employee.html"));
+      window.location.replace(
+        isCapacitorNative() ? buildNativePortalRedirectUrl("employee.html") : portalUrl("employee.html"),
+      );
       return true;
     }
     if (role && role !== "employee") {
-      window.location.replace(portalUrl("admin.html"));
+      window.location.replace(
+        isCapacitorNative() ? buildNativePortalRedirectUrl("admin.html") : portalUrl("admin.html"),
+      );
       return true;
     }
     return false;
@@ -361,11 +747,10 @@
     const resolved = typeof options === "boolean" ? { json: options } : options || {};
     const { json = true, tenantId } = resolved;
     const token = getToken();
-    const headers = {
-      Authorization: token ? `Bearer ${token}` : "",
-    };
-    const tid = tenantId || localStorage.getItem("tenantId");
-    if (tid) headers["X-Tenant-Id"] = tid;
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const tid = tenantId || readTokenTenantId() || localStorage.getItem("tenantId");
+    if (tid) headers["X-Tenant-Id"] = String(tid);
     if (json) headers["Content-Type"] = "application/json";
     return headers;
   }
@@ -394,20 +779,47 @@
         ...options,
         headers: buildHeaders(),
       };
-      if (isCapacitorNative() && window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
-        return window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
-      }
-      return fetch(url, reqInit);
+      return nativeApiRequest(url, reqInit);
     };
 
+    const requestWithRetry = async (attempts = 3) => {
+      let lastError = null;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        try {
+          return await request();
+        } catch (error) {
+          lastError = error;
+          if (!isCapacitorNative() || !isTransientNetworkError(error) || attempt >= attempts - 1) {
+            throw error;
+          }
+          window.ShiftSwiftNativeApiFetch?.boot?.();
+          await hydrateNativeSession({ force: true });
+          await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));
+        }
+      }
+      throw lastError || new Error("Failed to fetch");
+    };
+
+    const isRotaPath = /\/(?:admin\/)?rota\//i.test(String(path || ""));
     let response;
     try {
-      response = await request();
+      // Rota already has its own fallbacks — avoid stacking 3×60s CapHttp waits.
+      response = await requestWithRetry(isCapacitorNative() ? (isRotaPath ? 1 : 3) : 1);
     } catch (error) {
-      if (isCapacitorNative() && (error?.message === "Load failed" || error?.message === "Failed to fetch")) {
+      if (isCapacitorNative() && isTransientNetworkError(error)) {
         nativeHydrated = false;
         await hydrateNativeSession({ force: true });
-        response = await request();
+        if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+          const url = `${apiBase}${path}`;
+          const reqInit = { ...options, headers: buildHeaders() };
+          try {
+            response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
+          } catch {
+            response = await request();
+          }
+        } else {
+          response = await request();
+        }
       } else {
         throw error;
       }
@@ -428,6 +840,23 @@
     return response;
   }
 
+  try {
+    consumeNativeSessionHandoff();
+  } catch {
+    /* ignore */
+  }
+  if (typeof document !== "undefined") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        consumeNativeSessionHandoff();
+        void hydrateNativeSession({ force: true });
+        window.ShiftSwiftNativeApiFetch?.boot?.();
+      },
+      { once: true },
+    );
+  }
+
   window.ShiftSwiftSession = {
     EMPLOYEE_LOGIN_URL,
     BUSINESS_LOGIN_URL,
@@ -440,15 +869,26 @@
     isCapacitorNative,
     isCapacitorUnifiedApp,
     isBundledNativeShell,
+    isUnifiedIphoneApp,
+    canUseProductionWebApiFetch,
     getApiBase,
     getToken,
     getRefreshToken,
+    readTokenTenantId,
     hasSession,
     storeSession,
     persistNativeSession,
     clearSession,
     signOut,
     hydrateNativeSession,
+    waitForNativeSession,
+    bridgeNativeSessionForNextPage,
+    restoreNativeSessionBridge,
+    consumeNativeSessionHandoff,
+    buildNativeEmployeePortalUrl,
+    buildNativePortalRedirectUrl,
+    nativePortalRedirectAfterLogin,
+    confirmNativeSessionPersisted,
     redirectIfLoggedIn,
     refreshAccessToken,
     authHeaders,

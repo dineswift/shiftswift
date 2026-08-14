@@ -40,7 +40,7 @@
             <button class="btn portal-login-submit" type="submit">Open master console</button>
 
             <p class="portal-login-secure-note">
-              Secured · MFA required in production · <span data-secure-host>shiftswifthr.co.uk</span>
+              Secured · Email code after password · <span data-secure-host>shiftswifthr.co.uk</span>
             </p>
           </form>
 
@@ -54,7 +54,7 @@
           <div class="portal-login-card-head">
             <h1>Set up authenticator</h1>
             <p class="portal-login-card-lead">
-              Production requires MFA for master admin. Scan the code below, then enter a 6-digit code to finish.
+              Recommended for platform security. Scan the code below, then enter a 6-digit code — or skip and enable an authenticator later in Master account settings.
             </p>
           </div>
           <div class="portal-login-form">
@@ -69,26 +69,48 @@
               <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
             </label>
             <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
-            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+            <div class="mfa-enrollment-actions">
+              <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+              <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-enrollment-skip">Skip for now</button>
+            </div>
           </div>
         </div>
 
         <div id="mfa-panel" class="portal-login-card-body" hidden>
-          <div class="portal-login-card-head">
-            <h1>Two-factor authentication</h1>
-            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+            <div class="portal-login-card-head">
+              <h1 id="mfa-panel-title">Check your email</h1>
+              <p class="portal-login-card-lead" id="mfa-panel-lead">We sent a 6-digit code to <strong data-mfa-user></strong>.</p>
+            </div>
+            <form id="mfa-form" class="portal-login-form">
+              <label id="mfa-code-label" class="mfa-code-field">
+                <span id="mfa-code-label-text">Email code</span>
+                <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+              </label>
+              <p class="muted mfa-resend-row" id="mfa-resend-wrap">
+                <button type="button" class="portal-login-inline-link" id="mfa-resend-btn">Resend email code</button>
+              </p>
+              <label class="unified-login-remember-device portal-login-remember--mfa" id="mfa-remember-wrap">
+                <input type="checkbox" id="login-remember-device-mfa" checked />
+                <span>Trust this device for 30 days</span>
+              </label>
+              <p id="mfa-verify-status" class="form-error-message" hidden></p>
+              <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+              <div class="native-login-mfa-alt" id="mfa-alt-methods" hidden>
+                <button type="button" class="portal-login-inline-link" id="mfa-use-email-btn" hidden>Use email code</button>
+                <button type="button" class="portal-login-inline-link" id="mfa-use-totp-btn" hidden>Use authenticator app</button>
+              </div>
+              <p class="muted native-login-mfa-divider" id="mfa-passkey-divider" hidden>or</p>
+              <button type="button" class="btn portal-login-submit portal-login-submit--secondary" id="mfa-passkey-btn" hidden>
+                Verify with Face ID
+              </button>
+              <p class="portal-login-secure-note">
+                <button type="button" class="portal-login-inline-link" id="mfa-back-signin">Back to sign in</button>
+              </p>
+            </form>
           </div>
-          <form id="mfa-form" class="portal-login-form">
-            <label>
-              Authenticator code
-              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
-            </label>
-            <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
-          </form>
-        </div>
       </section>
     </div>
     <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./login.js?v=brandkit-v17"></script>
+    <script src="./login.js?v=brandkit-v26"></script>
   </body>
 </html>

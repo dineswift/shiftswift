@@ -28,14 +28,24 @@ bash scripts/start_local.sh
 
 Contact: support@shiftswifthr.co.uk · legal@shiftswifthr.co.uk
 
-## Native iOS apps (App Store)
+## Native apps (App Store / Play Store)
 
-Capacitor shells — same UI as the PWAs. See [docs/native_ios_apps.md](docs/native_ios_apps.md) and [mobile/README.md](mobile/README.md).
+Separate Capacitor projects — same UI as the PWAs:
+
+| Folder | Platform | Docs |
+|--------|----------|------|
+| [`iphone-app/`](iphone-app/) | iOS | [iphone-app/README.md](iphone-app/README.md), [App Store](iphone-app/docs/APP_STORE_RELEASE.md) |
+| [`android-app/`](android-app/) | Android | [android-app/README.md](android-app/README.md), [Play Store](android-app/docs/PLAY_STORE_RELEASE.md) |
 
 ```bash
-cd mobile && npm install && npm run ios:setup
-npm run ios:employee:open   # or ios:business:open
+# iPhone / iPad
+cd iphone-app && npm install && npm run sync:ios && npm run ios:open
+
+# Android phone / tablet
+cd android-app && npm install && npm run sync:android && npm run android:device
 ```
+
+Older multi-variant shells: [mobile/README.md](mobile/README.md).
 
 ## Production
 

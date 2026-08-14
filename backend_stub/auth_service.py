@@ -26,6 +26,7 @@ class AuthUser:
     role: str
     tenant_id: str
     impersonated_by: str | None = None
+    workspace_role: str | None = None
 
 
 @dataclass
@@ -37,6 +38,7 @@ class TokenPair:
     tenant_id: str
     username: str
     expires_in: int
+    workspace_role: str | None = None
 
 
 def hash_password(password: str) -> str:
@@ -72,7 +74,53 @@ def clear_login_attempts(ip: str, username: str) -> None:
     _login_attempts.pop(_rate_limit_key(ip, username), None)
 
 
+def lookup_workspace_role(settings: Settings, *, username: str, tenant_id: str) -> str | None:
+    """Resolve workspace RBAC role from tenant_users (business HR logins only)."""
+    if not settings.use_db or not settings.database_url:
+        return "owner" if settings.is_development else None
+    import psycopg2
+
+    conn = psycopg2.connect(settings.database_url)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT role
+                FROM tenant_users
+                WHERE tenant_id = %s
+                  AND lower(username) = lower(%s)
+                  AND is_active = TRUE
+                LIMIT 1
+                """,
+                (int(tenant_id), username),
+            )
+            row = cur.fetchone()
+            return str(row[0]) if row else None
+    finally:
+        conn.close()
+
+
+def auth_user_with_workspace_role(settings: Settings, user: AuthUser) -> AuthUser:
+    if user.workspace_role or user.role != "hr":
+        return user
+    workspace_role = lookup_workspace_role(
+        settings,
+        username=user.username,
+        tenant_id=user.tenant_id,
+    )
+    if not workspace_role:
+        workspace_role = "hr_manager"
+    return AuthUser(
+        username=user.username,
+        role=user.role,
+        tenant_id=user.tenant_id,
+        impersonated_by=user.impersonated_by,
+        workspace_role=workspace_role,
+    )
+
+
 def create_token_pair(settings: Settings, user: AuthUser) -> TokenPair:
+    user = auth_user_with_workspace_role(settings, user)
     now = datetime.now(timezone.utc)
     access_exp = now + timedelta(minutes=settings.jwt_access_minutes)
     refresh_exp = now + timedelta(days=settings.jwt_refresh_days)
@@ -84,6 +132,8 @@ def create_token_pair(settings: Settings, user: AuthUser) -> TokenPair:
         "iat": int(now.timestamp()),
         "exp": int(access_exp.timestamp()),
     }
+    if user.workspace_role:
+        access_payload["workspace_role"] = user.workspace_role
     refresh_payload = {
         "sub": user.username,
         "role": user.role,
@@ -92,6 +142,8 @@ def create_token_pair(settings: Settings, user: AuthUser) -> TokenPair:
         "iat": int(now.timestamp()),
         "exp": int(refresh_exp.timestamp()),
     }
+    if user.workspace_role:
+        refresh_payload["workspace_role"] = user.workspace_role
     access_token = jwt.encode(access_payload, settings.jwt_secret, algorithm="HS256")
     refresh_token = jwt.encode(refresh_payload, settings.jwt_secret, algorithm="HS256")
     return TokenPair(
@@ -102,6 +154,7 @@ def create_token_pair(settings: Settings, user: AuthUser) -> TokenPair:
         tenant_id=user.tenant_id,
         username=user.username,
         expires_in=settings.jwt_access_minutes * 60,
+        workspace_role=user.workspace_role,
     )
 
 
@@ -153,11 +206,13 @@ def decode_token(settings: Settings, token: str, expected_type: str = "access") 
     if not username or not role or not tenant_id:
         raise ValueError("Malformed token")
     impersonated_by = payload.get("impersonated_by") if payload.get("impersonation") else None
+    workspace_role = payload.get("workspace_role")
     return AuthUser(
         username=username,
         role=role,
         tenant_id=tenant_id,
         impersonated_by=str(impersonated_by) if impersonated_by else None,
+        workspace_role=str(workspace_role) if workspace_role else None,
     )
 
 
@@ -184,6 +239,38 @@ def fetch_user_from_db(settings: Settings, username: str) -> dict[str, Any] | No
             return dict(row) if row else None
     finally:
         conn.close()
+
+
+def authenticate_user_lookup(settings: Settings, username: str) -> AuthUser | None:
+    """Resolve an active user by username — no password (e.g. passkey login)."""
+    row = fetch_user_from_db(settings, username)
+    if row:
+        if not row.get("is_active"):
+            return None
+        locked_until = row.get("locked_until")
+        if locked_until and locked_until > datetime.now(timezone.utc):
+            return None
+        return AuthUser(
+            username=row["username"],
+            role=row["role"],
+            tenant_id=str(row["tenant_id"]),
+        )
+    if settings.is_production:
+        return None
+    fallback_users = development_fallback_users(master_tenant_id=settings.master_customer_id)
+    fallback = fallback_users.get(username)
+    if not fallback:
+        for key, value in fallback_users.items():
+            if key.lower() == username.lower():
+                fallback = value
+                break
+    if not fallback:
+        return None
+    return AuthUser(
+        username=username,
+        role=fallback["role"],
+        tenant_id=str(fallback["tenant_id"]),
+    )
 
 
 def authenticate_user(
@@ -241,7 +328,7 @@ def authenticate_user(
         return None
     if portal == "business" and user.role == "admin":
         return None
-    return None
+    return user
 
 
 def _lookup_user_row(settings: Settings, username: str) -> dict[str, Any] | None:

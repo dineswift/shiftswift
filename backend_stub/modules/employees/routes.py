@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr, Field
 from auth_service import AuthUser
 from config import load_settings
 from core.database import get_connection
+from core.permissions import check_permission
 from deps import client_ip, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from employee_audit import log_employee_data_event
 from modules.employees.constants import DOCUMENT_SECTIONS, LINK_ONLY_SECTIONS, SECTION_ORDER
@@ -82,6 +83,7 @@ class EmployeeDocumentCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
+    employee_visible: bool | None = None
 
 
 class EmployeeDocumentUpdate(BaseModel):
@@ -92,6 +94,8 @@ class EmployeeDocumentUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
+    pay_period: str | None = Field(default=None, max_length=64)
+    employee_visible: bool | None = None
 
 
 class BulkPortalInviteRequest(BaseModel):
@@ -125,6 +129,8 @@ def bulk_invite_employees_to_portal(
             user_agent=request.headers.get("User-Agent"),
             resend_existing=payload.resend_existing,
         )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         conn.close()
 
@@ -261,6 +267,8 @@ def invite_employee_to_portal_route(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         conn.close()
 
@@ -315,6 +323,7 @@ async def upload_employee_document(
     notes: str | None = Form(default=None),
     expires_at: date | None = Form(default=None),
     pay_period: str | None = Form(default=None),
+    employee_visible: bool = Form(default=False),
     notify_employee: bool = Form(default=True),
     send_email: bool = Form(default=True),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
@@ -328,6 +337,7 @@ async def upload_employee_document(
     from modules.documents.storage import read_validated_upload, write_document_file
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     file_bytes, content_type, ext = await read_validated_upload(file, max_bytes=settings.max_upload_bytes)
     normalized_pay_period = (pay_period or "").strip() or None
     if category == "payslip" and not normalized_pay_period:
@@ -349,6 +359,7 @@ async def upload_employee_document(
                 "expires_at": expires_at,
                 "original_filename": file.filename,
                 "pay_period": normalized_pay_period,
+                "employee_visible": employee_visible,
             },
             uploaded_by=current_user.username,
             conn=conn,
@@ -405,6 +416,14 @@ async def upload_employee_document(
             conn=conn,
         )
         if notify_employee:
+            if not employee_visible and doc.get("id") is not None:
+                doc = update_employee_document(
+                    tenant_id=tenant_id,
+                    employee_id=employee_id,
+                    document_id=int(doc["id"]),
+                    updates={"employee_visible": True},
+                    conn=conn,
+                )
             targets = load_document_notification_targets(
                 tenant_id=tenant_id,
                 employee_id=employee_id,
@@ -474,6 +493,10 @@ class SendDocumentSignatureRequest(BaseModel):
     frontend_base: str | None = Field(default=None, max_length=240)
 
 
+class DocumentResendNotificationRequest(BaseModel):
+    send_email: bool = Field(default=True)
+
+
 @router.post("/{employee_id}/documents/{document_id}/send-for-signature")
 def send_employee_document_for_signature(
     employee_id: int,
@@ -486,6 +509,7 @@ def send_employee_document_for_signature(
     from modules.document_signing.service import send_document_for_signature
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     frontend_base = (payload.frontend_base or str(request.base_url)).rstrip("/")
     if frontend_base.endswith("/admin/employees"):
         frontend_base = frontend_base.rsplit("/admin", 1)[0]
@@ -506,6 +530,8 @@ def send_employee_document_for_signature(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
         log_employee_data_event(
             tenant_id=tenant_id,
             actor_username=current_user.username,
@@ -523,6 +549,78 @@ def send_employee_document_for_signature(
     return result
 
 
+@router.post("/{employee_id}/documents/{document_id}/resend-notification")
+def resend_employee_document_notification(
+    employee_id: int,
+    document_id: int,
+    payload: DocumentResendNotificationRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.documents.notifications import resend_document_share_notifications
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
+    conn = get_connection()
+    try:
+        if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
+            raise HTTPException(status_code=404, detail="employee not found")
+        return resend_document_share_notifications(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            document_scope="employee",
+            employee_id=employee_id,
+            employee_ids=None,
+            conn=conn,
+            send_email=payload.send_email,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
+@router.post("/{employee_id}/documents/{document_id}/resend-signature-email")
+def resend_employee_document_signature_email(
+    employee_id: int,
+    document_id: int,
+    payload: SendDocumentSignatureRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    from modules.document_signing.service import resend_document_signing_email
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
+    frontend_base = (payload.frontend_base or str(request.base_url)).rstrip("/")
+    if frontend_base.endswith("/admin/employees"):
+        frontend_base = frontend_base.rsplit("/admin", 1)[0]
+    conn = get_connection()
+    try:
+        if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
+            raise HTTPException(status_code=404, detail="employee not found")
+        return resend_document_signing_email(
+            conn=conn,
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            document_id=document_id,
+            frontend_base=frontend_base,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
 @router.post("/{employee_id}/documents")
 def add_employee_document(
     employee_id: int,
@@ -532,6 +630,7 @@ def add_employee_document(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     conn = get_connection()
     try:
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
@@ -561,12 +660,35 @@ def patch_employee_document(
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
+    if "pay_period" in updates:
+        updates["pay_period"] = (updates["pay_period"] or "").strip() or None
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     conn = get_connection()
     try:
         if not fetch_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn):
             raise HTTPException(status_code=404, detail="employee not found")
+        next_category = updates.get("category")
+        if next_category == "payslip":
+            next_pay_period = updates.get("pay_period")
+            if next_pay_period is None and "pay_period" not in updates:
+                from modules.documents.service import get_employee_document
+
+                existing = get_employee_document(
+                    tenant_id=tenant_id,
+                    employee_id=employee_id,
+                    document_id=document_id,
+                    conn=conn,
+                )
+                if not existing:
+                    raise HTTPException(status_code=404, detail="document not found")
+                next_pay_period = (existing.get("pay_period") or "").strip() or None
+            if not next_pay_period:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Pay period is required when category is payslip (e.g. 2026-04 or April 2026)",
+                )
         return update_employee_document(
             tenant_id=tenant_id,
             employee_id=employee_id,
@@ -591,6 +713,7 @@ def remove_employee_document(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, str]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    check_permission(current_user, "compliance.write")
     conn = get_connection()
     try:
         delete_employee_document(

@@ -1,6 +1,11 @@
 /** Employee workspace — lifecycle flow aligned to HR chart (recruitment → off-boarding). */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE, readApiError, friendlyNativeError, normalizeEmployeeListPayload, verifyAdminSession, getAdminOverviewCache, parseApiJson, fetchEmployeesList, peekEmployeesListCache, showAdminToast } = window.Admin;
+
+  function employeesToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   const DEFAULT_DOCUMENT_UPLOAD = {
     accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
@@ -204,17 +209,42 @@
   let quickAddMounted = false;
 
   function isMobileEmployeesHub() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    if (document.documentElement.classList.contains("native-tablet")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function lifecycleStage(row) {
     if (!row) return "recruitment";
     if (row.status === "terminated") return "offboarding";
-    if (row.status === "active" && !row.next_section) return "active";
+    if (row.status === "active") return "active";
+    if (row.status === "onboarding") return "onboarding";
     if (row.next_section === "recruitment") return "recruitment";
-    if (row.status === "active" && (row.completion_pct ?? 0) >= 100) return "active";
-    if (row.status === "onboarding" || row.next_section) return "onboarding";
+    if (row.next_section) return "onboarding";
     return "active";
+  }
+
+  function isoDateInputValue(value) {
+    const raw = String(value || "").trim().slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+  }
+
+  function employeeIdMatches(left, right) {
+    return Number(left) === Number(right);
+  }
+
+  function resolveSelectedEmployeeRow() {
+    if (!selectedEmployeeId) return null;
+    return employeesCache.find((row) => employeeIdMatches(row.id, selectedEmployeeId)) || null;
+  }
+
+  function setEmployeeSidePanelVisible(hasEmployee) {
+    const panel = $("employees-side-panel");
+    const empty = $("employees-side-empty");
+    const content = $("employees-side-content");
+    const selected = Boolean(hasEmployee);
+    if (empty) empty.hidden = selected;
+    if (content) content.hidden = !selected;
+    if (panel) panel.classList.toggle("employees-side-panel--selected", selected);
   }
 
   function bucketEmployeesByStage(items = []) {
@@ -312,6 +342,40 @@
     return employeesCache;
   }
 
+  function autoExpandLifecycleStage(items = employeesCache) {
+    const buckets = bucketEmployeesByStage(items);
+    const order = ["active", "onboarding", "recruitment", "offboarding"];
+    const pick = order.find((key) => (buckets[key] || []).length) || "recruitment";
+    lifecycleHubExpanded = { recruitment: false, onboarding: false, active: false, offboarding: false };
+    lifecycleHubExpanded[pick] = true;
+    lifecycleHubOpenStage = pick;
+  }
+
+  function renderLifecycleHubLoadError(message) {
+    const hub = $("employees-lifecycle-hub");
+    if (!hub || !isMobileEmployeesHub()) return;
+    hub.hidden = false;
+    hub.innerHTML = `<div class="overview-error" style="padding:16px 0;margin-bottom:12px">
+      <p class="muted">${escapeHtml(message)}</p>
+      <button type="button" class="btn outline btn-sm" id="employees-hub-retry-btn">Retry</button>
+    </div>`;
+    hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
+      void initEmployeesSection();
+    });
+  }
+
+  function syncEmployeesPresentation() {
+    if (!employeesCache.length) {
+      renderEmployeeSidePanel(null);
+      renderLifecycleHub([]);
+      renderEmployeeMobileCards([]);
+      return;
+    }
+    autoExpandLifecycleStage(employeesCache);
+    renderLifecycleHub(employeesCache);
+    renderEmployeeMobileCards(getFilteredEmployees());
+  }
+
   function renderEmployeeRegisterFilterBanner() {
     const banner = $("employees-register-filter-banner");
     if (!banner) return;
@@ -339,29 +403,39 @@
   }
 
   function renderEmployeeRegister() {
-    const tbody = $("employees-table-body");
-    if (!tbody) return;
-
     renderEmployeeRegisterFilterBanner();
     const rows = getFilteredEmployees();
+    const tbody = $("employees-table-body");
 
     if (!employeesCache.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No employees yet. Add your first team member above.</td></tr>';
-      renderEmployeeSidePanel(null);
-      renderLifecycleHub([]);
+      if (tbody) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="muted">No employees yet. Add your first team member above.</td></tr>';
+      }
+      syncEmployeesPresentation();
       return;
     }
 
     if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      if (tbody) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      }
+      if (!resolveSelectedEmployeeRow()) {
+        renderEmployeeSidePanel(null);
+      }
+      syncEmployeesPresentation();
+      return;
+    }
+
+    if (!tbody) {
+      syncEmployeesPresentation();
       return;
     }
 
     tbody.innerHTML = rows
       .map((row) => {
-        const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
+        const selected = employeeIdMatches(selectedEmployeeId, row.id) ? " hr-register-row--selected" : "";
         return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
           <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
           <td>${escapeHtml(row.department || "Not set")}</td>
@@ -380,25 +454,56 @@
         }
         selectedEmployeeId = newId;
         tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-          el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+          el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
         });
-        void renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+        void renderEmployeeSidePanel(resolveSelectedEmployeeRow());
       });
     });
 
-    if (selectedEmployeeId && rows.some((row) => row.id === selectedEmployeeId)) {
-      renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+    const selectedRow = resolveSelectedEmployeeRow();
+    if (selectedRow) {
+      void renderEmployeeSidePanel(selectedRow);
     } else if (employeeRegisterFilter === "portal-pending" && rows.length === 1) {
       selectedEmployeeId = rows[0].id;
       tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-        el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+        el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
       });
       void renderEmployeeSidePanel(rows[0]);
     } else {
       selectedEmployeeId = null;
       renderEmployeeSidePanel(null);
     }
-    renderLifecycleHub(employeesCache);
+    syncEmployeesPresentation();
+  }
+
+  function renderEmployeeMobileCards(rows = getFilteredEmployees()) {
+    const host = $("employees-mobile-cards");
+    const hub = $("employees-lifecycle-hub");
+    if (!host || !isMobileEmployeesHub()) return;
+    if (hub && !hub.hidden && hub.querySelector(".lifecycle-hub-section")) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    if (!employeesCache.length) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = rows.length
+      ? rows
+          .map(
+            (row) => `<button type="button" class="lifecycle-employee-card" data-employee-id="${row.id}">
+              <span class="lifecycle-employee-card__name">${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</span>
+              <span class="lifecycle-employee-card__meta muted">${escapeHtml(row.job_title || row.department || "Employee")} · ${escapeHtml(row.status || "active")}</span>
+            </button>`,
+          )
+          .join("")
+      : `<p class="muted">No employees match this filter.</p>`;
+    host.querySelectorAll("[data-employee-id]").forEach((card) => {
+      card.addEventListener("click", () => openEmployee(Number(card.dataset.employeeId)));
+    });
   }
 
   function applyEmployeesListRoute() {
@@ -451,7 +556,9 @@
         } else if (isCurrent) {
           stateClass = " lifecycle-stage-rail__step--current";
           marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
-          stateLabel = `<span class="lifecycle-stage-rail__state">In progress</span>`;
+          const currentLabel =
+            selectedEmployee?.status === "active" && stage.id === "active" ? "Current" : "In progress";
+          stateLabel = `<span class="lifecycle-stage-rail__state">${currentLabel}</span>`;
         } else {
           marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
         }
@@ -496,7 +603,11 @@
       if (index < lines.length) trackParts.push(lines[index]);
     });
 
-    rail.innerHTML = `<div class="lifecycle-stage-rail__track${
+    const caption = selectedEmployee
+      ? `<p class="lifecycle-stage-rail__caption"><span class="lifecycle-stage-rail__caption-label">Lifecycle stage for</span> <strong>${escapeHtml(selectedEmployee.first_name)} ${escapeHtml(selectedEmployee.last_name)}</strong></p>`
+      : `<p class="lifecycle-stage-rail__caption lifecycle-stage-rail__caption--overview muted">Team overview — select an employee to see their lifecycle stage</p>`;
+
+    rail.innerHTML = `${caption}<div class="lifecycle-stage-rail__track${
       selectedEmployee ? "" : " lifecycle-stage-rail__track--neutral"
     }" style="--lifecycle-progress:${progressPct}%">${trackParts.join("")}</div>`;
 
@@ -553,9 +664,17 @@
   function renderLifecycleHub(items = employeesCache) {
     const hub = $("employees-lifecycle-hub");
     if (!hub) return;
+    try {
+    const overviewActive = Number(getAdminOverviewCache?.()?.modules?.employees?.active ?? 0);
+    const mismatchBanner =
+      !items.length && overviewActive > 0
+        ? `<div class="overview-error" style="margin-bottom:10px"><p class="muted">Your dashboard shows ${overviewActive} active employee${overviewActive === 1 ? "" : "s"}, but the register is still empty. Tap Retry below or pull to refresh.</p><button type="button" class="btn outline btn-sm" id="employees-hub-retry-btn">Retry</button></div>`
+        : "";
     const buckets = bucketEmployeesByStage(items);
     const selected =
-      selectedEmployeeId && items.length ? items.find((row) => row.id === selectedEmployeeId) || null : null;
+      selectedEmployeeId && items.length
+        ? items.find((row) => employeeIdMatches(row.id, selectedEmployeeId)) || null
+        : null;
     renderLifecycleStageRail(buckets, { selectedEmployee: selected, totalEmployees: items.length });
 
     if (!isMobileEmployeesHub()) {
@@ -567,7 +686,7 @@
     hub.hidden = false;
     const icon = (name) => window.AdminIcons?.svg?.(name) || "";
 
-    hub.innerHTML = LIFECYCLE_STAGES.map((stage) => {
+    hub.innerHTML = mismatchBanner + LIFECYCLE_STAGES.map((stage) => {
       const rows = buckets[stage.id] || [];
       const isOpen = Boolean(lifecycleHubExpanded[stage.id]);
       const showAll = Boolean(lifecycleHubShowAll[stage.id]);
@@ -624,6 +743,10 @@
       relocateQuickAddForm(document.querySelector(".employees-quick-add-panel"));
     }
 
+    hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
+      void initEmployeesSection();
+    });
+
     hub.querySelectorAll("[data-lifecycle-toggle]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const stageId = btn.dataset.lifecycleToggle;
@@ -647,6 +770,15 @@
     hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => focusRecruitmentAddForm());
 
     $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
+    } catch (error) {
+      console.error("Employee lifecycle hub render failed:", error);
+      if (!isMobileEmployeesHub()) return;
+      hub.hidden = false;
+      hub.innerHTML = `<div class="overview-error"><p class="muted">Could not display employees.</p><button type="button" class="btn outline btn-sm" id="employees-hub-render-retry">Retry</button></div>`;
+      hub.querySelector("#employees-hub-render-retry")?.addEventListener("click", () => {
+        void refreshEmployeesTable();
+      });
+    }
   }
 
   function focusRecruitmentAddForm() {
@@ -701,6 +833,39 @@
   let sidePanelExpandedSection = null;
   let sidePanelRenderRequest = 0;
   let employeesCache = [];
+  let employeesRefreshGeneration = 0;
+  let employeesRefreshInflight = null;
+
+  function employeesFromFormOptions() {
+    const options = window.Admin?.formOptions?.employees || [];
+    return options.map((row) => ({
+      id: row.id,
+      first_name: row.first_name || String(row.label || "").split(",")[0]?.trim() || "Employee",
+      last_name: row.last_name || "",
+      job_title: row.job_title || "",
+      department: row.department || "",
+      status: row.status || "active",
+      email: row.email || "",
+      completion_pct: row.completion_pct ?? 0,
+      next_section: row.next_section ?? null,
+    }));
+  }
+
+  function applyEmployeesCache(items, meta = {}) {
+    employeesCache = items;
+    try {
+      window.__SSHR_LAST_API = {
+        ...(window.__SSHR_LAST_API || {}),
+        path: "/admin/employees",
+        count: items.length,
+        tenantId: meta.tenantId || localStorage.getItem("tenantId"),
+        at: Date.now(),
+      };
+    } catch {
+      /* ignore */
+    }
+    renderEmployeeRegister();
+  }
   let employeeRegisterFilter = null;
   let activeSection = "recruitment";
   let workspaceCache = null;
@@ -745,6 +910,9 @@
     $("employees-detail-view")?.setAttribute("hidden", "");
     activeEmployeeId = null;
     workspaceCache = null;
+    mobileProfileTab = "details";
+    mobileProfileEdit = false;
+    teardownMobileEmployeeProfile();
     setSidebarBreadcrumb(null);
     window.location.hash = "employees";
     renderLifecycleHub(employeesCache);
@@ -754,6 +922,465 @@
     $("employees-list-view")?.setAttribute("hidden", "");
     $("employees-detail-view")?.removeAttribute("hidden");
     $("employee-advanced-links")?.removeAttribute("hidden");
+  }
+
+  let mobileProfileTab = "details";
+  let mobileProfileEdit = false;
+  let mobileProfileHours = null;
+  let mobileProfileLeave = null;
+
+  function iconSvg(name) {
+    return window.AdminIcons?.svg?.(name) || "";
+  }
+
+  function employmentTypeLabel(type) {
+    const key = String(type || "").toLowerCase();
+    const labels = {
+      full_time: "Full time",
+      part_time: "Part time",
+      zero_hours: "Zero hours",
+      fixed_term: "Fixed term",
+      casual: "Casual",
+    };
+    return labels[key] || (type ? String(type).replace(/_/g, " ") : "");
+  }
+
+  function formatSinceMonth(value) {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return `Since ${parsed.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`;
+  }
+
+  function formatFriendlyDate(value) {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+    return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function statusDisplayLabel(status) {
+    const key = String(status || "active").toLowerCase();
+    return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function rtwDisplayLabel(employee) {
+    const status = String(employee?.sponsorship?.rtw_status || employee?.rtw_status || "").toLowerCase();
+    if (status === "verified" || status === "approved" || status === "complete") return "Verified";
+    if (status === "pending" || status === "in_progress") return "Pending";
+    if (status) return statusDisplayLabel(status);
+    return "Not checked";
+  }
+
+  function profileValueOrDash(value) {
+    const text = String(value ?? "").trim();
+    return text || "—";
+  }
+
+  function profileDetailRow({ icon, label, value, href, tone }) {
+    const display = profileValueOrDash(value);
+    const toneClass = tone ? ` emp-profile-row__value--${tone}` : "";
+    const inner = href && display !== "—"
+      ? `<a class="emp-profile-row__value${toneClass}" href="${escapeHtml(href)}">${escapeHtml(display)}</a>`
+      : `<span class="emp-profile-row__value${toneClass}">${escapeHtml(display)}</span>`;
+    return `<div class="emp-profile-row">
+      <span class="emp-profile-row__icon" aria-hidden="true">${iconSvg(icon)}</span>
+      <span class="emp-profile-row__label">${escapeHtml(label)}</span>
+      ${inner}
+    </div>`;
+  }
+
+  function setDesktopEmployeeChromeVisible(visible) {
+    const detail = $("employees-detail-view");
+    if (!detail) return;
+    detail.classList.toggle("employees-detail-view--mobile-profile", !visible && isMobileEmployeesHub());
+    [
+      ".employee-profile-header",
+      ".employee-workflows-bar",
+      "#employee-lifecycle-accordion",
+      "#employee-kiosk-pin-panel",
+      "#employee-history-panel",
+      ".employee-back-link",
+    ].forEach((sel) => {
+      const el = detail.querySelector(sel);
+      if (!el) return;
+      if (visible) el.removeAttribute("hidden");
+      else el.setAttribute("hidden", "");
+    });
+  }
+
+  function teardownMobileEmployeeProfile() {
+    document.getElementById("emp-mobile-profile")?.remove();
+    document.getElementById("emp-profile-edit-btn")?.remove();
+    const back = document.getElementById("mobile-back-btn");
+    if (back && !back.dataset.defaultLabel) back.dataset.defaultLabel = "← Back";
+    if (back) back.textContent = back.dataset.defaultLabel || "← Back";
+    const brandName = document.getElementById("topbar-business-name");
+    if (brandName?.dataset.profileRestore) {
+      brandName.textContent = brandName.dataset.profileRestore;
+      delete brandName.dataset.profileRestore;
+    }
+    setDesktopEmployeeChromeVisible(true);
+    document.body.classList.remove("emp-profile-open");
+  }
+
+  function ensureMobileProfileEditButton() {
+    let btn = document.getElementById("emp-profile-edit-btn");
+    if (btn) return btn;
+    const tools = document.querySelector(".topbar-tools");
+    if (!tools) return null;
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "emp-profile-edit-btn";
+    btn.className = "btn ghost btn-sm emp-profile-edit-btn";
+    btn.textContent = "Edit";
+    tools.insertBefore(btn, tools.firstChild);
+    btn.addEventListener("click", () => {
+      mobileProfileEdit = !mobileProfileEdit;
+      if (mobileProfileEdit) mobileProfileTab = "details";
+      if (workspaceCache) renderMobileEmployeeProfile(workspaceCache);
+    });
+    return btn;
+  }
+
+  function renderMobileProfileDetails(employee, workspace) {
+    if (mobileProfileEdit) {
+      return `<div class="emp-profile-edit-wrap">
+        <p class="muted emp-profile-edit-lead">Changes save when you leave a field.</p>
+        <div class="employee-record-fields emp-profile-edit-fields">
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Job title</span>
+            <input type="text" id="employees-side-job-title" value="${escapeHtml(employee.job_title || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Department</span>
+            <select id="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Email</span>
+            <input type="email" id="employees-side-email" value="${escapeHtml(employee.email || "")}" placeholder="Not set" />
+          </label>
+        </div>
+        <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
+        ${renderEmployeeRecordSectionsHtml(employee, workspace)}
+        <p class="emp-profile-lifecycle-link">
+          <button type="button" class="employee-record-link" id="employees-side-lifecycle-btn">Open full lifecycle record →</button>
+        </p>
+      </div>`;
+    }
+
+    const contracted = employee.contract_hours_weekly != null ? Number(employee.contract_hours_weekly) : null;
+    const hoursValue = mobileProfileHours?.hours != null ? String(mobileProfileHours.hours) : "–";
+    const hoursSub =
+      contracted != null
+        ? `of ${contracted} contracted`
+        : mobileProfileHours?.loading
+          ? "Loading…"
+          : "This week";
+    const leaveValue = mobileProfileLeave?.remaining_days != null ? String(mobileProfileLeave.remaining_days) : "–";
+    const leaveSub = mobileProfileLeave?.loading
+      ? "Loading…"
+      : mobileProfileLeave?.remaining_days != null
+        ? "days remaining"
+        : "Leave balance";
+    const rtw = rtwDisplayLabel(employee);
+    const rtwTone = rtw === "Verified" ? "ok" : rtw === "Pending" ? "warn" : "";
+    const contractCopy =
+      contracted != null ? `${contracted} hrs / week` : employmentTypeLabel(employee.employment_type) || "—";
+
+    return `
+      <div class="emp-profile-stats">
+        <article class="emp-profile-stat">
+          <p class="emp-profile-stat__label">Hours this week</p>
+          <p class="emp-profile-stat__value">${escapeHtml(hoursValue)}</p>
+          <p class="emp-profile-stat__sub">${escapeHtml(hoursSub)}</p>
+        </article>
+        <article class="emp-profile-stat">
+          <p class="emp-profile-stat__label">Holiday left</p>
+          <p class="emp-profile-stat__value">${escapeHtml(leaveValue)}</p>
+          <p class="emp-profile-stat__sub">${escapeHtml(leaveSub)}</p>
+        </article>
+      </div>
+
+      <section class="emp-profile-section" aria-labelledby="emp-profile-personal">
+        <h3 class="emp-profile-section__title" id="emp-profile-personal">Personal</h3>
+        <div class="emp-profile-card">
+          ${profileDetailRow({ icon: "mail", label: "Email", value: employee.email, href: employee.email ? `mailto:${employee.email}` : "", tone: employee.email ? "link" : "" })}
+          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.phone, href: employee.phone ? `tel:${String(employee.phone).replace(/\s+/g, "")}` : "" })}
+          ${profileDetailRow({ icon: "map-pin", label: "Address", value: employee.home_address })}
+          ${profileDetailRow({ icon: "cake", label: "Date of birth", value: employee.date_of_birth ? formatFriendlyDate(employee.date_of_birth) : "" })}
+        </div>
+      </section>
+
+      <section class="emp-profile-section" aria-labelledby="emp-profile-employment">
+        <h3 class="emp-profile-section__title" id="emp-profile-employment">Employment</h3>
+        <div class="emp-profile-card">
+          ${profileDetailRow({ icon: "briefcase", label: "Job title", value: employee.job_title })}
+          ${profileDetailRow({ icon: "calendar", label: "Start date", value: employee.start_date ? formatFriendlyDate(employee.start_date) : "" })}
+          ${profileDetailRow({ icon: "clock", label: "Contract", value: contractCopy })}
+          ${profileDetailRow({ icon: "shield", label: "Right to work", value: rtw, tone: rtwTone })}
+        </div>
+      </section>
+
+      <section class="emp-profile-section" aria-labelledby="emp-profile-emergency">
+        <h3 class="emp-profile-section__title" id="emp-profile-emergency">Emergency contact</h3>
+        <div class="emp-profile-card">
+          ${profileDetailRow({ icon: "user", label: "Name", value: employee.emergency_contact_name })}
+          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.emergency_contact_phone, href: employee.emergency_contact_phone ? `tel:${String(employee.emergency_contact_phone).replace(/\s+/g, "")}` : "" })}
+          ${profileDetailRow({ icon: "heart", label: "Relation", value: employee.emergency_contact_relationship })}
+        </div>
+      </section>`;
+  }
+
+  function renderMobileEmployeeProfile(workspace) {
+    const detail = $("employees-detail-view");
+    if (!detail || !isMobileEmployeesHub()) return;
+    const employee = workspace.employee || {};
+    const businessName =
+      localStorage.getItem("businessName") ||
+      document.getElementById("topbar-business-name")?.textContent?.trim() ||
+      "ShiftSwift HR";
+    const palette = avatarPalette(employee.id);
+    const initials = employeeInitials(employee);
+    const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Employee";
+    const roleLine = [employee.job_title || "Team member", businessName].filter(Boolean).join(" · ");
+    const chips = [
+      { label: statusDisplayLabel(employee.status || "active"), tone: employee.status === "active" || !employee.status ? "ok" : "muted" },
+      employmentTypeLabel(employee.employment_type)
+        ? { label: employmentTypeLabel(employee.employment_type), tone: "warm" }
+        : null,
+      formatSinceMonth(employee.start_date) ? { label: formatSinceMonth(employee.start_date), tone: "muted" } : null,
+    ].filter(Boolean);
+
+    setDesktopEmployeeChromeVisible(false);
+    document.body.classList.add("emp-profile-open", "admin-mobile-detail");
+    document.body.dataset.mobileDetail = "employees";
+
+    const back = document.getElementById("mobile-back-btn");
+    if (back) {
+      if (!back.dataset.defaultLabel) back.dataset.defaultLabel = back.textContent || "← Back";
+      back.hidden = false;
+      back.textContent = "← Employees";
+    }
+    document.getElementById("sidebar-toggle") && (document.getElementById("sidebar-toggle").hidden = true);
+
+    const brandName = document.getElementById("topbar-business-name");
+    if (brandName) {
+      if (!brandName.dataset.profileRestore) brandName.dataset.profileRestore = brandName.textContent;
+      brandName.textContent = "Profile";
+    }
+
+    const editBtn = ensureMobileProfileEditButton();
+    if (editBtn) {
+      editBtn.hidden = false;
+      editBtn.textContent = mobileProfileEdit ? "Done" : "Edit";
+    }
+
+    let host = document.getElementById("emp-mobile-profile");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "emp-mobile-profile";
+      host.className = "emp-profile";
+      detail.prepend(host);
+    }
+
+    const tabs = [
+      { id: "details", label: "Details" },
+      { id: "shifts", label: "Shifts" },
+      { id: "leave", label: "Leave" },
+      { id: "documents", label: "Documents" },
+    ];
+
+    let panelHtml = "";
+    if (mobileProfileTab === "details") {
+      panelHtml = renderMobileProfileDetails(employee, workspace);
+    } else if (mobileProfileTab === "shifts") {
+      panelHtml = `<div class="emp-profile-panel" id="emp-profile-shifts-panel"><p class="muted">Loading shifts…</p></div>`;
+    } else if (mobileProfileTab === "leave") {
+      panelHtml = `<div class="emp-profile-panel" id="emp-profile-leave-panel"><p class="muted">Loading leave…</p></div>`;
+    } else {
+      const sectionsHtml = renderEmployeeRecordSectionsHtml(employee, workspace);
+      const docsMatch = sectionsHtml.match(
+        /<section class="employee-record-block" id="employees-side-documents"[\s\S]*?<\/section>/,
+      );
+      panelHtml = `<div class="emp-profile-panel" id="emp-profile-docs-panel">
+        <div class="employee-record-sections">${docsMatch?.[0] || '<p class="muted">No documents yet.</p>'}</div>
+      </div>`;
+    }
+
+    host.innerHTML = `
+      <header class="emp-profile-hero">
+        <div class="emp-profile-avatar-wrap">
+          <span class="emp-profile-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+          ${employee.status === "active" || !employee.status ? '<span class="emp-profile-avatar__dot" aria-hidden="true"></span>' : ""}
+        </div>
+        <h2 class="emp-profile-name">${escapeHtml(fullName)}</h2>
+        <p class="emp-profile-role">${escapeHtml(roleLine)}</p>
+        <div class="emp-profile-chips">
+          ${chips.map((chip) => `<span class="emp-profile-chip emp-profile-chip--${chip.tone}">${escapeHtml(chip.label)}</span>`).join("")}
+        </div>
+      </header>
+      <nav class="emp-profile-tabs" aria-label="Profile sections">
+        ${tabs
+          .map(
+            (tab) =>
+              `<button type="button" class="emp-profile-tab${mobileProfileTab === tab.id ? " emp-profile-tab--active" : ""}" data-emp-profile-tab="${tab.id}">${escapeHtml(tab.label)}</button>`,
+          )
+          .join("")}
+      </nav>
+      <div class="emp-profile-body">${panelHtml}</div>`;
+
+    host.querySelectorAll("[data-emp-profile-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        mobileProfileTab = btn.dataset.empProfileTab || "details";
+        if (mobileProfileTab !== "details") mobileProfileEdit = false;
+        renderMobileEmployeeProfile(workspace);
+      });
+    });
+
+    if (mobileProfileTab === "details" && mobileProfileEdit) {
+      void refreshEmployeeSidePanelKioskPin?.(employee.id);
+      bindSidePanelInlineFields(employee, workspace);
+    } else if (mobileProfileTab === "details") {
+      void loadMobileProfileSummaryStats(employee.id, employee);
+    } else if (mobileProfileTab === "shifts") {
+      void loadMobileProfileShifts(employee.id);
+    } else if (mobileProfileTab === "leave") {
+      void loadMobileProfileLeave(employee.id);
+    } else if (mobileProfileTab === "documents") {
+      bindEmployeeRecordDocumentActions(document.getElementById("employees-side-documents"), workspace);
+      mountEmployeeRecordDocumentUpload(employee.id);
+      document.getElementById("employees-side-doc-manage-btn")?.addEventListener("click", () => {
+        mobileProfileEdit = true;
+        mobileProfileTab = "details";
+        // Jump into lifecycle docs on desktop chrome once
+        void openEmployee(employee.id, "document_store");
+      });
+    }
+
+    setSidebarBreadcrumb(fullName);
+  }
+
+  function rotaWeekStartForProfile() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function shiftHours(shift) {
+    const start = String(shift.start_time || shift.start || "").slice(0, 5);
+    const end = String(shift.end_time || shift.end || "").slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return 0;
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    let mins = eh * 60 + em - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    return Math.round((mins / 60) * 10) / 10;
+  }
+
+  async function loadMobileProfileSummaryStats(employeeId, employee) {
+    mobileProfileHours = { loading: true };
+    mobileProfileLeave = { loading: true };
+    const hoursEl = document.querySelector(".emp-profile-stats .emp-profile-stat:first-child .emp-profile-stat__value");
+    const leaveEl = document.querySelector(".emp-profile-stats .emp-profile-stat:last-child .emp-profile-stat__value");
+    try {
+      const weekStart = rotaWeekStartForProfile();
+      const [weekRes, leaveRes] = await Promise.all([
+        apiFetch(`/admin/rota/weeks/${weekStart}`, { sshrPriority: true }).catch(() => null),
+        apiFetch(`/admin/leave/employees/${employeeId}/balance`).catch(() => null),
+      ]);
+      if (weekRes?.ok) {
+        const week = await weekRes.json().catch(() => ({}));
+        const shifts = (week.shifts || []).filter((s) => Number(s.employee_id) === Number(employeeId));
+        const hours = shifts.reduce((sum, s) => sum + shiftHours(s), 0);
+        mobileProfileHours = { hours: Math.round(hours * 10) / 10 };
+      } else {
+        mobileProfileHours = { hours: null };
+      }
+      if (leaveRes?.ok) {
+        mobileProfileLeave = await leaveRes.json();
+      } else {
+        mobileProfileLeave = { remaining_days: null };
+      }
+    } catch {
+      mobileProfileHours = { hours: null };
+      mobileProfileLeave = { remaining_days: null };
+    }
+    if (activeEmployeeId !== employeeId) return;
+    // Soft update stats without full re-render when still on details read view
+    if (mobileProfileTab === "details" && !mobileProfileEdit && workspaceCache) {
+      const contracted = employee.contract_hours_weekly != null ? Number(employee.contract_hours_weekly) : null;
+      if (hoursEl) hoursEl.textContent = mobileProfileHours?.hours != null ? String(mobileProfileHours.hours) : "–";
+      if (leaveEl) leaveEl.textContent = mobileProfileLeave?.remaining_days != null ? String(mobileProfileLeave.remaining_days) : "–";
+      const hourSub = document.querySelector(".emp-profile-stats .emp-profile-stat:first-child .emp-profile-stat__sub");
+      const leaveSub = document.querySelector(".emp-profile-stats .emp-profile-stat:last-child .emp-profile-stat__sub");
+      if (hourSub) hourSub.textContent = contracted != null ? `of ${contracted} contracted` : "This week";
+      if (leaveSub) leaveSub.textContent = mobileProfileLeave?.remaining_days != null ? "days remaining" : "Leave balance";
+    }
+  }
+
+  async function loadMobileProfileShifts(employeeId) {
+    const host = document.getElementById("emp-profile-shifts-panel");
+    if (!host) return;
+    try {
+      const weekStart = rotaWeekStartForProfile();
+      const res = await apiFetch(`/admin/rota/weeks/${weekStart}`, { sshrPriority: true });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not load shifts");
+      const shifts = (data.shifts || [])
+        .filter((s) => Number(s.employee_id) === Number(employeeId))
+        .sort((a, b) => String(a.work_date || a.date || "").localeCompare(String(b.work_date || b.date || "")));
+      if (!shifts.length) {
+        host.innerHTML = `<div class="emp-profile-empty">
+          <p class="muted">No shifts scheduled this week.</p>
+          <a class="btn outline btn-sm" href="#rota">Open Rota</a>
+        </div>`;
+        return;
+      }
+      host.innerHTML = `<ul class="emp-profile-list">${shifts
+        .map((s) => {
+          const day = formatFriendlyDate(s.work_date || s.date);
+          const start = String(s.start_time || s.start || "").slice(0, 5);
+          const end = String(s.end_time || s.end || "").slice(0, 5);
+          const role = s.role || s.notes || "Shift";
+          return `<li class="emp-profile-list__item">
+            <strong>${escapeHtml(day)}</strong>
+            <span>${escapeHtml(start && end ? `${start}–${end}` : "Time TBC")}</span>
+            <span class="muted">${escapeHtml(role)}</span>
+          </li>`;
+        })
+        .join("")}</ul>
+        <p class="emp-profile-panel-link"><a href="#rota">Edit on Rota →</a></p>`;
+    } catch (error) {
+      host.innerHTML = `<div class="emp-profile-empty">
+        <p class="muted">${escapeHtml(error.message || "Could not load shifts.")}</p>
+        <a class="btn outline btn-sm" href="#rota">Open Rota</a>
+      </div>`;
+    }
+  }
+
+  async function loadMobileProfileLeave(employeeId) {
+    const host = document.getElementById("emp-profile-leave-panel");
+    if (!host) return;
+    host.innerHTML = `<div id="emp-profile-leave-summary" class="emp-profile-leave-summary"></div><div id="emp-profile-leave-list"></div>`;
+    const list = document.getElementById("emp-profile-leave-list");
+    const summary = document.getElementById("emp-profile-leave-summary");
+    try {
+      const balanceRes = await apiFetch(`/admin/leave/employees/${employeeId}/balance`);
+      if (balanceRes.ok && summary) {
+        const balance = await balanceRes.json();
+        summary.innerHTML = `<article class="emp-profile-stat emp-profile-stat--wide">
+          <p class="emp-profile-stat__label">Holiday left (${escapeHtml(String(balance.year || ""))})</p>
+          <p class="emp-profile-stat__value">${escapeHtml(String(balance.remaining_days ?? "–"))}</p>
+          <p class="emp-profile-stat__sub">${escapeHtml(`Allowance ${balance.allowance_days ?? "–"} · used ${balance.used_days ?? 0} · pending ${balance.pending_days ?? 0}`)}</p>
+        </article>`;
+      }
+      await loadEmployeeLeaveHistory(employeeId, list);
+    } catch (error) {
+      host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load leave.")}</p>`;
+    }
   }
 
   function employeeInitials(employee) {
@@ -824,7 +1451,7 @@
       return "Employee portal active";
     }
     if (employee?.portal_setup_pending || employee?.portal_setup_status === "pending") {
-      return "Invite sent — waiting for employee to set password (check junk mail)";
+      return "Portal invite pending — employee has not set a password yet (ask them to check junk mail)";
     }
     if (!employee?.email) return "Add a work email to send a portal invite";
     if (employee?.status !== "active" && employee?.status !== "onboarding") {
@@ -872,6 +1499,18 @@
       if (first) return first;
     }
     return message || "Invite failed.";
+  }
+
+  function formatBulkInviteSummary(data) {
+    const base = data?.message || "Invites sent.";
+    const failed = Array.isArray(data?.failed) ? data.failed : [];
+    if (!failed.length) return base;
+    const details = failed
+      .slice(0, 3)
+      .map((item) => `${item.name || "Employee"}: ${item.reason || "failed"}`)
+      .join("; ");
+    const suffix = failed.length > 3 ? ` (+${failed.length - 3} more)` : "";
+    return `${base} ${details}${suffix}`.trim();
   }
 
   async function sendPortalInvite(employeeId, statusId = "employees-bulk-invite-status") {
@@ -927,7 +1566,7 @@
       });
       data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(formatInviteError(null, data));
-      if (statusEl) statusEl.textContent = data.message || "Invites sent.";
+      if (statusEl) statusEl.textContent = formatBulkInviteSummary(data);
       try {
         await refreshEmployeesTable();
       } catch {
@@ -1004,18 +1643,57 @@
     </ul>`;
   }
 
-  function hideEmployeeHistoryPanels() {
-    $("employee-change-history-panel")?.setAttribute("hidden", "");
-    $("employee-leave-history-panel")?.setAttribute("hidden", "");
+  const HISTORY_PANEL_LEADS = {
+    changes:
+      "Previous values are kept when you update contact details, job information, and other profile fields.",
+    leave: "Holiday and absence requests submitted by this employee, including pending and past decisions.",
+  };
+
+  function hideEmployeeHistoryPanel() {
+    const panel = $("employee-history-panel");
+    if (panel) panel.hidden = true;
+  }
+
+  function setEmployeeHistoryTab(tab) {
+    const lead = $("employee-history-panel-lead");
+    document.querySelectorAll(".employee-history-tab").forEach((btn) => {
+      const active = btn.dataset.historyTab === tab;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    if (lead) lead.textContent = HISTORY_PANEL_LEADS[tab] || "";
+    const summary = $("employee-leave-history-summary");
+    if (summary && tab !== "leave") {
+      summary.hidden = true;
+      summary.innerHTML = "";
+    }
   }
 
   function bindChangeHistoryPanel() {
-    $("employee-change-history-close")?.addEventListener("click", () => {
-      $("employee-change-history-panel")?.setAttribute("hidden", "");
+    $("employee-history-panel-close")?.addEventListener("click", hideEmployeeHistoryPanel);
+    document.getElementById("employee-history-tab-changes")?.addEventListener("click", () => {
+      if (activeEmployeeId) void showEmployeeHistory("changes", activeEmployeeId);
     });
-    $("employee-leave-history-close")?.addEventListener("click", () => {
-      $("employee-leave-history-panel")?.setAttribute("hidden", "");
+    document.getElementById("employee-history-tab-leave")?.addEventListener("click", () => {
+      if (activeEmployeeId) void showEmployeeHistory("leave", activeEmployeeId);
     });
+  }
+
+  async function showEmployeeHistory(tab, employeeId) {
+    const panel = $("employee-history-panel");
+    const body = $("employee-history-panel-body");
+    if (!panel || !body || !employeeId) return;
+
+    panel.hidden = false;
+    setEmployeeHistoryTab(tab);
+    body.innerHTML = `<p class="muted employee-history-panel__loading">Loading…</p>`;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    if (tab === "leave") {
+      await loadEmployeeLeaveHistory(employeeId, body);
+      return;
+    }
+    await loadEmployeeChangeHistory(employeeId, body);
   }
 
   function formatLeaveDate(iso) {
@@ -1050,14 +1728,8 @@
       </p>`;
   }
 
-  async function loadEmployeeLeaveHistory(employeeId) {
-    const panel = $("employee-leave-history-panel");
-    const list = $("employee-leave-history-list");
-    if (!panel || !list || !employeeId) return;
-
-    hideEmployeeHistoryPanels();
-    panel.hidden = false;
-    list.innerHTML = `<p class="muted">Loading leave history…</p>`;
+  async function loadEmployeeLeaveHistory(employeeId, list = $("employee-history-panel-body")) {
+    if (!list || !employeeId) return;
     renderLeaveHistorySummary(null);
 
     try {
@@ -1105,14 +1777,8 @@
     }
   }
 
-  async function loadEmployeeChangeHistory(employeeId) {
-    const panel = $("employee-change-history-panel");
-    const list = $("employee-change-history-list");
-    if (!panel || !list || !employeeId) return;
-
-    hideEmployeeHistoryPanels();
-    panel.hidden = false;
-    list.innerHTML = `<p class="muted">Loading history…</p>`;
+  async function loadEmployeeChangeHistory(employeeId, list = $("employee-history-panel-body")) {
+    if (!list || !employeeId) return;
 
     try {
       const res = await apiFetch(`/admin/employees/${employeeId}/history`);
@@ -1149,18 +1815,18 @@
     const sponsored = Boolean(employee?.is_sponsored);
     const employeeId = employee?.id || activeEmployeeId;
     host.innerHTML = `
-      <button type="button" class="btn ghost" id="employee-change-history-btn">Change history</button>
-      <button type="button" class="btn ghost" id="employee-leave-history-btn">Leave history</button>
-      ${sponsored ? '<a href="#compliance" class="btn ghost">Sponsor compliance</a>' : ""}
-      <a href="#grievance" class="btn ghost">Grievance cases</a>
-      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
-      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost">Off-boarding workflow</a>
-      <a href="#time-punch" class="btn ghost">Time punch</a>`;
+      <button type="button" class="btn ghost btn-sm" id="employee-change-history-btn">Change history</button>
+      <button type="button" class="btn ghost btn-sm" id="employee-leave-history-btn">Leave history</button>
+      ${sponsored ? '<a href="#compliance" class="btn ghost btn-sm">Sponsor compliance</a>' : ""}
+      <a href="#grievance" class="btn ghost btn-sm">Grievance cases</a>
+      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost btn-sm">Employment contract</a>
+      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost btn-sm">Off-boarding workflow</a>
+      <a href="#time-punch" class="btn ghost btn-sm">Time punch</a>`;
     host.querySelector("#employee-change-history-btn")?.addEventListener("click", () => {
-      if (employeeId) void loadEmployeeChangeHistory(employeeId);
+      if (employeeId) void showEmployeeHistory("changes", employeeId);
     });
     host.querySelector("#employee-leave-history-btn")?.addEventListener("click", () => {
-      if (employeeId) void loadEmployeeLeaveHistory(employeeId);
+      if (employeeId) void showEmployeeHistory("leave", employeeId);
     });
   }
 
@@ -1303,7 +1969,7 @@
       if (status) status.textContent = `Kiosk PIN set to ${pin} — share it with the employee privately.`;
     } catch (error) {
       if (host) host.innerHTML = `<span class="muted">Could not generate PIN</span>`;
-      alert(error.message || "Could not generate PIN");
+      employeesToast(error.message || "Could not generate PIN", "error");
     }
   }
 
@@ -1328,6 +1994,327 @@
     return data;
   }
 
+  function splitEmployeeDocuments(docs) {
+    const businessOnly = [];
+    const shared = [];
+    (docs || []).forEach((doc) => {
+      if (doc.employee_visible) shared.push(doc);
+      else businessOnly.push(doc);
+    });
+    return { businessOnly, shared };
+  }
+
+  function renderEmployeeRecordDocItem(doc) {
+    const meta = [
+      categoryLabel(doc.category),
+      (doc.created_at || "").slice(0, 10) || null,
+      doc.signing_status === "signed" ? "Signed" : doc.signing_status === "sent" ? "Awaiting signature" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const actions = [];
+    if (doc.has_file) {
+      actions.push(`<button type="button" class="btn ghost btn-sm" data-record-download-doc="${doc.id}">Download</button>`);
+    } else if (doc.document_url) {
+      actions.push(`<a class="btn ghost btn-sm" href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener">Open</a>`);
+    }
+    actions.push(`<button type="button" class="btn ghost btn-sm" data-record-delete-doc="${doc.id}">Remove</button>`);
+    return `<li class="employee-record-doc-item">
+      <span class="employee-record-doc-item__title">${escapeHtml(doc.title)}</span>
+      <span class="employee-record-doc-item__meta muted">${escapeHtml(meta || "—")}</span>
+      <div class="employee-record-doc-item__actions">${actions.join("")}</div>
+    </li>`;
+  }
+
+  function renderEmployeeRecordDocumentLists(workspace) {
+    const { businessOnly, shared } = splitEmployeeDocuments(workspace.documents || []);
+    const businessCount = document.getElementById("employees-side-doc-business-count");
+    const sharedCount = document.getElementById("employees-side-doc-shared-count");
+    const businessList = document.getElementById("employees-side-doc-business-list");
+    const sharedList = document.getElementById("employees-side-doc-shared-list");
+    if (businessCount) businessCount.textContent = String(businessOnly.length);
+    if (sharedCount) sharedCount.textContent = String(shared.length);
+    if (businessList) {
+      businessList.innerHTML = businessOnly.length
+        ? businessOnly.map(renderEmployeeRecordDocItem).join("")
+        : `<li><p class="employee-record-doc-empty muted">No HR-only documents yet.</p></li>`;
+    }
+    if (sharedList) {
+      sharedList.innerHTML = shared.length
+        ? shared.map(renderEmployeeRecordDocItem).join("")
+        : `<li><p class="employee-record-doc-empty muted">Nothing shared with the employee portal yet.</p></li>`;
+    }
+    bindEmployeeRecordDocumentActions(document.getElementById("employees-side-documents"), workspace);
+  }
+
+  function bindEmployeeRecordDocumentActions(container, workspace) {
+    if (!container || !workspace?.employee?.id) return;
+    const employeeId = workspace.employee.id;
+    const docs = workspace.documents || [];
+    const statusEl = container.querySelector("#employees-side-doc-status");
+
+    container.querySelectorAll("[data-record-delete-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!window.confirm("Remove this document?")) return;
+        if (statusEl) statusEl.textContent = "Removing…";
+        try {
+          const res = await apiFetch(`/admin/employees/${employeeId}/documents/${btn.dataset.recordDeleteDoc}`, {
+            method: "DELETE",
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Remove failed");
+          }
+          await refreshEmployeeRecordDocuments(employeeId);
+          if (statusEl) statusEl.textContent = "Document removed.";
+        } catch (error) {
+          if (statusEl) statusEl.textContent = error.message || "Remove failed";
+        }
+      });
+    });
+
+    container.querySelectorAll("[data-record-download-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = docs.find((item) => String(item.id) === btn.dataset.recordDownloadDoc);
+        const name = row?.original_filename || `${row?.title || "document"}.bin`;
+        try {
+          await downloadAuthenticated(
+            `/admin/employees/${employeeId}/documents/${btn.dataset.recordDownloadDoc}/file`,
+            name,
+          );
+        } catch (error) {
+          employeesToast(error.message || "Download failed", "error");
+        }
+      });
+    });
+  }
+
+  async function refreshEmployeeRecordDocuments(employeeId) {
+    const host = document.getElementById("employees-side-documents");
+    if (!host || !employeeId) return;
+    const res = await apiFetch(`/admin/employees/${employeeId}/workspace`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not refresh documents");
+    sidePanelWorkspace = data;
+    renderEmployeeRecordDocumentLists(data);
+    updateSidePanelProgress(data);
+    const idx = employeesCache.findIndex((item) => item.id === employeeId);
+    if (idx >= 0) {
+      employeesCache[idx] = {
+        ...employeesCache[idx],
+        ...data.employee,
+        completion_pct: data.completion_pct,
+        next_section: data.next_section,
+      };
+      refreshEmployeesTableRowFromCache(employeeId);
+    }
+  }
+
+  function mountEmployeeRecordDocumentUpload(employeeId) {
+    const form = document.getElementById("employees-side-doc-upload");
+    const categorySelect = document.getElementById("employees-side-doc-category");
+    const payPeriodField = document.getElementById("employees-side-doc-pay-period-field");
+    const payPeriodInput = document.getElementById("employees-side-doc-pay-period");
+    const shareCheckbox = document.getElementById("employees-side-doc-share");
+    const fileInput = document.getElementById("employees-side-doc-file");
+    const hint = document.getElementById("employees-side-doc-upload-hint");
+    const statusEl = document.getElementById("employees-side-doc-status");
+    if (!form || form.dataset.bound || !employeeId) return;
+    form.dataset.bound = "1";
+
+    const uploadPolicy = documentUploadPolicy();
+    if (fileInput) fileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
+    if (hint) hint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: document.getElementById("employees-side-doc-dropzone"),
+      fileInput,
+      filenameEl: document.getElementById("employees-side-doc-filename"),
+      cameraInput: document.getElementById("employees-side-doc-camera"),
+    });
+
+    if (categorySelect) {
+      const categories = window.Admin.formOptions?.employee_document_categories || [];
+      categorySelect.innerHTML = categories
+        .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
+        .join("");
+      const syncCategory = () => {
+        const isPayslip = categorySelect.value === "payslip";
+        if (payPeriodField) payPeriodField.hidden = !isPayslip;
+        if (payPeriodInput) payPeriodInput.required = isPayslip;
+        if (shareCheckbox && isPayslip) shareCheckbox.checked = true;
+      };
+      categorySelect.addEventListener("change", syncCategory);
+      syncCategory();
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (categorySelect?.value === "payslip" && !payPeriodInput?.value.trim()) {
+        if (statusEl) statusEl.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      const uploadFile = fileInput?.files?.[0];
+      const fileError = validateDocumentUploadFile(uploadFile);
+      if (fileError) {
+        if (statusEl) statusEl.textContent = fileError;
+        return;
+      }
+
+      const fd = new FormData(form);
+      fd.set("employee_visible", shareCheckbox?.checked ? "true" : "false");
+      fd.set("notify_employee", shareCheckbox?.checked ? "true" : "false");
+      fd.set("send_email", "false");
+      if (categorySelect?.value !== "payslip") fd.delete("pay_period");
+
+      if (statusEl) statusEl.textContent = "Uploading…";
+      try {
+        const res = await fetch(`${API_BASE}/admin/employees/${employeeId}/documents/upload`, {
+          method: "POST",
+          headers: authHeaders(false),
+          body: fd,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Upload failed");
+        form.reset();
+        const filenameEl = document.getElementById("employees-side-doc-filename");
+        if (filenameEl) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        }
+        if (categorySelect) categorySelect.dispatchEvent(new Event("change"));
+        await refreshEmployeeRecordDocuments(employeeId);
+        if (statusEl) statusEl.textContent = "Document uploaded.";
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error.message || "Upload failed";
+      }
+    });
+  }
+
+  function renderEmployeeRecordSectionsHtml(employee, workspace) {
+    const emp = workspace.employee || employee || {};
+    const { businessOnly, shared } = splitEmployeeDocuments(workspace.documents || []);
+    const requirements = workspace.document_requirements || {};
+    const reqSummary = requirements.complete
+      ? `<p class="employee-doc-status employee-doc-status--ok">Required documents complete.</p>`
+      : requirements.missing_required
+        ? `<p class="employee-doc-status employee-doc-status--warn">${requirements.missing_required} required document(s) still missing.</p>`
+        : "";
+
+    return `<div class="employee-record-sections" id="employees-side-sections">
+      <section class="employee-record-block" aria-labelledby="employees-side-personal-title">
+        <div class="employee-record-block__head">
+          <h4 id="employees-side-personal-title">Personal details</h4>
+        </div>
+        <div class="employee-record-grid">
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Mobile phone</span>
+            <input type="tel" id="employees-side-phone" value="${escapeHtml(emp.phone || "")}" placeholder="Not set" autocomplete="tel" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Date of birth</span>
+            <input type="date" id="employees-side-dob" value="${escapeHtml(isoDateInputValue(emp.date_of_birth))}"${isoDateInputValue(emp.date_of_birth) ? "" : ' data-empty="true"'} />
+            ${isoDateInputValue(emp.date_of_birth) ? "" : '<span class="employee-record-field__hint muted">Not set — leave blank until confirmed</span>'}
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">NI number</span>
+            <input type="text" id="employees-side-ni" value="${escapeHtml(emp.ni_number || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field employee-record-field--full">
+            <span class="employee-record-field__label">Home address</span>
+            <textarea id="employees-side-address" rows="2" placeholder="Not set">${escapeHtml(emp.home_address || "")}</textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="employee-record-block" aria-labelledby="employees-side-emergency-title">
+        <div class="employee-record-block__head">
+          <h4 id="employees-side-emergency-title">Emergency contact</h4>
+        </div>
+        <div class="employee-record-grid">
+          <label class="employee-record-field employee-record-field--full">
+            <span class="employee-record-field__label">Contact name</span>
+            <input type="text" id="employees-side-emergency-name" value="${escapeHtml(emp.emergency_contact_name || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Phone</span>
+            <input type="tel" id="employees-side-emergency-phone" value="${escapeHtml(emp.emergency_contact_phone || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Relationship</span>
+            <input type="text" id="employees-side-emergency-relationship" value="${escapeHtml(emp.emergency_contact_relationship || "")}" placeholder="Not set" />
+          </label>
+        </div>
+      </section>
+
+      <section class="employee-record-block" id="employees-side-documents" aria-labelledby="employees-side-documents-title">
+        <div class="employee-record-block__head">
+          <h4 id="employees-side-documents-title">Documents</h4>
+          <span class="employee-record-block__count muted">${businessOnly.length + shared.length} on file</span>
+        </div>
+        ${reqSummary}
+        <div class="employee-record-doc-group">
+          <h5 class="employee-record-doc-group__title">Business only <span class="muted">(HR only)</span> <span class="employee-record-block__count" id="employees-side-doc-business-count">${businessOnly.length}</span></h5>
+          <ul class="employee-record-doc-list" id="employees-side-doc-business-list">${
+            businessOnly.length
+              ? businessOnly.map(renderEmployeeRecordDocItem).join("")
+              : `<li><p class="employee-record-doc-empty muted">No HR-only documents yet.</p></li>`
+          }</ul>
+        </div>
+        <div class="employee-record-doc-group">
+          <h5 class="employee-record-doc-group__title">Employee portal <span class="employee-record-block__count" id="employees-side-doc-shared-count">${shared.length}</span></h5>
+          <ul class="employee-record-doc-list" id="employees-side-doc-shared-list">${
+            shared.length
+              ? shared.map(renderEmployeeRecordDocItem).join("")
+              : `<li><p class="employee-record-doc-empty muted">Nothing shared with the employee portal yet.</p></li>`
+          }</ul>
+        </div>
+        <details class="employee-record-doc-upload">
+          <summary>Upload document</summary>
+          <form id="employees-side-doc-upload" class="employee-record-upload-form" enctype="multipart/form-data">
+            <label class="employee-record-field employee-record-field--full">
+              <span class="employee-record-field__label">File</span>
+              <div class="doc-upload-dropzone doc-upload-dropzone--compact employee-record-upload-dropzone" id="employees-side-doc-dropzone">
+                <input type="file" name="file" id="employees-side-doc-file" required hidden />
+                <input type="file" id="employees-side-doc-camera" accept="image/*" capture="environment" hidden />
+                <p class="doc-upload-dropzone__lead">Drop file here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">photo</button></p>
+                <p class="doc-upload-dropzone__hint muted" id="employees-side-doc-upload-hint">${escapeHtml(DEFAULT_DOCUMENT_UPLOAD.hint)}</p>
+                <p class="doc-upload-filename" id="employees-side-doc-filename" hidden></p>
+              </div>
+            </label>
+            <label class="employee-record-field employee-record-field--full">
+              <span class="employee-record-field__label">Title</span>
+              <input type="text" name="title" required placeholder="e.g. Signed contract" />
+            </label>
+            <label class="employee-record-field">
+              <span class="employee-record-field__label">Category</span>
+              <select name="category" id="employees-side-doc-category"></select>
+            </label>
+            <label class="employee-record-field" id="employees-side-doc-pay-period-field" hidden>
+              <span class="employee-record-field__label">Pay period</span>
+              <input type="text" name="pay_period" id="employees-side-doc-pay-period" placeholder="e.g. 2026-04" />
+            </label>
+            <label class="ss-check-row ss-check-row--compact employee-record-field--full">
+              <input class="ss-check-row__input" type="checkbox" id="employees-side-doc-share" name="employee_visible" value="true" />
+              <span class="ss-check-row__box" aria-hidden="true"></span>
+              <span class="ss-check-row__content">
+                <span class="ss-check-row__title">Employee portal</span>
+                <span class="ss-check-row__hint muted">HR confidential if unchecked — contracts, RTW, disciplinary records, etc.</span>
+              </span>
+            </label>
+            <div class="edit-form-actions employee-record-field--full">
+              <button type="submit" class="btn btn-sm">Upload</button>
+            </div>
+          </form>
+        </details>
+        <p class="muted employee-record-field-status" id="employees-side-doc-status" aria-live="polite"></p>
+        <p class="employee-record-lifecycle-link">
+          <button type="button" class="employee-record-link" id="employees-side-doc-manage-btn">Signing &amp; full document store →</button>
+        </p>
+      </section>
+    </div>`;
+  }
+
   function bindSidePanelInlineFields(employee, workspace) {
     const employeeId = employee.id;
     const statusEl = document.getElementById("employees-side-field-status");
@@ -1347,6 +2334,8 @@
       }
     };
 
+    const saveInduction = (updates) => saveField("induction", updates);
+
     document.getElementById("employees-side-job-title")?.addEventListener("change", (event) => {
       void saveField("onboarding", { job_title: event.target.value.trim() || null });
     });
@@ -1356,6 +2345,38 @@
     document.getElementById("employees-side-email")?.addEventListener("change", (event) => {
       void saveField("recruitment", { email: event.target.value.trim() || null });
     });
+    document.getElementById("employees-side-phone")?.addEventListener("change", (event) => {
+      void saveInduction({ phone: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-dob")?.addEventListener("change", (event) => {
+      const value = event.target.value?.trim() || null;
+      event.target.toggleAttribute("data-empty", !value);
+      void saveInduction({ date_of_birth: value });
+    });
+    document.getElementById("employees-side-ni")?.addEventListener("change", (event) => {
+      void saveInduction({ ni_number: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-address")?.addEventListener("change", (event) => {
+      void saveInduction({ home_address: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-emergency-name")?.addEventListener("change", (event) => {
+      void saveInduction({ emergency_contact_name: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-emergency-phone")?.addEventListener("change", (event) => {
+      void saveInduction({ emergency_contact_phone: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-emergency-relationship")?.addEventListener("change", (event) => {
+      void saveInduction({ emergency_contact_relationship: event.target.value.trim() || null });
+    });
+
+    bindEmployeeRecordDocumentActions(document.getElementById("employees-side-documents"), workspace);
+    mountEmployeeRecordDocumentUpload(employeeId);
+    document.getElementById("employees-side-doc-manage-btn")?.addEventListener("click", () => {
+      void openEmployee(employeeId, "document_store");
+    });
+    document.getElementById("employees-side-lifecycle-btn")?.addEventListener("click", () => {
+      void openEmployee(employeeId, workspace.next_section || "recruitment");
+    });
   }
 
   function updateSidePanelProgress(workspace) {
@@ -1364,77 +2385,10 @@
     const copy = document.getElementById("employees-side-progress-copy");
     if (fill) fill.style.width = `${Math.min(100, meta.pct)}%`;
     if (copy) copy.textContent = `${meta.completed} of ${meta.total} sections done`;
-    renderSidePanelChecklist(workspace);
-  }
-
-  function renderSidePanelChecklist(workspace) {
-    const host = document.getElementById("employees-side-checklist");
-    if (!host) return;
-    host.innerHTML = SIDE_PANEL_CHECKLIST.map((item) => {
-      const complete = checklistItemComplete(workspace, item);
-      const started = checklistItemStarted(workspace, item);
-      const iconClass = complete
-        ? "employee-record-check__icon employee-record-check__icon--done"
-        : started
-          ? "employee-record-check__icon employee-record-check__icon--active"
-          : "employee-record-check__icon";
-      const action = complete
-        ? `<span class="employee-record-check__status">Complete</span>`
-        : `<button type="button" class="employee-record-link" data-side-section="${escapeHtml(item.sectionKey)}">${started ? "Continue" : "Start"} ↗</button>`;
-      return `<div class="employee-record-check">
-        <span class="${iconClass}" aria-hidden="true">${complete ? "✓" : ""}</span>
-        <span class="employee-record-check__label">${escapeHtml(item.label)}</span>
-        ${action}
-      </div>`;
-    }).join("");
-    host.querySelectorAll("[data-side-section]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        openEmployeeSectionFromPanel(workspace.employee?.id, btn.dataset.sideSection);
-      });
-    });
-  }
-
-  function renderSidePanelSectionExpand(workspace) {
-    const host = document.getElementById("employees-side-section-host");
-    if (!host) return;
-    if (!sidePanelExpandedSection) {
-      host.hidden = true;
-      host.innerHTML = "";
-      return;
-    }
-    host.hidden = false;
-    sidePanelEmployeeId = workspace.employee?.id || selectedEmployeeId;
-    host.innerHTML = `<div class="employee-record-section-expand">
-      <div class="employee-record-section-expand__head">
-        <strong>${escapeHtml(sectionLabel(sidePanelExpandedSection))}</strong>
-        <button type="button" class="employee-record-link" id="employees-side-section-close">Close</button>
-      </div>
-      <div id="employees-side-section-content"></div>
-    </div>`;
-    host.querySelector("#employees-side-section-close")?.addEventListener("click", () => {
-      sidePanelExpandedSection = null;
-      sidePanelEmployeeId = null;
-      renderSidePanelSectionExpand(workspace);
-    });
-    const contentHost = host.querySelector("#employees-side-section-content");
-    if (contentHost) {
-      renderSectionContent(workspace, sidePanelExpandedSection, contentHost);
-    }
   }
 
   function openEmployeeSectionFromPanel(employeeId, sectionKey) {
-    if (isMobileEmployeesHub() || sectionKey === "document_store") {
-      void openEmployee(employeeId, sectionKey);
-      return;
-    }
-    sidePanelExpandedSection = sectionKey;
-    if (sidePanelWorkspace?.employee?.id === employeeId) {
-      renderSidePanelSectionExpand(sidePanelWorkspace);
-      document.getElementById("employees-side-section-host")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      return;
-    }
-    selectedEmployeeId = employeeId;
-    void renderEmployeeSidePanel(employeesCache.find((item) => item.id === employeeId));
+    void openEmployee(employeeId, sectionKey);
   }
 
   function refreshEmployeesTableProgressOnly() {
@@ -1669,97 +2623,216 @@
     return `${summary}<ul class="employee-doc-checklist">${list}</ul>`;
   }
 
-  function renderDocumentStorePanel(workspace, container) {
-    const section = (workspace.sections || []).find((item) => item.key === "document_store");
-    const requirements = workspace.document_requirements || {};
-    const docs = workspace.documents || [];
+  function readEmployeeUploadPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector("#employee-document-upload-category")?.value || "",
+      pay_period: form.querySelector("#employee-document-upload-pay-period")?.value || "",
+      expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      notify_employee: form.querySelector("#employee-document-upload-notify")?.checked ?? true,
+      send_email: form.querySelector("#employee-document-upload-email")?.checked ?? true,
+    };
+  }
 
-    container.innerHTML = `
-      <div class="employee-section-intro">
-        <h4>${escapeHtml(section?.label || "Document store")}</h4>
-        <p class="muted">${escapeHtml(section?.description || "")}</p>
-        ${renderRequirementsChecklist(requirements)}
-      </div>
-      <div id="employee-document-form"></div>
-      <form id="employee-document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data" style="margin-bottom:1rem;">
-        <label class="edit-field"><span class="edit-label">Upload title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
-        <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /><span class="muted edit-hint" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</span></label>
-        <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
-        <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-        <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint">Set for food hygiene, first aid, and other renewable certificates.</span></label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Notify employee when published</span>
-            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
-          </span>
-        </label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Email employee when notified</span>
-            <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
-          </span>
-        </label>
-        <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
-      </form>
-      <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
-      <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
-      <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th></th></tr></thead>
-          <tbody id="employee-documents-body"></tbody>
-        </table>
-      </div>`;
+  function applyEmployeeUploadPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector("#employee-document-upload-category");
+    const payPeriod = form.querySelector("#employee-document-upload-pay-period");
+    const payPeriodField = form.querySelector("#employee-document-upload-pay-period-field");
+    const expiresAt = form.querySelector('[name="expires_at"]');
+    const notify = form.querySelector("#employee-document-upload-notify");
+    const sendEmail = form.querySelector("#employee-document-upload-email");
+    if (category && prefs.category) category.value = prefs.category;
+    if (payPeriod) payPeriod.value = prefs.pay_period || "";
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (notify) notify.checked = prefs.notify_employee;
+    if (sendEmail) sendEmail.checked = prefs.send_email;
+    const isPayslip = category?.value === "payslip";
+    if (payPeriodField) payPeriodField.hidden = !isPayslip;
+    if (payPeriod) payPeriod.required = isPayslip;
+  }
 
-    mountEditForm(container.querySelector("#employee-document-form"), {
-      id: "employee-document",
-      columns: 2,
-      submitLabel: "Add document",
-      successMessage: "Document added.",
-      fields: [
-        { name: "title", label: "Title", type: "text", required: true },
-        {
-          name: "category",
-          label: "Category",
-          type: "select",
-          optionsKey: "employee_document_categories",
-          defaultValue: "contract",
-        },
-        { name: "document_url", label: "Document URL", type: "url", placeholder: "https://..." },
-        { name: "expires_at", label: "Expiry date", type: "date" },
-        { name: "notes", label: "Notes", type: "textarea", span: 2 },
-      ],
-    }, {
-      onSubmit: async (payload) => {
-        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            lifecycle_stage: "document_store",
-            document_url: payload.document_url || null,
-            notes: payload.notes || null,
-            expires_at: payload.expires_at || null,
-          }),
+  function resetEmployeeUploadFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readEmployeeUploadPreferences(form);
+    form.reset();
+    applyEmployeeUploadPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#employee-document-upload-file");
+    if (fileInput) fileInput.value = "";
+    const filenameEl = form.querySelector("#employee-document-upload-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function renderEmployeeDocumentCategoryOptions(selected = "") {
+    const categories = window.Admin.formOptions?.employee_document_categories || [];
+    return categories
+      .map(
+        (item) =>
+          `<option value="${escapeHtml(item.value)}"${item.value === selected ? " selected" : ""}>${escapeHtml(item.label)}</option>`,
+      )
+      .join("");
+  }
+
+  function closeEmployeeDocumentEditPanel(container) {
+    const panel = container?.querySelector("#employee-document-edit-panel");
+    if (panel) panel.hidden = true;
+  }
+
+  function syncEmployeeDocumentEditPayPeriod(form) {
+    const categorySelect = form?.querySelector("#employee-document-edit-category");
+    const payPeriodField = form?.querySelector("#employee-document-edit-pay-period-field");
+    const payPeriodInput = form?.querySelector("#employee-document-edit-pay-period");
+    const isPayslip = categorySelect?.value === "payslip";
+    if (payPeriodField) payPeriodField.hidden = !isPayslip;
+    if (payPeriodInput) payPeriodInput.required = isPayslip;
+  }
+
+  function openEmployeeDocumentEditPanel(row, container) {
+    if (!row || !container) return;
+    const panel = container.querySelector("#employee-document-edit-panel");
+    const form = container.querySelector("#employee-document-edit-form");
+    if (!panel || !form) return;
+
+    const categorySelect = form.querySelector("#employee-document-edit-category");
+    if (categorySelect) {
+      categorySelect.innerHTML = renderEmployeeDocumentCategoryOptions(row.category);
+    }
+    const titleInput = form.querySelector('[name="title"]');
+    if (titleInput) titleInput.value = row.title || "";
+    const payPeriodInput = form.querySelector("#employee-document-edit-pay-period");
+    if (payPeriodInput) payPeriodInput.value = row.pay_period || "";
+    const expiresInput = form.querySelector('[name="expires_at"]');
+    if (expiresInput) expiresInput.value = (row.expires_at || "").slice(0, 10);
+    const visibleInput = form.querySelector("#employee-document-edit-visible");
+    if (visibleInput) visibleInput.checked = Boolean(row.employee_visible);
+    syncEmployeeDocumentEditPayPeriod(form);
+
+    form.dataset.documentId = String(row.id);
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    titleInput?.focus();
+  }
+
+  function bindEmployeeDocumentEditForm(container) {
+    const form = container?.querySelector("#employee-document-edit-form");
+    if (!form || form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
+
+    form.querySelector("#employee-document-edit-category")?.addEventListener("change", () => {
+      syncEmployeeDocumentEditPayPeriod(form);
+    });
+    form.querySelector("[data-cancel-doc-edit]")?.addEventListener("click", () => {
+      closeEmployeeDocumentEditPanel(container);
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const docId = form.dataset.documentId;
+      if (!docId || !activeEmployeeId) return;
+      const status = form.querySelector("[data-edit-status]");
+      const category = form.querySelector("#employee-document-edit-category")?.value || "";
+      const payPeriod = form.querySelector("#employee-document-edit-pay-period")?.value?.trim() || "";
+      if (category === "payslip" && !payPeriod) {
+        if (status) status.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      const payload = {
+        title: form.querySelector('[name="title"]')?.value?.trim(),
+        category,
+        expires_at: form.querySelector('[name="expires_at"]')?.value || null,
+        employee_visible: form.querySelector("#employee-document-edit-visible")?.checked ?? false,
+      };
+      if (category === "payslip") payload.pay_period = payPeriod;
+
+      const performSave = async () => {
+        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${docId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Save failed");
-        await openEmployee(activeEmployeeId, "document_store");
-        if (workspaceCache?.document_requirements?.complete && workspaceCache.next_section) {
-          const next = workspaceCache.next_section;
-          if (next !== "document_store") {
-            activeSection = next;
-            window.location.hash = `employees/${activeEmployeeId}/${next}`;
-            renderLifecycleAccordion(workspaceCache);
-          }
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        closeEmployeeDocumentEditPanel(container);
+        await refreshEmployeeDocumentStoreList(container);
+        const sideHost = document.getElementById("employees-side-documents");
+        if (sideHost && workspaceCache) {
+          renderEmployeeRecordDocumentLists(workspaceCache);
+          bindEmployeeRecordDocumentActions(sideHost, workspaceCache);
         }
-      },
-    });
+        return "Document updated.";
+      };
 
-    renderTableBody(container.querySelector("#employee-documents-body"), {
+      const run = window.ShiftSwiftAction?.runFormSubmit;
+      if (run) {
+        await run(form, status, {
+          loadingLabel: "Saving…",
+          successMessage: "Document updated.",
+          errorMessage: "Update failed.",
+          successLabel: "Saved",
+          onAction: performSave,
+        });
+        return;
+      }
+      if (status) status.textContent = "Saving…";
+      try {
+        const message = await performSave();
+        if (status) status.textContent = message;
+      } catch (error) {
+        if (status) status.textContent = error.message || "Update failed";
+      }
+    });
+  }
+
+  function renderEmployeeDocumentActions(row) {
+    const canSign =
+      row.has_file &&
+      row.category !== "payslip" &&
+      row.signing_status !== "signed";
+    const parts = [];
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}">Edit</button>`);
+    if (row.has_file) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
+      parts.push(
+        `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}">Resend notify</button>`,
+      );
+    }
+    if (canSign) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-send-sign-doc="${row.id}">E-sign</button>`);
+    }
+    if (row.signing_status === "sent") {
+      parts.push(
+        `<button type="button" class="btn ghost btn-sm" data-resend-sign-email="${row.id}">Resend signing email</button>`,
+      );
+    }
+    if (row.document_url) {
+      parts.push(
+        `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`,
+      );
+    }
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}">Remove</button>`);
+    return `<div class="table-actions">${parts.join("")}</div>`;
+  }
+
+  async function refreshEmployeeDocumentStoreList(container) {
+    if (!container || !activeEmployeeId) return;
+    const res = await apiFetch(`/admin/employees/${activeEmployeeId}/workspace`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not refresh documents");
+    workspaceCache = data;
+    const intro = container.querySelector(".employee-section-intro");
+    if (intro) {
+      const section = (data.sections || []).find((item) => item.key === "document_store");
+      intro.innerHTML = `
+        <h4>${escapeHtml(section?.label || "Document store")}</h4>
+        <p class="muted">${escapeHtml(section?.description || "")}</p>
+        ${renderRequirementsChecklist(data.document_requirements || {})}`;
+    }
+    const tbody = container.querySelector("#employee-documents-body");
+    if (!tbody) return;
+    renderTableBody(tbody, {
       emptyMessage: "No documents recorded yet.",
       columns: [
         { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
@@ -1776,21 +2849,99 @@
         },
         {
           key: "actions",
-          render: (row) => {
-            const canSign =
-              row.has_file &&
-              row.category !== "payslip" &&
-              row.signing_status !== "signed";
-            return `<div class="table-actions">
-              ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
-              ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
-              ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
-              <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
-            </div>`;
-          },
+          render: (row) => renderEmployeeDocumentActions(row),
         },
       ],
-      rows: docs,
+      rows: data.documents || [],
+    });
+    bindEmployeeDocumentTableActions(container, data.documents || []);
+  }
+
+  async function resendEmployeeDocumentNotification(documentId, statusEl, button) {
+    if (!activeEmployeeId) return;
+    const performResend = async () => {
+      const res = await apiFetch(
+        `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-notification`,
+        { method: "POST", body: JSON.stringify({ send_email: true }) },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      const message =
+        window.Admin?.formatDocumentNotificationSummary?.(data, { uploadedLabel: "Resent" }) ||
+        data.message ||
+        "Notification resent.";
+      return message;
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notification resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Resending notification…";
+    try {
+      const message = await performResend();
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message);
+    } catch (error) {
+      const message = error.message || "Resend failed.";
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message, { variant: "error" });
+    }
+  }
+
+  async function resendEmployeeSigningEmail(documentId, statusEl, button) {
+    if (!activeEmployeeId) return;
+    const performResend = async () => {
+      const res = await apiFetch(
+        `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-signature-email`,
+        {
+          method: "POST",
+          body: JSON.stringify({ frontend_base: window.location.origin }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      return data.message || "Signing email resent.";
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Signing email resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Resending signing email…";
+    try {
+      const message = await performResend();
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message);
+    } catch (error) {
+      const message = error.message || "Resend failed.";
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message, { variant: "error" });
+    }
+  }
+
+  function bindEmployeeDocumentTableActions(container, docs) {
+    container.querySelectorAll("[data-edit-doc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = docs.find((item) => String(item.id) === btn.dataset.editDoc);
+        if (row) openEmployeeDocumentEditPanel(row, container);
+      });
     });
 
     container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
@@ -1806,7 +2957,7 @@
             const err = await res.json();
             throw new Error(err.detail || "Delete failed");
           }
-          await openEmployee(activeEmployeeId, "document_store");
+          await refreshEmployeeDocumentStoreList(container);
           return "Removed.";
         };
         if (run) {
@@ -1838,7 +2989,7 @@
         const performDownload = async () => {
           await downloadAuthenticated(
             `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.downloadDoc}/file`,
-            name
+            name,
           );
           return "Download started.";
         };
@@ -1871,15 +3022,18 @@
             {
               method: "POST",
               body: JSON.stringify({ frontend_base: window.location.origin }),
-            }
+            },
           );
           const data = await res.json();
           if (!res.ok) throw new Error(data.detail || "Send failed");
-          pendingDocumentSigningUi = {
-            signing_url: data.signing_url,
-            reference_code: data.reference_code,
-          };
-          await openEmployee(activeEmployeeId, "document_store");
+          const linkBox = container.querySelector("#employee-document-signing-link");
+          if (linkBox && data.signing_url) {
+            linkBox.hidden = false;
+            const emailed = data.email_sent !== false;
+            linkBox.innerHTML = `<p><strong>Signing link</strong>${emailed ? " (emailed to employee)" : ""}:</p>
+              <input type="text" readonly value="${escapeHtml(data.signing_url)}" style="width:100%;" onclick="this.select()" />`;
+          }
+          await refreshEmployeeDocumentStoreList(container);
           return `Sent for signature · ${data.reference_code}`;
         };
         if (run) {
@@ -1902,6 +3056,186 @@
       });
     });
 
+    const actionStatus = container.querySelector("#employee-document-action-status");
+    container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void resendEmployeeDocumentNotification(btn.dataset.resendDocNotify, actionStatus, btn);
+      });
+    });
+    container.querySelectorAll("[data-resend-sign-email]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void resendEmployeeSigningEmail(btn.dataset.resendSignEmail, actionStatus, btn);
+      });
+    });
+  }
+
+  function renderDocumentStorePanel(workspace, container) {
+    const section = (workspace.sections || []).find((item) => item.key === "document_store");
+    const requirements = workspace.document_requirements || {};
+    const docs = workspace.documents || [];
+
+    container.innerHTML = `
+      <div class="employee-section-intro">
+        <h4>${escapeHtml(section?.label || "Document store")}</h4>
+        <p class="muted">${escapeHtml(section?.description || "")}</p>
+        ${renderRequirementsChecklist(requirements)}
+      </div>
+      <div id="employee-document-form"></div>
+      <article class="employee-doc-upload-panel">
+        <h5 class="employee-doc-upload-panel__title">Upload file</h5>
+        <form id="employee-document-upload-form" class="edit-form edit-form--cols-2 employee-doc-upload-form" enctype="multipart/form-data">
+          <section class="employee-doc-upload-section" aria-label="Document details">
+            <label class="edit-field" data-span="2">
+              <span class="edit-label">File</span>
+              <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="employee-document-upload-dropzone">
+                <input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+                <input type="file" id="employee-document-upload-camera" accept="image/*" capture="environment" hidden />
+                <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+                <p class="doc-upload-dropzone__hint muted" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</p>
+                <p class="doc-upload-filename" id="employee-document-upload-filename" hidden></p>
+              </div>
+            </label>
+            <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
+            <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
+            <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+            <label class="edit-field"><span class="edit-label">Expiry date <span class="muted">(optional)</span></span><input name="expires_at" type="date" /><span class="muted edit-hint">Renewable certificates only.</span></label>
+          </section>
+          <section class="employee-doc-upload-section employee-doc-upload-section--delivery" aria-label="Employee notification">
+            <h6 class="employee-doc-upload-section__title">Employee notification</h6>
+            <div class="employee-doc-upload-notify">
+              <label class="ss-check-row ss-check-row--compact">
+                <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Portal alert</span>
+                  <span class="ss-check-row__hint muted">In-app alert in the employee portal.</span>
+                </span>
+              </label>
+              <label class="ss-check-row ss-check-row--compact">
+                <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Email copy</span>
+                  <span class="ss-check-row__hint muted">Secure link by email.</span>
+                </span>
+              </label>
+            </div>
+          </section>
+          <div class="edit-form-actions employee-doc-upload-actions" data-span="2">
+            <button class="btn" type="submit">Upload file</button>
+            <p class="edit-form-status muted" data-upload-status></p>
+          </div>
+        </form>
+      </article>
+      <details class="employee-doc-link-add">
+        <summary>Add external link (no file)</summary>
+        <div id="employee-document-link-form"></div>
+      </details>
+      <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
+      <div id="employee-document-edit-panel" class="employee-doc-edit-panel" hidden>
+        <div class="employee-doc-edit-panel__head">
+          <h5>Amend document</h5>
+          <p class="muted employee-doc-edit-panel__lead">Correct the category, title, or visibility if a file was filed incorrectly.</p>
+        </div>
+        <form id="employee-document-edit-form" class="edit-form edit-form--cols-2 employee-doc-edit-form">
+          <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
+          <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-edit-category"></select></label>
+          <label class="edit-field" id="employee-document-edit-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-edit-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+          <label class="edit-field"><span class="edit-label">Expiry date <span class="muted">(optional)</span></span><input name="expires_at" type="date" /></label>
+          <label class="ss-check-row ss-check-row--compact" data-span="2">
+            <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="employee-document-edit-visible" value="true" />
+            <span class="ss-check-row__box" aria-hidden="true"></span>
+            <span class="ss-check-row__content">
+              <span class="ss-check-row__title">Employee portal</span>
+              <span class="ss-check-row__hint muted">Visible in the employee portal when checked.</span>
+            </span>
+          </label>
+          <div class="edit-form-actions employee-doc-edit-actions" data-span="2">
+            <button class="btn" type="submit">Save changes</button>
+            <button class="btn ghost" type="button" data-cancel-doc-edit>Cancel</button>
+            <p class="edit-form-status muted" data-edit-status></p>
+          </div>
+        </form>
+      </div>
+      <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
+      <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th>Actions</th></tr></thead>
+          <tbody id="employee-documents-body"></tbody>
+        </table>
+      </div>`;
+
+    mountEditForm(container.querySelector("#employee-document-link-form"), {
+      id: "employee-document",
+      columns: 2,
+      submitLabel: "Add document",
+      successMessage: "Document added.",
+      fields: [
+        { name: "title", label: "Title", type: "text", required: true },
+        {
+          name: "category",
+          label: "Category",
+          type: "select",
+          optionsKey: "employee_document_categories",
+          defaultValue: "contract",
+        },
+        { name: "document_url", label: "Document URL", type: "url", placeholder: "https://..." },
+        { name: "expires_at", label: "Expiry date", type: "date" },
+        { name: "notes", label: "Notes", type: "textarea", span: 2 },
+      ],
+    }, {
+      onSubmit: async (payload) => {
+        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents`, {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            lifecycle_stage: "document_store",
+            document_url: payload.document_url || null,
+            notes: payload.notes || null,
+            expires_at: payload.expires_at || null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Save failed");
+        await refreshEmployeeDocumentStoreList(container);
+        if (workspaceCache?.document_requirements?.complete && workspaceCache.next_section) {
+          const next = workspaceCache.next_section;
+          if (next !== "document_store") {
+            activeSection = next;
+            window.location.hash = `employees/${activeEmployeeId}/${next}`;
+            renderLifecycleAccordion(workspaceCache);
+          }
+        }
+      },
+    });
+
+    renderTableBody(container.querySelector("#employee-documents-body"), {
+      emptyMessage: "No documents recorded yet.",
+      columns: [
+        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+        { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
+        { key: "expires_at", render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set") },
+        { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
+        {
+          key: "signing_status",
+          render: (row) => {
+            if (row.signing_status === "signed") return '<span class="badge">Signed</span>';
+            if (row.signing_status === "sent") return '<span class="badge pill">Awaiting signature</span>';
+            return "";
+          },
+        },
+        {
+          key: "actions",
+          render: (row) => renderEmployeeDocumentActions(row),
+        },
+      ],
+      rows: docs,
+    });
+
+    bindEmployeeDocumentTableActions(container, docs);
+    bindEmployeeDocumentEditForm(container);
+
     const uploadForm = container.querySelector("#employee-document-upload-form");
     const uploadCategory = container.querySelector("#employee-document-upload-category");
     const payPeriodField = container.querySelector("#employee-document-upload-pay-period-field");
@@ -1911,11 +3245,20 @@
     const uploadPolicy = documentUploadPolicy();
     if (uploadFileInput) uploadFileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
     if (uploadHint) uploadHint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: container.querySelector("#employee-document-upload-dropzone"),
+      fileInput: uploadFileInput,
+      filenameEl: container.querySelector("#employee-document-upload-filename"),
+      cameraInput: container.querySelector("#employee-document-upload-camera"),
+    });
     if (uploadCategory) {
       const categories = window.Admin.formOptions?.employee_document_categories || [];
       uploadCategory.innerHTML = categories
         .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
         .join("");
+      if (categories.some((item) => item.value === "payslip")) {
+        uploadCategory.value = "payslip";
+      }
       if (!uploadCategory.dataset.ready) {
         const syncPayPeriod = () => {
           const isPayslip = uploadCategory.value === "payslip";
@@ -1955,6 +3298,7 @@
         const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
         fd.set("notify_employee", notify ? "true" : "false");
         fd.set("send_email", sendEmail ? "true" : "false");
+        fd.set("employee_visible", notify ? "true" : "false");
         if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",
@@ -1963,13 +3307,15 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Upload failed");
-        uploadForm.reset();
-        if (uploadCategory) {
-          uploadCategory.dispatchEvent(new Event("change"));
+        resetEmployeeUploadFormKeepingPreferences(uploadForm);
+        await refreshEmployeeDocumentStoreList(container);
+        const summary = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
+          uploadedLabel: "Uploaded",
+        });
+        if (window.Admin?.documentNotificationNeedsResend?.(data.notifications) && data.id) {
+          return `${summary} Use Resend notify on the document row if needed.`;
         }
-        const notified = data?.notifications?.notified_count;
-        await openEmployee(activeEmployeeId, "document_store");
-        return notified != null ? "Uploaded. Employee notified." : "Uploaded.";
+        return summary || "Uploaded.";
       };
 
       const run = window.ShiftSwiftAction?.runFormSubmit;
@@ -2024,7 +3370,7 @@
   }
 
   function noteVisibilityLabel(visibility) {
-    return visibility === "employee_visible" ? "Shared with employee" : "HR only";
+    return visibility === "employee_visible" ? "Employee portal" : "HR confidential";
   }
 
   async function loadEmployeeNotesList(container) {
@@ -2069,8 +3415,8 @@
         <label class="edit-field">
           <span class="edit-label">Visibility</span>
           <select name="visibility">
-            <option value="hr_internal">HR only (encrypted)</option>
-            <option value="employee_visible">Shared with employee</option>
+            <option value="hr_internal">HR confidential (encrypted)</option>
+            <option value="employee_visible">Employee portal</option>
           </select>
         </label>
         <div class="edit-form-actions" data-span="2">
@@ -2184,7 +3530,8 @@
           if (sidePanelEmployeeId && !activeEmployeeId) {
             sidePanelExpandedSection = null;
             sidePanelEmployeeId = null;
-            renderSidePanelSectionExpand(sidePanelWorkspace || workspace);
+            const row = employeesCache.find((item) => item.id === (sidePanelWorkspace || workspace).employee?.id);
+            if (row) void renderEmployeeSidePanel(row);
             return;
           }
           collapseLifecycleSection(workspace);
@@ -2219,7 +3566,8 @@
           }
           updateSidePanelProgress(data);
           refreshEmployeesTableProgressOnly();
-          renderSidePanelSectionExpand(data);
+          const row = employeesCache.find((item) => item.id === employeeId);
+          if (row) void renderEmployeeSidePanel(row);
           return;
         }
         const next = data.next_section;
@@ -2234,6 +3582,12 @@
 
   function renderWorkspace(workspace) {
     workspaceCache = workspace;
+    if (isMobileEmployeesHub()) {
+      showDetailView();
+      renderMobileEmployeeProfile(workspace);
+      return;
+    }
+    teardownMobileEmployeeProfile();
     renderEmployeeHeader(workspace);
     renderAdvancedLinks(workspace.employee || {});
     renderKioskPinPanel(workspace.employee?.id);
@@ -2253,7 +3607,7 @@
       window.location.hash = desired;
     }
     activeEmployeeId = employeeId;
-    hideEmployeeHistoryPanels();
+    hideEmployeeHistoryPanel();
     showDetailView();
     const accordion = lifecycleAccordionHost();
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;
@@ -2262,56 +3616,97 @@
     if (requestId !== openEmployeeRequest) return;
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || "Could not load employee");
+      employeesToast(data.detail || "Could not load employee", "error");
       showListView();
       return;
     }
 
     activeSection = section || data.next_section || "recruitment";
+    if (isMobileEmployeesHub()) {
+      if (section === "document_store") mobileProfileTab = "documents";
+      else if (!section) {
+        mobileProfileTab = "details";
+        mobileProfileEdit = false;
+      }
+    }
     renderWorkspace(data);
   }
 
-  async function refreshEmployeesTable() {
-    const tbody = $("employees-table-body");
-    if (!tbody) return;
-
-    try {
-      const res = await apiFetch("/admin/employees");
-      if (!res.ok) {
-        let detail = "Load failed";
-        try {
-          const err = await res.json();
-          detail = err.detail || err.message || detail;
-        } catch {
-          /* ignore */
-        }
-        throw new Error(typeof detail === "string" ? detail : "Load failed");
-      }
-      const data = await res.json();
-      employeesCache = data.items || [];
-      renderEmployeeRegister();
-    } catch (error) {
-      const message = escapeHtml(error?.message || "Could not load employees.");
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
+  async function refreshEmployeesTable(options = {}) {
+    const force = Boolean(options.force);
+    if (!force && employeesRefreshInflight) {
+      return employeesRefreshInflight;
     }
+    const requestId = ++employeesRefreshGeneration;
+    const tbody = $("employees-table-body");
+    const mobileCards = $("employees-mobile-cards");
+
+    const run = async () => {
+      try {
+        const tenantId = window.ShiftSwiftSession?.readTokenTenantId?.() || localStorage.getItem("tenantId");
+        const items = await fetchEmployeesList({ force: Boolean(options.force) });
+        if (requestId !== employeesRefreshGeneration) return;
+        applyEmployeesCache(items, { tenantId, status: 200 });
+
+        const overview = getAdminOverviewCache?.();
+        const activeCount = Number(overview?.modules?.employees?.active ?? 0);
+        if (!items.length && activeCount > 0) {
+          const hub = $("employees-lifecycle-hub");
+          if (hub && isMobileEmployeesHub()) {
+            hub.insertAdjacentHTML(
+              "afterbegin",
+              `<div class="overview-error" style="margin-bottom:10px"><p class="muted">Your dashboard shows ${activeCount} active employee${activeCount === 1 ? "" : "s"}, but the register returned none (tenant ${escapeHtml(tenantId || "?")}). Tap Retry or sign out and sign in again.</p></div>`,
+            );
+          }
+        }
+      } catch (error) {
+        if (requestId !== employeesRefreshGeneration) return;
+        const fallback = employeesFromFormOptions();
+        if (fallback.length) {
+          applyEmployeesCache(fallback);
+          return;
+        }
+        if (employeesCache.length) {
+          renderEmployeeRegister();
+          return;
+        }
+        employeesCache = [];
+        const message = friendlyNativeError(error, "Could not load employees.");
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(message)} Try again or check your connection.</td></tr>`;
+        }
+        if (mobileCards) {
+          mobileCards.hidden = false;
+          mobileCards.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(message)}</p><button type="button" class="btn outline btn-sm" id="employees-retry-btn">Retry</button></div>`;
+          mobileCards.querySelector("#employees-retry-btn")?.addEventListener("click", () => {
+            void initEmployeesSection();
+          });
+        }
+        renderLifecycleHubLoadError(`${message} Try again or check your connection.`);
+      }
+    };
+
+    employeesRefreshInflight = run().finally(() => {
+      employeesRefreshInflight = null;
+    });
+    return employeesRefreshInflight;
   }
 
   async function renderEmployeeSidePanel(row) {
-    const empty = $("employees-side-empty");
     const content = $("employees-side-content");
     if (!content) return;
     if (!row) {
+      sidePanelRenderRequest += 1;
       sidePanelWorkspace = null;
       sidePanelExpandedSection = null;
       sidePanelEmployeeId = null;
-      empty?.removeAttribute("hidden");
-      content.hidden = true;
+      setEmployeeSidePanelVisible(false);
       content.innerHTML = "";
       renderLifecycleHub(employeesCache);
       return;
     }
-    empty?.setAttribute("hidden", "");
-    content.hidden = false;
+    setEmployeeSidePanelVisible(true);
+    sidePanelEmployeeId = row.id;
 
     const requestId = ++sidePanelRenderRequest;
     content.innerHTML = `<p class="muted employee-record-loading">Loading profile…</p>`;
@@ -2324,6 +3719,9 @@
 
       sidePanelWorkspace = workspace;
       const employee = workspace.employee || row;
+      if (!window.Admin.formOptions?.employee_document_categories) {
+        await loadFormOptions();
+      }
       const palette = avatarPalette(employee.id);
       const initials = employeeInitials(employee);
       const progress = sectionProgressMeta(workspace);
@@ -2355,6 +3753,9 @@
               <span id="employees-side-progress-copy">${progress.completed} of ${progress.total} sections done</span>
             </div>
             <div class="employee-record-progress__bar"><span id="employees-side-progress-fill" style="width:${Math.min(100, progress.pct)}%"></span></div>
+            <p class="employee-record-lifecycle-link">
+              <button type="button" class="employee-record-link" id="employees-side-lifecycle-btn">Full lifecycle record →</button>
+            </p>
           </div>
 
           <div class="employee-record-fields">
@@ -2377,25 +3778,20 @@
           </div>
           <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
 
-          <div class="employee-record-checklist-wrap">
-            <h4 class="employee-record-checklist-title">Lifecycle sections</h4>
-            <div class="employee-record-checklist" id="employees-side-checklist"></div>
-          </div>
+          ${renderEmployeeRecordSectionsHtml(employee, workspace)}
 
-          <div id="employees-side-section-host" hidden></div>
-
-          <footer class="employee-record-foot muted">
+          <footer class="employee-record-foot muted" title="Portal access is separate from employment status — an active employee may still be finishing portal setup.">
             <span class="employee-record-portal-icon" aria-hidden="true"></span>
-            ${escapeHtml(portalStatusCopy(employee))}
+            <span class="employee-record-portal-copy">${escapeHtml(portalStatusCopy(employee))}</span>
           </footer>
           <p class="muted" id="employees-side-invite-status" aria-live="polite"></p>
         </article>`;
 
-      renderSidePanelChecklist(workspace);
-      renderSidePanelSectionExpand(workspace);
       void refreshEmployeeSidePanelKioskPin(employee.id);
       bindSidePanelInlineFields(employee, workspace);
       renderLifecycleHub(employeesCache);
+      setEmployeeSidePanelVisible(true);
+      sidePanelEmployeeId = employee.id;
 
       content.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
         void sendPortalInvite(employee.id, "employees-side-invite-status");
@@ -2405,7 +3801,7 @@
         const deleteRes = await apiFetch(`/admin/employees/${employee.id}`, { method: "DELETE" });
         if (!deleteRes.ok) {
           const err = await deleteRes.json();
-          alert(err.detail || "Delete failed");
+          employeesToast(err.detail || "Delete failed", "error");
           return;
         }
         selectedEmployeeId = null;
@@ -2415,6 +3811,7 @@
       });
     } catch (error) {
       if (requestId !== sidePanelRenderRequest) return;
+      setEmployeeSidePanelVisible(true);
       content.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load employee profile.")}</p>`;
     }
   }
@@ -2457,23 +3854,78 @@
     });
   }
 
+  function showEmployeesLoadingState() {
+    if (!isMobileEmployeesHub()) return;
+    const hub = $("employees-lifecycle-hub");
+    const cards = $("employees-mobile-cards");
+    if (hub) {
+      hub.hidden = false;
+      hub.innerHTML = '<p class="muted" style="padding:12px 0">Loading employees…</p>';
+    }
+    if (cards) {
+      cards.hidden = false;
+      cards.innerHTML = '<p class="muted">Loading employees…</p>';
+    }
+    const tbody = $("employees-table-body");
+    if (tbody && !employeesCache.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading employees…</td></tr>';
+    }
+  }
+
   async function initEmployeesSection() {
+    const warmed = peekEmployeesListCache?.();
+    if (warmed?.length && !employeesCache.length) {
+      applyEmployeesCache(warmed);
+    }
+    showEmployeesLoadingState();
     if (!sectionLoaded) {
       sectionLoaded = true;
-      await loadFormOptions();
       mountQuickAddForm();
       mountKioskPinForm();
       bindChangeHistoryPanel();
       document.getElementById("employees-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites());
-      window.addEventListener("resize", () => renderLifecycleHub(employeesCache));
+      window.addEventListener("resize", () => {
+        renderLifecycleHub(employeesCache);
+        renderEmployeeMobileCards(getFilteredEmployees());
+      });
     }
-    await refreshEmployeesTable();
+    try {
+      const warmed = peekEmployeesListCache?.();
+      const needsForce = !warmed?.length && !employeesCache.length;
+      await Promise.race([
+        refreshEmployeesTable({ force: needsForce }),
+        new Promise((_, reject) =>
+          window.setTimeout(() => reject(new Error("Request timed out")), 45000),
+        ),
+      ]);
+    } catch (error) {
+      if (!employeesCache.length) {
+        renderLifecycleHubLoadError(
+          `${friendlyNativeError(error, "Could not load employees.")} Tap Retry or check your connection.`,
+        );
+      }
+    }
+    if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      void loadFormOptions().catch(() => null);
+    }
+  }
+
+  async function prefetchEmployeesTable() {
+    try {
+      await refreshEmployeesTable();
+    } catch {
+      /* warm cache — section open will retry */
+    }
   }
 
   $("employee-back-btn")?.addEventListener("click", showListView);
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section !== "employees") return;
+    showEmployeesLoadingState();
+    if (employeesCache.length) {
+      renderEmployeeRegister();
+    }
     void (async () => {
       await initEmployeesSection();
 
@@ -2486,6 +3938,19 @@
         applyEmployeesListRoute();
       }
     })();
+  });
+
+  window.addEventListener("admin:employees-cache-ready", () => {
+    const warmed = peekEmployeesListCache?.();
+    if (warmed?.length && !employeesCache.length) {
+      applyEmployeesCache(warmed);
+    }
+  });
+
+  window.addEventListener("admin:deferred-ready", () => {
+    const active = document.getElementById("employees")?.classList.contains("admin-section--active");
+    const onEmployees = /#employees/i.test(window.location.hash) || active;
+    if (onEmployees) void initEmployeesSection();
   });
 
   window.addEventListener("hashchange", () => {
@@ -2515,4 +3980,34 @@
     }
     void openEmployee(id, section);
   });
+
+  window.addEventListener("admin:portal-native-retry", () => {
+    const active =
+      document.getElementById("employees")?.classList.contains("admin-section--active") ||
+      /#employees/i.test(window.location.hash);
+    if (active) void initEmployeesSection();
+  });
+
+  window.addEventListener("admin:overview-loaded", () => {
+    void prefetchEmployeesTable();
+  });
+
+  window.addEventListener("shiftswift:portal-ready", () => {
+    if (/#employees/i.test(window.location.hash)) void initEmployeesSection();
+  });
+
+  if (
+    /#employees/i.test(window.location.hash) ||
+    document.getElementById("employees")?.classList.contains("admin-section--active")
+  ) {
+    void initEmployeesSection();
+  }
+
+  window.ShiftSwiftAdminEmployees = {
+    initEmployeesSection,
+    refreshEmployeesTable,
+    prefetchEmployeesTable,
+    showListView,
+    getEmployeesCount: () => employeesCache.length,
+  };
 })();

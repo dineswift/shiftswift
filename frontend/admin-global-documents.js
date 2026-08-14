@@ -28,7 +28,9 @@
     if (!host) return;
     const items = filteredItems();
     if (!items.length) {
-      host.innerHTML = '<p class="muted">No downloads match your filters.</p>';
+      host.innerHTML = listCache.length
+        ? '<p class="leave-mobile-empty muted">No downloads match your filters.</p>'
+        : '<p class="leave-mobile-empty muted">No global downloads available yet.</p>';
       return;
     }
     host.innerHTML = items

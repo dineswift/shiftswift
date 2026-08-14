@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap');
+
+:root {
+  /*
+   * ShiftSwift HR palette — compliance green family
+   * Pine anchor · Verdant CTA · Sage calm · Amber alerts · Paper warmth
+   */
+  --pine: #0f2e22;
+  --verdant: #1d9e75;
+  --sage-50: #eaf3de;
+  --amber: #ba7517;
+  --amber-soft: #fef3e2;
+  --paper: #f9f8f4;
+
+  /* Brand greens — mapped to HR tokens */
+  --green-900: var(--pine);
+  --green-800: #085041;
+  --green-700: #0f6e56;
+  --green-500: var(--verdant);
+  --green-300: #5dcaa5;
+  --green-200: #9fe1cb;
+  --green-100: var(--sage-50);
+
+  /* Neutrals */
+  --gray-900: #111111;
+  --gray-700: #2c2c2a;
+  --gray-500: #5f5e5a;
+  --gray-600: #4a4946;
+  --gray-400: #888780;
+  --gray-200: #d3d1c7;
+  --gray-100: #f1efe8;
+  --white: #ffffff;
+  --page-bg: var(--paper);
+
+  /* Semantic aliases */
+  --brand-green: var(--green-700);
+  --brand-green-dark: var(--pine);
+  --brand-green-light: var(--green-300);
+  --brand-green-soft: var(--sage-50);
+  --brand-green-muted: var(--green-200);
+
+  --ink-900: var(--gray-900);
+  --ink-700: var(--gray-700);
+  --ink-500: var(--gray-500);
+  --ink: var(--gray-900);
+  --muted: var(--gray-400);
+
+  --sand-50: var(--page-bg);
+  --sand-100: var(--gray-100);
+  --clay-200: var(--gray-200);
+  --card: var(--white);
+  --card-border: var(--gray-200);
+  --input-border: var(--gray-200);
+
+  --sea-500: var(--green-700);
+  --sea-600: var(--green-800);
+  --mint-500: var(--green-300);
+  --mint-600: var(--verdant);
+  --accent: var(--verdant);
+  --accent-dark: var(--pine);
+  --accent-soft: var(--sage-50);
+  --alert: var(--amber);
+  --alert-soft: var(--amber-soft);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius: var(--radius-lg);
+
+  --font-body: "Manrope", "Segoe UI", sans-serif;
+  --font-heading: "Sora", "Segoe UI", sans-serif;
+  --font-ui: "Manrope", "Segoe UI", sans-serif;
+
+  /*
+   * Typography scale
+   * Sora 700–800 headlines & prices · Manrope body & UI
+   */
+  --text-hero-size: clamp(3.25rem, 5vw, 4rem);
+  --text-hero-weight: 800;
+  --text-hero-tracking: -0.038em;
+
+  --text-section-size: clamp(2rem, 3.2vw, 2.5rem);
+  --text-section-weight: 700;
+  --text-section-tracking: -0.025em;
+
+  --text-card-title-size: 1.25rem;
+  --text-card-title-weight: 700;
+  --text-card-title-tracking: -0.025em;
+
+  --text-body-size: 0.9375rem;
+  --text-body-size-lg: 1rem;
+  --text-body-weight: 400;
+  --text-support-weight: 500;
+
+  --text-caption-size: 0.8125rem;
+  --text-caption-weight: 500;
+
+  --text-label-size: 0.6875rem;
+  --text-label-weight: 700;
+  --text-label-tracking: 0.125em;
+
+  --text-price-size: clamp(3rem, 4vw, 3.5rem);
+  --text-price-weight: 800;
+  --text-price-tracking: -0.035em;
+
+  --shadow: 0 12px 28px rgba(15, 46, 34, 0.08);
+  --shadow-soft: 0 16px 28px rgba(15, 46, 34, 0.1);
+  --shadow-card: 0 10px 20px rgba(15, 46, 34, 0.08);
+  --shadow-pine: 0 24px 48px rgba(15, 46, 34, 0.22);
+  --pattern: rgba(15, 110, 86, 0.05);
+
+  /* Status chips */
+  --chip-pending-bg: var(--amber-soft);
+  --chip-pending-text: var(--amber);
+  --chip-onleave-bg: #e8eaf6;
+  --chip-onleave-text: #3949ab;
+  --chip-offboarding-bg: #fdecea;
+  --chip-offboarding-text: #c62828;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--page-bg);
+  font-family: var(--font-body);
+  font-size: var(--text-body-size);
+  font-weight: var(--text-body-weight);
+  line-height: 1.6;
+  letter-spacing: 0;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+}

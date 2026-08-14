@@ -12,7 +12,9 @@ from modules.time_punch.service import (
     _insert_time_punch,
     _validate_punch_transition,
     eligible_sites_for_employee,
+    last_punch,
     resolve_site_by_clock_token,
+    work_state_from_last,
 )
 
 KIOSK_SESSION_MINUTES = 8
@@ -99,10 +101,8 @@ def create_kiosk_session(
             (token, tenant_id, employee_id, site["id"], expires_at),
         )
     conn.commit()
-    from modules.time_punch.service import work_state_from_last
-
-    last = {"punch_type": punch_type}
-    work_state = work_state_from_last(last)
+    prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    work_state = work_state_from_last(prior)
     return {
         "session_token": token,
         "expires_at": expires_at.isoformat(),

@@ -56,6 +56,10 @@
 
   function hideCapacitorSplash() {
     try {
+      if (window.ShiftSwiftNativeApp?.hideSplash) {
+        window.ShiftSwiftNativeApp.hideSplash();
+        return;
+      }
       window.Capacitor?.Plugins?.SplashScreen?.hide?.()?.catch?.(() => null);
     } catch {
       /* ignore */
@@ -111,12 +115,12 @@
   function computeMinMs({ postLogin, sessionReady, isLogin, reduced }) {
     if (reduced) {
       if (postLogin) return 360;
-      if (isLogin && sessionReady) return 240;
-      return 320;
+      if (isLogin && sessionReady) return 180;
+      return 240;
     }
-    if (postLogin) return 1200;
-    if (isLogin && !sessionReady) return 980;
-    if (isLogin && sessionReady) return 520;
+    if (postLogin) return 900;
+    if (isLogin && !sessionReady) return 420;
+    if (isLogin && sessionReady) return 280;
     if (isPortalPage()) return 720;
     return 920;
   }
@@ -127,6 +131,21 @@
       document.documentElement.classList.remove("native-startup-active");
       document.body?.classList.remove("native-startup-active");
       hideCapacitorSplash();
+      window.ShiftSwiftNativeStartup = {
+        finish: hideCapacitorSplash,
+        hideCapacitorSplash,
+        injectLoader,
+        dismissNativeStartupLoader: hideCapacitorSplash,
+      };
+      return;
+    }
+
+    if (isLoginPage() && /\/\/localhost\//i.test(String(location.href || ""))) {
+      document.getElementById("native-startup-loader")?.remove();
+      document.documentElement.classList.remove("native-startup-active");
+      document.body?.classList.remove("native-startup-active");
+      hideCapacitorSplash();
+      window.dispatchEvent(new CustomEvent("shiftswift:startup-loader-done"));
       window.ShiftSwiftNativeStartup = {
         finish: hideCapacitorSplash,
         hideCapacitorSplash,
@@ -183,7 +202,7 @@
     if (isLoginPage()) {
       window.setTimeout(() => {
         if (!finished) finish();
-      }, 1200);
+      }, 600);
     }
 
     await Promise.all([delay(minMs), waitForPortalReady()]);

@@ -1,6 +1,6 @@
 /** Settings document store — upload, filters, export, edit and delete. */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, downloadAuthenticated, authHeaders, API_BASE, showAdminToast } = window.Admin;
 
   const FILTER_IDS = {
     category: "document-filter-category",
@@ -11,9 +11,9 @@
   const STRIP_LIST_ID = "documents-strip-list";
 
   const TAB_DESCRIPTIONS = {
-    upload: "Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.",
-    distribute: "Push a file to one or all employees — it appears in their portal and can trigger an email notification.",
-    link: "Register an external URL (SharePoint, Google Drive, etc.) without uploading the file to ShiftSwift.",
+    upload: "File for all staff, one employee, or HR confidential storage.",
+    distribute: "Send a payslip or personal document to one or all employees.",
+    link: "Register an external link (SharePoint, Google Drive, etc.) without uploading the file.",
   };
 
   const DEFAULT_DOCUMENT_UPLOAD = {
@@ -91,6 +91,158 @@
     document.querySelectorAll("#document-upload-form [data-status], #document-distribute-form [data-status]").forEach((el) => {
       setFormStatus(el, "");
     });
+  }
+
+  function readUploadFormPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector('[name="category"]')?.value || "",
+      lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      doc_audience: form.querySelector('input[name="doc_audience"]:checked')?.value || "company",
+      employee_id: form.querySelector("#document-upload-employee-id")?.value || "",
+      employee_search: form.querySelector("#document-upload-employee-search")?.value || "",
+      expires_at: form.querySelector("#document-upload-expires-at")?.value || "",
+      expiry_alert_days: form.querySelector("#document-upload-alert-days")?.value || "30",
+      employee_visible: form.querySelector("#document-upload-visible")?.checked ?? true,
+      notify: form.querySelector("#document-upload-notify")?.checked ?? true,
+      notify_email: form.querySelector("#document-upload-notify-email")?.checked ?? true,
+      notify_scope: form.querySelector('input[name="notify_scope"]:checked')?.value || "all",
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyUploadFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector('[name="category"]');
+    const stage = form.querySelector('[name="lifecycle_stage"]');
+    if (category && prefs.category) category.value = prefs.category;
+    if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    const audienceInput = form.querySelector(`input[name="doc_audience"][value="${prefs.doc_audience}"]`);
+    if (audienceInput) audienceInput.checked = true;
+    const employeeId = form.querySelector("#document-upload-employee-id");
+    const employeeSearch = form.querySelector("#document-upload-employee-search");
+    if (employeeId) employeeId.value = prefs.employee_id || "";
+    if (employeeSearch) employeeSearch.value = prefs.employee_search || "";
+    const expiresAt = form.querySelector("#document-upload-expires-at");
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    const alertDays = form.querySelector("#document-upload-alert-days");
+    if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
+    const visible = form.querySelector("#document-upload-visible");
+    if (visible) visible.checked = prefs.employee_visible;
+    const notify = form.querySelector("#document-upload-notify");
+    if (notify) notify.checked = prefs.notify;
+    const notifyEmail = form.querySelector("#document-upload-notify-email");
+    if (notifyEmail) notifyEmail.checked = prefs.notify_email;
+    const notifyScope = form.querySelector(`input[name="notify_scope"][value="${prefs.notify_scope}"]`);
+    if (notifyScope) notifyScope.checked = true;
+    const notes = form.querySelector('[name="notes"]');
+    if (notes) notes.value = prefs.notes || "";
+    syncUploadAudience(form);
+    syncExpiryFields();
+    syncUploadNotify(form);
+  }
+
+  function resetUploadFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readUploadFormPreferences(form);
+    form.reset();
+    applyUploadFormPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#document-upload-file");
+    if (fileInput) fileInput.value = "";
+    const cameraInput = form.querySelector("#document-upload-camera");
+    if (cameraInput) cameraInput.value = "";
+    const filenameEl = document.getElementById("document-upload-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function readDistributeFormPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector('[name="category"]')?.value || "",
+      employee_id: form.querySelector('[name="employee_id"]')?.value || "",
+      pay_period: form.querySelector("#document-distribute-pay-period")?.value || "",
+      send_email: form.querySelector('[name="send_email"]')?.checked ?? true,
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyDistributeFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector('[name="category"]');
+    const employee = form.querySelector('[name="employee_id"]');
+    const payPeriod = form.querySelector("#document-distribute-pay-period");
+    const sendEmail = form.querySelector('[name="send_email"]');
+    const notes = form.querySelector('[name="notes"]');
+    if (category && prefs.category) category.value = prefs.category;
+    if (employee) employee.value = prefs.employee_id || "";
+    if (payPeriod) payPeriod.value = prefs.pay_period || "";
+    if (sendEmail) sendEmail.checked = prefs.send_email;
+    if (notes) notes.value = prefs.notes || "";
+    const syncPayPeriodRequired = () => {
+      if (!payPeriod) return;
+      const isPayslip = category?.value === "payslip";
+      payPeriod.required = isPayslip;
+      payPeriod.closest(".edit-field")?.classList.toggle("edit-field--required", isPayslip);
+    };
+    syncPayPeriodRequired();
+  }
+
+  function resetDistributeFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readDistributeFormPreferences(form);
+    form.reset();
+    applyDistributeFormPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#document-distribute-file");
+    if (fileInput) fileInput.value = "";
+    const cameraInput = form.querySelector("#document-distribute-camera");
+    if (cameraInput) cameraInput.value = "";
+    const filenameEl = document.getElementById("document-distribute-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function readLinkFormPreferences(form) {
+    if (!form) return null;
+    return {
+      employee_id: form.querySelector('[name="employee_id"]')?.value || "",
+      category: form.querySelector('[name="category"]')?.value || "",
+      lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      expiry_alert_days: form.querySelector('[name="expiry_alert_days"]')?.value || "30",
+      employee_visible: form.querySelector('[name="employee_visible"]')?.checked ?? false,
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyLinkFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const employee = form.querySelector('[name="employee_id"]');
+    const category = form.querySelector('[name="category"]');
+    const stage = form.querySelector('[name="lifecycle_stage"]');
+    const expiresAt = form.querySelector('[name="expires_at"]');
+    const alertDays = form.querySelector('[name="expiry_alert_days"]');
+    const visible = form.querySelector('[name="employee_visible"]');
+    const notes = form.querySelector('[name="notes"]');
+    if (employee) employee.value = prefs.employee_id || "";
+    if (category && prefs.category) category.value = prefs.category;
+    if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
+    if (visible) visible.checked = prefs.employee_visible;
+    if (notes) notes.value = prefs.notes || "";
+    const title = form.querySelector('[name="title"]');
+    const url = form.querySelector('[name="document_url"]');
+    if (title) title.value = "";
+    if (url) url.value = "";
   }
 
   function setDocumentsPanelAlert(options) {
@@ -215,9 +367,9 @@
     host.innerHTML = rows
       .map((row) => {
         const fileAction = row.has_file
-          ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
+          ? `<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
           : row.document_url
-            ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
+            ? `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`
             : "";
         return `<article class="settings-doc-strip">
           <div class="settings-doc-strip__main">
@@ -285,6 +437,53 @@
     });
   }
 
+  async function resendDocumentNotification(row, button, statusEl) {
+    if (!row?.id) return;
+    const performResend = async () => {
+      let res;
+      if (row.scope === "employee" && row.employee_id) {
+        res = await apiFetch(
+          `/admin/employees/${row.employee_id}/documents/${row.id}/resend-notification`,
+          { method: "POST", body: JSON.stringify({ send_email: true }) },
+        );
+      } else {
+        res = await apiFetch(`/admin/documents/${row.id}/resend-notification`, {
+          method: "POST",
+          body: JSON.stringify({
+            send_email: true,
+            employee_ids: row.employee_id ? [Number(row.employee_id)] : null,
+          }),
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      return (
+        window.Admin?.formatDocumentNotificationSummary?.(data, { uploadedLabel: "Resent" }) ||
+        data.message ||
+        "Notification resent."
+      );
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notification resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    try {
+      const message = await performResend();
+      showAdminToast?.(message);
+    } catch (error) {
+      showAdminToast?.(error.message || "Resend failed", { variant: "error" });
+    }
+  }
+
   function bindDocumentRowActions(container, rows) {
     if (!container) return;
     container.querySelectorAll("[data-download-doc]").forEach((btn) => {
@@ -312,7 +511,7 @@
         const res = await apiFetch(`/admin/documents/${row.id}?${documentApiQuery(row)}`, { method: "DELETE" });
         if (!res.ok) {
           const err = await res.json();
-          alert(err.detail || "Delete failed");
+          showAdminToast?.(err.detail || "Delete failed", { variant: "error" });
           return;
         }
         await refreshDocuments();
@@ -328,6 +527,17 @@
           employeeId: btn.dataset.docEmployeeId,
         });
         openDocumentEditPanel(row);
+      });
+    });
+
+    container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.resendDocNotify,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        if (row) void resendDocumentNotification(row, btn, document.getElementById("document-upload-status"));
       });
     });
   }
@@ -502,9 +712,14 @@
   }
 
   function documentActionsMarkup(row) {
+    const resendBtn =
+      row.employee_visible && documentHasAttachment(row)
+        ? `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}" ${documentActionAttrs(row)}>Resend notify</button>`
+        : "";
     return `<div class="table-actions">
-      <button type="button" class="btn ghost" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
-      <button type="button" class="btn ghost" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
+      <button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
+      ${resendBtn}
+      <button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
     </div>`;
   }
 
@@ -562,19 +777,19 @@
 
     if (audienceCaption) {
       if (audience === "company") {
-        audienceCaption.textContent = "Company handbooks and policies for every staff member.";
+        audienceCaption.textContent = "Company-wide — handbooks, policies, and shared HR documents.";
       } else if (audience === "employee") {
-        audienceCaption.textContent = "Personal file on one employee profile only.";
+        audienceCaption.textContent = "Stored on the selected employee's record.";
       } else {
-        audienceCaption.textContent = "Stored for HR audits — never shown in the employee portal.";
+        audienceCaption.textContent = "HR confidential — not visible in the employee portal.";
       }
     }
 
     if (visibleHint) {
       if (audience === "company") {
-        visibleHint.textContent = "All staff will see this under Company documents.";
+        visibleHint.textContent = "Listed under Company documents for all staff.";
       } else if (audience === "employee") {
-        visibleHint.textContent = "Only the selected employee sees this in their portal.";
+        visibleHint.textContent = "Visible in this employee's portal only.";
       } else {
         visibleHint.textContent = "";
       }
@@ -582,8 +797,7 @@
 
     const notifyTitle = document.getElementById("document-upload-notify-title");
     if (notifyTitle) {
-      notifyTitle.textContent =
-        audience === "employee" ? "Notify employee when published" : "Notify employees when published";
+      notifyTitle.textContent = audience === "employee" ? "Portal alert" : "Portal alert (all staff)";
     }
 
     syncUploadNotify(form);
@@ -837,7 +1051,7 @@
         },
         {
           name: "employee_visible",
-          label: "Visible to employee in their portal",
+          label: "Employee portal",
           type: "checkbox",
           span: 2,
         },
@@ -891,7 +1105,7 @@
       },
       {
         name: "employee_visible",
-        label: "Visible to employee in their portal",
+        label: "Employee portal",
         type: "checkbox",
         span: 2,
       },
@@ -930,7 +1144,6 @@
       panel.hidden = panel.dataset.docPanel !== target;
     });
     updateTabDescription(target);
-    clearDocumentFormStatuses();
     if (target === "link") {
       mountLinkForm();
     }
@@ -1138,16 +1351,13 @@
 
       try {
         const data = await uploadMultipart("/admin/documents/upload", fd);
-        form.reset();
-        document.getElementById("document-upload-employee-id").value = "";
-        document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
-        syncExpiryFields();
-        syncUploadAudience(form);
-        const notified = data?.notifications?.notified_count;
-        const successText =
-          notified != null
-            ? `Uploaded ✓ ${notified} employee${notified === 1 ? "" : "s"} notified`
-            : "Uploaded ✓";
+        resetUploadFormKeepingPreferences(form);
+        let successText = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
+          uploadedLabel: "Uploaded ✓",
+        }) || "Uploaded ✓";
+        if (window.Admin?.documentNotificationNeedsResend?.(data.notifications)) {
+          successText += " Use Resend notify on the document row if needed.";
+        }
         if (status) setFormStatus(status, successText, "success");
         window.AdminSettings?.showSettingsToast?.(successText);
         await refreshDocumentViews(status);
@@ -1230,12 +1440,7 @@
       }
       try {
         const data = await uploadMultipart("/admin/documents/distribute", fd);
-        form.reset();
-        if (filenameEl) {
-          filenameEl.hidden = true;
-          filenameEl.textContent = "";
-        }
-        syncPayPeriodRequired();
+        resetDistributeFormKeepingPreferences(form);
         if (status) {
           const emailNote =
             data.emails_sent > 0
@@ -1331,8 +1536,13 @@
     const filtersHost = document.getElementById("document-filters");
     if (!tbody && !formHost) return;
 
-    clearDocumentFormStatuses();
-    setDocumentsPanelAlert({});
+    const firstLoad = document.body.dataset.documentsReady !== "true";
+    if (firstLoad) {
+      clearDocumentFormStatuses();
+      setDocumentsPanelAlert({});
+      resetDocumentTabs();
+      document.body.dataset.documentsReady = "true";
+    }
 
     if (window.Admin.loadFormOptions) {
       await window.Admin.loadFormOptions();
@@ -1486,7 +1696,9 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Save failed");
+        const linkPrefs = readLinkFormPreferences(formHost.querySelector("form"));
         formHost.querySelector("form")?.reset();
+        applyLinkFormPreferences(formHost.querySelector("form"), linkPrefs);
         window.AdminSettings?.showSettingsToast?.("Document link saved ✓");
         await refreshDocuments();
         await refreshExpiringDocuments();
@@ -1495,5 +1707,5 @@
     formHost.dataset.ready = "1";
   }
 
-  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm };
+  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm, bindFileDropzone };
 })();

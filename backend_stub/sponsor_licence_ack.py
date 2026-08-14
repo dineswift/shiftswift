@@ -107,13 +107,21 @@ def acknowledge_sponsor_licence(
             detail="You must confirm your organisation holds a UK Sponsor Licence.",
         )
     with conn.cursor() as cur:
+        from core.schema import table_columns
+
+        punch_mode_set = (
+            ", punch_time_mode = 'timestamped'"
+            if "punch_time_mode" in table_columns(conn, "tenants")
+            else ""
+        )
         cur.execute(
-            """
+            f"""
             UPDATE tenants
             SET holds_sponsor_licence = TRUE,
                 sponsor_licence_acknowledged_at = NOW(),
                 sponsor_licence_acknowledged_by = %s,
                 sponsor_licence_ack_version = %s
+                {punch_mode_set}
             WHERE id = %s
             """,
             (acknowledged_by.strip(), SPONSOR_LICENCE_ACK_VERSION, tenant_id),

@@ -69,8 +69,8 @@ def test_evaluate_creates_alert_after_grace_without_punch() -> None:
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
     cursor.fetchone.side_effect = [
-        (1,),
-        (99,),
+        (1,),  # tenant_has_active_punch_sites
+        (99,),  # INSERT alert
     ]
 
     shift = {
@@ -88,7 +88,27 @@ def test_evaluate_creates_alert_after_grace_without_punch() -> None:
     # 09:20 UK (BST) = 08:20 UTC — after alert window, no punch
     now = datetime(2026, 6, 10, 8, 20, tzinfo=timezone.utc)
 
+    from zoneinfo import ZoneInfo
+
+    from modules.employees.business_schedule import BusinessSchedule
+
+    schedule = BusinessSchedule(
+        timezone_name="Europe/London",
+        tz=ZoneInfo("Europe/London"),
+        opening_hours={},
+        shift_reminder_minutes_before=15,
+        shift_end_reminder_minutes_before=15,
+        missed_clock_in_early_minutes=10,
+        missed_clock_in_late_minutes=30,
+        missed_punch_alert_minutes=15,
+        signin_reminder_timing="fixed",
+        signin_reminder_minutes_before_open=30,
+    )
+
     with patch(
+        "modules.rota.missed_punch.get_business_schedule",
+        return_value=schedule,
+    ), patch(
         "modules.rota.missed_punch.list_published_shifts_on_date",
         return_value=[shift],
     ), patch(
@@ -110,10 +130,13 @@ def test_evaluate_creates_alert_after_grace_without_punch() -> None:
     ), patch(
         "modules.employees.notification_branding.employee_notification_from_name",
         return_value="Demo Ltd",
-    ), patch("core.notifications.queue_notification") as queue_mock:
+    ), patch(
+        "modules.push.hr_notify.notify_hr_missed_punch",
+        return_value={"sent": 1, "email": {"sent": 1}, "push": {"sent": 0}},
+    ) as notify_mock:
         result = evaluate_missed_punch_alerts(tenant_id=1, conn=conn, now=now)
 
     assert len(result) == 1
     assert result[0]["employee_name"] == "Alex Smith"
-    assert queue_mock.called
+    assert notify_mock.called
     conn.commit.assert_called()

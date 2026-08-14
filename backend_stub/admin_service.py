@@ -43,31 +43,51 @@ TENANT_PROFILE_FIELDS = (
     "signatory_email",
     "payroll_accountant_email",
     "payroll_hours_report_enabled",
+    "punch_time_mode",
     "rota_mode",
     "rota_week_start_day",
 )
 
 NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
-    "rtw_expiry": "email",
+    "rtw_expiry": "email_push",
+    "visa_expiry": "email_push",
+    "document_expiry": "email_push",
+    "sms_login_reminder": "email_push",
     "absence_day5": "email",
     "absence_day9": "email_sms",
     "rota_published": "email",
-    "missed_punch_hr": "email",
+    "missed_punch_hr": "email_push",
+    "leave_request_hr": "email_push",
     "missed_punch_employee": "email",
     "employee_signin_reminder": "email_push",
 }
 
 NOTIFICATION_PREF_EVENTS = (
     {"id": "rtw_expiry", "label": "RTW expiry approaching"},
+    {"id": "visa_expiry", "label": "Visa expiry approaching"},
+    {"id": "document_expiry", "label": "ID / document expiry"},
+    {"id": "sms_login_reminder", "label": "Monthly Home Office SMS login reminder"},
     {"id": "absence_day5", "label": "Absence day-5 warning"},
     {"id": "absence_day9", "label": "Absence day-9 alert"},
     {"id": "rota_published", "label": "Rota published"},
     {"id": "missed_punch_hr", "label": "Missed clock-in (HR alert)"},
+    {"id": "leave_request_hr", "label": "New leave request (HR alert)"},
     {"id": "missed_punch_employee", "label": "Missed clock-in (employee reminder)"},
     {"id": "employee_signin_reminder", "label": "Employee sign-in reminder (to staff)"},
 )
 
 VALID_NOTIFICATION_DELIVERY = frozenset({"email", "email_sms", "off"})
+VALID_HR_PUSH_DELIVERY = frozenset({"email", "email_push", "push", "off"})
+HR_PUSH_PREF_KEYS = frozenset(
+    {
+        "missed_punch_hr",
+        "leave_request_hr",
+        "rtw_expiry",
+        "visa_expiry",
+        "document_expiry",
+        "sms_login_reminder",
+    }
+)
 VALID_SIGNIN_REMINDER_DELIVERY = frozenset({"email", "push", "email_push", "off"})
 SIGNIN_REMINDER_DEFAULT_INTERVAL_DAYS = 30
 SIGNIN_REMINDER_DEFAULT_HOUR_UK = 9
@@ -141,6 +161,13 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         alias=None,
         null_sql="0 AS rota_week_start_day",
     )
+    punch_time_mode_col = column_expr(
+        conn,
+        table="tenants",
+        column="punch_time_mode",
+        alias=None,
+        null_sql="'timestamped' AS punch_time_mode",
+    )
     crm_addon_col = column_expr(
         conn,
         table="tenants",
@@ -194,6 +221,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    sponsor_licence_acknowledged_by, sponsor_licence_ack_version,
                    payroll_accountant_email, payroll_hours_report_enabled,
                    {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col},
+                   {punch_time_mode_col},
                    {crm_addon_col}, {crm_addon_monthly_col}, {ai_document_addon_col}, {ai_document_monthly_col},
                    {registered_lat_col}, {registered_lng_col}
             FROM tenants WHERE id = %s
@@ -231,12 +259,13 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "rota_advanced_addon": bool(row[23]),
             "rota_multi_site_addon": bool(row[24]),
             "rota_week_start_day": int(row[25] or 0),
-            "crm_addon": bool(row[26]),
-            "crm_addon_monthly_gbp": float(row[27]) if row[27] is not None else None,
-            "ai_document_addon": bool(row[28]),
-            "ai_document_addon_monthly_gbp": float(row[29]) if row[29] is not None else None,
-            "registered_latitude": float(row[30]) if row[30] is not None else None,
-            "registered_longitude": float(row[31]) if row[31] is not None else None,
+            "punch_time_mode": row[26] or "timestamped",
+            "crm_addon": bool(row[27]),
+            "crm_addon_monthly_gbp": float(row[28]) if row[28] is not None else None,
+            "ai_document_addon": bool(row[29]),
+            "ai_document_addon_monthly_gbp": float(row[30]) if row[30] is not None else None,
+            "registered_latitude": float(row[31]) if row[31] is not None else None,
+            "registered_longitude": float(row[32]) if row[32] is not None else None,
         }
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
@@ -342,6 +371,29 @@ def update_tenant_profile(
         else:
             allowed["rota_week_start_day"] = normalize_week_start_day(allowed["rota_week_start_day"])
 
+    if "punch_time_mode" in allowed:
+        from core.schema import table_columns
+        from modules.time_punch.punch_time_mode import validate_punch_time_mode_choice
+
+        if "punch_time_mode" not in table_columns(conn, "tenants"):
+            allowed.pop("punch_time_mode", None)
+        else:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT holds_sponsor_licence FROM tenants WHERE id = %s",
+                    (tenant_id,),
+                )
+                sponsor_row = cur.fetchone()
+                if not sponsor_row:
+                    raise LookupError("tenant not found")
+            try:
+                allowed["punch_time_mode"] = validate_punch_time_mode_choice(
+                    punch_time_mode=allowed["punch_time_mode"],
+                    holds_sponsor_licence=bool(sponsor_row[0]),
+                )
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+
     sets = ", ".join(f"{key} = %s" for key in allowed)
     values = list(allowed.values()) + [tenant_id]
     with conn.cursor() as cur:
@@ -404,6 +456,8 @@ def get_notification_preferences(*, tenant_id: int, conn: Any) -> dict[str, Any]
     preferences = dict(NOTIFICATION_PREF_DEFAULTS)
     for key, value in (stored or {}).items():
         if key == "employee_signin_reminder" and value in VALID_SIGNIN_REMINDER_DELIVERY:
+            preferences[key] = value
+        elif key in HR_PUSH_PREF_KEYS and value in VALID_HR_PUSH_DELIVERY:
             preferences[key] = value
         elif key in NOTIFICATION_PREF_DEFAULTS and value in VALID_NOTIFICATION_DELIVERY:
             preferences[key] = value
@@ -577,6 +631,77 @@ def list_employees(*, tenant_id: int, conn: Any, limit: int = 200) -> list[dict[
         )
         enriched.append({**item, **summary})
     return enrich_employees_portal_status(tenant_id=tenant_id, employees=enriched, conn=conn)
+
+
+def list_employee_register_stubs(*, tenant_id: int, conn: Any, limit: int = 200) -> list[dict[str, Any]]:
+    """Minimal employee rows for mobile overview + register fallback."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, first_name, last_name, email, job_title, department, status,
+                   COALESCE(is_sponsored, FALSE), employment_type, start_date
+            FROM employees
+            WHERE tenant_id = %s
+            ORDER BY last_name, first_name
+            LIMIT %s
+            """,
+            (tenant_id, limit),
+        )
+        rows = cur.fetchall()
+    stubs: list[dict[str, Any]] = []
+    for row in rows:
+        stubs.append(
+            {
+                "id": row[0],
+                "first_name": row[1],
+                "last_name": row[2],
+                "email": row[3],
+                "job_title": row[4],
+                "department": row[5],
+                "status": row[6] or "active",
+                "is_sponsored": bool(row[7]),
+                "employment_type": row[8],
+                "start_date": row[9].isoformat() if isinstance(row[9], (date, datetime)) else (str(row[9]) if row[9] is not None else None),
+                "completion_pct": 0,
+                "next_section": None,
+            }
+        )
+    return stubs
+
+
+def list_employees_register(*, tenant_id: int, conn: Any, limit: int = 200) -> list[dict[str, Any]]:
+    """Slim employee list for mobile register views — omits heavy profile fields."""
+    from modules.documents.service import fetch_document_categories_by_employee
+    from modules.employees.portal_invites import enrich_employees_portal_status
+
+    items = list_employee_summaries(tenant_id=tenant_id, conn=conn, limit=limit)
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    payroll_enabled = bool(profile.get("payroll_enabled"))
+    categories_by_employee = fetch_document_categories_by_employee(tenant_id=tenant_id, conn=conn)
+    slim: list[dict[str, Any]] = []
+    for item in items:
+        summary = list_completion_summary(
+            item,
+            payroll_enabled=payroll_enabled,
+            document_categories=categories_by_employee.get(item["id"], []),
+        )
+        slim.append(
+            {
+                "id": item["id"],
+                "first_name": item["first_name"],
+                "last_name": item["last_name"],
+                "email": item.get("email"),
+                "job_title": item.get("job_title"),
+                "department": item.get("department"),
+                "status": item.get("status"),
+                "is_sponsored": item.get("is_sponsored"),
+                "employment_type": item.get("employment_type"),
+                "start_date": item.get("start_date"),
+                "completion_pct": summary["completion_pct"],
+                "next_section": summary["next_section"],
+            }
+        )
+    return enrich_employees_portal_status(tenant_id=tenant_id, employees=slim, conn=conn)
 
 
 def create_employee(
@@ -1116,7 +1241,16 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             """,
             (tenant_id,),
         )
-        contracts_pending = int(cur.fetchone()[0])
+        employment_contracts_pending = int(cur.fetchone()[0])
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM tenant_contracts
+            WHERE tenant_id = %s AND status IN ('sent', 'generated')
+            """,
+            (tenant_id,),
+        )
+        service_agreements_pending = int(cur.fetchone()[0])
+        contracts_pending = employment_contracts_pending
 
         from modules.leave.service import count_pending_leave_requests
 
@@ -1363,6 +1497,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     if punch_sites > 0:
         required_setup.append(setup_checklist["punch_site"])
 
+    employee_register = list_employee_register_stubs(tenant_id=tenant_id, conn=conn)
+
     return {
         "tenant_name": profile["name"],
         "trading_name": profile.get("trading_name"),
@@ -1393,6 +1529,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                 "onboarding": onboarding_employees,
                 "portal_setup_pending": portal_setup_pending,
                 "limit": profile["max_employees"],
+                "register": employee_register,
             },
             "recruitment": {
                 "open_vacancies": open_vacancies,
@@ -1421,7 +1558,8 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "grievance": {"open_cases": open_grievances},
             "disciplinary": {"open_cases": open_disciplinary},
             "offboarding": {"in_progress": offboarding_in_progress},
-            "contracts": {"pending_signature": contracts_pending},
+            "contracts": {"pending_signature": service_agreements_pending},
+            "employment_contracts": {"pending_signature": employment_contracts_pending},
             "documents": {"count": document_count},
             "leave": {"pending_requests": pending_leave_requests},
             "profile_changes": {"pending_requests": pending_profile_changes},

@@ -967,8 +967,27 @@
         pendingChallenge = data.challenge_token;
         setInlineStatus(loginStatus, "");
         const mfaUser = mfaView?.querySelector("[data-mfa-user]");
-        if (mfaUser) mfaUser.textContent = data.username || payload.username;
+        const hint = data.email_hint || data.username || payload.username;
+        if (mfaUser) mfaUser.textContent = hint;
+        const lead = mfaView?.querySelector(".punch-lead");
+        if (lead) {
+          lead.innerHTML = data.email_sent
+            ? `We emailed a 6-digit code to <strong data-mfa-user>${String(hint).replace(/</g, "")}</strong>. Check inbox and spam.`
+            : `Enter the 6-digit code we email to <strong data-mfa-user>${String(hint).replace(/</g, "")}</strong>.`;
+        }
         showView(mfaView);
+        if (data.message) setInlineStatus(mfaStatus, data.message);
+        else if (!data.email_sent) {
+          setInlineStatus(mfaStatus, "Sending email code…");
+          try {
+            const resent = await postJson("/auth/mfa/send-email-code", {
+              challenge_token: pendingChallenge,
+            });
+            setInlineStatus(mfaStatus, resent.message || "We emailed a 6-digit code.");
+          } catch (error) {
+            setInlineStatus(mfaStatus, error.message || "Could not email code. Tap Resend.");
+          }
+        }
         mfaView?.querySelector('input[name="code"]')?.focus();
         return;
       }
@@ -998,6 +1017,7 @@
       const data = await postJson("/auth/mfa/verify", {
         challenge_token: pendingChallenge,
         code,
+        method: "email",
       });
       if (data.role && data.role !== "employee") {
         clearSession();
@@ -1011,6 +1031,23 @@
       await verifyEmployeeSession();
     } catch (error) {
       setInlineStatus(mfaStatus, error.message);
+    }
+  });
+
+  document.getElementById("punch-mfa-resend")?.addEventListener("click", async () => {
+    if (!pendingChallenge) {
+      setInlineStatus(mfaStatus, "Session expired. Sign in again.");
+      showView(loginView);
+      return;
+    }
+    setInlineStatus(mfaStatus, "Sending a new code…");
+    try {
+      const resent = await postJson("/auth/mfa/send-email-code", {
+        challenge_token: pendingChallenge,
+      });
+      setInlineStatus(mfaStatus, resent.message || "We emailed a new code.");
+    } catch (error) {
+      setInlineStatus(mfaStatus, error.message || "Could not resend code");
     }
   });
 

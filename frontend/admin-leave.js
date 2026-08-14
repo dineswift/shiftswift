@@ -25,6 +25,16 @@
   let pickerSearch = "";
   let selectedId = null;
   let reviewBusy = false;
+  let mobileTab = "requests";
+  let mobileCalCursor = new Date();
+  let balanceCache = new Map();
+  let balancesLoading = false;
+  const MOBILE_AVATAR_PALETTES = [
+    { bg: "#E1F5EE", color: "#0F6E56" },
+    { bg: "#E6F1FB", color: "#185FA5" },
+    { bg: "#FAEEDA", color: "#854F0B" },
+    { bg: "#FBEAF0", color: "#993556" },
+  ];
 
   function $(id) {
     return document.getElementById(id);
@@ -48,6 +58,53 @@
       month: "short",
       year: "numeric",
     });
+  }
+
+  function formatLeaveRange(startIso, endIso) {
+    if (!startIso) return "—";
+    if (!endIso || startIso === endIso) return formatDate(startIso);
+    const start = new Date(`${startIso}T12:00:00`);
+    const end = new Date(`${endIso}T12:00:00`);
+    const sameYear = start.getFullYear() === end.getFullYear();
+    const sameMonth = sameYear && start.getMonth() === end.getMonth();
+    if (sameMonth) {
+      const monthYear = end.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+      return `${start.getDate()} – ${end.getDate()} ${monthYear}`;
+    }
+    const startFmt = start.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: sameYear ? undefined : "numeric",
+    });
+    return `${startFmt} – ${formatDate(endIso)}`;
+  }
+
+  function daysLabel(days) {
+    const n = Number(days);
+    if (!Number.isFinite(n)) return "—";
+    return n === 1 ? "1 day" : `${n % 1 === 0 ? n : n.toFixed(1)} days`;
+  }
+
+  function employeeInitials(name, emp) {
+    const first = (emp?.first_name || "").trim()[0] || "";
+    const last = (emp?.last_name || "").trim()[0] || "";
+    if (first || last) return (first + last).toUpperCase();
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return (parts[0]?.[0] || "?").toUpperCase();
+  }
+
+  function avatarPalette(seed) {
+    return MOBILE_AVATAR_PALETTES[Math.abs(Number(seed) || 0) % MOBILE_AVATAR_PALETTES.length];
+  }
+
+  function iconSvg(name) {
+    return window.AdminIcons?.svg?.(name) || "";
+  }
+
+  function isMobileLeaveUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function formatDateTime(iso) {
@@ -369,7 +426,7 @@
   }
 
   function isMobileLeave() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function renderEmptyState(host, options, extraBind) {
@@ -395,6 +452,14 @@
     const host = $("leave-mobile-grid");
     const tableWrap = document.querySelector("#leave .leave-table-wrap");
     if (!host) return;
+
+    // Mobile shell owns the list UI — keep the legacy grid hidden.
+    if (isMobileLeaveUi() && $("leave-mobile-shell")) {
+      host.hidden = true;
+      host.innerHTML = "";
+      if (tableWrap) tableWrap.hidden = true;
+      return;
+    }
 
     if (!isMobileLeave()) {
       host.hidden = true;
@@ -473,7 +538,13 @@
     const items = filteredRequests();
     renderStats(items);
     renderMobileGrid(items);
-    if (isMobileLeave()) return;
+    if (isMobileLeave()) {
+      const tableWrap = document.querySelector("#leave .leave-table-wrap");
+      if (tableWrap) tableWrap.hidden = true;
+      // Clear stale desktop loading row so a resize/back-navigation never sticks.
+      if (tbody) tbody.innerHTML = "";
+      return;
+    }
 
     const host = $("leave-mobile-grid");
     if (host) {
@@ -569,10 +640,81 @@
     syncDetailLayout();
   }
 
+  function showLeaveLoadError() {
+    const tbody = $("leave-requests-body");
+    const mobileGrid = $("leave-mobile-grid");
+    const pendingHost = $("leave-mobile-pending");
+    const tableWrap = document.querySelector("#leave .leave-table-wrap");
+    const sub = $("leave-register-sub");
+    if (sub) sub.textContent = "Could not load leave";
+
+    if (isMobileLeaveUi() && pendingHost) {
+      pendingHost.innerHTML = `
+        <div class="leave-mobile-empty">
+          <p class="muted">Could not load leave requests.</p>
+          <button type="button" class="btn ghost btn--sm" id="leave-retry-btn">Retry</button>
+        </div>`;
+      document.getElementById("leave-retry-btn")?.addEventListener("click", () => loadRequests());
+      return;
+    }
+
+    if (isMobileLeave() && mobileGrid) {
+      if (tableWrap) tableWrap.hidden = true;
+      mobileGrid.hidden = false;
+      renderEmptyState(
+        mobileGrid,
+        {
+          icon: "alert",
+          title: "Could not load leave",
+          message: "Check your connection and try again.",
+          actionLabel: "Retry",
+          actionId: "leave-retry-btn",
+          compact: true,
+        },
+        () => {
+          document.getElementById("leave-retry-btn")?.addEventListener("click", () => loadRequests());
+        },
+      );
+      return;
+    }
+
+    if (tbody) {
+      if (tableWrap) tableWrap.hidden = false;
+      if (mobileGrid) {
+        mobileGrid.hidden = true;
+        mobileGrid.innerHTML = "";
+      }
+      tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
+        icon: "alert",
+        title: "Could not load leave",
+        message: "Check your connection and try again.",
+        actionLabel: "Retry",
+        actionId: "leave-retry-btn",
+        compact: true,
+      })}</td></tr>`;
+      document.getElementById("leave-retry-btn")?.addEventListener("click", () => loadRequests());
+    }
+  }
+
   async function loadRequests() {
     const tbody = $("leave-requests-body");
     const mobileGrid = $("leave-mobile-grid");
-    if (isMobileLeave() && mobileGrid) {
+    const pendingHost = $("leave-mobile-pending");
+    const sub = $("leave-register-sub");
+    if (sub) sub.textContent = "Loading…";
+    if (isMobileLeaveUi() && $("leave-mobile-shell")) {
+      if (mobileGrid) {
+        mobileGrid.hidden = true;
+        mobileGrid.innerHTML = "";
+      }
+      const tableWrap = document.querySelector("#leave .leave-table-wrap");
+      if (tableWrap) tableWrap.hidden = true;
+      // Reveal mobile shell first, then keep the loading copy (setMobileTab would wipe it).
+      renderMobileLeaveShell();
+      if (pendingHost) {
+        pendingHost.innerHTML = `<p class="leave-mobile-empty muted">Loading leave requests…</p>`;
+      }
+    } else if (isMobileLeave() && mobileGrid) {
       mobileGrid.hidden = false;
       mobileGrid.innerHTML = `<p class="muted leave-mobile-grid__loading">Loading leave requests…</p>`;
       const tableWrap = document.querySelector("#leave .leave-table-wrap");
@@ -580,12 +722,23 @@
     } else if (tbody) {
       tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading leave requests…</td></tr>`;
     }
+    let timeoutId = 0;
     try {
-      const res = await apiFetch("/admin/leave/requests");
-      if (!res.ok) throw new Error("Load failed");
+      // Hard timeout: do not rely on AbortSignal (apiFetch may ignore it).
+      const res = await Promise.race([
+        apiFetch("/admin/leave/requests"),
+        new Promise((_, reject) => {
+          timeoutId = window.setTimeout(() => reject(new Error("Leave request timed out")), 12000);
+        }),
+      ]);
+      if (!res || !res.ok) throw new Error("Load failed");
       const data = await res.json();
-      allRequests = data.items || [];
+      allRequests = Array.isArray(data.items) ? data.items : [];
+      if (isMobileLeaveUi() && !employeesCache.length) {
+        void loadEmployeesList().catch(() => null);
+      }
       renderTable();
+      renderMobileLeaveShell();
       if (selectedId) {
         const item = allRequests.find((row) => row.id === selectedId);
         if (item) await renderDetail(item);
@@ -594,36 +747,56 @@
       syncDetailLayout();
     } catch {
       allRequests = [];
-      if (tbody) {
-        tbody.innerHTML = `<tr class="admin-empty-state-row"><td colspan="6">${emptyStateHtml({
-          icon: "alert",
-          title: "Could not load leave",
-          message: "Check your connection and try again.",
-          actionLabel: "Retry",
-          actionId: "leave-retry-btn",
-          compact: true,
-        })}</td></tr>`;
-        document.getElementById("leave-retry-btn")?.addEventListener("click", () => loadRequests());
-      }
+      renderStats([]);
+      renderMobileLeaveShell();
+      showLeaveLoadError();
+    } finally {
+      if (timeoutId) window.clearTimeout(timeoutId);
     }
   }
 
-  async function reviewRequest(requestId, decision) {
+  function parseLeaveApiError(data, fallback) {
+    const detail = data?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (Array.isArray(detail) && detail.length) {
+      const first = detail[0];
+      if (typeof first === "string") return first;
+      if (first && typeof first.msg === "string") return first.msg;
+    }
+    if (detail && typeof detail.message === "string") return detail.message;
+    return fallback;
+  }
+
+  async function reviewRequest(requestId, decision, { reviewNote } = {}) {
     if (reviewBusy) return;
     const noteEl = $("leave-review-note");
     const statusEl = $("leave-review-status");
-    const reviewNote = noteEl?.value?.trim() || "";
+    const note = reviewNote != null ? reviewNote : noteEl?.value?.trim() || "";
     const btn = document.getElementById(decision === "approved" ? "leave-approve-btn" : "leave-reject-btn");
     reviewBusy = true;
 
     const performReview = async () => {
       const res = await apiFetch(`/admin/leave/requests/${requestId}/review`, {
         method: "POST",
-        body: JSON.stringify({ decision, review_note: reviewNote || null }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, review_note: note || null }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Review failed");
-      await loadRequests();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(parseLeaveApiError(data, "Could not update leave request."));
+      }
+      // Don't fail the approval if the list refresh has a temporary network blip.
+      try {
+        await loadRequests();
+      } catch {
+        /* list refresh is best-effort after a successful review */
+      }
+      const updated = allRequests.find((row) => row.id === requestId);
+      if (updated) {
+        selectedId = requestId;
+        await renderDetail(updated);
+        syncDetailLayout();
+      }
       return decision === "approved" ? "Approved." : "Rejected.";
     };
 
@@ -640,13 +813,384 @@
         if (statusEl) statusEl.textContent = decision === "approved" ? "Approving…" : "Rejecting…";
         const message = await performReview();
         if (statusEl) statusEl.textContent = message;
+        window.ShiftSwiftAction?.showActionToast?.(
+          decision === "approved" ? "Leave approved." : "Leave declined.",
+          "ok"
+        );
       }
     } catch (error) {
-      if (statusEl) statusEl.textContent = "";
-      window.ShiftSwiftAction?.showActionToast?.(error.message || "Could not update leave request.", "error");
+      const message = error?.message || "Could not update leave request.";
+      if (statusEl) {
+        statusEl.hidden = false;
+        statusEl.textContent = message;
+        statusEl.classList.add("form-error-message");
+      }
+      window.ShiftSwiftAction?.showActionToast?.(message, "error");
     } finally {
       reviewBusy = false;
     }
+  }
+
+  function pendingRequests() {
+    return allRequests
+      .filter((item) => String(item.status || "").toLowerCase() === "pending")
+      .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)));
+  }
+
+  function recentDecidedRequests(limit = 8) {
+    return allRequests
+      .filter((item) => {
+        const status = String(item.status || "").toLowerCase();
+        return status === "approved" || status === "rejected";
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.reviewed_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.reviewed_at || b.created_at || 0).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, limit);
+  }
+
+  function historyRequests() {
+    return allRequests
+      .filter((item) => String(item.status || "").toLowerCase() !== "pending")
+      .sort((a, b) => {
+        const aTime = new Date(a.reviewed_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.reviewed_at || b.created_at || 0).getTime();
+        return bTime - aTime;
+      });
+  }
+
+  async function ensureBalance(employeeId, leaveType) {
+    if (leaveType !== "annual" || employeeId == null) return null;
+    const key = String(employeeId);
+    if (balanceCache.has(key)) return balanceCache.get(key);
+    const balance = await loadEmployeeBalance(employeeId, "annual");
+    balanceCache.set(key, balance);
+    return balance;
+  }
+
+  function setMobileTab(tab) {
+    mobileTab = tab;
+    document.querySelectorAll("[data-leave-mobile-tab]").forEach((btn) => {
+      const active = btn.dataset.leaveMobileTab === tab;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll("[data-leave-mobile-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.leaveMobilePanel !== tab;
+    });
+    if (tab === "balances") void renderMobileBalances().catch(() => null);
+    if (tab === "calendar") renderMobileCalendar();
+    if (tab === "history") renderMobileHistory();
+    if (tab === "requests") void renderMobileRequestsPanel().catch(() => null);
+  }
+
+  function renderPendingCard(item) {
+    const emp = employeesCache.find((row) => Number(row.id) === Number(item.employee_id));
+    const palette = avatarPalette(item.employee_id || item.id);
+    const initials = employeeInitials(item.employee_name, emp);
+    const thirdMeta = item.leave_type_label || item.leave_type || "Leave";
+    const thirdIcon = String(item.leave_type || "").toLowerCase() === "annual" ? "beach" : "file";
+    return `<article class="leave-mobile-request-card" data-leave-id="${item.id}">
+      <div class="leave-mobile-request-card__head">
+        <span class="leave-mobile-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+        <div class="leave-mobile-request-card__who">
+          <strong>${escapeHtml(item.employee_name || "Employee")}</strong>
+          <span>${escapeHtml(item.leave_type_label || item.leave_type || "Leave")}</span>
+        </div>
+        <span class="leave-mobile-badge leave-mobile-badge--pending">Pending</span>
+      </div>
+      <div class="leave-mobile-request-card__meta">
+        <span>${iconSvg("calendar")}<span>${escapeHtml(formatLeaveRange(item.start_date, item.end_date))}</span></span>
+        <span>${iconSvg("clock")}<span>${escapeHtml(daysLabel(item.days_requested))}</span></span>
+        <span>${iconSvg(thirdIcon)}<span>${escapeHtml(thirdMeta)}</span></span>
+      </div>
+      <div class="leave-mobile-request-card__actions">
+        <button type="button" class="leave-mobile-action leave-mobile-action--decline" data-leave-decline="${item.id}">Decline</button>
+        <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-leave-approve="${item.id}">Approve</button>
+      </div>
+    </article>`;
+  }
+
+  function renderRecentRow(item) {
+    const status = String(item.status || "").toLowerCase();
+    const tone = status === "approved" ? "approved" : "declined";
+    const badge = status === "approved" ? "Approved" : status === "rejected" ? "Declined" : item.status;
+    const daysTone = status === "approved" ? "ok" : "danger";
+    return `<div class="leave-mobile-recent-row leave-mobile-recent-row--${tone}">
+      <div class="leave-mobile-recent-row__main">
+        <strong>${escapeHtml(item.employee_name || "Employee")}</strong>
+        <span>${escapeHtml(formatLeaveRange(item.start_date, item.end_date))} · ${escapeHtml(item.leave_type_label || item.leave_type || "Leave")}</span>
+      </div>
+      <div class="leave-mobile-recent-row__side">
+        <span class="leave-mobile-recent-row__days leave-mobile-recent-row__days--${daysTone}">${escapeHtml(daysLabel(item.days_requested))}</span>
+        <span class="leave-mobile-badge leave-mobile-badge--${tone}">${escapeHtml(badge)}</span>
+      </div>
+    </div>`;
+  }
+
+  async function renderMobileRequestsPanel() {
+    const pendingHost = $("leave-mobile-pending");
+    const recentHost = $("leave-mobile-recent");
+    const pendingHeading = $("leave-mobile-pending-heading");
+    if (!pendingHost || !recentHost) return;
+
+    const pending = pendingRequests();
+    if (pendingHeading) pendingHeading.textContent = `Pending approval (${pending.length})`;
+
+    if (!pending.length) {
+      pendingHost.innerHTML = `<p class="leave-mobile-empty muted">No requests waiting for approval.</p>`;
+    } else {
+      // Render immediately — never block the list on balance fetches.
+      pendingHost.innerHTML = pending.map((item) => renderPendingCard(item)).join("");
+      pendingHost.querySelectorAll("[data-leave-approve]").forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          void reviewRequest(Number(btn.dataset.leaveApprove), "approved", { reviewNote: "" });
+        });
+      });
+      pendingHost.querySelectorAll("[data-leave-decline]").forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          void reviewRequest(Number(btn.dataset.leaveDecline), "rejected", { reviewNote: "" });
+        });
+      });
+      // Best-effort annual balance labels after cards are visible.
+      void Promise.all(
+        pending
+          .filter((item) => String(item.leave_type || "").toLowerCase() === "annual")
+          .map(async (item) => {
+            const balance = await ensureBalance(item.employee_id, "annual");
+            if (!balance) return;
+            const card = pendingHost.querySelector(`[data-leave-id="${item.id}"]`);
+            const meta = card?.querySelector(".leave-mobile-request-card__meta span:last-child span");
+            if (meta) meta.textContent = `${Number(balance.remaining_days)} left`;
+          }),
+      ).catch(() => null);
+    }
+
+    const recent = recentDecidedRequests(6);
+    recentHost.innerHTML = recent.length
+      ? recent.map((item) => renderRecentRow(item)).join("")
+      : `<p class="leave-mobile-empty muted">No recent leave decisions yet.</p>`;
+  }
+
+  function renderMobileHistory() {
+    const host = $("leave-mobile-history");
+    if (!host) return;
+    const items = historyRequests();
+    host.innerHTML = items.length
+      ? items.map((item) => renderRecentRow(item)).join("")
+      : `<p class="leave-mobile-empty muted">No leave history yet.</p>`;
+  }
+
+  async function renderMobileBalances() {
+    const host = $("leave-mobile-balances");
+    if (!host || balancesLoading) return;
+    balancesLoading = true;
+    host.innerHTML = `<p class="leave-mobile-empty muted">Loading balances…</p>`;
+    try {
+      if (!employeesCache.length) await loadEmployeesList();
+      const staff = employeesCache.filter((emp) => emp.status === "active" || !emp.status).slice(0, 40);
+      const rows = [];
+      for (const emp of staff) {
+        const balance = await ensureBalance(emp.id, "annual");
+        if (!balance) continue;
+        const name = employeeDisplayName(emp);
+        const palette = avatarPalette(emp.id);
+        const initials = employeeInitials(name, emp);
+        const remaining = Number(balance.remaining_days);
+        rows.push(`<div class="leave-mobile-balance-row">
+          <span class="leave-mobile-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+          <div class="leave-mobile-balance-row__body">
+            <strong>${escapeHtml(name)}</strong>
+            <span>Allowance ${escapeHtml(String(balance.allowance_days))} · used ${escapeHtml(String(balance.used_days))}</span>
+          </div>
+          <span class="leave-mobile-balance-row__left">${escapeHtml(String(remaining))} left</span>
+        </div>`);
+      }
+      host.innerHTML = rows.length
+        ? `<div class="leave-mobile-list-card">${rows.join("")}</div>`
+        : `<p class="leave-mobile-empty muted">No annual leave balances to show.</p>`;
+    } catch {
+      host.innerHTML = `<p class="leave-mobile-empty muted">Could not load balances.</p>`;
+    } finally {
+      balancesLoading = false;
+    }
+  }
+
+  function eachDayInclusive(startIso, endIso) {
+    const days = [];
+    const cursor = new Date(`${startIso}T12:00:00`);
+    const end = new Date(`${endIso}T12:00:00`);
+    while (cursor <= end) {
+      days.push(
+        `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`
+      );
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }
+
+  function renderMobileCalendar() {
+    const host = $("leave-mobile-calendar");
+    const label = $("leave-mobile-cal-label");
+    if (!host) return;
+    const year = mobileCalCursor.getFullYear();
+    const month = mobileCalCursor.getMonth();
+    if (label) {
+      label.textContent = mobileCalCursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    }
+
+    const leaveByDay = new Map();
+    allRequests
+      .filter((item) => item.status === "approved" || item.status === "pending")
+      .forEach((item) => {
+        eachDayInclusive(item.start_date, item.end_date).forEach((iso) => {
+          const d = new Date(`${iso}T12:00:00`);
+          if (d.getFullYear() !== year || d.getMonth() !== month) return;
+          if (!leaveByDay.has(iso)) leaveByDay.set(iso, []);
+          leaveByDay.get(iso).push(item);
+        });
+      });
+
+    const first = new Date(year, month, 1);
+    const startPad = (first.getDay() + 6) % 7; // Monday-first
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+    let cells = "";
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach((day) => {
+      cells += `<span class="leave-mobile-cal-dow">${day}</span>`;
+    });
+    for (let i = 0; i < startPad; i += 1) {
+      cells += `<span class="leave-mobile-cal-cell leave-mobile-cal-cell--empty"></span>`;
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const items = leaveByDay.get(iso) || [];
+      const pending = items.some((item) => item.status === "pending");
+      const approved = items.some((item) => item.status === "approved");
+      const classes = ["leave-mobile-cal-cell"];
+      if (iso === todayIso) classes.push("leave-mobile-cal-cell--today");
+      if (approved) classes.push("leave-mobile-cal-cell--approved");
+      if (pending) classes.push("leave-mobile-cal-cell--pending");
+      const title = items.map((item) => item.employee_name).join(", ");
+      cells += `<span class="${classes.join(" ")}" title="${escapeHtml(title)}" data-cal-day="${iso}"><span>${day}</span></span>`;
+    }
+
+    const monthItems = allRequests.filter((item) => {
+      if (item.status !== "approved" && item.status !== "pending") return false;
+      const start = new Date(`${item.start_date}T12:00:00`);
+      const end = new Date(`${item.end_date}T12:00:00`);
+      const monthStart = new Date(year, month, 1);
+      const monthEnd = new Date(year, month + 1, 0);
+      return start <= monthEnd && end >= monthStart;
+    });
+
+    const list = monthItems.length
+      ? `<div class="leave-mobile-cal-list">${monthItems
+          .sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+          .map((item) => renderRecentRow(item))
+          .join("")}</div>`
+      : `<p class="leave-mobile-empty muted">No leave booked this month.</p>`;
+
+    host.innerHTML = `<div class="leave-mobile-cal-grid">${cells}</div>${list}`;
+  }
+
+  async function populateAddEmployeeSelect() {
+    const select = $("leave-mobile-add-employee");
+    if (!select) return;
+    try {
+      if (!employeesCache.length) await loadEmployeesList();
+      const current = select.value;
+      select.innerHTML = `<option value="">Select staff…</option>${employeesCache
+        .map((emp) => `<option value="${emp.id}">${escapeHtml(employeeDisplayName(emp))}</option>`)
+        .join("")}`;
+      if (current) select.value = current;
+    } catch {
+      select.innerHTML = `<option value="">Could not load staff</option>`;
+    }
+  }
+
+  function openAddLeaveSheet() {
+    const sheet = $("leave-mobile-add-sheet");
+    if (!sheet) return;
+    sheet.hidden = false;
+    const status = $("leave-mobile-add-status");
+    if (status) status.textContent = "";
+    const today = new Date().toISOString().slice(0, 10);
+    const start = $("leave-mobile-add-start");
+    const end = $("leave-mobile-add-end");
+    if (start && !start.value) start.value = today;
+    if (end && !end.value) end.value = today;
+    void populateAddEmployeeSelect();
+  }
+
+  function closeAddLeaveSheet() {
+    const sheet = $("leave-mobile-add-sheet");
+    if (sheet) sheet.hidden = true;
+  }
+
+  async function submitAddLeave(event) {
+    event.preventDefault();
+    const status = $("leave-mobile-add-status");
+    const submitBtn = $("leave-mobile-add-submit");
+    const employeeId = Number($("leave-mobile-add-employee")?.value || 0);
+    const leaveType = $("leave-mobile-add-type")?.value || "annual";
+    const startDate = $("leave-mobile-add-start")?.value;
+    const endDate = $("leave-mobile-add-end")?.value;
+    const reason = $("leave-mobile-add-reason")?.value?.trim() || null;
+    const autoApprove = Boolean($("leave-mobile-add-auto-approve")?.checked);
+    if (!employeeId || !startDate || !endDate) {
+      if (status) status.textContent = "Choose an employee and dates.";
+      return;
+    }
+    if (submitBtn) submitBtn.disabled = true;
+    if (status) status.textContent = "Saving…";
+    try {
+      const res = await apiFetch("/admin/leave/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_id: employeeId,
+          leave_type: leaveType,
+          start_date: startDate,
+          end_date: endDate,
+          reason,
+          auto_approve: autoApprove,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof data.detail === "string"
+            ? data.detail
+            : "Could not add leave. If this is unavailable yet, staff can submit from the employee portal."
+        );
+      }
+      balanceCache.clear();
+      closeAddLeaveSheet();
+      window.ShiftSwiftAction?.showActionToast?.(autoApprove ? "Leave logged as approved." : "Leave request added.", "ok");
+      await loadRequests();
+      setMobileTab(autoApprove ? "history" : "requests");
+    } catch (error) {
+      if (status) status.textContent = error.message || "Could not add leave.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  function renderMobileLeaveShell() {
+    const shell = $("leave-mobile-shell");
+    if (!shell) return;
+    if (!isMobileLeaveUi()) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = false;
+    setMobileTab(mobileTab);
   }
 
   function bindSection() {
@@ -676,8 +1220,28 @@
       renderEmployeePickerList();
     });
 
+    document.querySelectorAll("[data-leave-mobile-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => setMobileTab(btn.dataset.leaveMobileTab || "requests"));
+    });
+    $("leave-mobile-add-btn")?.addEventListener("click", () => openAddLeaveSheet());
+    $("leave-mobile-add-close")?.addEventListener("click", () => closeAddLeaveSheet());
+    $("leave-mobile-add-backdrop")?.addEventListener("click", () => closeAddLeaveSheet());
+    $("leave-mobile-add-form")?.addEventListener("submit", (event) => void submitAddLeave(event));
+    $("leave-mobile-cal-prev")?.addEventListener("click", () => {
+      mobileCalCursor = new Date(mobileCalCursor.getFullYear(), mobileCalCursor.getMonth() - 1, 1);
+      renderMobileCalendar();
+    });
+    $("leave-mobile-cal-next")?.addEventListener("click", () => {
+      mobileCalCursor = new Date(mobileCalCursor.getFullYear(), mobileCalCursor.getMonth() + 1, 1);
+      renderMobileCalendar();
+    });
+
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
+      if (!$("leave-mobile-add-sheet")?.hidden) {
+        closeAddLeaveSheet();
+        return;
+      }
       if ($("leave-employee-picker")?.hidden) return;
       closeEmployeePicker();
     });
@@ -685,6 +1249,7 @@
     window.addEventListener("resize", () => {
       if (!sectionReady) return;
       renderTable();
+      renderMobileLeaveShell();
     });
   }
 

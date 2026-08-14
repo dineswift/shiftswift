@@ -19,11 +19,11 @@ Checklist for going live on **shiftswifthr.co.uk** with real customer data. Use 
 
 ## 1. Blockers (must be green before launch)
 
-- [ ] **All migrations applied** (through `088_employee_profile_change_requests.sql`)
+- [ ] **All migrations applied** (through `094_user_passkeys.sql`)
   ```bash
   DATABASE_URL=postgresql://... bash scripts/run_migrations.sh
   ```
-  Includes time punch QR/kiosk (`063`–`064`), employee GDPR consent (`055`), master platform ops (`065`), punch state flags (`082`–`083`).
+  Includes time punch QR/kiosk (`063`–`064`), employee GDPR consent (`055`), master platform ops (`065`), punch state flags (`082`–`083`), HR push + in-app notifications (`092`), EPOS punch (`093`), WebAuthn passkeys (`094`). **Migrations 092–094 are additive only** — no changes to existing tenant rows or employee data.
 - [ ] **Strong secrets** — `JWT_SECRET` ≥ 32 characters, `ENCRYPTION_KEY` set (64 hex chars for grievance module)
   ```bash
   bash scripts/generate_secrets.sh
@@ -81,7 +81,7 @@ curl -s http://127.0.0.1:8000/health
 - [ ] WAF or Cloudflare in front of API
 - [ ] `pip audit` in CI on every deploy
 - [ ] MFA on cloud admin email (Microsoft 365 / Google Workspace)
-- [ ] EPOS integration tokens (Phase 2) — separate from employee JWT
+- [x] EPOS integration tokens (Phase 2a) — separate from employee JWT; manage in Admin → Time punch
 
 ---
 
@@ -117,7 +117,7 @@ curl -s http://127.0.0.1:8000/health
 | SMTP notifications | ✅ | Password reset + signup mail — verify Brevo on each deploy |
 | GDPR retention / deletion process | ⚠️ | Operational process beyond code |
 | RTW immutable storage backup | ❌ | Backup `RTW_STORAGE_DIR` with database |
-| DineSwift EPOS punch integration | ❌ | Phase 2 — optional at HR-only launch |
+| DineSwift EPOS punch integration | ✅ Phase 2a | `POST /integrations/v1/epos/punch` + admin device tokens |
 
 ---
 

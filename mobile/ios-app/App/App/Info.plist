@@ -45,5 +45,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan premises QR codes to clock in at your work site.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Verify you are at your work site when clocking in.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Verify you are at your work site when clocking in.</string>
 </dict>
 </plist>

@@ -1,0 +1,69 @@
+require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+platform :ios, '14.0'
+use_frameworks!
+
+# workaround to avoid Xcode caching of Pods that requires
+# Product -> Clean Build Folder after new Cordova plugins installed
+# Requires CocoaPods 1.6 or newer
+install! 'cocoapods', :disable_input_output_paths => true
+
+def capacitor_pods
+  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'AparajitaCapacitorBiometricAuth', :path => '../../node_modules/@aparajita/capacitor-biometric-auth'
+  pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
+  pod 'CapacitorBrowser', :path => '../../node_modules/@capacitor/browser'
+  pod 'CapacitorGeolocation', :path => '../../node_modules/@capacitor/geolocation'
+  pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
+  pod 'CapacitorKeyboard', :path => '../../node_modules/@capacitor/keyboard'
+  pod 'CapacitorLocalNotifications', :path => '../../node_modules/@capacitor/local-notifications'
+  pod 'CapacitorPreferences', :path => '../../node_modules/@capacitor/preferences'
+  pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
+  pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
+  pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
+end
+
+target 'App' do
+  capacitor_pods
+  # Add your Pods here
+end
+
+post_install do |installer|
+  assertDeploymentTarget(installer)
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+    end
+    next unless target.is_a?(Xcodeproj::Project::Object::PBXNativeTarget)
+    next unless target.product_type == 'com.apple.product-type.framework'
+    next if target.shell_script_build_phases.any? { |p| p.name == 'Strip xattrs for CodeSign' }
+    strip = target.new_shell_script_build_phase('Strip xattrs for CodeSign')
+    strip.shell_script = <<~'SCRIPT'
+      FW="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.framework"
+      if [ -d "$FW" ]; then
+        xattr -cr "$FW" 2>/dev/null || true
+      fi
+    SCRIPT
+    # Run strip immediately before implicit CodeSign (last script phase).
+    target.build_phases.delete(strip)
+    target.build_phases << strip
+  end
+
+  # File Provider / Desktop xattrs break [CP] Embed Pods Frameworks codesign.
+  frameworks_sh = File.join(__dir__, 'Pods/Target Support Files/Pods-App/Pods-App-frameworks.sh')
+  if File.exist?(frameworks_sh)
+    contents = File.read(frameworks_sh)
+    unless contents.include?('xattr -cr "$1"')
+      contents.sub!(
+        /code_sign_if_enabled\(\) \{\n  if \[ -n "\$\{EXPANDED_CODE_SIGN_IDENTITY:-\}"/,
+        "code_sign_if_enabled() {\n  if [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\""
+      )
+      contents.sub!(
+        "    # Use the current code_sign_identity\n    echo \"Code Signing $1 with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\"",
+        "    /usr/bin/xattr -cr \"$1\" 2>/dev/null || true\n    # Use the current code_sign_identity\n    echo \"Code Signing $1 with Identity ${EXPANDED_CODE_SIGN_IDENTITY_NAME}\""
+      )
+      File.write(frameworks_sh, contents)
+    end
+  end
+end

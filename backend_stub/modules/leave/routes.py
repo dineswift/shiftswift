@@ -42,6 +42,15 @@ class LeaveReviewRequest(BaseModel):
     review_note: str | None = Field(default=None, max_length=2000)
 
 
+class AdminLeaveRequestCreate(BaseModel):
+    employee_id: int = Field(ge=1)
+    leave_type: str = Field(min_length=1, max_length=20)
+    start_date: date
+    end_date: date
+    reason: str | None = Field(default=None, max_length=2000)
+    auto_approve: bool = True
+
+
 def _employee_for_user(*, tenant_id: int, user: AuthUser, conn: Any) -> dict[str, Any]:
     employee = resolve_employee(tenant_id=tenant_id, username=user.username, conn=conn)
     if not employee:
@@ -97,6 +106,43 @@ def list_admin_leave_requests(
     return {"items": items, "count": len(items), "pending_count": pending}
 
 
+@admin_router.post("/requests")
+def create_admin_leave_request(
+    payload: AdminLeaveRequestCreate,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    """HR can log leave for a staff member (optionally auto-approved)."""
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        item = leave_service.create_leave_request(
+            tenant_id=tenant_id,
+            employee_id=payload.employee_id,
+            leave_type=payload.leave_type,
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            reason=payload.reason,
+            conn=conn,
+        )
+        if payload.auto_approve:
+            item = leave_service.review_leave_request(
+                tenant_id=tenant_id,
+                request_id=int(item["id"]),
+                decision="approved",
+                reviewed_by=current_user.username,
+                review_note="Logged by admin",
+                conn=conn,
+            )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return item
+
+
 @admin_router.post("/requests/{request_id}/review")
 def review_admin_leave_request(
     request_id: int,
@@ -119,6 +165,8 @@ def review_admin_leave_request(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not review leave request: {exc}") from exc
     finally:
         conn.close()
     return item
@@ -185,6 +233,25 @@ def create_my_leave_request(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    else:
+        try:
+            from admin_service import get_notification_preferences
+            from modules.push.hr_notify import notify_hr_leave_request
+
+            pref_row = get_notification_preferences(tenant_id=tenant_id, conn=conn)
+            employee_name = f"{employee.get('first_name', '')} {employee.get('last_name', '')}".strip() or "Employee"
+            notify_hr_leave_request(
+                tenant_id=tenant_id,
+                employee_name=employee_name,
+                leave_type=item.get("leave_type") or payload.leave_type,
+                start_date=str(item.get("start_date") or payload.start_date),
+                end_date=str(item.get("end_date") or payload.end_date),
+                request_id=int(item["id"]),
+                preferences=pref_row["preferences"],
+                conn=conn,
+            )
+        except Exception:
+            pass
     finally:
         conn.close()
     return item
