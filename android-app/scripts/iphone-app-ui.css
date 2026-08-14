@@ -183,6 +183,40 @@ html.native-app.iphone-app .mfa-enrollment-head .portal-login-card-lead {
   color: var(--gray-500, #6b6a65);
 }
 
+/* Email MFA step — keep copy/controls readable on the white login card */
+html.native-app.iphone-app #mfa-panel .portal-login-card-head h1,
+html.native-app.iphone-app #mfa-panel-title {
+  color: var(--text, #141413);
+}
+
+html.native-app.iphone-app #mfa-panel .portal-login-card-lead,
+html.native-app.iphone-app #mfa-panel-lead {
+  color: var(--gray-500, #6b6a65);
+}
+
+html.native-app.iphone-app #mfa-panel .mfa-code-field,
+html.native-app.iphone-app #mfa-code-label-text {
+  color: var(--gray-500, #6b6a65);
+}
+
+html.native-app.iphone-app #mfa-panel .mfa-resend-row,
+html.native-app.iphone-app #mfa-resend-wrap {
+  margin: 0.35rem 0 0.75rem;
+}
+
+html.native-app.iphone-app #mfa-panel .native-login-mfa-alt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+html.native-app.iphone-app #mfa-panel .portal-login-inline-link,
+html.native-app.iphone-app #mfa-resend-btn,
+html.native-app.iphone-app #mfa-back-signin {
+  color: var(--green-700, #0f6e56);
+}
+
 html.native-app.iphone-app .mfa-enrollment-user {
   font-size: 0.76rem;
   margin: 8px 0 6px;

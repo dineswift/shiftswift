@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Scan premises QR codes to clock in at your work site.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock ShiftSwift HR quickly with Face ID after you sign in.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Verify you are at your work site when clocking in.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

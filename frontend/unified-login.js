@@ -226,6 +226,10 @@
 
   async function maybeEnableBiometricUnlock() {
     if (!isNativeShell()) return;
+    if (window.ShiftSwiftTrustedDevice?.maybeEnableBiometricUnlock) {
+      await window.ShiftSwiftTrustedDevice.maybeEnableBiometricUnlock();
+      return;
+    }
     if (window.ShiftSwiftTrustedDevice?.isBiometricUnlockEnabled?.()) return;
     const canUse = await window.ShiftSwiftTrustedDevice?.canUseBiometricUnlock?.();
     if (!canUse) return;

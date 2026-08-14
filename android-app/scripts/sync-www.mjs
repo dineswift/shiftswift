@@ -351,10 +351,20 @@ const COMPACT_NATIVE_MFA_PANEL = `        <div id="mfa-enrollment-panel" class="
           </div>
         </div>`;
 
+function softenNativeFaceIdCopy(html) {
+  return String(html || "")
+    .replace(/>Verify with Face ID</g, ">Verify with device unlock<")
+    .replace(/>Use Face ID \/ Touch ID</g, ">Use device unlock<")
+    .replace(/>Sign in with Face ID</g, ">Sign in with device unlock<")
+    .replace(/>Use Face ID \/ Touch ID next time</g, ">Use device unlock next time<");
+}
+
 function compactNativeMfaPanel(html) {
-  return html.replace(
-    /<div id="mfa-enrollment-panel"[\s\S]*?<\/div>\s*\n\s*<div id="mfa-panel"/,
-    `${COMPACT_NATIVE_MFA_PANEL}\n\n        <div id="mfa-panel"`,
+  return softenNativeFaceIdCopy(
+    html.replace(
+      /<div id="mfa-enrollment-panel"[\s\S]*?<\/div>\s*\n\s*<div id="mfa-panel"/,
+      `${COMPACT_NATIVE_MFA_PANEL}\n\n        <div id="mfa-panel"`,
+    ),
   );
 }
 
@@ -390,11 +400,12 @@ businessLoginHtml = businessLoginHtml.replace(
 );
 businessLoginHtml = businessLoginHtml.replace(
   '<header class="portal-login-brand portal-login-brand--streamlined">',
-  '<header class="portal-login-brand portal-login-brand--streamlined"><p style="margin:0 0 12px;text-align:center"><a href="./index.html" style="color:inherit;font-size:13px;opacity:.75;text-decoration:none">← Back</a></p>',
+  '<header class="portal-login-brand portal-login-brand--streamlined"><p style="margin:0 0 12px;text-align:center"><a href="./index.html" style="color:inherit;font-size:13px;text-decoration:none">← Back</a></p>',
 );
 businessLoginHtml = businessLoginHtml.replace(
   "</head>",
-  `    <link rel="stylesheet" href="./iphone-app-ui.css" />
+  `    <link rel="stylesheet" href="./native-app-login.css" />
+    <link rel="stylesheet" href="./iphone-app-ui.css" />
     ${nativeStartupHead}
     ${nativeIpadHead}
   </head>`,
@@ -507,7 +518,8 @@ employeeLoginHtml = employeeLoginHtml.replace(
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   "</head>",
-  `    <link rel="stylesheet" href="./iphone-app-ui.css" />
+  `    <link rel="stylesheet" href="./native-app-login.css" />
+    <link rel="stylesheet" href="./iphone-app-ui.css" />
     ${nativeStartupHead}
     ${nativeIpadHead}
   </head>`,
@@ -522,7 +534,7 @@ employeeLoginHtml = employeeLoginHtml.replace(
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   '<header class="portal-login-brand">',
-  '<header class="portal-login-brand"><p style="margin:0 0 12px"><a href="./index.html" style="color:inherit;font-size:13px;opacity:.75;text-decoration:none">← Back</a></p>',
+  '<header class="portal-login-brand"><p style="margin:0 0 12px"><a href="./index.html" style="color:inherit;font-size:13px;text-decoration:none">← Back</a></p>',
 );
 employeeLoginHtml = employeeLoginHtml.replace(
   "portal-login-card--employee portal-login-card--has-install",

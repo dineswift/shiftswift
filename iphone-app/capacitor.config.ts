@@ -26,6 +26,7 @@ const config: CapacitorConfig = {
     contentInset: "automatic",
     scheme: "App",
     infoPlist: {
+      NSFaceIDUsageDescription: "Unlock ShiftSwift HR quickly with Face ID after you sign in.",
       NSCameraUsageDescription: "Scan premises QR codes to clock in at your work site.",
       NSLocationWhenInUseUsageDescription: "Verify you are at your work site when clocking in.",
       NSLocationAlwaysAndWhenInUseUsageDescription: "Verify you are at your work site when clocking in.",

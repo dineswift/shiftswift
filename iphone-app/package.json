@@ -23,6 +23,7 @@
     "appstore:prepare": "npm run screenshots:prepare && npm run appstore:archive"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^9.1.2",
     "@capacitor/app": "^7.1.2",
     "@capacitor/browser": "^7.0.5",
     "@capacitor/core": "^7.6.7",

@@ -361,7 +361,7 @@ function bindMfaEnrollmentSubmit() {
     btn.disabled = true;
     try {
       const data = await postJsonAuth("/auth/mfa/enable", { code }, pendingEnrollmentToken);
-      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
+      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html", pendingMfaUsername);
     } catch (error) {
       setEnrollmentStatus(error.message || "Invalid code — try again");
       btn.disabled = false;
@@ -384,7 +384,7 @@ function bindMfaEnrollmentSkip() {
     if (enableBtn) enableBtn.disabled = true;
     try {
       const data = await postJsonAuth("/auth/mfa/skip-enrollment", {}, pendingEnrollmentToken);
-      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
+      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html", pendingMfaUsername);
     } catch (error) {
       setEnrollmentStatus(error.message || "Could not skip MFA setup");
       btn.disabled = false;
@@ -411,7 +411,7 @@ function bindMfaEnrollmentPasskey() {
     try {
       const data = await window.ShiftSwiftPasskeyAuth.enrollMfaWithPasskey(pendingEnrollmentToken);
       window.ShiftSwiftPasskeyAuth.rememberLastEmail?.(pendingMfaUsername || data.username);
-      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html");
+      await storeSessionAndGo(data, data.redirect_url || pendingRedirect || "./admin.html", pendingMfaUsername);
     } catch (error) {
       const raw = String(error?.message || "").trim();
       if (/^(Load failed|Failed to fetch)$/i.test(raw) || /rpid did not match|related origins/i.test(raw)) {
@@ -588,8 +588,27 @@ function storeSession(data) {
   }
 }
 
-async function storeSessionAndGo(data, url) {
+async function storeSessionAndGo(data, url, username) {
   storeSession(data);
+  const email =
+    normalizeEmailForTrust(username) ||
+    normalizeEmailForTrust(data?.username) ||
+    normalizeEmailForTrust(pendingMfaUsername);
+  try {
+    await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
+  } catch {
+    /* optional */
+  }
+  try {
+    if (window.ShiftSwiftTrustedDevice?.maybeEnableBiometricUnlock) {
+      await window.ShiftSwiftTrustedDevice.maybeEnableBiometricUnlock();
+    } else if (isNativeLoginApp()) {
+      const canUse = await window.ShiftSwiftTrustedDevice?.canUseBiometricUnlock?.();
+      if (canUse) window.ShiftSwiftTrustedDevice?.setBiometricUnlockEnabled?.(true);
+    }
+  } catch {
+    /* optional — password login still succeeded */
+  }
   try {
     sessionStorage.setItem("sshrPostLoginTransition", "1");
   } catch {
@@ -612,6 +631,26 @@ async function storeSessionAndGo(data, url) {
     ]);
   }
   window.location.replace(withNativeSource(url || "./admin.html"));
+}
+
+function normalizeEmailForTrust(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+async function buildLoginPayload(form) {
+  const raw = Object.fromEntries(new FormData(form).entries());
+  const username = String(raw.username || "").trim();
+  const payload = {
+    username,
+    password: raw.password,
+  };
+  try {
+    const deviceToken = await window.ShiftSwiftTrustedDevice?.getTrustedToken?.(username);
+    if (deviceToken) payload.device_token = deviceToken;
+  } catch {
+    /* optional */
+  }
+  return payload;
 }
 
 function withNativeSource(path) {
@@ -799,7 +838,7 @@ function bindMfaForm() {
         remember_device: Boolean(window.ShiftSwiftTrustedDevice?.shouldRememberDevice?.()),
         device_label: window.ShiftSwiftTrustedDevice?.deviceLabel?.() || undefined,
       });
-      await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
+      await storeSessionAndGo(data, redirectForRole(data, pendingRedirect), pendingMfaUsername);
     } catch (error) {
       setStatus(error.message || "Invalid authentication code");
     }
@@ -899,21 +938,13 @@ function bindMfaForm() {
           "";
         const data = await window.ShiftSwiftPasskeyAuth.verifyMfaWithPasskey(pendingChallenge, email);
         window.ShiftSwiftPasskeyAuth.rememberLastEmail?.(email);
-        await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
+        await storeSessionAndGo(data, redirectForRole(data, pendingRedirect), pendingMfaUsername);
       } catch (error) {
         setStatus(error.message || "Face ID verification failed");
         passkeyBtn.disabled = false;
       }
     });
   }
-}
-
-function loginPayload(form) {
-  const raw = Object.fromEntries(new FormData(form).entries());
-  return {
-    username: raw.username,
-    password: raw.password,
-  };
 }
 
 function bindPortalLogin() {
@@ -927,7 +958,7 @@ function bindPortalLogin() {
     const mode = LOGIN_MODES[activeLoginMode] || LOGIN_MODES.business;
     pendingRedirect = mode.redirect;
     setStatus("Signing in…");
-    const payload = loginPayload(form);
+    const payload = await buildLoginPayload(form);
     try {
       const data = await postJson(mode.endpoint, payload);
       if (data.mfa_required && data.challenge_token) {
@@ -944,7 +975,7 @@ function bindPortalLogin() {
         await startMfaEnrollment(data, redirectForRole(data, mode.redirect));
         return;
       }
-      await storeSessionAndGo(data, redirectForRole(data, mode.redirect));
+      await storeSessionAndGo(data, redirectForRole(data, mode.redirect), payload.username);
     } catch (error) {
       const friendly = friendlyLoginError(error.message, mode.endpoint, payload.username);
       if (maybeRedirectWrongPortal(error.message, mode.endpoint, payload.username)) return;
@@ -992,6 +1023,16 @@ function initDedicatedLogin(mode) {
   bindPortalLogin();
   bindMfaEnrollmentHandlers();
   bindForgotPasswordLink();
+  void (async () => {
+    let bounced = false;
+    try {
+      bounced = sessionStorage.getItem("sshrAuthBouncedToLogin") === "1";
+      if (bounced) sessionStorage.removeItem("sshrAuthBouncedToLogin");
+    } catch {
+      /* ignore */
+    }
+    if (!bounced && (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.())) return;
+  })();
 }
 
 function initBusinessLoginTabs() {
@@ -1092,7 +1133,7 @@ function bindUnifiedLogin() {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     setStatus("Signing in…");
-    const payload = loginPayload(form);
+    const payload = await buildLoginPayload(form);
     try {
       const result = await loginWithAutoPortal(payload);
       const { data, redirect } = result;
@@ -1109,7 +1150,7 @@ function bindUnifiedLogin() {
         await startMfaEnrollment(data, redirect);
         return;
       }
-      await storeSessionAndGo(data, redirect);
+      await storeSessionAndGo(data, redirect, payload.username);
     } catch (error) {
       setStatus(
         friendlyLoginError(
@@ -1199,7 +1240,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
     event.preventDefault();
     pendingRedirect = redirectUrl;
     setStatus("Signing in…");
-    const payload = loginPayload(form);
+    const payload = await buildLoginPayload(form);
     try {
       const data = await postJson(endpoint, payload);
       if (data.mfa_required && data.challenge_token) {
@@ -1215,7 +1256,7 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
         await startMfaEnrollment(data, redirectUrl);
         return;
       }
-      await storeSessionAndGo(data, redirectUrl);
+      await storeSessionAndGo(data, redirectUrl, payload.username);
     } catch (error) {
       const friendly = friendlyLoginError(error.message, endpoint, payload.username);
       if (maybeRedirectWrongPortal(error.message, endpoint, payload.username)) return;
