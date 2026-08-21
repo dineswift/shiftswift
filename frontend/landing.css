@@ -2098,8 +2098,8 @@ body.is-loading .page {
 
 .product-showcase-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
 }
 
 .product-showcase-card {
@@ -2108,8 +2108,15 @@ body.is-loading .page {
   gap: 12px;
 }
 
+.product-showcase-card--featured {
+  grid-column: 1 / -1;
+}
+
 .product-showcase-card picture {
   display: block;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #dfe8e2;
 }
 
 .product-showcase-card img {
@@ -2120,13 +2127,26 @@ body.is-loading .page {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   background: var(--white);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.product-showcase-card:hover img {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-pine);
 }
 
 .product-showcase-card figcaption {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--gray-500);
   line-height: 1.45;
-  text-align: center;
+  text-align: left;
+}
+
+.product-showcase-card figcaption strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--pine);
+  font-size: 1.05rem;
 }
 
 .case-study-slot__eyebrow {

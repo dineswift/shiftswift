@@ -22,6 +22,7 @@ class SubscriptionPlan:
     price_per_active_employee_gbp_ex_vat: float
     monthly_cap_gbp_ex_vat: float | None
     stripe_seat_price_id_env: str = ""
+    level_label: str = ""
 
 
 # Base + per active employee, hard monthly cap (strategy 2026).
@@ -39,6 +40,7 @@ PLANS: tuple[SubscriptionPlan, ...] = (
         base_price_gbp_ex_vat=9.0,
         price_per_active_employee_gbp_ex_vat=2.0,
         monthly_cap_gbp_ex_vat=49.0,
+        level_label="Level 1 · Small sites",
         features=(
             "Employee records & lifecycle",
             "Right-to-work checks",
@@ -60,6 +62,7 @@ PLANS: tuple[SubscriptionPlan, ...] = (
         base_price_gbp_ex_vat=19.0,
         price_per_active_employee_gbp_ex_vat=3.0,
         monthly_cap_gbp_ex_vat=79.0,
+        level_label="Level 2 · Sponsor licence",
         features=(
             "Everything in Essentials",
             "Day-9 absence alerts (clock-in linked)",
@@ -81,6 +84,7 @@ PLANS: tuple[SubscriptionPlan, ...] = (
         base_price_gbp_ex_vat=29.0,
         price_per_active_employee_gbp_ex_vat=2.0,
         monthly_cap_gbp_ex_vat=129.0,
+        level_label="Level 3 · Multi-site groups",
         features=(
             "Everything in Compliance",
             "Multi-site dashboard",
@@ -144,6 +148,7 @@ def plan_catalog() -> list[dict[str, object]]:
                 "features": list(plan.features),
                 "stripe_price_configured": bool(price_id),
                 "stripe_seat_price_configured": bool(seat_price_id),
+                "level_label": plan.level_label,
                 **payload,
             }
         )

@@ -21,7 +21,7 @@ Trials and demos are fine in early access. Anonymous “HR Manager, Midlands” 
 | 1 | **Remove fake social proof** | One Google search kills trust | ✅ Homepage uses early-access copy, not template quotes |
 | 2 | **Label UI mocks** | Prospects must know previews are illustrative | ✅ Hero labelled “Product preview · illustrative” |
 | 3 | **Stripe live mode E2E** | Trial → paid must work without “email support” | ⚠️ Scaffolded — confirm `sk_live_`, webhook, live Price IDs |
-| 4 | **Real product screenshots** | Product showcase on www with pilot placeholders; swap WebP in `frontend/assets/screenshots/` | ⚠️ Placeholders live — redacted captures pending |
+| 4 | **Real product screenshots** | Product showcase on www uses labelled sample-data console captures | ✅ Sample-data mockups live — swap with redacted tenant captures when a pilot agrees |
 | 5 | **First named case study** | Name, role, company type, one metric, permission on file | ❌ Pilot in progress |
 | 6 | **Claims match code** | No rota builder, RTI, or payslip portal if not shipped | ✅ Rota/RTI copy corrected on homepage |
 
