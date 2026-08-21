@@ -752,7 +752,7 @@
       </article>
       <article class="card settings-rota-reminders">
         <h4 class="hr-section-title">Rota shift reminders</h4>
-        <p class="muted settings-rota-reminders__lead">Bell alerts and push notifications before each published shift starts and ends. Applies to all employees on the rota (platform jobs cron every 15 minutes).</p>
+        <p class="muted settings-rota-reminders__lead">Lock-screen alerts before each published shift starts and ends, plus clock-in and clock-out reminders while the Employee app is closed. Push jobs run about every 15 minutes; native apps also schedule local alerts on the device.</p>
         <div class="settings-rota-reminders__grid">
           <label class="edit-field">
             <span class="edit-label">Before shift starts (minutes)</span>
@@ -766,7 +766,7 @@
       </article>
       <article class="card settings-clock-reminders">
         <h4 class="hr-section-title">Clock-in reminders</h4>
-        <p class="muted">Nudges when an employee has not clocked in after their shift starts (requires time clock).</p>
+        <p class="muted">Nudges when an employee has not clocked in after their shift starts. These still appear on the lock screen if the Employee app is closed (requires time clock and alerts enabled on the phone).</p>
         <div class="settings-signin-reminder__grid">
           <label class="edit-field">
             <span class="edit-label">Missed clock-in — first nudge (minutes after start)</span>

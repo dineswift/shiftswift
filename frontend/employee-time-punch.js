@@ -261,6 +261,7 @@
       }
       const data = await response.json();
       workState = data.work_state || (data.clocked_in ? "clocked_in" : "off");
+      window.dispatchEvent(new CustomEvent("employee:work-state", { detail: { workState } }));
       secondsSinceClockOut = data.seconds_since_clock_out ?? null;
       breakStartedAt = data.break_started_at || null;
       clockInCooldownSeconds = Number(data.clock_in_cooldown_seconds) || DEFAULT_COOLDOWN_SECONDS;
@@ -616,6 +617,7 @@
       else if (data.distance_meters != null) detail += ` (${Math.round(data.distance_meters)}m from site)`;
       if (data.rapid_re_punch) detail += " — flagged for HR review.";
       setMessage(`${detail}.`, "success");
+      window.dispatchEvent(new CustomEvent("employee:punched", { detail: { punchType } }));
       await loadStatus();
       window.EmployeeTimesheet?.reload?.();
     } catch (error) {

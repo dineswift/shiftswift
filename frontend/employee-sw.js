@@ -1,5 +1,5 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v14";
+const CACHE_NAME = "shiftswift-employee-v15";
 const SHELL = [
   "./employee.html",
   "./employee-login.html",
@@ -112,6 +112,22 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
+    return;
+  }
+  if (event.data?.type === "SHOW_CLOCK_ALERT") {
+    const title = event.data.title || "ShiftSwift Employee";
+    const shown = self.registration.showNotification(
+      title,
+      buildClockNotificationOptions({
+        body: event.data.body || "",
+        tag: event.data.tag || "shiftswift-employee",
+        url: event.data.url || "./employee.html#time-clock",
+        alert_type: event.data.alert_type || "clock_in",
+        urgent: true,
+      }),
+    );
+    if (typeof event.waitUntil === "function") event.waitUntil(shown);
+    else void shown;
   }
 });
 

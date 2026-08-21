@@ -642,6 +642,8 @@ def my_shifts(
             "shift_reminders": {
                 "minutes_before_start": schedule.shift_reminder_minutes_before,
                 "minutes_before_end": schedule.shift_end_reminder_minutes_before,
+                "missed_clock_in_early_minutes": schedule.missed_clock_in_early_minutes,
+                "missed_clock_in_late_minutes": schedule.missed_clock_in_late_minutes,
             },
         }
     except RotaValidationError as exc:

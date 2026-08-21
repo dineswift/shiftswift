@@ -91,7 +91,7 @@
     host.innerHTML = `
       <div class="employee-shift-alerts-banner__copy">
         <span class="employee-shift-alerts-banner__title">Shift reminders active</span>
-        <span class="employee-shift-alerts-banner__sub">Bell alert ${startMin} min before start · ${endMin} min before end</span>
+        <span class="employee-shift-alerts-banner__sub">Lock-screen clock-in and clock-out alerts ${startMin} min before start · ${endMin} min before end, even if the app is closed</span>
       </div>
       <span class="employee-shift-alerts-banner__icon" aria-hidden="true">🔔</span>`;
   }
@@ -109,7 +109,7 @@
     const startMin = Number(reminderConfig.minutes_before_start) || 10;
     const endMin = Number(reminderConfig.minutes_before_end) || 10;
     const reminderHint = isToday
-      ? `<p class="employee-shift-card__reminder-hint">🔔 Reminders at ${startMin} min before start · ${endMin} min before end</p>`
+      ? `<p class="employee-shift-card__reminder-hint">🔔 Clock-in / clock-out alerts at ${startMin} min before start · ${endMin} min before end (lock screen if the app is closed)</p>`
       : "";
 
     return `
