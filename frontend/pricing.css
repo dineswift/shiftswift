@@ -144,6 +144,10 @@
   color: var(--white);
 }
 
+.pricing-card.is-featured .pricing-level {
+  color: var(--green-200);
+}
+
 .pricing-card.is-featured .pricing-plan-desc,
 .pricing-card.is-featured .pricing-amount .interval,
 .pricing-card.is-featured .pricing-vat,
@@ -202,6 +206,16 @@
   font-weight: var(--text-card-title-weight);
   color: var(--pine);
   letter-spacing: var(--text-card-title-tracking);
+}
+
+.pricing-level {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase;
+  color: var(--green-700);
 }
 
 .pricing-plan-desc {

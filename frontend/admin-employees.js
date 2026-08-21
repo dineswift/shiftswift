@@ -164,7 +164,7 @@
       body: "Use HR templates for probation reviews, annual appraisals, and PIP meetings. Store signed copies in Document store.",
       links: [
         { href: "#templates", label: "Probation & appraisal templates" },
-        { href: "#disciplinary", label: "Disciplinary cases (Growth+)" },
+        { href: "#disciplinary", label: "Disciplinary cases (Compliance+)" },
       ],
     },
   };

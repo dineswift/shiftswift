@@ -809,6 +809,7 @@
       workState = data.work_state || workState;
       clockedInState = workState !== "off";
       setMessage(detail, "success");
+      window.dispatchEvent(new CustomEvent("employee:punched", { detail: { punchType } }));
       await loadStatus();
     } catch (error) {
       setMessage(error.message || "Punch failed.", "error");

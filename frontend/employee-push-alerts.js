@@ -34,7 +34,7 @@
     if (!tenantId) {
       setBannerState({
         active: false,
-        message: "Bell alerts before your shift starts and ends, plus clock-in reminders if you forget.",
+        message: "Bell alerts before your shift starts and ends, plus clock-in and clock-out reminders on the lock screen if you forget.",
         hideBanner: false,
       });
       return;
@@ -85,8 +85,8 @@
       setBannerState({
         active: true,
         message: status.nativeLocal
-          ? "Alerts on — you'll get a notification before your shift starts and ends."
-          : "Alerts on — bell before shift start and end, plus clock-in reminders.",
+          ? "Alerts on — lock-screen reminders to clock in and clock out, even if the app is closed."
+          : "Alerts on — lock-screen reminders to clock in and clock out, plus missed clock-in nudges.",
         hideBanner: true,
       });
       return;
@@ -95,8 +95,8 @@
     setBannerState({
       active: false,
       message: status.nativeLocal
-        ? "Turn on alerts to get a notification before your shift starts and ends."
-        : "Get bell alerts before your shift starts and ends, plus clock-in nudges.",
+        ? "Turn on alerts to get lock-screen reminders to clock in and clock out, even when the app is closed."
+        : "Get lock-screen reminders to clock in and clock out, plus missed clock-in nudges.",
       hideBanner: false,
     });
   }

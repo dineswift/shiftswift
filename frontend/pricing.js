@@ -30,6 +30,7 @@
         "Document storage",
         "Email support",
       ],
+      level_label: "Level 1 · Small sites",
     },
     {
       id: "site_medium_monthly",
@@ -51,6 +52,7 @@
         "Grievance workflows",
         "SMS alerts · Priority support",
       ],
+      level_label: "Level 2 · Sponsor licence",
     },
     {
       id: "site_growth_monthly",
@@ -71,6 +73,7 @@
         "API access",
         "Dedicated account manager",
       ],
+      level_label: "Level 3 · Multi-site groups",
     },
   ];
 
@@ -176,6 +179,19 @@
 
   function isFeatured(plan) {
     return plan.id === "site_medium_monthly";
+  }
+
+  function planLevelLabel(plan) {
+    if (plan.level_label) return plan.level_label;
+    const byId = {
+      site_starter_monthly: "Level 1 · Small sites",
+      site_starter_annual: "Level 1 · Small sites",
+      site_medium_monthly: "Level 2 · Sponsor licence",
+      site_medium_annual: "Level 2 · Sponsor licence",
+      site_growth_monthly: "Level 3 · Multi-site groups",
+      site_growth_annual: "Level 3 · Multi-site groups",
+    };
+    return byId[plan.id] || "";
   }
 
   function plansForBillingInterval(plans, billing) {
@@ -301,6 +317,7 @@
         ? options.selectedPayrollPlanId === plan.id
         : options.selectedPlanId === plan.id;
     const featured = cardType === "platform" && isFeatured(plan);
+    const level = cardType === "platform" ? planLevelLabel(plan) : "";
     const interval = intervalLabel(plan.billing_interval);
     const perHead = usesPerHeadPricing(plan);
     const exVat = formatMoney(planBasePrice(plan));
@@ -349,6 +366,7 @@
         <div class="pricing-card-head">
           ${featured ? '<span class="pricing-badge">Best for sponsors</span>' : ""}
           ${cardType === "payroll" ? '<span class="pricing-badge pricing-badge--payroll">Legacy add-on</span>' : ""}
+          ${level ? `<span class="pricing-level">${level}</span>` : ""}
           <div class="pricing-plan-name">${plan.name}</div>
           <p class="pricing-plan-desc">${plan.description}</p>
         </div>

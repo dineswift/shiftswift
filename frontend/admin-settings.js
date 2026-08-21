@@ -60,7 +60,7 @@
     },
     addons: {
       title: "Add-ons & integrations",
-      subtitle: "Turn Scale plan features on or off for your workspace.",
+      subtitle: "Turn Multi-site plan features on or off for your workspace.",
     },
   };
   const SAVED_AT_KEY = `settings_business_saved_${window.Admin?.TENANT_ID ?? "default"}`;
@@ -460,7 +460,7 @@
         ${
           enabled
             ? `<p class="muted settings-feature-toggle__help"><a href="#" data-brand-support-mailto="${escapeHtml(addon.supportSubject)}">Contact support</a> — ${escapeHtml(addon.helpEnabled)}</p>`
-            : `<p class="muted settings-feature-toggle__help">Included on <strong>Scale</strong> plans. You are on <strong>${escapeHtml(planName)}</strong>.</p>`
+            : `<p class="muted settings-feature-toggle__help">Included on <strong>Multi-site</strong> plans. You are on <strong>${escapeHtml(planName)}</strong>.</p>`
         }
       </div>
       <label class="settings-toggle" title="${enabled ? "Enabled on your account" : "Upgrade your plan to enable"}">
@@ -496,15 +496,15 @@
       await window.Admin.loadTenantFeatures();
       const overviewRes = await apiFetch("/admin/overview");
       const overview = overviewRes.ok ? await overviewRes.json() : {};
-      const planName = overview.plan_display_name || "Starter";
+      const planName = overview.plan_display_name || "Essentials";
       const scaleLocked = !isFeatureEnabled("multi-site") && !isFeatureEnabled("api-access");
 
       host.innerHTML = `
-        <p class="muted">Use toggles to see which Scale features are active on your account. Self-service enablement is coming soon — contact support or upgrade your plan today.</p>
+        <p class="muted">Use toggles to see which Multi-site features are active on your account. Self-service enablement is coming soon — contact support or upgrade your plan today.</p>
         ${
           scaleLocked
             ? `<div class="alert-card alert-card-warning settings-addons-upgrade">
-                <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade to unlock both, or email support if you are already on Scale.</p>
+                <p class="alert-copy">Multi-site and API access are included on <strong>Multi-site</strong>. Upgrade to unlock both, or email support if you are already on Multi-site.</p>
                 <button type="button" class="btn outline" data-settings-upgrade>View plans</button>
               </div>`
             : ""
@@ -533,7 +533,7 @@
       ]);
       const overview = overviewRes.ok ? await overviewRes.json() : {};
       const billing = billingRes.ok ? await billingRes.json() : {};
-      const planName = overview.plan_display_name || "Starter";
+      const planName = overview.plan_display_name || "Essentials";
       const status = billing.subscription_status || overview.subscription_status || "trial";
       const offlineBilling = billing.offline_billing || billing.billing_mode === "offline";
       const trialDays = offlineBilling ? null : billing.days_remaining;
@@ -752,7 +752,7 @@
       </article>
       <article class="card settings-rota-reminders">
         <h4 class="hr-section-title">Rota shift reminders</h4>
-        <p class="muted settings-rota-reminders__lead">Bell alerts and push notifications before each published shift starts and ends. Applies to all employees on the rota (platform jobs cron every 15 minutes).</p>
+        <p class="muted settings-rota-reminders__lead">Lock-screen alerts before each published shift starts and ends, plus clock-in and clock-out reminders while the Employee app is closed. Push jobs run about every 15 minutes; native apps also schedule local alerts on the device.</p>
         <div class="settings-rota-reminders__grid">
           <label class="edit-field">
             <span class="edit-label">Before shift starts (minutes)</span>
@@ -766,7 +766,7 @@
       </article>
       <article class="card settings-clock-reminders">
         <h4 class="hr-section-title">Clock-in reminders</h4>
-        <p class="muted">Nudges when an employee has not clocked in after their shift starts (requires time clock).</p>
+        <p class="muted">Nudges when an employee has not clocked in after their shift starts. These still appear on the lock screen if the Employee app is closed (requires time clock and alerts enabled on the phone).</p>
         <div class="settings-signin-reminder__grid">
           <label class="edit-field">
             <span class="edit-label">Missed clock-in — first nudge (minutes after start)</span>
@@ -1203,7 +1203,7 @@
       const allModes = overview.rota_modes_all || window.Admin?.tenantFeatures?.rota_modes_all || ["basic", "advanced", "multi_site"];
       const current = profile.rota_mode_preference ?? overview.rota_mode ?? profile.rota_mode ?? "basic";
       settingsRotaWeekStartDay = profile.rota_week_start_day ?? overview.rota_week_start_day ?? 0;
-      const planName = overview.plan_display_name || "Starter";
+      const planName = overview.plan_display_name || "Essentials";
       const supportMailto = window.ShiftSwiftBrand?.supportMailto?.("Advanced rota add-on") || "#";
 
       host.innerHTML = `

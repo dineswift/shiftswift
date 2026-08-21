@@ -124,3 +124,78 @@ def test_sends_early_missed_clock_in(
     assert any(item["type"] == "shift_missed_clock_in_10" for item in sent)
     keys = [call.kwargs["notification_key"] for call in send_push.call_args_list]
     assert "shift_missed_clock_in_10:99" in keys
+
+
+@patch("modules.push.shift_reminders.get_business_schedule")
+@patch("modules.push.shift_reminders.send_employee_push")
+@patch("modules.push.shift_reminders.load_punches_for_employees", return_value={})
+@patch("modules.push.shift_reminders.list_published_shifts_on_date")
+@patch("modules.push.shift_reminders.tenant_has_active_punch_sites", return_value=True)
+@patch("modules.push.shift_reminders._primary_site_name", return_value="Himalayan Inn — main")
+def test_sends_clock_in_when_shift_starts(
+    _site: MagicMock,
+    _has_sites: MagicMock,
+    list_shifts: MagicMock,
+    _punches: MagicMock,
+    send_push: MagicMock,
+    schedule_mock: MagicMock,
+) -> None:
+    schedule_mock.return_value = parse_business_schedule({})
+    list_shifts.return_value = [
+        {
+            "id": 12,
+            "employee_id": 7,
+            "shift_date": "2026-06-17",
+            "start_time": "09:00",
+            "end_time": "17:00",
+        }
+    ]
+    send_push.return_value = {"sent": 1}
+    start = datetime(2026, 6, 17, 9, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 6, 17, 9, 1, tzinfo=timezone.utc)
+    with patch("modules.push.shift_reminders.shift_window") as shift_window:
+        shift_window.return_value = (start, start.replace(hour=17))
+        sent = evaluate_shift_push_reminders(tenant_id=1, conn=MagicMock(), now=now)
+
+    assert sent[0]["type"] == "shift_start"
+    assert send_push.call_args.kwargs["notification_key"] == "shift_start:12"
+    assert send_push.call_args.kwargs["title"] == "Clock in now"
+    assert send_push.call_args.kwargs["alert_type"] == "clock_in"
+
+
+@patch("modules.push.shift_reminders.get_business_schedule")
+@patch("modules.push.shift_reminders.send_employee_push")
+@patch("modules.push.shift_reminders.load_punches_for_employees", return_value={})
+@patch("modules.push.shift_reminders.list_published_shifts_on_date")
+@patch("modules.push.shift_reminders.tenant_has_active_punch_sites", return_value=True)
+@patch("modules.push.shift_reminders._primary_site_name", return_value="Himalayan Inn — main")
+def test_sends_clock_out_when_shift_ends(
+    _site: MagicMock,
+    _has_sites: MagicMock,
+    list_shifts: MagicMock,
+    _punches: MagicMock,
+    send_push: MagicMock,
+    schedule_mock: MagicMock,
+) -> None:
+    schedule_mock.return_value = parse_business_schedule({})
+    list_shifts.return_value = [
+        {
+            "id": 13,
+            "employee_id": 7,
+            "shift_date": "2026-06-17",
+            "start_time": "09:00",
+            "end_time": "17:00",
+        }
+    ]
+    send_push.return_value = {"sent": 1}
+    start = datetime(2026, 6, 17, 9, 0, tzinfo=timezone.utc)
+    end = datetime(2026, 6, 17, 17, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 6, 17, 17, 1, tzinfo=timezone.utc)
+    with patch("modules.push.shift_reminders.shift_window") as shift_window:
+        shift_window.return_value = (start, end)
+        sent = evaluate_shift_push_reminders(tenant_id=1, conn=MagicMock(), now=now)
+
+    assert sent[0]["type"] == "shift_end"
+    assert send_push.call_args.kwargs["notification_key"] == "shift_end:13"
+    assert send_push.call_args.kwargs["title"] == "Shift ending now"
+    assert send_push.call_args.kwargs["alert_type"] == "clock_out"

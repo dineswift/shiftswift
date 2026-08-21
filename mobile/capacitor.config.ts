@@ -31,6 +31,9 @@ const pluginConfig = {
     style: "LIGHT" as const,
     backgroundColor: "#0f6e56",
   },
+  LocalNotifications: {
+    iconColor: "#0f6e56",
+  },
 };
 
 const cameraPlist = "Scan premises QR codes to clock in at your work site.";

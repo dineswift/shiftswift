@@ -26,6 +26,7 @@ class SubscriptionPlan:
     monthly_cap_gbp_ex_vat: float | None = None
     stripe_seat_price_id_env: str = ""
     stripe_seat_price_id: str | None = None
+    level_label: str = ""
 
 
 def _db_conn() -> Any:
@@ -144,6 +145,7 @@ def get_plan(plan_id: str) -> SubscriptionPlan | None:
                 price_per_active_employee_gbp_ex_vat=plan.price_per_active_employee_gbp_ex_vat,
                 monthly_cap_gbp_ex_vat=plan.monthly_cap_gbp_ex_vat,
                 stripe_seat_price_id_env=plan.stripe_seat_price_id_env,
+                level_label=getattr(plan, "level_label", "") or "",
             )
     return None
 
@@ -166,6 +168,7 @@ def list_plans() -> list[SubscriptionPlan]:
             price_per_active_employee_gbp_ex_vat=plan.price_per_active_employee_gbp_ex_vat,
             monthly_cap_gbp_ex_vat=plan.monthly_cap_gbp_ex_vat,
             stripe_seat_price_id_env=plan.stripe_seat_price_id_env,
+            level_label=getattr(plan, "level_label", "") or "",
         )
         for plan in DEFAULT_PLANS
     ]

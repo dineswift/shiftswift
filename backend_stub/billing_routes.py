@@ -102,6 +102,14 @@ def _plan_item(plan, *, category: str) -> dict[str, object]:
         "stripe_seat_price_configured": bool(seat_price_id),
         "editable": True,
         "category": category,
+        "level_label": getattr(plan, "level_label", "") or {
+            "site_starter_monthly": "Level 1 · Small sites",
+            "site_starter_annual": "Level 1 · Small sites",
+            "site_medium_monthly": "Level 2 · Sponsor licence",
+            "site_medium_annual": "Level 2 · Sponsor licence",
+            "site_growth_monthly": "Level 3 · Multi-site groups",
+            "site_growth_annual": "Level 3 · Multi-site groups",
+        }.get(plan.id, ""),
         **payload,
     }
 

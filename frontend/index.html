@@ -42,7 +42,7 @@
     <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
     <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
     <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
-    <link rel="stylesheet" href="./landing.css?v=brandkit-v37" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v38" />
     <style>
       /* Critical hero band — survives stale CSS cache / missing theme import */
       .hero-band {
@@ -61,7 +61,7 @@
         -webkit-text-fill-color: #9fe1cb;
       }
     </style>
-    <link rel="stylesheet" href="./pricing.css?v=13" />
+    <link rel="stylesheet" href="./pricing.css?v=14" />
   </head>
   <body>
     <div id="startup-loader" class="startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
@@ -283,51 +283,92 @@
         </section>
 
         <section id="product-showcase" class="section product-showcase" aria-labelledby="product-showcase-heading">
-          <h2 id="product-showcase-heading">Inside the admin console</h2>
+          <h2 id="product-showcase-heading">See the modules in action</h2>
           <p class="section-lead muted">
-            Structured captures from the admin console — illustrative placeholders today, redacted screenshots as we publish customer stories.
-            Book a <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">live demo</a> for an unredacted walkthrough.
+            Sample workspace for a neighbourhood restaurant — fictional data, same admin console your team would use.
+            Book a <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">live demo</a> for a walkthrough on your own site.
           </p>
           <div class="product-showcase-grid">
-            <figure class="product-showcase-card">
+            <figure class="product-showcase-card product-showcase-card--featured">
               <picture>
-                <source type="image/webp" srcset="/assets/screenshots/admin-overview.webp" />
+                <source type="image/webp" srcset="/assets/screenshots/admin-overview.webp?v=2" />
                 <img
-                  src="/assets/screenshots/admin-overview.png"
-                  alt="ShiftSwift HR admin overview — illustrative placeholder"
-                  width="1200"
-                  height="750"
+                  src="/assets/screenshots/admin-overview.png?v=2"
+                  alt="ShiftSwift HR admin overview with module tiles, open actions, and sample restaurant data"
+                  width="1440"
+                  height="900"
                   decoding="async"
                   fetchpriority="high"
                 />
               </picture>
-              <figcaption>Overview — active employees, RTW due, day-9 status</figcaption>
+              <figcaption>
+                <strong>Overview</strong>
+                Active employees, RTW due, time punch, and open actions in one glance.
+              </figcaption>
             </figure>
             <figure class="product-showcase-card">
               <picture>
-                <source type="image/webp" srcset="/assets/screenshots/time-clock.webp" />
+                <source type="image/webp" srcset="/assets/screenshots/employees.webp?v=2" />
                 <img
-                  src="/assets/screenshots/time-clock.png"
-                  alt="ShiftSwift HR Time Clock — illustrative placeholder"
-                  width="1200"
-                  height="750"
+                  src="/assets/screenshots/employees.png?v=2"
+                  alt="ShiftSwift HR employee register with lifecycle stages and onboarding progress"
+                  width="1440"
+                  height="900"
                   decoding="async"
                 />
               </picture>
-              <figcaption>Time Clock — geofenced punch, monthly hours PDF for accountants</figcaption>
+              <figcaption>
+                <strong>Employees</strong>
+                Register, onboarding progress, and portal status for every person.
+              </figcaption>
             </figure>
             <figure class="product-showcase-card">
               <picture>
-                <source type="image/webp" srcset="/assets/screenshots/compliance.webp" />
+                <source type="image/webp" srcset="/assets/screenshots/time-clock.webp?v=2" />
                 <img
-                  src="/assets/screenshots/compliance.png"
-                  alt="ShiftSwift HR sponsor compliance — illustrative placeholder"
-                  width="1200"
-                  height="750"
+                  src="/assets/screenshots/time-clock.png?v=2"
+                  alt="ShiftSwift HR Time punch with geofenced clock records and accountant hours"
+                  width="1440"
+                  height="900"
                   decoding="async"
                 />
               </picture>
-              <figcaption>Compliance — right-to-work, day-9 alerts, Home Office audit export</figcaption>
+              <figcaption>
+                <strong>Time punch</strong>
+                Geofenced clock-in, punch records, and accountant-ready hours.
+              </figcaption>
+            </figure>
+            <figure class="product-showcase-card">
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/rota.webp?v=2" />
+                <img
+                  src="/assets/screenshots/rota.png?v=2"
+                  alt="ShiftSwift HR weekly rota grid with published shifts and attendance colours"
+                  width="1440"
+                  height="900"
+                  decoding="async"
+                />
+              </picture>
+              <figcaption>
+                <strong>Weekly rota</strong>
+                Publish shifts to the Time Clock app, with late clock-in highlighted.
+              </figcaption>
+            </figure>
+            <figure class="product-showcase-card">
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/compliance.webp?v=2" />
+                <img
+                  src="/assets/screenshots/compliance.png?v=2"
+                  alt="ShiftSwift HR right-to-work checks with expiry alerts and verified documents"
+                  width="1440"
+                  height="900"
+                  decoding="async"
+                />
+              </picture>
+              <figcaption>
+                <strong>Sponsor compliance</strong>
+                Right-to-work evidence, expiry alerts, and day-9 absence status.
+              </figcaption>
             </figure>
           </div>
         </section>
@@ -479,7 +520,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
               </div>
               <h3>Recruitment &amp; grievance</h3>
-              <p>Track applicants through hire, then manage formal grievance cases with encrypted case notes and structured workflows on Growth and Scale plans — without bolting on extra tools.</p>
+              <p>Track applicants through hire, then manage formal grievance cases with encrypted case notes and structured workflows on Compliance and Multi-site plans — without bolting on extra tools.</p>
             </article>
             <article class="feature-card feature-card--animated">
               <div class="feature-icon" aria-hidden="true">
@@ -549,7 +590,7 @@
           <div class="pricing-secondary" aria-label="Enterprise and integrations">
             <article class="pricing-card pricing-card--enterprise">
               <div class="pricing-card-head">
-                <span class="pricing-badge pricing-badge--muted">100+ staff per site</span>
+                <span class="pricing-badge pricing-badge--muted">Level 4 · 100+ staff per site</span>
                 <div class="pricing-plan-name">Enterprise</div>
                 <p class="pricing-plan-desc">Bespoke setup, SLA, procurement support, and custom data retention.</p>
               </div>
@@ -812,7 +853,7 @@
     <script src="./landing-animations.js?v=6"></script>
     <script src="./landing-faq.js?v=3"></script>
     <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./pricing.js?v=13"></script>
+    <script src="./pricing.js?v=14"></script>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         window.ShiftSwiftPricing?.initMarketing("pricing-plans", "pricing-payroll-plans");
