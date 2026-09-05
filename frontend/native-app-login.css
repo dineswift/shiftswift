@@ -583,17 +583,21 @@ html.native-app body.portal-login-page--unified {
 
 @media (min-width: 960px) {
   html:has(body.portal-login-page--unified) {
-    height: auto;
+    height: 100dvh;
+    overflow: hidden;
     background: var(--native-paper);
   }
 
   body.portal-login-page--unified {
+    box-sizing: border-box;
     display: grid !important;
     place-items: center;
     align-content: center;
     justify-items: center;
     min-height: 100dvh;
-    height: auto;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
     margin: 0;
     padding: 28px 16px;
     background:
@@ -604,6 +608,9 @@ html.native-app body.portal-login-page--unified {
   html.native-app body.portal-login-page--unified {
     display: flex !important;
     align-items: stretch;
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
     padding: 0;
   }
 
