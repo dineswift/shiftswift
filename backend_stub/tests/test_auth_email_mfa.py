@@ -18,6 +18,31 @@ from core.notifications import format_from_header, require_email_delivered
 from tests.test_auth_mfa import _dev_settings
 
 
+def test_ensure_mfa_email_codes_table_creates_otp_store() -> None:
+    from auth_email_mfa import ensure_mfa_email_codes_table
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    ensure_mfa_email_codes_table(conn)
+    statements = " ".join(str(call.args[0]) for call in cursor.execute.call_args_list)
+    assert "CREATE TABLE IF NOT EXISTS mfa_email_codes" in statements
+    assert "mfa_email_codes_challenge_jti_active_uq" in statements
+
+
+def test_issue_email_mfa_code_ensures_table() -> None:
+    from auth_email_mfa import issue_email_mfa_code
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    code = issue_email_mfa_code(conn=conn, username="hr@acme.co.uk", challenge_jti="jti-1")
+    assert code.isdigit() and len(code) == 6
+    statements = " ".join(str(call.args[0]) for call in cursor.execute.call_args_list)
+    assert "CREATE TABLE IF NOT EXISTS mfa_email_codes" in statements
+    assert "INSERT INTO mfa_email_codes" in statements
+
+
 def test_email_mfa_helpers() -> None:
     assert looks_like_email("hr@example.com")
     assert looks_like_email("hr+alerts@company.co.uk")

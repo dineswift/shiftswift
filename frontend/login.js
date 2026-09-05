@@ -342,6 +342,11 @@ function showMfaStep(username, data) {
     mfaPanel.hidden = false;
     applyMfaMethodUi();
   }
+  if (pendingMfaMethod === "email" && !pendingMfaMeta.emailSent) {
+    void resendEmailMfaCode();
+  } else if (data?.message && !data.email_sent) {
+    setStatus(data.message);
+  }
 }
 
 function bindMfaForm() {
@@ -404,7 +409,6 @@ function bindPortalLogin() {
       if (data.mfa_required && data.challenge_token) {
         pendingChallenge = data.challenge_token;
         pendingRedirect = redirectForRole(data, mode.redirect);
-        setStatus("");
         showMfaStep(data.username || payload.username, data);
         return;
       }
@@ -561,7 +565,6 @@ function bindUnifiedLogin() {
       pendingRedirect = redirect;
       if (data.mfa_required && data.challenge_token) {
         pendingChallenge = data.challenge_token;
-        setStatus("");
         showMfaStep(data.username || payload.username, data);
         return;
       }
@@ -657,7 +660,6 @@ function bindSimpleLogin(formId, endpoint, redirectUrl) {
       if (data.mfa_required && data.challenge_token) {
         pendingChallenge = data.challenge_token;
         pendingRedirect = redirectUrl;
-        setStatus("");
         showMfaStep(data.username || payload.username, data);
         return;
       }

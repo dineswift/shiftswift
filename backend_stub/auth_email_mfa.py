@@ -53,6 +53,40 @@ def _hash_code(code: str) -> str:
     return hashlib.sha256(code.strip().encode("utf-8")).hexdigest()
 
 
+def ensure_mfa_email_codes_table(conn: Any) -> None:
+    """Create the OTP table if migration 092 has not been applied yet."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mfa_email_codes (
+              id BIGSERIAL PRIMARY KEY,
+              username TEXT NOT NULL,
+              challenge_jti TEXT NOT NULL,
+              code_hash TEXT NOT NULL,
+              attempts INT NOT NULL DEFAULT 0,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              expires_at TIMESTAMPTZ NOT NULL,
+              consumed_at TIMESTAMPTZ,
+              last_sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS mfa_email_codes_username_active_idx
+              ON mfa_email_codes (lower(username), expires_at DESC)
+              WHERE consumed_at IS NULL
+            """
+        )
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS mfa_email_codes_challenge_jti_active_uq
+              ON mfa_email_codes (challenge_jti)
+              WHERE consumed_at IS NULL
+            """
+        )
+
+
 def generate_email_mfa_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
@@ -83,6 +117,7 @@ def issue_email_mfa_code(
     challenge_jti: str,
 ) -> str:
     """Store a new hashed OTP for this challenge and return the plaintext code."""
+    ensure_mfa_email_codes_table(conn)
     code = generate_email_mfa_code()
     now = datetime.now(timezone.utc)
     expires = now + timedelta(minutes=EMAIL_MFA_MINUTES)
@@ -109,6 +144,7 @@ def issue_email_mfa_code(
 
 
 def seconds_until_email_mfa_resend(*, conn: Any, challenge_jti: str) -> int:
+    ensure_mfa_email_codes_table(conn)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -141,6 +177,7 @@ def verify_email_mfa_code(
     normalized = str(code or "").strip().replace(" ", "")
     if not normalized.isdigit() or len(normalized) != 6:
         return False
+    ensure_mfa_email_codes_table(conn)
     now = datetime.now(timezone.utc)
     with conn.cursor() as cur:
         cur.execute(
@@ -234,10 +271,9 @@ def issue_and_send_email_mfa(
     if force_resend and wait > 0:
         raise RuntimeError(f"Wait {wait} seconds before requesting another code")
 
-    to_addr = resolve_login_otp_recipient(conn=conn, username=username, tenant_id=tenant_id)
-    code = issue_email_mfa_code(conn=conn, username=username, challenge_jti=challenge_jti)
-    try:
-        payload = send_login_email_code(
+    def _issue_and_deliver() -> dict[str, Any]:
+        code = issue_email_mfa_code(conn=conn, username=username, challenge_jti=challenge_jti)
+        return send_login_email_code(
             settings=settings,
             conn=conn,
             username=username,
@@ -246,10 +282,25 @@ def issue_and_send_email_mfa(
             code=code,
             commit=True,
         )
-    except Exception:
+
+    to_addr = resolve_login_otp_recipient(conn=conn, username=username, tenant_id=tenant_id)
+    try:
+        payload = _issue_and_deliver()
+    except Exception as exc:
         conn.rollback()
-        logger.warning("Email MFA send failed for %s", username, exc_info=True)
-        raise
+        missing_table = type(exc).__name__ == "UndefinedTable" or "mfa_email_codes" in str(exc)
+        if missing_table:
+            logger.warning("Email MFA table missing; creating it and retrying send for %s", username)
+            try:
+                ensure_mfa_email_codes_table(conn)
+                payload = _issue_and_deliver()
+            except Exception:
+                conn.rollback()
+                logger.warning("Email MFA send failed for %s", username, exc_info=True)
+                raise
+        else:
+            logger.warning("Email MFA send failed for %s", username, exc_info=True)
+            raise
 
     delivered = str(payload.get("delivered_to") or to_addr)
     return {

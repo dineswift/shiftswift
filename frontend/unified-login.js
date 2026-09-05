@@ -404,6 +404,13 @@
       mfaPanel.hidden = false;
       applyMfaMethodUi();
     }
+    if (pendingMfaMethod === "email" && !pendingMfaMeta.emailSent) {
+      void resendEmailMfaCode();
+    } else if (data?.message && data.email_sent) {
+      setStatus("");
+    } else if (data?.message) {
+      setStatus(data.message);
+    }
   }
 
   function bindKeyboardScroll() {
@@ -631,7 +638,6 @@
         if (data.mfa_required && data.challenge_token) {
           pendingChallenge = data.challenge_token;
           pendingEmail = email;
-          setStatus("");
           showMfaStep(data.username || email, data);
           return;
         }

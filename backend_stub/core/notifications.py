@@ -29,12 +29,16 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 logger = logging.getLogger(__name__)
 
 
+def _env_nonempty(name: str) -> str:
+    return (os.getenv(name) or "").strip()
+
+
 def smtp_configured() -> bool:
     return bool(
-        os.getenv("SMTP_HOST")
-        and os.getenv("SMTP_FROM")
-        and os.getenv("SMTP_USER")
-        and os.getenv("SMTP_PASSWORD")
+        _env_nonempty("SMTP_HOST")
+        and _env_nonempty("SMTP_FROM")
+        and _env_nonempty("SMTP_USER")
+        and _env_nonempty("SMTP_PASSWORD")
     )
 
 
