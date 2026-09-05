@@ -605,15 +605,6 @@ html.native-app body.portal-login-page--unified {
       var(--native-paper);
   }
 
-  html.native-app body.portal-login-page--unified {
-    display: flex !important;
-    align-items: stretch;
-    height: auto;
-    max-height: none;
-    overflow-y: auto;
-    padding: 0;
-  }
-
   .portal-login-page--unified .portal-login-shell {
     display: grid !important;
     grid-template-columns: 200px 300px;
@@ -630,15 +621,6 @@ html.native-app body.portal-login-page--unified {
     overflow: hidden;
     background: var(--native-white);
     box-shadow: 0 16px 40px rgba(7, 25, 18, 0.14);
-  }
-
-  html.native-app .portal-login-page--unified .portal-login-shell {
-    width: 100% !important;
-    max-width: none !important;
-    min-height: 100dvh !important;
-    border-radius: 0;
-    box-shadow: none;
-    grid-template-columns: 1fr;
   }
 
   .portal-login-page--unified .native-login-hero {

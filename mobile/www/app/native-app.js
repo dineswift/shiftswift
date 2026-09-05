@@ -111,18 +111,20 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   }
 
   function applyNativeClasses() {
-    if (!isNativeApp()) return;
     try {
-      if (
+      const wideDesktop =
         !isCapacitorNative() &&
         typeof window.matchMedia === "function" &&
-        window.matchMedia("(min-width: 960px)").matches
-      ) {
+        window.matchMedia("(min-width: 960px)").matches;
+      if (wideDesktop) {
+        document.documentElement.classList.remove("native-app", "pwa-standalone", "ios-device");
+        if (document.body) document.body.classList.remove("native-app", "pwa-standalone");
         return;
       }
     } catch {
       /* ignore */
     }
+    if (!isNativeApp()) return;
     document.documentElement.classList.add("native-app", "pwa-standalone", "ios-device");
     if (document.body) document.body.classList.add("native-app", "pwa-standalone");
     try {
