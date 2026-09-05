@@ -288,7 +288,7 @@ def _login_response(
                 )
             finally:
                 conn.close()
-        if trusted_ok:
+        if trusted_ok and not email_mfa_available:
             mfa_required = False
             log_security_event(
                 settings,

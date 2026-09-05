@@ -335,6 +335,7 @@ def send_email_content(
     payload: dict[str, Any] | None = None,
     deliver_now: bool = True,
     commit: bool = True,
+    bcc: list[str] | None = None,
 ) -> dict[str, Any]:
     """Send a structured EmailContent object (subject + text + html)."""
     from core.email_templates import EmailContent
@@ -354,6 +355,7 @@ def send_email_content(
         payload=payload,
         deliver_now=deliver_now,
         commit=commit,
+        bcc=bcc,
     )
 
 
@@ -371,6 +373,7 @@ def send_email_notification(
     payload: dict[str, Any] | None = None,
     deliver_now: bool = True,
     commit: bool = True,
+    bcc: list[str] | None = None,
 ) -> dict[str, Any]:
     """Queue an email and optionally deliver immediately via SMTP."""
     contacts = None
@@ -382,6 +385,7 @@ def send_email_notification(
         contacts=contacts,
         explicit=reply_to,
     )
+    copies = [str(addr).strip() for addr in (bcc or []) if _looks_like_email(str(addr))]
     payload_out = dict(payload or {})
     payload_out.update(
         {
@@ -391,6 +395,8 @@ def send_email_notification(
             "reply_to": resolved_reply,
         }
     )
+    if copies:
+        payload_out["bcc"] = copies
     if html_body:
         payload_out["html_body"] = html_body
     status = "queued"
@@ -419,14 +425,22 @@ def send_email_notification(
     if delivery_error:
         payload_out["delivery_error"] = delivery_error
 
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO notifications (tenant_id, channel, subject, body, payload, status)
-            VALUES (%s, 'email', %s, %s, %s::jsonb, %s)
-            """,
-            (tenant_id, subject, body, json.dumps(payload_out), status),
-        )
+    if tenant_id is not None:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO notifications (tenant_id, channel, subject, body, payload, status)
+                    VALUES (%s, 'email', %s, %s, %s::jsonb, %s)
+                    """,
+                    (tenant_id, subject, body, json.dumps(payload_out), status),
+                )
+        except Exception:
+            if status != "sent":
+                raise
+            logger.warning("Email was sent to %s but the notifications row could not be saved", payload_out.get("to"))
+    elif status != "sent":
+        raise RuntimeError(payload_out.get("delivery_error") or "Email could not be logged or sent")
     if commit:
         conn.commit()
     return payload_out
@@ -588,6 +602,12 @@ def _send_email(
     cc_addr = payload.get("cc")
     if cc_addr and _looks_like_email(str(cc_addr)):
         msg["Cc"] = str(cc_addr).strip()
+    bcc_raw = payload.get("bcc") or []
+    if isinstance(bcc_raw, str):
+        bcc_raw = [bcc_raw]
+    bcc_addrs = [str(addr).strip() for addr in bcc_raw if _looks_like_email(str(addr))]
+    if bcc_addrs:
+        msg["Bcc"] = ", ".join(bcc_addrs)
     text_body, html_body = _resolve_html_and_text(subject=subject, body=body, payload=payload)
     msg.set_content(text_body, charset="utf-8")
     msg.add_alternative(html_body, subtype="html", charset="utf-8")
@@ -612,10 +632,10 @@ def _send_email(
             filename=filename,
         )
 
-    host = os.getenv("SMTP_HOST", "")
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER", "")
-    password = os.getenv("SMTP_PASSWORD", "")
+    host = _env_nonempty("SMTP_HOST")
+    port = int(_env_nonempty("SMTP_PORT") or "587")
+    user = _env_nonempty("SMTP_USER")
+    password = _env_nonempty("SMTP_PASSWORD")
     use_tls = os.getenv("SMTP_USE_TLS", "1").strip().lower() in {"1", "true", "yes"}
 
     with smtplib.SMTP(host, port, timeout=30) as server:

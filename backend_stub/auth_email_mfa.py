@@ -133,34 +133,48 @@ def _employee_email_for_username(*, conn: Any, tenant_id: int, username: str) ->
     return None
 
 
+def resolve_login_otp_recipients(
+    *,
+    conn: Any,
+    username: str,
+    tenant_id: str | int | None,
+) -> list[str]:
+    """Every inbox that should receive this sign-in code.
+
+    The login username wins when it is an email. Existing tenants often just
+    updated billing/signatory, so those addresses are included as well.
+    """
+    found: list[str] = []
+
+    def add(value: str | None) -> None:
+        if not looks_like_email(value):
+            return
+        addr = str(value).strip()
+        if addr.lower() not in {item.lower() for item in found}:
+            found.append(addr)
+
+    add(username)
+    parsed_tenant = parse_tenant_id(tenant_id)
+    if parsed_tenant is not None:
+        add(_employee_email_for_username(conn=conn, tenant_id=parsed_tenant, username=username))
+        for hr_email in _hr_email_usernames(conn=conn, tenant_id=parsed_tenant):
+            add(hr_email)
+        contacts = fetch_tenant_contacts(tenant_id=parsed_tenant, conn=conn)
+        for key in ("hr_email", "billing_email", "signatory_email"):
+            add(contacts.get(key) if contacts else None)
+    return found
+
+
 def resolve_login_otp_recipient(
     *,
     conn: Any,
     username: str,
     tenant_id: str | int | None,
 ) -> str:
-    """Send the code to the login username, or a tenant HR/billing address.
-
-    Existing tenants do not need a master-console toggle. Codes are on for every
-    tenant once SMTP is configured. Older accounts may log in with a non-email
-    username, so we fall back to another HR email or billing/signatory.
-    """
-    if looks_like_email(username):
-        return str(username).strip()
-    parsed_tenant = parse_tenant_id(tenant_id)
-    if parsed_tenant is not None:
-        employee_email = _employee_email_for_username(
-            conn=conn, tenant_id=parsed_tenant, username=username
-        )
-        if employee_email:
-            return employee_email
-        for hr_email in _hr_email_usernames(conn=conn, tenant_id=parsed_tenant):
-            return hr_email
-        contacts = fetch_tenant_contacts(tenant_id=parsed_tenant, conn=conn)
-        for key in ("hr_email", "billing_email", "signatory_email"):
-            candidate = contacts.get(key)
-            if looks_like_email(candidate):
-                return str(candidate).strip()
+    """Primary inbox for the sign-in code."""
+    recipients = resolve_login_otp_recipients(conn=conn, username=username, tenant_id=tenant_id)
+    if recipients:
+        return recipients[0]
     raise RuntimeError(
         "This account does not have an email address for verification codes. "
         "Sign in with a work email, or add a billing/HR email on the tenant."
@@ -294,7 +308,13 @@ def send_login_email_code(
     if not smtp_configured():
         raise RuntimeError("Email delivery is not configured on the server")
 
-    to_addr = resolve_login_otp_recipient(conn=conn, username=username, tenant_id=tenant_id)
+    recipients = resolve_login_otp_recipients(conn=conn, username=username, tenant_id=tenant_id)
+    if not recipients:
+        raise RuntimeError(
+            "This account does not have an email address for verification codes. "
+            "Sign in with a work email, or add a billing/HR email on the tenant."
+        )
+    to_addr, *copies = recipients
     content = login_email_mfa_code(code=code, minutes=EMAIL_MFA_MINUTES)
     payload = send_email_content(
         conn=conn,
@@ -305,11 +325,13 @@ def send_login_email_code(
         audience="platform",
         deliver_now=True,
         commit=False,
+        bcc=copies,
     )
     require_email_delivered(payload)
     if commit:
         conn.commit()
     payload["delivered_to"] = to_addr
+    payload["delivered_to_all"] = recipients
     return payload
 
 
@@ -359,9 +381,10 @@ def issue_and_send_email_mfa(
             logger.warning("Email MFA send failed for %s", username, exc_info=True)
             raise
 
-    delivered = str(payload.get("delivered_to") or to_addr)
+    delivered_all = payload.get("delivered_to_all") or [payload.get("delivered_to") or to_addr]
+    hints = [mask_email(str(addr)) for addr in delivered_all if addr]
     return {
-        "email_hint": mask_email(delivered),
+        "email_hint": " and ".join(hints) if hints else mask_email(str(to_addr)),
         "expires_in": EMAIL_MFA_MINUTES * 60,
         "resend_after": EMAIL_MFA_RESEND_SECONDS,
     }

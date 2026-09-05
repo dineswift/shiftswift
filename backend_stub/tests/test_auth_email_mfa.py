@@ -138,6 +138,27 @@ def test_resolve_login_otp_recipient_uses_later_hr_email_username() -> None:
     )
 
 
+def test_resolve_login_otp_recipients_includes_billing_as_well_as_username() -> None:
+    conn = MagicMock()
+    with (
+        patch("auth_email_mfa._employee_email_for_username", return_value=None),
+        patch("auth_email_mfa._hr_email_usernames", return_value=[]),
+        patch(
+            "auth_email_mfa.fetch_tenant_contacts",
+            return_value={
+                "hr_email": None,
+                "billing_email": "info@himalayaninn.com",
+                "signatory_email": None,
+            },
+        ),
+    ):
+        from auth_email_mfa import resolve_login_otp_recipients
+
+        assert resolve_login_otp_recipients(
+            conn=conn, username="hr@old-hotel.co.uk", tenant_id=4
+        ) == ["hr@old-hotel.co.uk", "info@himalayaninn.com"]
+
+
 def test_resolve_login_otp_recipient_prefers_username_email() -> None:
     assert (
         resolve_login_otp_recipient(conn=MagicMock(), username="hr@acme.co.uk", tenant_id=4)
