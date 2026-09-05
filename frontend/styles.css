@@ -327,20 +327,20 @@ body.admin-portal .nav-crumb {
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell,
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell--streamlined {
-    max-width: 520px !important;
-    width: 520px !important;
+    max-width: 760px !important;
+    width: min(760px, calc(100vw - 48px)) !important;
     min-height: 0 !important;
     height: auto !important;
     display: grid;
-    grid-template-columns: 180px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr);
     align-items: stretch;
     gap: 0;
     padding: 0;
     margin: 0 auto;
-    border-radius: 20px;
+    border-radius: 24px;
     overflow: hidden;
     background: #fff;
-    box-shadow: 0 16px 40px rgba(7, 25, 18, 0.14);
+    box-shadow: 0 20px 56px rgba(7, 25, 18, 0.16);
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-brand {
