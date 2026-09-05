@@ -536,6 +536,12 @@ html.native-app body.portal-login-page--unified {
 }
 
 @media (min-width: 640px) {
+  html:not(.native-app) .portal-login-page--unified .portal-login-shell {
+    min-height: 0;
+    width: min(100%, 400px);
+    margin: 0 auto;
+  }
+
   .portal-login-page--unified .portal-login-shell {
     justify-content: center;
     padding: 32px 24px;
@@ -576,30 +582,56 @@ html.native-app body.portal-login-page--unified {
 }
 
 @media (min-width: 960px) {
-  .portal-login-page--unified {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  html:has(body.portal-login-page--unified) {
+    height: auto;
+    background: var(--native-paper);
+  }
+
+  body.portal-login-page--unified {
+    display: grid !important;
+    place-items: center;
+    align-content: center;
+    justify-items: center;
     min-height: 100dvh;
-    padding: 32px 24px;
+    height: auto;
+    margin: 0;
+    padding: 28px 16px;
     background:
       radial-gradient(ellipse 50% 40% at 12% 20%, rgba(29, 158, 117, 0.12), transparent 55%),
       var(--native-paper);
   }
 
-  .portal-login-page--unified .portal-login-shell {
-    display: grid;
-    grid-template-columns: minmax(260px, 320px) minmax(360px, 420px);
+  html.native-app body.portal-login-page--unified {
+    display: flex !important;
     align-items: stretch;
-    max-width: 760px;
-    width: min(100%, 760px);
-    min-height: 0;
-    margin: 0 auto;
     padding: 0;
-    border-radius: 22px;
+  }
+
+  .portal-login-page--unified .portal-login-shell {
+    display: grid !important;
+    grid-template-columns: 200px 300px;
+    grid-template-rows: auto;
+    align-items: stretch;
+    align-self: center;
+    width: 500px !important;
+    max-width: min(500px, calc(100vw - 32px)) !important;
+    min-height: 0 !important;
+    height: auto !important;
+    margin: 0 auto;
+    padding: 0 !important;
+    border-radius: 20px;
     overflow: hidden;
     background: var(--native-white);
-    box-shadow: 0 18px 48px rgba(7, 25, 18, 0.14);
+    box-shadow: 0 16px 40px rgba(7, 25, 18, 0.14);
+  }
+
+  html.native-app .portal-login-page--unified .portal-login-shell {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 100dvh !important;
+    border-radius: 0;
+    box-shadow: none;
+    grid-template-columns: 1fr;
   }
 
   .portal-login-page--unified .native-login-hero {
@@ -608,40 +640,45 @@ html.native-app body.portal-login-page--unified {
     margin: 0;
     border-radius: 0;
     justify-content: center;
-    padding: 32px 28px;
-    min-height: 0;
+    padding: 24px 20px;
+    min-height: 0 !important;
+    height: auto !important;
+    flex: none !important;
   }
 
   .portal-login-page--unified .native-login-hero__logo-wrap {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .portal-login-page--unified .native-login-hero__logo,
   .portal-login-page--unified .native-login-hero__mark {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 
   .portal-login-page--unified .native-login-hero__title {
-    font-size: 1.55rem;
+    font-size: 1.28rem;
   }
 
   .portal-login-page--unified .native-login-hero__tagline {
-    max-width: 240px;
-    margin-top: 6px;
-    font-size: 0.92rem;
+    max-width: 180px;
+    margin-top: 4px;
+    font-size: 0.82rem;
+    line-height: 1.35;
   }
 
   .portal-login-page--unified .native-login-sheet {
-    flex: 0 0 auto;
+    flex: none !important;
     max-width: none;
     width: auto;
     margin: 0;
     border-radius: 0;
     box-shadow: none;
-    padding: 28px 32px 24px;
-    justify-content: center;
+    padding: 20px 22px 18px;
+    justify-content: flex-start;
+    min-height: 0 !important;
+    height: auto !important;
   }
 
   .portal-login-page--unified .native-login-sheet::before {
@@ -650,30 +687,38 @@ html.native-app body.portal-login-page--unified {
 
   .portal-login-page--unified #login-shell,
   .portal-login-page--unified .portal-login-form {
-    flex: 0 0 auto;
+    flex: none !important;
+    min-height: 0 !important;
   }
 
   .portal-login-page--unified .portal-login-card,
   .portal-login-page--unified #login-shell,
   .portal-login-page--unified #mfa-panel,
   .portal-login-page--unified #mfa-enrollment-panel {
-    max-width: 360px;
+    max-width: none;
     width: 100%;
-    margin: 0 auto;
+    margin: 0;
   }
 
   .portal-login-page--unified .portal-login-card-head h1 {
-    font-size: 1.4rem;
+    font-size: 1.22rem;
+  }
+
+  .portal-login-page--unified .portal-login-card-lead {
+    font-size: 0.84rem;
   }
 
   .portal-login-page--unified .portal-login-form {
-    gap: 12px;
+    gap: 10px;
   }
 
   .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input,
   .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input,
   .portal-login-page--unified .portal-login-submit,
   .portal-login-page--unified .btn.portal-login-submit {
-    min-height: 42px;
+    min-height: 38px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.92rem;
   }
 }

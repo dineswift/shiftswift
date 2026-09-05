@@ -313,7 +313,8 @@ body.admin-portal .nav-crumb {
 @media (min-width: 1100px) {
   .portal-login-page:not(.portal-login-page--unified) {
     align-items: center;
-    padding: 32px 24px;
+    justify-content: center;
+    padding: 28px 16px;
     background:
       radial-gradient(ellipse 50% 40% at 12% 20%, rgba(29, 158, 117, 0.12), transparent 55%),
       var(--page-bg, #f5f4f0);
@@ -321,18 +322,20 @@ body.admin-portal .nav-crumb {
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell,
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell--streamlined {
-    max-width: 760px;
-    width: min(100%, 760px);
+    max-width: 520px !important;
+    width: 520px !important;
+    min-height: 0 !important;
+    height: auto !important;
     display: grid;
-    grid-template-columns: minmax(240px, 280px) minmax(380px, 1fr);
+    grid-template-columns: 180px 1fr;
     align-items: stretch;
     gap: 0;
     padding: 0;
     margin: 0 auto;
-    border-radius: 22px;
+    border-radius: 20px;
     overflow: hidden;
     background: #fff;
-    box-shadow: 0 18px 48px rgba(7, 25, 18, 0.14);
+    box-shadow: 0 16px 40px rgba(7, 25, 18, 0.14);
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-brand {
