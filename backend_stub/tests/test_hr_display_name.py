@@ -12,12 +12,12 @@ def test_hr_display_name_uses_signatory_for_billing_email() -> None:
         return_value={
             "signatory_name": "Alex Smith",
             "signatory_email": "ceo@acme.co.uk",
-            "billing_email": "info@himalayaninn.co.uk",
+            "billing_email": "info@himalayaninn.com",
         },
     ):
         display_name, first_name = hr_display_name(
             tenant_id=1,
-            username="info@himalayaninn.co.uk",
+            username="info@himalayaninn.com",
             conn=conn,
         )
     assert display_name == "Alex Smith"
@@ -46,7 +46,7 @@ def test_hr_display_name_falls_back_to_username() -> None:
         return_value={
             "signatory_name": "Alex Smith",
             "signatory_email": "ceo@acme.co.uk",
-            "billing_email": "info@himalayaninn.co.uk",
+            "billing_email": "info@himalayaninn.com",
         },
     ):
         display_name, first_name = hr_display_name(

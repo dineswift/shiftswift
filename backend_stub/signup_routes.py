@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 
 from auth_service import AuthUser, create_token_pair, hash_password, log_security_event
-from brand import EMAIL_SUPPORT
+from brand import EMAIL_SIGNUP_NOTIFY, EMAIL_SUPPORT
 from billing_plans import get_plan
 from billing_pricing import calculate_monthly_quote, estimate_monthly_total
 from billing_promotions import validate_promotions
@@ -218,6 +218,47 @@ def _send_signup_contract_email(
         conn.close()
 
 
+def _send_signup_ops_notify_email(
+    *,
+    tenant_id: int,
+    business_name: str,
+    billing_email: str,
+    plan_name: str,
+    trial_days: int | None = None,
+    source: str = "self-serve signup",
+) -> None:
+    """Notify the platform inbox when a workspace is registered."""
+    to = (EMAIL_SIGNUP_NOTIFY or "").strip()
+    if not to:
+        return
+    from core.email_templates import signup_ops_notify_email
+    from core.notifications import send_email_content
+
+    content = signup_ops_notify_email(
+        business_name=business_name,
+        billing_email=billing_email,
+        plan_name=plan_name,
+        tenant_id=tenant_id,
+        trial_days=trial_days,
+        source=source,
+    )
+    conn = _db_conn()
+    try:
+        send_email_content(
+            conn=conn,
+            tenant_id=tenant_id,
+            content=content,
+            purpose="welcome",
+            to=to,
+            audience="platform",
+            deliver_now=True,
+        )
+    except Exception:
+        logger.exception("Signup ops notify email failed for tenant %s", tenant_id)
+    finally:
+        conn.close()
+
+
 @router.post("/start")
 def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, object]:
     settings = load_settings()
@@ -397,6 +438,15 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
             billing_email=str(payload.billing_email).strip().lower(),
         )
         contract_email_sent = bool(send_result)
+
+    _send_signup_ops_notify_email(
+        tenant_id=tenant_id,
+        business_name=payload.business_name.strip(),
+        billing_email=str(payload.billing_email).strip().lower(),
+        plan_name=plan.name,
+        trial_days=int(billing_info.get("trial_days") or 0) or None,
+        source="self-serve signup",
+    )
 
     log_security_event(
         settings,

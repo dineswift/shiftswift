@@ -249,6 +249,47 @@ def welcome_trial_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def signup_ops_notify_email(
+    *,
+    business_name: str,
+    billing_email: str,
+    plan_name: str,
+    tenant_id: int | str,
+    trial_days: int | None = None,
+    source: str = "self-serve signup",
+) -> EmailContent:
+    admin_url = f"{APP_URL}/master.html"
+    trial_line = f"Trial: {trial_days} days" if trial_days else "Access: provisioned"
+    subject = f"{APP_NAME} — new workspace registered ({business_name})"
+    text = (
+        f"A new ShiftSwift HR workspace was registered.\n\n"
+        f"Business: {business_name}\n"
+        f"Contact / subscription email: {billing_email}\n"
+        f"Plan: {plan_name}\n"
+        f"Tenant ID: {tenant_id}\n"
+        f"{trial_line}\n"
+        f"Source: {source}\n\n"
+        f"Open the master console: {admin_url}\n\n"
+        f"{APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=f"{business_name} registered a ShiftSwift HR workspace.",
+        title="New workspace registered",
+        intro=f"{business_name} has a new ShiftSwift HR workspace.",
+        details=[
+            ("Business", business_name),
+            ("Contact / subscription", billing_email),
+            ("Plan", plan_name),
+            ("Tenant ID", str(tenant_id)),
+            ("Trial", f"{trial_days} days" if trial_days else "Provisioned"),
+            ("Source", source),
+        ],
+        cta_url=admin_url,
+        cta_label="Open master console",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def signup_platform_guide_email(
     *,
     business_name: str,
