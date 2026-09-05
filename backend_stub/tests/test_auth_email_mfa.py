@@ -194,9 +194,13 @@ def test_verify_email_mfa_code_accepts_matching_hash() -> None:
 
 
 def test_auth_policy_email_mfa_default_on() -> None:
-    from auth_policy import login_require_email_mfa
+    from auth_policy import email_otp_enabled_for_portal, login_require_email_mfa
 
-    assert login_require_email_mfa(_dev_settings())
+    settings = _dev_settings()
+    assert login_require_email_mfa(settings)
+    assert email_otp_enabled_for_portal(settings, "business")
+    assert email_otp_enabled_for_portal(settings, "employee")
+    assert not email_otp_enabled_for_portal(settings, "master")
 
 
 def test_send_email_code_route_is_registered() -> None:

@@ -28,3 +28,10 @@ def login_require_email_mfa(settings: Settings) -> bool:
     """After password, email a 6-digit code by default (authenticator remains an alternative)."""
     _ = settings
     return _env_flag("LOGIN_REQUIRE_EMAIL_MFA", default=True)
+
+
+def email_otp_enabled_for_portal(settings: Settings, portal: str) -> bool:
+    """Tenant HR/employee logins can use email OTP. Master stays authenticator-only."""
+    if str(portal) == "master":
+        return False
+    return login_require_email_mfa(settings)

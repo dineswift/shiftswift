@@ -326,6 +326,11 @@
       emailSent: Boolean(data?.email_sent),
     };
     const defaultMethod = String(data?.default_mfa_method || "").toLowerCase();
+    if (String(data?.portal || "") === "master") {
+      pendingMfaMeta.emailAvailable = false;
+      pendingMfaMethod = "totp";
+      return;
+    }
     if (defaultMethod === "totp" && totpAvailable && !emailAvailable) pendingMfaMethod = "totp";
     else if (pendingMfaMeta.emailAvailable) pendingMfaMethod = "email";
     else pendingMfaMethod = "totp";
@@ -404,7 +409,8 @@
       mfaPanel.hidden = false;
       applyMfaMethodUi();
     }
-    if (pendingMfaMethod === "email" && !pendingMfaMeta.emailSent) {
+    const isMaster = String(data?.portal || "") === "master";
+    if (!isMaster && pendingMfaMethod === "email" && !pendingMfaMeta.emailSent) {
       void resendEmailMfaCode();
     } else if (data?.message && data.email_sent) {
       setStatus("");

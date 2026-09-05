@@ -212,15 +212,14 @@ def _login_response(
         tenant_id = str(payload.tenant_id or user.tenant_id)
 
     from auth_email_mfa import issue_and_send_email_mfa, looks_like_email, mask_email
-    from auth_policy import login_require_email_mfa
+    from auth_policy import email_otp_enabled_for_portal
     from core.notifications import smtp_configured
 
     mfa_required = False
     mfa_enabled = False
     totp_available = False
-    email_mfa_policy = login_require_email_mfa(settings)
     smtp_ready = smtp_configured()
-    email_mfa_available = bool(email_mfa_policy and smtp_ready)
+    email_mfa_available = bool(email_otp_enabled_for_portal(settings, portal) and smtp_ready)
     if settings.use_db and settings.database_url:
         conn = _db_conn()
         try:
@@ -853,7 +852,7 @@ def mfa_disable(
 
 @router.get("/mfa/status")
 def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> dict[str, object]:
-    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
+    from auth_policy import business_require_mfa_hr, email_otp_enabled_for_portal, employee_require_mfa
     from core.notifications import smtp_configured
 
     conn = _db_conn()
@@ -874,9 +873,8 @@ def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> 
 
         policy_required = master_require_mfa(settings)
     totp_enabled = bool(user.get("mfa_enabled") and user.get("totp_secret"))
-    email_mfa_default = bool(
-        login_require_email_mfa(settings) and smtp_configured()
-    )
+    portal = "master" if user["role"] == "admin" else ("employee" if user["role"] == "employee" else "business")
+    email_mfa_default = bool(email_otp_enabled_for_portal(settings, portal) and smtp_configured())
     return {
         "username": user["username"],
         "portal": user.get("login_portal"),

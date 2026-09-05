@@ -197,14 +197,22 @@ function friendlyLoginError(message, endpoint, username) {
 
 async function postJson(path, body) {
   let response;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 25000);
   try {
     response = await fetch(`${getApiBase()}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("Request timed out");
+    }
     throw new Error("Failed to fetch");
+  } finally {
+    window.clearTimeout(timeoutId);
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -257,6 +265,11 @@ function captureMfaMeta(data, username) {
     message: data?.message || "",
   };
   const defaultMethod = String(data?.default_mfa_method || "").toLowerCase();
+  if (String(data?.portal || "") === "master") {
+    pendingMfaMeta.emailAvailable = false;
+    pendingMfaMethod = "totp";
+    return;
+  }
   if (defaultMethod === "totp" && totpAvailable && !emailAvailable) pendingMfaMethod = "totp";
   else if (pendingMfaMeta.emailAvailable) pendingMfaMethod = "email";
   else pendingMfaMethod = "totp";
@@ -342,7 +355,8 @@ function showMfaStep(username, data) {
     mfaPanel.hidden = false;
     applyMfaMethodUi();
   }
-  if (pendingMfaMethod === "email" && !pendingMfaMeta.emailSent) {
+  const isMaster = String(data?.portal || "") === "master";
+  if (!isMaster && pendingMfaMethod === "email" && !pendingMfaMeta.emailSent) {
     void resendEmailMfaCode();
   } else if (data?.message && !data.email_sent) {
     setStatus(data.message);
