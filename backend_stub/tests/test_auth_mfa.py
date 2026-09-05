@@ -110,11 +110,12 @@ def test_business_mfa_enrollment_token_round_trip() -> None:
 
 
 def test_auth_policy_defaults() -> None:
-    from auth_policy import business_require_mfa_hr, employee_require_mfa
+    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
 
     dev = _dev_settings()
     assert not business_require_mfa_hr(dev)
     assert not employee_require_mfa(dev)
+    assert login_require_email_mfa(dev)
 
     prod = Settings(
         app_env="production",
@@ -133,6 +134,7 @@ def test_auth_policy_defaults() -> None:
     )
     assert business_require_mfa_hr(prod)
     assert not employee_require_mfa(prod)
+    assert login_require_email_mfa(prod)
 
 
 def test_portal_allows_user() -> None:

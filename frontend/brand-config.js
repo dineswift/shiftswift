@@ -118,8 +118,114 @@ window.ShiftSwiftBrand.resolveApiBase = function resolveApiBase() {
 };
 
 window.ShiftSwiftBrand.getApiBase = function getApiBase() {
+  if (this._sameOriginApiReady) {
+    const sameOrigin = this.sameOriginApiBase();
+    if (sameOrigin) return sameOrigin;
+  }
   return this.resolveApiBase();
 };
+
+window.ShiftSwiftBrand.sameOriginApiBase = function sameOriginApiBase() {
+  if (this.isLocalDevHost() || this.isCapacitorNative()) return "";
+  const host = String(window.location.hostname || "").toLowerCase();
+  if (host.startsWith("app.") || host === "www.shiftswifthr.co.uk") {
+    return `${window.location.origin}/api`;
+  }
+  return "";
+};
+
+window.ShiftSwiftBrand.apiBases = function apiBases() {
+  const seen = new Set();
+  const out = [];
+  const add = (url) => {
+    const normalized = this.normalizeApiBase(url);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    out.push(normalized);
+  };
+  const remote = this.resolveApiBase();
+  const sameOrigin = this.sameOriginApiBase();
+  if (this._sameOriginApiReady && sameOrigin) {
+    add(sameOrigin);
+    add(remote);
+  } else {
+    add(remote);
+    add(sameOrigin);
+  }
+  add(this.urls.api);
+  return out;
+};
+
+window.ShiftSwiftBrand.postJson = async function postJson(path, body, options = {}) {
+  const headers = { Accept: "application/json", "Content-Type": "application/json" };
+  if (options.bearerToken) headers.Authorization = `Bearer ${options.bearerToken}`;
+  const timeoutMs = Number(options.timeoutMs) || 20000;
+  const method = options.method || "POST";
+  let lastNetworkMessage = "Failed to fetch";
+
+  for (const base of this.apiBases()) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const url = `${base}${path}`;
+      const sameOrigin = url.startsWith(String(window.location.origin || ""));
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: body == null ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+        cache: "no-store",
+        credentials: "omit",
+        mode: sameOrigin ? "same-origin" : "cors",
+        redirect: "follow",
+      });
+      const type = String(response.headers.get("content-type") || "");
+      const data = await response.json().catch(() => null);
+      if (data == null && !type.includes("application/json")) {
+        lastNetworkMessage = "Failed to fetch";
+        continue;
+      }
+      const payload = data && typeof data === "object" ? data : {};
+      if (!response.ok) {
+        const detail = payload.detail;
+        const message =
+          typeof detail === "string" ? detail : Array.isArray(detail) ? detail[0]?.msg : null;
+        const err = new Error(message || payload.message || "Request failed");
+        err.name = "ApiRequestError";
+        throw err;
+      }
+      return payload;
+    } catch (error) {
+      if (error?.name === "ApiRequestError") throw error;
+      lastNetworkMessage = error?.name === "AbortError" ? "Request timed out" : "Failed to fetch";
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  throw new Error(lastNetworkMessage);
+};
+
+(function probeSameOriginApi() {
+  const brand = window.ShiftSwiftBrand;
+  const base = brand.sameOriginApiBase();
+  if (!base) return;
+  fetch(`${base}/health`, {
+    cache: "no-store",
+    headers: { Accept: "application/json" },
+  })
+    .then((res) => {
+      const type = res.headers.get("content-type") || "";
+      if (!res.ok || !type.includes("application/json")) return null;
+      return res.json();
+    })
+    .then((data) => {
+      if (data && data.status === "ok") brand._sameOriginApiReady = true;
+    })
+    .catch(() => {
+      /* keep using api. subdomain until /api/ is proxied */
+    });
+})();
 
 window.ShiftSwiftBrand.supportEmail = function supportEmail() {
   return this.emails.support || this.emails.hello;

@@ -1386,7 +1386,7 @@
     host.innerHTML = `
       <div class="settings-security-summary">
         <p><strong>Status:</strong> ${enabled ? "Two-factor authentication is ON" : "Not enabled yet"}</p>
-        <p class="muted">${required ? "Your organisation requires authenticator app codes at sign-in." : "You can optionally enable an authenticator app for extra security."}</p>
+        <p class="muted">${status.email_mfa_default ? "Sign-in emails a 6-digit code by default. You can optionally add an authenticator app as a backup." : required ? "Your organisation requires authenticator app codes at sign-in." : "You can optionally enable an authenticator app for extra security."}</p>
       </div>
       <div id="settings-mfa-setup-block" ${enabled ? "hidden" : ""}>
         <h4>Set up authenticator</h4>

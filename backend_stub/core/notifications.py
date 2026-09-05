@@ -20,6 +20,7 @@ EmailPurpose = Literal[
     "general",
     "welcome",
     "password_reset",
+    "login_mfa",
     "employee",
 ]
 EmailAudience = Literal["hr", "employee", "platform"]
@@ -28,13 +29,24 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 logger = logging.getLogger(__name__)
 
 
+def _env_nonempty(name: str) -> str:
+    return (os.getenv(name) or "").strip()
+
+
 def smtp_configured() -> bool:
     return bool(
-        os.getenv("SMTP_HOST")
-        and os.getenv("SMTP_FROM")
-        and os.getenv("SMTP_USER")
-        and os.getenv("SMTP_PASSWORD")
+        _env_nonempty("SMTP_HOST")
+        and _env_nonempty("SMTP_FROM")
+        and _env_nonempty("SMTP_USER")
+        and _env_nonempty("SMTP_PASSWORD")
     )
+
+
+def require_email_delivered(payload: dict[str, Any] | None) -> None:
+    """Raise RuntimeError when SMTP delivery failed or was not configured."""
+    err = (payload or {}).get("delivery_error")
+    if err:
+        raise RuntimeError(str(err))
 
 
 def smtp_config_summary() -> dict[str, str | bool]:
@@ -84,7 +96,7 @@ def resolve_reply_to(
         return explicit.strip()
     if audience == "platform":
         return _support_email()
-    if purpose in {"welcome", "password_reset"}:
+    if purpose in {"welcome", "password_reset", "login_mfa"}:
         return _support_email()
     company = resolve_tenant_company_email(contacts)
     if company and audience in {"employee", "hr"}:
@@ -129,7 +141,9 @@ def _parse_from_email() -> str:
     return raw
 
 
-_PLATFORM_FROM_PURPOSES = frozenset({"billing", "welcome"})
+# Security and onboarding mail must use the platform From name. Tenant-branded
+# display names have caused some providers to spam-filter or reject messages.
+_PLATFORM_FROM_PURPOSES = frozenset({"billing", "welcome", "password_reset", "login_mfa"})
 
 
 def _sanitize_from_display_name(name: str) -> str:
@@ -213,13 +227,14 @@ def fetch_tenant_contacts(*, tenant_id: int, conn: Any) -> dict[str, str | None]
               AND is_active = TRUE
               AND COALESCE(login_portal, 'business') = 'business'
             ORDER BY id ASC
-            LIMIT 1
             """,
             (tenant_id,),
         )
-        hr_row = cur.fetchone()
-        if hr_row:
-            hr_username = hr_row[0]
+        for hr_row in cur.fetchall() or []:
+            candidate = hr_row[0]
+            if candidate and _looks_like_email(str(candidate)):
+                hr_username = candidate
+                break
     hr_email = str(hr_username).strip() if hr_username and _looks_like_email(hr_username) else None
     return {
         "billing_email": (billing_email or "").strip() or None,
@@ -320,6 +335,7 @@ def send_email_content(
     payload: dict[str, Any] | None = None,
     deliver_now: bool = True,
     commit: bool = True,
+    bcc: list[str] | None = None,
 ) -> dict[str, Any]:
     """Send a structured EmailContent object (subject + text + html)."""
     from core.email_templates import EmailContent
@@ -339,6 +355,7 @@ def send_email_content(
         payload=payload,
         deliver_now=deliver_now,
         commit=commit,
+        bcc=bcc,
     )
 
 
@@ -356,6 +373,7 @@ def send_email_notification(
     payload: dict[str, Any] | None = None,
     deliver_now: bool = True,
     commit: bool = True,
+    bcc: list[str] | None = None,
 ) -> dict[str, Any]:
     """Queue an email and optionally deliver immediately via SMTP."""
     contacts = None
@@ -367,6 +385,7 @@ def send_email_notification(
         contacts=contacts,
         explicit=reply_to,
     )
+    copies = [str(addr).strip() for addr in (bcc or []) if _looks_like_email(str(addr))]
     payload_out = dict(payload or {})
     payload_out.update(
         {
@@ -376,6 +395,8 @@ def send_email_notification(
             "reply_to": resolved_reply,
         }
     )
+    if copies:
+        payload_out["bcc"] = copies
     if html_body:
         payload_out["html_body"] = html_body
     status = "queued"
@@ -404,14 +425,22 @@ def send_email_notification(
     if delivery_error:
         payload_out["delivery_error"] = delivery_error
 
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO notifications (tenant_id, channel, subject, body, payload, status)
-            VALUES (%s, 'email', %s, %s, %s::jsonb, %s)
-            """,
-            (tenant_id, subject, body, json.dumps(payload_out), status),
-        )
+    if tenant_id is not None:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO notifications (tenant_id, channel, subject, body, payload, status)
+                    VALUES (%s, 'email', %s, %s, %s::jsonb, %s)
+                    """,
+                    (tenant_id, subject, body, json.dumps(payload_out), status),
+                )
+        except Exception:
+            if status != "sent":
+                raise
+            logger.warning("Email was sent to %s but the notifications row could not be saved", payload_out.get("to"))
+    elif status != "sent":
+        raise RuntimeError(payload_out.get("delivery_error") or "Email could not be logged or sent")
     if commit:
         conn.commit()
     return payload_out
@@ -573,6 +602,12 @@ def _send_email(
     cc_addr = payload.get("cc")
     if cc_addr and _looks_like_email(str(cc_addr)):
         msg["Cc"] = str(cc_addr).strip()
+    bcc_raw = payload.get("bcc") or []
+    if isinstance(bcc_raw, str):
+        bcc_raw = [bcc_raw]
+    bcc_addrs = [str(addr).strip() for addr in bcc_raw if _looks_like_email(str(addr))]
+    if bcc_addrs:
+        msg["Bcc"] = ", ".join(bcc_addrs)
     text_body, html_body = _resolve_html_and_text(subject=subject, body=body, payload=payload)
     msg.set_content(text_body, charset="utf-8")
     msg.add_alternative(html_body, subtype="html", charset="utf-8")
@@ -597,10 +632,10 @@ def _send_email(
             filename=filename,
         )
 
-    host = os.getenv("SMTP_HOST", "")
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER", "")
-    password = os.getenv("SMTP_PASSWORD", "")
+    host = _env_nonempty("SMTP_HOST")
+    port = int(_env_nonempty("SMTP_PORT") or "587")
+    user = _env_nonempty("SMTP_USER")
+    password = _env_nonempty("SMTP_PASSWORD")
     use_tls = os.getenv("SMTP_USE_TLS", "1").strip().lower() in {"1", "true", "yes"}
 
     with smtplib.SMTP(host, port, timeout=30) as server:

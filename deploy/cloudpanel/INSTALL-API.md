@@ -33,6 +33,7 @@ Edit `backend_stub/.env` (copy from `backend_stub/.env.production.example` if mi
 - `FORCE_HTTPS=1`
 - `CORS_ALLOW_ORIGINS=https://app.shiftswifthr.co.uk,https://www.shiftswifthr.co.uk`
 - `TRUSTED_HOSTS=api.shiftswifthr.co.uk,app.shiftswifthr.co.uk,www.shiftswifthr.co.uk`
+- SMTP (`SMTP_HOST`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`) — required so tenants receive the 6-digit sign-in code after password. `LOGIN_REQUIRE_EMAIL_MFA=1` is the default.
 
 ## 4. PostgreSQL (once per server)
 

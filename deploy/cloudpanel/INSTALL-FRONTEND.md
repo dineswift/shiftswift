@@ -29,6 +29,23 @@ Production API: `https://api.shiftswifthr.co.uk` (set in `brand-config.js` / `CO
 
 Ensure the API site is live before testing login.
 
+On the **app.** nginx vhost (HTTP and HTTPS), proxy `/api/` to the local API so master MFA verify does not depend on a cross-origin `fetch` to `api.`:
+
+```nginx
+location /api/ {
+  proxy_pass http://127.0.0.1:8000/;
+  proxy_http_version 1.1;
+  proxy_read_timeout 30s;
+  proxy_connect_timeout 10s;
+  proxy_set_header Host api.shiftswifthr.co.uk;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Then `https://app.shiftswifthr.co.uk/api/health` should return `{"status":"ok",...}`.
+
 ## nginx
 
 Use `deploy/nginx-shiftswift.conf` — www redirects app paths to `app.shiftswifthr.co.uk`.

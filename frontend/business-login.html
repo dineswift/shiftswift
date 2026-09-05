@@ -23,13 +23,13 @@
         } catch (e) {}
       })();
     </script>
-    <script src="./brand-config.js?v=brand-v7"></script>
+    <script src="./brand-config.js?v=brand-v10"></script>
     <script src="./app-host-guard.js?v=2"></script>
     <script src="./app-icons.js?v=brandkit-v7"></script>
-    <script src="./native-app.js?v=6"></script>
+    <script src="./native-app.js?v=28"></script>
     <script src="./pwa-ios.js?v=1"></script>
     <title>ShiftSwift HR | Business sign in</title>
-    <link rel="stylesheet" href="./styles.css?v=brandkit-v8" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v19" />
   </head>
   <body class="portal-login-page portal-login-page--streamlined" data-login-page="business">
     <div class="portal-login-shell portal-login-shell--streamlined">
@@ -115,14 +115,23 @@
 
         <div id="mfa-panel" class="portal-login-card-body" hidden>
           <div class="portal-login-card-head">
-            <h1>Two-factor authentication</h1>
-            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+            <h1>Check your email</h1>
+            <p class="portal-login-card-lead" id="mfa-lead">
+              Enter the 6-digit code we emailed to <strong data-mfa-user></strong>. Check inbox and spam.
+            </p>
           </div>
           <form id="mfa-form" class="portal-login-form">
             <label>
-              Authenticator code
+              <span id="mfa-code-label-text">Email code</span>
               <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
             </label>
+            <p class="muted mfa-resend-row" id="mfa-resend-wrap">
+              <button type="button" class="portal-login-inline-link" id="mfa-resend-btn">Resend email code</button>
+            </p>
+            <p class="muted" id="mfa-alt-methods" hidden>
+              <button type="button" class="portal-login-inline-link" id="mfa-use-totp-btn">Use authenticator app instead</button>
+            </p>
+            <p id="mfa-status" class="form-error-message" hidden></p>
             <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
           </form>
         </div>
@@ -136,7 +145,7 @@
     <script src="./session-auth.js?v=9"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./admin-pwa.js?v=8"></script>
-    <script src="./login.js?v=brandkit-v18"></script>
+    <script src="./login.js?v=brandkit-v23"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>

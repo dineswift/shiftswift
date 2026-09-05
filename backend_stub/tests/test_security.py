@@ -90,3 +90,33 @@ def test_dev_fallback_auth() -> None:
     assert user is not None
     assert user.username == TENANT_HR_USERNAME
     assert user.role == "hr"
+
+
+def test_log_security_event_does_not_raise_when_db_unavailable() -> None:
+    from auth_service import log_security_event
+
+    settings = Settings(
+        app_env="development",
+        jwt_secret="test-secret-key-with-enough-length-123456",
+        jwt_access_minutes=60,
+        jwt_refresh_days=7,
+        master_customer_id="999",
+        cors_allow_origins=["http://localhost:5173"],
+        trusted_hosts=["localhost"],
+        force_https=False,
+        login_rate_limit=10,
+        login_rate_window_seconds=900,
+        max_upload_bytes=10485760,
+        database_url="postgresql://invalid:invalid@127.0.0.1:1/none",
+        use_db=True,
+    )
+    log_security_event(
+        settings,
+        event_type="mfa_verify_failed",
+        username="admin@shiftswifthr.co.uk",
+        tenant_id="999",
+        ip_address="127.0.0.1",
+        user_agent="test",
+        success=False,
+        detail="method=totp",
+    )

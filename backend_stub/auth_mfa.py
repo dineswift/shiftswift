@@ -17,7 +17,7 @@ from core.crypto import decrypt_text, encrypt_text, encryption_configured
 
 Portal = Literal["master", "business"]
 MFA_ISSUER = os.getenv("MFA_ISSUER_NAME", "ShiftSwift HR")
-MFA_CHALLENGE_MINUTES = int(os.getenv("MFA_CHALLENGE_MINUTES", "5"))
+MFA_CHALLENGE_MINUTES = int(os.getenv("MFA_CHALLENGE_MINUTES", "15"))
 MFA_ENROLLMENT_MINUTES = int(os.getenv("MFA_ENROLLMENT_MINUTES", "15"))
 MFA_TRUSTED_DEVICE_DAYS = int(os.getenv("MFA_TRUSTED_DEVICE_DAYS", "30"))
 
@@ -62,7 +62,9 @@ def create_mfa_challenge_token(
     portal: Portal,
 ) -> str:
     now = datetime.now(timezone.utc)
-    exp = now + timedelta(minutes=MFA_CHALLENGE_MINUTES)
+    email_minutes = int(os.getenv("EMAIL_MFA_MINUTES", "10"))
+    lifetime = max(MFA_CHALLENGE_MINUTES, email_minutes)
+    exp = now + timedelta(minutes=lifetime)
     payload = {
         "sub": username,
         "role": role,

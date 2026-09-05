@@ -25,7 +25,7 @@
       return;
     }
     if (target === "master") {
-      await unregisterMatching([EMPLOYEE_SW, LEGACY_SW]);
+      await unregisterMatching([ADMIN_SW, EMPLOYEE_SW, LEGACY_SW]);
       return;
     }
     if (target === "business") {

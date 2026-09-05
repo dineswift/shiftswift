@@ -995,7 +995,7 @@
     setInlineStatus(mfaStatus, "Verifying code…");
     const code = new FormData(mfaForm).get("code");
     try {
-      const data = await postJson("/auth/mfa/verify", {
+      const data = await postJson("/auth/session/complete", {)
         challenge_token: pendingChallenge,
         code,
       });

@@ -10,7 +10,7 @@ from typing import Any, Literal
 from billing_plans import get_plan
 from billing_promotions import PromotionResult
 from billing_stripe_service import cancel_stripe_subscription, provision_tenant_billing
-from signup_routes import _business_email_registered, _create_hr_admin_user
+from signup_routes import _business_email_registered, _create_hr_admin_user, _send_signup_ops_notify_email
 from trial_service import DEFAULT_TRIAL_DAYS
 
 AccessMode = Literal["active", "trialing"]
@@ -146,6 +146,15 @@ def create_tenant_manually(
             access=access,
             trial_days=trial_days if access == "trialing" else 0,
         )
+
+    _send_signup_ops_notify_email(
+        tenant_id=tenant_id,
+        business_name=business_name.strip(),
+        billing_email=email_norm,
+        plan_name=plan.name,
+        trial_days=trial_days if access == "trialing" else None,
+        source="master console",
+    )
 
     return {
         "tenant_id": tenant_id,

@@ -30,6 +30,7 @@ EMAIL_COMPLIANCE = os.getenv("EMAIL_COMPLIANCE", f"compliance@{APP_DOMAIN}")
 EMAIL_ADMIN = os.getenv("EMAIL_ADMIN", f"admin@{APP_DOMAIN}")
 EMAIL_HR = os.getenv("EMAIL_HR", f"hr@{APP_DOMAIN}")
 EMAIL_EMPLOYEE = os.getenv("EMAIL_EMPLOYEE", f"employee@{APP_DOMAIN}")
+EMAIL_SIGNUP_NOTIFY = os.getenv("EMAIL_SIGNUP_NOTIFY", "info@datasoftanalytics.com")
 
 LOCAL_API_URL = os.getenv("LOCAL_API_URL", "http://localhost:3000")
 LOCAL_APP_URL = os.getenv("LOCAL_APP_URL", "http://localhost:5173")
@@ -62,5 +63,6 @@ def brand_payload(*, app_env: str = "development") -> dict[str, object]:
             "admin": EMAIL_ADMIN,
             "hr": EMAIL_HR,
             "employee": EMAIL_EMPLOYEE,
+            "signup_notify": EMAIL_SIGNUP_NOTIFY,
         },
     }

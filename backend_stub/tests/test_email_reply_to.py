@@ -12,6 +12,7 @@ def test_resolve_reply_to_platform_uses_support(monkeypatch) -> None:
     assert resolve_reply_to(audience="platform") == "support@shiftswifthr.co.uk"
     assert resolve_reply_to(purpose="welcome", audience="hr") == "support@shiftswifthr.co.uk"
     assert resolve_reply_to(purpose="password_reset", audience="hr") == "support@shiftswifthr.co.uk"
+    assert resolve_reply_to(purpose="login_mfa", audience="employee") == "support@shiftswifthr.co.uk"
 
 
 def test_resolve_reply_to_employee_uses_company_email(monkeypatch) -> None:

@@ -715,9 +715,15 @@
         ["Database", settings.database_configured ? "Connected" : "Not configured"],
         ["API health", escapeHtml(health.status || "unknown")],
         ["SMTP", settings.smtp?.configured ? "Configured" : "Not configured"],
-        ["Master MFA required", settings.master_require_mfa ? "Yes" : "No"],
-        ["HR MFA required", settings.business_require_mfa ? "Yes" : "No"],
-        ["Employee MFA required", settings.employee_require_mfa ? "Yes" : "No"],
+        [
+          "Login email codes",
+          settings.login_require_email_mfa
+            ? "On for every tenant (not set per business)"
+            : "Off — set LOGIN_REQUIRE_EMAIL_MFA=1 on the API server",
+        ],
+        ["Master MFA required", settings.master_require_mfa ? "Yes (authenticator on this master login only)" : "No"],
+        ["HR authenticator required", settings.business_require_mfa ? "Yes" : "No"],
+        ["Employee authenticator required", settings.employee_require_mfa ? "Yes" : "No"],
       ]);
     } catch (error) {
       host.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;

@@ -94,18 +94,24 @@
   }
 
   async function hasStoredSession() {
-    try {
-      if (window.ShiftSwiftSession?.hydrateNativeSession) {
-        await window.ShiftSwiftSession.hydrateNativeSession();
+    const hydrate = (async () => {
+      try {
+        if (window.ShiftSwiftSession?.hydrateNativeSession) {
+          await window.ShiftSwiftSession.hydrateNativeSession();
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
-    return Boolean(
-      window.ShiftSwiftSession?.hasSession?.() ||
-        localStorage.getItem("token") ||
-        localStorage.getItem("refreshToken"),
-    );
+      return Boolean(
+        window.ShiftSwiftSession?.hasSession?.() ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("refreshToken"),
+      );
+    })();
+    return Promise.race([
+      hydrate,
+      new Promise((resolve) => window.setTimeout(() => resolve(false), 400)),
+    ]);
   }
 
   function computeMinMs({ postLogin, sessionReady, isLogin, reduced }) {
@@ -123,6 +129,20 @@
 
   async function boot() {
     if (isPortalPage()) {
+      document.getElementById("native-startup-loader")?.remove();
+      document.documentElement.classList.remove("native-startup-active");
+      document.body?.classList.remove("native-startup-active");
+      hideCapacitorSplash();
+      window.ShiftSwiftNativeStartup = {
+        finish: hideCapacitorSplash,
+        hideCapacitorSplash,
+        injectLoader,
+        dismissNativeStartupLoader: hideCapacitorSplash,
+      };
+      return;
+    }
+
+    if (!isNative()) {
       document.getElementById("native-startup-loader")?.remove();
       document.documentElement.classList.remove("native-startup-active");
       document.body?.classList.remove("native-startup-active");

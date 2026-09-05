@@ -7,7 +7,7 @@ from typing import Any
 
 from config import Settings
 from core.notifications import smtp_config_summary
-from auth_policy import business_require_mfa_hr, employee_require_mfa
+from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
 from modules.master.security import master_ip_allowlist, master_require_mfa
 
 
@@ -31,6 +31,7 @@ def platform_settings_snapshot(settings: Settings) -> dict[str, Any]:
         "master_require_mfa": master_require_mfa(settings),
         "business_require_mfa": business_require_mfa_hr(settings),
         "employee_require_mfa": employee_require_mfa(settings),
+        "login_require_email_mfa": login_require_email_mfa(settings),
         "master_ip_allowlist": allowlist,
         "master_ip_allowlist_enabled": bool(allowlist),
         "master_impersonation_minutes": int(os.getenv("MASTER_IMPERSONATION_MINUTES", "30")),
