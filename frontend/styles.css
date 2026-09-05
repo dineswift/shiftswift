@@ -310,6 +310,75 @@ body.admin-portal .nav-crumb {
   }
 }
 
+@media (min-width: 1100px) {
+  .portal-login-page:not(.portal-login-page--unified) {
+    align-items: center;
+    padding: 48px 24px 56px;
+    background:
+      radial-gradient(ellipse 50% 40% at 12% 20%, rgba(29, 158, 117, 0.12), transparent 55%),
+      var(--page-bg, #f5f4f0);
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-shell,
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-shell--streamlined {
+    max-width: 1080px;
+    width: min(100%, 1080px);
+    display: grid;
+    grid-template-columns: minmax(340px, 0.9fr) minmax(500px, 1.15fr);
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    margin: 0 auto;
+    border-radius: 28px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 28px 80px rgba(7, 25, 18, 0.14);
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-brand {
+    background:
+      radial-gradient(ellipse 80% 60% at 80% 10%, rgba(29, 158, 117, 0.28), transparent 60%),
+      linear-gradient(168deg, #071912 0%, #0a2219 28%, #0f6e56 72%, #0a5c47 100%);
+    color: #fff;
+    padding: 48px 40px;
+    min-height: 100%;
+    gap: 16px;
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-brand-logo {
+    width: 88px;
+    height: 88px;
+    max-width: 88px;
+    max-height: 88px;
+    border-radius: 20px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-brand-copy {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.82rem;
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-card {
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-card-body {
+    padding: 48px 48px 36px;
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-footnote {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 14px 24px 20px;
+    background: #fff;
+    border-top: 1px solid var(--card-border, #e8e6dc);
+  }
+}
+
 .portal-login-brand {
   display: flex;
   flex-direction: column;
