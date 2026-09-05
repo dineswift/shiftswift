@@ -11,7 +11,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "27";
+const BUNDLED_ASSET_VERSION = "28";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -115,7 +115,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       const wideDesktop =
         !isCapacitorNative() &&
         typeof window.matchMedia === "function" &&
-        window.matchMedia("(min-width: 700px) and (hover: hover), (min-width: 1024px)").matches;
+        window.matchMedia("(min-width: 800px)").matches;
       if (wideDesktop) {
         document.documentElement.classList.remove("native-app", "pwa-standalone", "ios-device");
         if (document.body) document.body.classList.remove("native-app", "pwa-standalone");
@@ -517,7 +517,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
     if (document.querySelector("script[data-sshr-native-bootstrap]")) return;
     const scheme = window.Capacitor.config?.ios?.scheme || "App";
     const script = document.createElement("script");
-    script.src = `${scheme}://localhost/native-app.js?v=27`;
+    script.src = `${scheme}://localhost/native-app.js?v=28`;
     script.setAttribute("data-sshr-native-bootstrap", "1");
     script.async = true;
     document.head.appendChild(script);

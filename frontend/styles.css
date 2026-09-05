@@ -258,6 +258,10 @@ body.admin-portal .nav-crumb {
   justify-content: center;
 }
 
+.portal-login-page.cookie-consent-open {
+  padding-bottom: 9rem;
+}
+
 .portal-login-shell {
   display: grid;
   gap: 18px;
@@ -310,7 +314,7 @@ body.admin-portal .nav-crumb {
   }
 }
 
-@media (min-width: 900px) and (hover: hover), (min-width: 1100px) {
+@media (min-width: 800px) {
   .portal-login-page:not(.portal-login-page--unified) {
     box-sizing: border-box;
     align-items: center;
@@ -319,20 +323,24 @@ body.admin-portal .nav-crumb {
     height: auto;
     max-height: none;
     overflow: auto;
-    padding: 28px 16px;
+    padding: 32px 20px;
     background:
       radial-gradient(ellipse 50% 40% at 12% 20%, rgba(29, 158, 117, 0.12), transparent 55%),
       var(--page-bg, #f5f4f0);
   }
 
+  .portal-login-page:not(.portal-login-page--unified).cookie-consent-open {
+    padding: 32px 20px 10rem;
+  }
+
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell,
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell--streamlined {
-    max-width: 760px !important;
-    width: min(760px, calc(100vw - 48px)) !important;
+    max-width: min(800px, calc(100vw - 48px)) !important;
+    width: min(800px, calc(100vw - 48px)) !important;
     min-height: 0 !important;
     height: auto !important;
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: 240px minmax(280px, 1fr);
     align-items: stretch;
     gap: 0;
     padding: 0;

@@ -188,10 +188,10 @@ html.native-startup-active body.employee-portal #mobile-tab-bar {
   pointer-events: none;
 }
 
-html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell,
-html:not(.native-startup-active) body.admin-portal .app,
-html:not(.native-startup-active) body.employee-portal .employee-app,
-html:not(.native-startup-active) body.master-app .master-layout {
+html.native-app:not(.native-startup-active) .portal-login-page--unified .portal-login-shell,
+html.native-app:not(.native-startup-active) body.admin-portal .app,
+html.native-app:not(.native-startup-active) body.employee-portal .employee-app,
+html.native-app:not(.native-startup-active) body.master-app .master-layout {
   animation: native-app-fade-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -233,12 +233,12 @@ html:not(.native-startup-active) body.employee-portal #mobile-tab-bar {
 
   .native-startup-loader__ring { display: none; }
 
-  html:not(.native-startup-active) .portal-login-page--unified .portal-login-shell,
-  html:not(.native-startup-active) body.admin-portal .app,
-  html:not(.native-startup-active) body.employee-portal .employee-app,
-  html:not(.native-startup-active) body.master-app .master-layout,
-  html:not(.native-startup-active) body.admin-portal #mobile-tab-bar,
-  html:not(.native-startup-active) body.employee-portal #mobile-tab-bar {
+  html.native-app:not(.native-startup-active) .portal-login-page--unified .portal-login-shell,
+  html.native-app:not(.native-startup-active) body.admin-portal .app,
+  html.native-app:not(.native-startup-active) body.employee-portal .employee-app,
+  html.native-app:not(.native-startup-active) body.master-app .master-layout,
+  html.native-app:not(.native-startup-active) body.admin-portal #mobile-tab-bar,
+  html.native-app:not(.native-startup-active) body.employee-portal #mobile-tab-bar {
     animation: none;
   }
 }
