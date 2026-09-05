@@ -1,8 +1,8 @@
-html.native-startup-active {
+html.native-app.native-startup-active {
   overflow: hidden;
 }
 
-html.native-startup-active body {
+html.native-app.native-startup-active body {
   overflow: hidden;
 }
 
@@ -11,11 +11,15 @@ html.native-startup-active body {
   position: fixed;
   inset: 0;
   z-index: 100000;
-  display: grid;
+  display: none;
   place-items: center;
   background: #0f6e56;
   transition: opacity 0.52s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.52s ease;
   will-change: opacity;
+}
+
+html.native-app.native-startup-active .native-startup-loader {
+  display: grid;
 }
 
 .native-startup-loader.is-done {
@@ -168,9 +172,10 @@ html:not(.native-startup-active) .native-startup-loader {
   pointer-events: none;
 }
 
-html.native-startup-active .portal-login-shell {
+html.native-app.native-startup-active .portal-login-shell {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
 
 html.native-startup-active body.admin-portal .app,

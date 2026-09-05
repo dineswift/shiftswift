@@ -590,8 +590,9 @@ html.native-app body.portal-login-page--unified {
 
 @media (min-width: 700px) and (hover: hover), (min-width: 1024px) {
   html:has(body.portal-login-page--unified) {
-    height: 100dvh;
-    overflow: hidden;
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
     background: var(--native-paper);
   }
 
@@ -602,9 +603,9 @@ html.native-app body.portal-login-page--unified {
     align-content: center;
     justify-items: center;
     min-height: 100dvh;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
+    height: auto;
+    max-height: none;
+    overflow: auto;
     margin: 0;
     padding: 28px 16px;
     background:
@@ -625,7 +626,7 @@ html.native-app body.portal-login-page--unified {
     margin: 0 auto;
     padding: 0 !important;
     border-radius: 24px;
-    overflow: hidden;
+    overflow: visible;
     background: var(--native-white);
     box-shadow: 0 20px 56px rgba(7, 25, 18, 0.16);
   }
@@ -677,7 +678,7 @@ html.native-app body.portal-login-page--unified {
     justify-content: flex-start;
     min-height: 0 !important;
     height: auto !important;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .portal-login-page--unified .native-login-sheet::before {

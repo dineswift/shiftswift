@@ -316,9 +316,9 @@ body.admin-portal .nav-crumb {
     align-items: center;
     justify-content: center;
     min-height: 100dvh;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
+    height: auto;
+    max-height: none;
+    overflow: auto;
     padding: 28px 16px;
     background:
       radial-gradient(ellipse 50% 40% at 12% 20%, rgba(29, 158, 117, 0.12), transparent 55%),
