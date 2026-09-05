@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -42,6 +43,7 @@ from deps import client_ip, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 settings = load_settings()
+logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -63,8 +65,13 @@ class RefreshRequest(BaseModel):
 class MfaVerifyRequest(BaseModel):
     challenge_token: str = Field(min_length=10)
     code: str = Field(min_length=6, max_length=8)
+    method: Literal["email", "totp", "auto"] | None = None
     remember_device: bool = False
     device_label: str | None = Field(default=None, max_length=120)
+
+
+class MfaSendEmailCodeRequest(BaseModel):
+    challenge_token: str = Field(min_length=10)
 
 
 class MfaEnableRequest(BaseModel):
@@ -204,26 +211,39 @@ def _login_response(
     else:
         tenant_id = str(payload.tenant_id or user.tenant_id)
 
+    from auth_email_mfa import issue_and_send_email_mfa, looks_like_email, mask_email
+    from auth_policy import login_require_email_mfa
+    from core.notifications import smtp_configured
+
     mfa_required = False
     mfa_enabled = False
+    totp_available = False
+    email_mfa_policy = login_require_email_mfa(settings)
+    smtp_ready = smtp_configured()
+    email_mfa_available = bool(email_mfa_policy and smtp_ready)
     if settings.use_db and settings.database_url:
         conn = _db_conn()
         try:
             with conn.cursor() as cur:
                 row = fetch_user_mfa(cur, user.username)
             mfa_enabled = bool(row and row.get("mfa_enabled"))
-            mfa_required = mfa_enabled
+            totp_available = bool(row and row.get("mfa_enabled") and row.get("totp_secret"))
         finally:
             conn.close()
 
+    if email_mfa_available or mfa_enabled or totp_available:
+        mfa_required = True
+
     enrollment_portal: Literal["master", "business"] = portal
     must_enroll = False
-    if portal == "master" and enforce_master_mfa and not mfa_enabled:
-        must_enroll = True
-        enrollment_portal = "master"
-    elif portal == "business" and require_mfa_enrollment and not mfa_enabled:
-        must_enroll = True
-        enrollment_portal = "business"
+    # Only force authenticator enrollment when email OTP cannot cover this login.
+    if not email_mfa_available:
+        if portal == "master" and enforce_master_mfa and not mfa_enabled:
+            must_enroll = True
+            enrollment_portal = "master"
+        elif portal == "business" and require_mfa_enrollment and not mfa_enabled:
+            must_enroll = True
+            enrollment_portal = "business"
 
     if must_enroll:
         clear_login_attempts(ip, payload.username)
@@ -289,6 +309,68 @@ def _login_response(
             tenant_id=tenant_id,
             portal=portal,
         )
+        challenge_claims = decode_mfa_challenge_token(settings, challenge)
+        methods: list[str] = []
+        if email_mfa_available:
+            methods.append("email")
+        if totp_available:
+            methods.append("totp")
+
+        if not methods:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Sign-in verification is required, but no verification method is available. "
+                    "Configure SMTP so we can email a code, or set up an authenticator app."
+                ),
+            )
+
+        default_method = "email" if "email" in methods else methods[0]
+        email_sent = False
+        email_hint = mask_email(user.username) if looks_like_email(user.username) else None
+        email_error: str | None = None
+        if default_method == "email" and settings.use_db and settings.database_url:
+            conn = _db_conn()
+            try:
+                sent = issue_and_send_email_mfa(
+                    settings=settings,
+                    conn=conn,
+                    username=user.username,
+                    tenant_id=tenant_id,
+                    role=user.role,
+                    challenge_jti=str(challenge_claims["jti"]),
+                    force_resend=False,
+                )
+                email_sent = True
+                email_hint = str(sent.get("email_hint") or email_hint or "")
+            except Exception as exc:
+                email_error = str(exc)
+                logger.warning("Email MFA send failed for %s: %s", user.username, exc)
+            finally:
+                conn.close()
+
+        email_only = methods == ["email"]
+        if default_method == "email" and not email_sent and email_only:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    email_error
+                    or "Could not email your sign-in code. Check SMTP settings and try again."
+                ),
+            )
+
+        if default_method == "email" and email_sent:
+            message = (
+                f"We emailed a 6-digit code to {email_hint}. "
+                "Check your inbox and spam folder."
+            )
+        elif default_method == "email" and email_error and totp_available:
+            message = "Could not send email code — use your authenticator app instead."
+        elif default_method == "email" and email_error:
+            message = f"Could not send email code to {email_hint}. Tap Resend to try again."
+        else:
+            message = "Enter the 6-digit code from your authenticator app."
+
         log_security_event(
             settings,
             event_type="mfa_challenge_issued",
@@ -297,7 +379,7 @@ def _login_response(
             ip_address=ip,
             user_agent=user_agent,
             success=True,
-            detail=f"portal={portal}",
+            detail=f"portal={portal};default={default_method};email_sent={int(email_sent)}",
         )
         return {
             "mfa_required": True,
@@ -305,7 +387,13 @@ def _login_response(
             "portal": portal,
             "username": user.username,
             "tenant_id": tenant_id,
-            "message": "Enter the 6-digit code from your authenticator app.",
+            "totp_available": totp_available,
+            "email_mfa_available": "email" in methods,
+            "mfa_methods": methods,
+            "default_mfa_method": default_method,
+            "email_sent": email_sent,
+            "email_hint": email_hint,
+            "message": message,
         }
 
     clear_login_attempts(ip, payload.username)
@@ -464,9 +552,33 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
 
+    method = (payload.method or "auto").strip().lower()
+    if method not in {"email", "totp", "auto"}:
+        method = "auto"
+
     conn = _db_conn()
     try:
-        if not verify_user_mfa_code(conn=conn, username=challenge["sub"], code=payload.code):
+        from auth_email_mfa import verify_email_mfa_code
+
+        ok = False
+        used_method = method
+        if method in {"email", "auto"}:
+            ok = verify_email_mfa_code(
+                conn=conn,
+                username=challenge["sub"],
+                challenge_jti=str(challenge.get("jti") or ""),
+                code=payload.code,
+            )
+            if ok:
+                used_method = "email"
+                conn.commit()
+        if not ok and method in {"totp", "auto"}:
+            ok = verify_user_mfa_code(conn=conn, username=challenge["sub"], code=payload.code)
+            if ok:
+                used_method = "totp"
+                conn.commit()
+        if not ok:
+            conn.commit()
             log_security_event(
                 settings,
                 event_type="mfa_verify_failed",
@@ -475,8 +587,14 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
                 ip_address=ip,
                 user_agent=user_agent,
                 success=False,
+                detail=f"method={method}",
             )
-            raise HTTPException(status_code=401, detail="Invalid authentication code")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired email code"
+                if method == "email"
+                else "Invalid authentication code",
+            )
 
         with conn.cursor() as cur:
             user = fetch_user_mfa(cur, challenge["sub"])
@@ -504,7 +622,7 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
         ip_address=ip,
         user_agent=user_agent,
         success=True,
-        detail=f"portal={challenge['portal']};mfa=1",
+        detail=f"portal={challenge['portal']};mfa=1;method={used_method}",
     )
     response: dict[str, object] = {
         **tokens.__dict__,
@@ -527,6 +645,66 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
         finally:
             conn.close()
     return response
+
+
+@router.post("/mfa/send-email-code")
+def send_mfa_email_code(request: Request, payload: MfaSendEmailCodeRequest) -> dict[str, object]:
+    """Resend (or re-issue) the email OTP for an active MFA challenge."""
+    ip = client_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    try:
+        challenge = decode_mfa_challenge_token(settings, payload.challenge_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+    if not settings.use_db or not settings.database_url:
+        raise HTTPException(status_code=503, detail="MFA requires database")
+
+    from auth_email_mfa import issue_and_send_email_mfa, mask_email
+
+    conn = _db_conn()
+    try:
+        with conn.cursor() as cur:
+            user = fetch_user_mfa(cur, challenge["sub"])
+        if not user or not portal_allows_user(
+            portal=challenge["portal"],
+            role=user["role"],
+            login_portal=user.get("login_portal"),
+        ):
+            raise HTTPException(status_code=403, detail="Portal access denied")
+        try:
+            result = issue_and_send_email_mfa(
+                settings=settings,
+                conn=conn,
+                username=challenge["sub"],
+                tenant_id=challenge["tenant_id"],
+                role=challenge["role"],
+                challenge_jti=str(challenge.get("jti") or ""),
+                force_resend=True,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=429 if "Wait" in str(exc) else 503, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+    log_security_event(
+        settings,
+        event_type="mfa_email_code_resent",
+        username=challenge["sub"],
+        tenant_id=challenge["tenant_id"],
+        ip_address=ip,
+        user_agent=user_agent,
+        success=True,
+        detail=f"portal={challenge['portal']}",
+    )
+    hint = result.get("email_hint") or mask_email(challenge["sub"])
+    return {
+        "ok": True,
+        "email_hint": hint,
+        "expires_in": result.get("expires_in"),
+        "resend_after": result.get("resend_after"),
+        "message": f"We sent a new code to {hint}.",
+    }
 
 
 @router.post("/mfa/setup")
@@ -675,7 +853,8 @@ def mfa_disable(
 
 @router.get("/mfa/status")
 def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> dict[str, object]:
-    from auth_policy import business_require_mfa_hr, employee_require_mfa
+    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
+    from core.notifications import smtp_configured
 
     conn = _db_conn()
     try:
@@ -694,10 +873,17 @@ def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> 
         from modules.master.security import master_require_mfa
 
         policy_required = master_require_mfa(settings)
+    totp_enabled = bool(user.get("mfa_enabled") and user.get("totp_secret"))
+    email_mfa_default = bool(
+        login_require_email_mfa(settings) and smtp_configured()
+    )
     return {
         "username": user["username"],
         "portal": user.get("login_portal"),
         "mfa_enabled": bool(user.get("mfa_enabled")),
+        "totp_enabled": totp_enabled,
+        "email_mfa_default": email_mfa_default,
+        "email_mfa_available": email_mfa_default,
         "role": user["role"],
         "policy_required": policy_required,
     }

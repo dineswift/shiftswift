@@ -20,6 +20,7 @@ EmailPurpose = Literal[
     "general",
     "welcome",
     "password_reset",
+    "login_mfa",
     "employee",
 ]
 EmailAudience = Literal["hr", "employee", "platform"]
@@ -35,6 +36,13 @@ def smtp_configured() -> bool:
         and os.getenv("SMTP_USER")
         and os.getenv("SMTP_PASSWORD")
     )
+
+
+def require_email_delivered(payload: dict[str, Any] | None) -> None:
+    """Raise RuntimeError when SMTP delivery failed or was not configured."""
+    err = (payload or {}).get("delivery_error")
+    if err:
+        raise RuntimeError(str(err))
 
 
 def smtp_config_summary() -> dict[str, str | bool]:
@@ -84,7 +92,7 @@ def resolve_reply_to(
         return explicit.strip()
     if audience == "platform":
         return _support_email()
-    if purpose in {"welcome", "password_reset"}:
+    if purpose in {"welcome", "password_reset", "login_mfa"}:
         return _support_email()
     company = resolve_tenant_company_email(contacts)
     if company and audience in {"employee", "hr"}:
@@ -129,7 +137,9 @@ def _parse_from_email() -> str:
     return raw
 
 
-_PLATFORM_FROM_PURPOSES = frozenset({"billing", "welcome"})
+# Security and onboarding mail must use the platform From name. Tenant-branded
+# display names have caused some providers to spam-filter or reject messages.
+_PLATFORM_FROM_PURPOSES = frozenset({"billing", "welcome", "password_reset", "login_mfa"})
 
 
 def _sanitize_from_display_name(name: str) -> str:

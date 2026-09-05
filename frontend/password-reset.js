@@ -199,10 +199,15 @@
           new_password: data.new_password,
           accept_employee_gdpr: Boolean(data.accept_employee_gdpr),
         });
-        setStatus(status, result.message || "Password updated.", true);
+        setStatus(
+          status,
+          result.message ||
+            "Password updated. Next sign-in will email you a 6-digit verification code.",
+          true,
+        );
         setTimeout(() => {
           window.location.href = loginUrlForPortal(resetPortal);
-        }, 1500);
+        }, 1800);
       } catch (error) {
         setStatus(status, friendlyError(error.message), false);
       }

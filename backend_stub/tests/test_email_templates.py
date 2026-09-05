@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from core.email_templates import (
     EmailContent,
+    login_email_mfa_code,
     password_reset_email,
     render_email,
     signup_platform_guide_email,
@@ -57,3 +58,12 @@ def test_render_email_includes_brand_header() -> None:
     assert "#0f6e56" in html
     assert "Sign in" in html
     assert "display:none" in html
+
+
+def test_login_email_mfa_code_renders_plain_digits() -> None:
+    content = login_email_mfa_code(code="008811", minutes=10)
+    assert isinstance(content, EmailContent)
+    assert "sign-in code" in content.subject
+    assert "008811" in content.text
+    assert "008811" in content.html
+    assert "&lt;strong" not in content.html

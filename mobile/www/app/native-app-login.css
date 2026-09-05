@@ -202,6 +202,17 @@ html.native-app body.portal-login-page--unified {
   gap: 18px;
 }
 
+.mfa-resend-row {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.mfa-resend-row button {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 .portal-login-page--unified.login-step-email .portal-login-secure-note {
   margin-top: auto;
   padding-top: 18px;

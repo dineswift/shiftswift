@@ -99,12 +99,22 @@ def render_email(
     cta_label: str | None = None,
     footer_note: str | None = None,
     employer_name: str | None = None,
+    otp_code: str | None = None,
 ) -> str:
     """Wrap content in a responsive, client-safe HTML shell."""
     preheader_esc = _esc(preheader)
     detail_html = _bullet_list(details) if details else ""
     cta_html = _cta_button(cta_url, cta_label) if cta_url and cta_label else ""
     footer = footer_note or f"Questions? Reply to {_esc(SUPPORT_EMAIL)}"
+    otp_html = ""
+    if otp_code:
+        digits = _esc(str(otp_code).strip())
+        otp_html = (
+            f'<p style="margin:8px 0 24px;text-align:center;">'
+            f'<span style="display:inline-block;background:{GREEN_100};color:{GREEN_900};'
+            f"font-size:32px;font-weight:800;letter-spacing:8px;padding:16px 28px;"
+            f'border-radius:12px;font-family:ui-monospace,Menlo,Consolas,monospace;">{digits}</span></p>'
+        )
     employer = str(employer_name or "").strip()
     if employer:
         header_brand = (
@@ -166,6 +176,7 @@ def render_email(
             <td class="pad" style="padding:32px 28px 12px;">
               <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:{GREEN_900};">{_esc(title)}</h1>
               <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{INK};">{_esc(intro)}</p>
+              {otp_html}
               {_paragraphs(paragraphs)}
               {detail_html}
               {cta_html}
@@ -306,6 +317,31 @@ def signup_platform_guide_email(
         ],
         cta_url=admin_url,
         cta_label="Open HR admin dashboard",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def login_email_mfa_code(*, code: str, minutes: int) -> EmailContent:
+    digits = str(code).strip()
+    subject = f"{APP_NAME} — your sign-in code"
+    text = (
+        f"Hello,\n\n"
+        f"Your {APP_NAME} sign-in code is:\n\n"
+        f"{digits}\n\n"
+        f"This code expires in {minutes} minutes. If you did not try to sign in, ignore this email "
+        f"and consider changing your password.\n\n"
+        f"{APP_NAME}\n"
+        f"Reply: {SUPPORT_EMAIL}\n"
+    )
+    html = render_email(
+        preheader=f"Your sign-in code is {digits}.",
+        title="Your sign-in code",
+        intro="Use this code to finish signing in to ShiftSwift HR.",
+        paragraphs=[
+            f"This code expires in {minutes} minutes. If you did not try to sign in, you can ignore this email.",
+        ],
+        otp_code=digits,
+        footer_note=f"Questions? Reply to {SUPPORT_EMAIL}",
     )
     return EmailContent(subject=subject, text=text, html=html)
 

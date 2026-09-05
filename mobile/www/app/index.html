@@ -131,14 +131,23 @@
 
           <div id="mfa-panel" class="portal-login-card-body" hidden>
             <div class="portal-login-card-head">
-              <h1>Two-factor authentication</h1>
-              <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+              <h1>Check your email</h1>
+              <p class="portal-login-card-lead" id="mfa-lead">
+                Enter the 6-digit code we emailed to <strong data-mfa-user></strong>. Check inbox and spam.
+              </p>
             </div>
             <form id="mfa-form" class="portal-login-form">
               <label>
-                Authenticator code
+                <span id="mfa-code-label-text">Email code</span>
                 <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
               </label>
+              <p class="muted mfa-resend-row" id="mfa-resend-wrap">
+                <button type="button" class="portal-login-inline-link" id="mfa-resend-btn">Resend email code</button>
+              </p>
+              <p class="muted" id="mfa-alt-methods" hidden>
+                <button type="button" class="portal-login-inline-link" id="mfa-use-totp-btn">Use authenticator app instead</button>
+              </p>
+              <p id="mfa-status" class="form-error-message" hidden></p>
               <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
               <p class="portal-login-secure-note">
                 Secured · <span data-secure-host>shiftswifthr.co.uk</span>
@@ -149,6 +158,6 @@
       </main>
     </div>
     <script src="./trusted-device.js?v=2"></script>
-    <script src="./unified-login.js?v=18"></script>
+    <script src="./unified-login.js?v=19"></script>
     </body>
 </html>

@@ -362,6 +362,17 @@ body.admin-portal .nav-crumb {
   word-break: break-all;
 }
 
+.mfa-resend-row {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.mfa-resend-row button {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 .portal-login-card {
   margin-bottom: 0;
   padding: 0;
