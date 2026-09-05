@@ -184,7 +184,7 @@ function friendlyLoginError(message, endpoint, username) {
     if (message === "Request timed out") {
       return "Sign-in timed out. Try again — if this keeps happening the API may be restarting.";
     }
-    return "Cannot reach the sign-in API. Hard-refresh (Ctrl+Shift+R) and try again. If it continues, check that api.shiftswifthr.co.uk is not blocked.";
+    return "Cannot complete sign-in. Hard-refresh (Ctrl+Shift+R), pause any ad blocker on this site, and try again.";
   }
   if (message === "Invalid credentials for this login type") {
     if (endpoint.includes("master")) {
@@ -199,6 +199,17 @@ function friendlyLoginError(message, endpoint, username) {
     return message;
   }
   return message || "Login failed";
+}
+
+async function postMfaVerify(body) {
+  try {
+    return await postJson("/auth/session/complete", body);
+  } catch (error) {
+    if (String(error.message || "").toLowerCase() === "not found") {
+      return await postJson("/auth/mfa/verify", body);
+    }
+    throw error;
+  }
 }
 
 async function postJson(path, body) {
@@ -399,7 +410,7 @@ function bindMfaForm() {
     setStatus("Verifying code…");
     const code = new FormData(mfaForm).get("code");
     try {
-      const data = await postJson("/auth/mfa/verify", {
+      const data = await postMfaVerify({
         challenge_token: pendingChallenge,
         code,
         method: pendingMfaMethod === "totp" ? "totp" : "email",

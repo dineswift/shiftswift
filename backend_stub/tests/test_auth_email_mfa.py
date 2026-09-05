@@ -219,6 +219,7 @@ def test_send_email_code_route_is_registered() -> None:
 
     paths = {getattr(route, "path", None) for route in router.routes}
     assert "/mfa/send-email-code" in paths or "/auth/mfa/send-email-code" in paths
+    assert "/session/complete" in paths or "/auth/session/complete" in paths
 
 
 def test_send_login_email_code_uses_platform_purpose() -> None:

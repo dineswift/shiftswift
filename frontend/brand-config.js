@@ -118,6 +118,10 @@ window.ShiftSwiftBrand.resolveApiBase = function resolveApiBase() {
 };
 
 window.ShiftSwiftBrand.getApiBase = function getApiBase() {
+  if (this._sameOriginApiReady) {
+    const sameOrigin = this.sameOriginApiBase();
+    if (sameOrigin) return sameOrigin;
+  }
   return this.resolveApiBase();
 };
 
@@ -163,31 +167,34 @@ window.ShiftSwiftBrand.postJson = async function postJson(path, body, options = 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetch(`${base}${path}`, {
+      const url = `${base}${path}`;
+      const sameOrigin = url.startsWith(String(window.location.origin || ""));
+      const response = await fetch(url, {
         method,
         headers,
         body: body == null ? undefined : JSON.stringify(body),
         signal: controller.signal,
         cache: "no-store",
         credentials: "omit",
-        mode: "cors",
-        redirect: "error",
+        mode: sameOrigin ? "same-origin" : "cors",
+        redirect: "follow",
       });
       const type = String(response.headers.get("content-type") || "");
-      if (!type.includes("application/json")) {
+      const data = await response.json().catch(() => null);
+      if (data == null && !type.includes("application/json")) {
         lastNetworkMessage = "Failed to fetch";
         continue;
       }
-      const data = await response.json().catch(() => ({}));
+      const payload = data && typeof data === "object" ? data : {};
       if (!response.ok) {
-        const detail = data.detail;
+        const detail = payload.detail;
         const message =
           typeof detail === "string" ? detail : Array.isArray(detail) ? detail[0]?.msg : null;
-        const err = new Error(message || data.message || "Request failed");
+        const err = new Error(message || payload.message || "Request failed");
         err.name = "ApiRequestError";
         throw err;
       }
-      return data;
+      return payload;
     } catch (error) {
       if (error?.name === "ApiRequestError") throw error;
       lastNetworkMessage = error?.name === "AbortError" ? "Request timed out" : "Failed to fetch";

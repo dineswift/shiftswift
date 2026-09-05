@@ -65,6 +65,17 @@
     status.hidden = !message;
   }
 
+  async function postMfaVerify(body) {
+    try {
+      return await postJson("/auth/session/complete", body);
+    } catch (error) {
+      if (String(error.message || "").toLowerCase() === "not found") {
+        return await postJson("/auth/mfa/verify", body);
+      }
+      throw error;
+    }
+  }
+
   async function postJson(path, body, bearerToken, options = {}) {
     if (window.ShiftSwiftBrand?.postJson && !window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
       return window.ShiftSwiftBrand.postJson(path, body, {
@@ -174,7 +185,7 @@
       if (message === "Request timed out") {
         return "Sign-in timed out. Try again — if this keeps happening the API may be restarting.";
       }
-      return "Cannot reach the sign-in API. Hard-refresh (Ctrl+Shift+R) and try again. If it continues, check that api.shiftswifthr.co.uk is not blocked.";
+      return "Cannot complete sign-in. Hard-refresh (Ctrl+Shift+R), pause any ad blocker on this site, and try again.";
     }
     if (String(message || "").includes("Master console not available from this network")) {
       return "Platform master sign-in is not allowed from this network. Use approved Wi‑Fi or VPN.";
@@ -223,8 +234,12 @@
     } else {
       storeSession(data);
     }
-    if (window.ShiftSwiftSession?.persistNativeSession) {
-      await window.ShiftSwiftSession.persistNativeSession();
+    try {
+      if (window.ShiftSwiftSession?.persistNativeSession) {
+        await window.ShiftSwiftSession.persistNativeSession();
+      }
+    } catch {
+      /* Native persist must not block a successful web sign-in. */
     }
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
     await maybeEnableBiometricUnlock();
@@ -524,7 +539,7 @@
         setStatus("Verifying code…");
         const code = new FormData(mfaForm).get("code");
         try {
-          const data = await postJson("/auth/mfa/verify", {
+          const data = await postMfaVerify({
             challenge_token: pendingChallenge,
             code,
             method: pendingMfaMethod === "totp" ? "totp" : "email",

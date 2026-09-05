@@ -540,6 +540,7 @@ def master_login(request: Request, payload: LoginRequest) -> dict[str, object]:
 
 
 @router.post("/mfa/verify")
+@router.post("/session/complete")
 def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, object]:
     ip = client_ip(request)
     user_agent = request.headers.get("User-Agent")
