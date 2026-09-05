@@ -537,8 +537,11 @@ html.native-app body.portal-login-page--unified {
 
 @media (min-width: 640px) {
   html:not(.native-app) .portal-login-page--unified .portal-login-shell {
-    min-height: 0;
-    width: min(100%, 400px);
+    justify-content: center;
+    padding: 32px 24px;
+    min-height: 0 !important;
+    width: min(100%, 420px) !important;
+    max-width: 420px !important;
     margin: 0 auto;
   }
 
@@ -549,39 +552,39 @@ html.native-app body.portal-login-page--unified {
 
   .portal-login-page--unified .native-login-hero {
     border-radius: var(--native-radius) var(--native-radius) 0 0;
-    max-width: 520px;
+    max-width: 420px;
     width: 100%;
     margin: 0 auto;
     padding:
-      max(48px, calc(env(safe-area-inset-top) + 28px))
-      36px
-      40px;
+      max(36px, calc(env(safe-area-inset-top) + 20px))
+      28px
+      28px;
   }
 
   .portal-login-page--unified .native-login-hero__title {
-    font-size: 2rem;
+    font-size: 1.55rem;
   }
 
   .portal-login-page--unified .native-login-hero__tagline {
-    max-width: 360px;
-    font-size: 1.05rem;
+    max-width: 280px;
+    font-size: 0.95rem;
   }
 
   .portal-login-page--unified .native-login-sheet {
-    max-width: 520px;
+    max-width: 420px;
     width: 100%;
-    margin: -22px auto 0;
-    padding: 16px 36px 36px;
+    margin: -18px auto 0;
+    padding: 14px 28px 28px;
     border-radius: 0 0 var(--native-radius) var(--native-radius);
     box-shadow: 0 20px 52px rgba(7, 25, 18, 0.14);
   }
 
   .portal-login-page--unified .portal-login-card-head h1 {
-    font-size: 1.75rem;
+    font-size: 1.45rem;
   }
 }
 
-@media (min-width: 960px) {
+@media (min-width: 700px) and (hover: hover), (min-width: 1024px) {
   html:has(body.portal-login-page--unified) {
     height: 100dvh;
     overflow: hidden;

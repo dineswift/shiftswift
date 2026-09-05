@@ -115,7 +115,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       const wideDesktop =
         !isCapacitorNative() &&
         typeof window.matchMedia === "function" &&
-        window.matchMedia("(min-width: 960px)").matches;
+        window.matchMedia("(min-width: 700px) and (hover: hover), (min-width: 1024px)").matches;
       if (wideDesktop) {
         document.documentElement.classList.remove("native-app", "pwa-standalone", "ios-device");
         if (document.body) document.body.classList.remove("native-app", "pwa-standalone");
