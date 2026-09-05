@@ -91,23 +91,80 @@ def generate_email_mfa_code() -> str:
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
+def _hr_email_usernames(*, conn: Any, tenant_id: int) -> list[str]:
+    """Existing tenants often used a non-email HR username; find any email login on the tenant."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT username
+            FROM app_users
+            WHERE tenant_id = %s
+              AND is_active = TRUE
+              AND role = 'hr'
+              AND COALESCE(login_portal, 'business') = 'business'
+            ORDER BY id ASC
+            """,
+            (tenant_id,),
+        )
+        rows = cur.fetchall() or []
+    found: list[str] = []
+    for (name,) in rows:
+        if looks_like_email(name):
+            found.append(str(name).strip())
+    return found
+
+
+def _employee_email_for_username(*, conn: Any, tenant_id: int, username: str) -> str | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT email
+            FROM employees
+            WHERE tenant_id = %s
+              AND email IS NOT NULL
+              AND lower(trim(email)) = lower(trim(%s))
+            LIMIT 1
+            """,
+            (tenant_id, username),
+        )
+        row = cur.fetchone()
+    if row and looks_like_email(row[0]):
+        return str(row[0]).strip()
+    return None
+
+
 def resolve_login_otp_recipient(
     *,
     conn: Any,
     username: str,
     tenant_id: str | int | None,
 ) -> str:
-    """Send the code to the login username, or the tenant billing/HR address."""
+    """Send the code to the login username, or a tenant HR/billing address.
+
+    Existing tenants do not need a master-console toggle. Codes are on for every
+    tenant once SMTP is configured. Older accounts may log in with a non-email
+    username, so we fall back to another HR email or billing/signatory.
+    """
     if looks_like_email(username):
         return str(username).strip()
     parsed_tenant = parse_tenant_id(tenant_id)
     if parsed_tenant is not None:
+        employee_email = _employee_email_for_username(
+            conn=conn, tenant_id=parsed_tenant, username=username
+        )
+        if employee_email:
+            return employee_email
+        for hr_email in _hr_email_usernames(conn=conn, tenant_id=parsed_tenant):
+            return hr_email
         contacts = fetch_tenant_contacts(tenant_id=parsed_tenant, conn=conn)
         for key in ("hr_email", "billing_email", "signatory_email"):
             candidate = contacts.get(key)
             if looks_like_email(candidate):
                 return str(candidate).strip()
-    raise RuntimeError("This account does not have an email address for verification codes")
+    raise RuntimeError(
+        "This account does not have an email address for verification codes. "
+        "Sign in with a work email, or add a billing/HR email on the tenant."
+    )
 
 
 def issue_email_mfa_code(

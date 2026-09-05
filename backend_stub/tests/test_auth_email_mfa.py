@@ -108,18 +108,34 @@ def test_require_email_delivered_raises() -> None:
 
 def test_resolve_login_otp_recipient_falls_back_to_billing() -> None:
     conn = MagicMock()
-    with patch(
-        "auth_email_mfa.fetch_tenant_contacts",
-        return_value={
-            "hr_email": None,
-            "billing_email": "billing@acme.co.uk",
-            "signatory_email": None,
-        },
+    with (
+        patch("auth_email_mfa._employee_email_for_username", return_value=None),
+        patch("auth_email_mfa._hr_email_usernames", return_value=[]),
+        patch(
+            "auth_email_mfa.fetch_tenant_contacts",
+            return_value={
+                "hr_email": None,
+                "billing_email": "billing@acme.co.uk",
+                "signatory_email": None,
+            },
+        ),
     ):
         assert (
             resolve_login_otp_recipient(conn=conn, username="office-admin", tenant_id=4)
             == "billing@acme.co.uk"
         )
+
+
+def test_resolve_login_otp_recipient_uses_later_hr_email_username() -> None:
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [("office-admin",), ("hr@acme.co.uk",)]
+    cursor.fetchone.return_value = None
+    assert (
+        resolve_login_otp_recipient(conn=conn, username="office-admin", tenant_id=4)
+        == "hr@acme.co.uk"
+    )
 
 
 def test_resolve_login_otp_recipient_prefers_username_email() -> None:

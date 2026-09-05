@@ -227,13 +227,14 @@ def fetch_tenant_contacts(*, tenant_id: int, conn: Any) -> dict[str, str | None]
               AND is_active = TRUE
               AND COALESCE(login_portal, 'business') = 'business'
             ORDER BY id ASC
-            LIMIT 1
             """,
             (tenant_id,),
         )
-        hr_row = cur.fetchone()
-        if hr_row:
-            hr_username = hr_row[0]
+        for hr_row in cur.fetchall() or []:
+            candidate = hr_row[0]
+            if candidate and _looks_like_email(str(candidate)):
+                hr_username = candidate
+                break
     hr_email = str(hr_username).strip() if hr_username and _looks_like_email(hr_username) else None
     return {
         "billing_email": (billing_email or "").strip() or None,
