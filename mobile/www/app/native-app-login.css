@@ -366,6 +366,7 @@ html.native-app body.portal-login-page--unified {
 .portal-login-page--unified .portal-login-form > label {
   display: grid;
   gap: 8px;
+  min-width: 0;
   font-size: 0.84rem;
   font-weight: 700;
   color: var(--native-ink);
@@ -380,7 +381,10 @@ html.native-app body.portal-login-page--unified {
 
 .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input,
 .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 50px;
   padding: 13px 15px;
   border: 1.5px solid var(--native-border);
@@ -610,12 +614,12 @@ html.native-app body.portal-login-page--unified {
 
   .portal-login-page--unified .portal-login-shell {
     display: grid !important;
-    grid-template-columns: 200px 300px;
+    grid-template-columns: 176px minmax(0, 1fr);
     grid-template-rows: auto;
     align-items: stretch;
     align-self: center;
-    width: 500px !important;
-    max-width: min(500px, calc(100vw - 32px)) !important;
+    width: min(560px, calc(100vw - 32px)) !important;
+    max-width: min(560px, calc(100vw - 32px)) !important;
     min-height: 0 !important;
     height: auto !important;
     margin: 0 auto;
@@ -662,15 +666,18 @@ html.native-app body.portal-login-page--unified {
 
   .portal-login-page--unified .native-login-sheet {
     flex: none !important;
+    box-sizing: border-box;
     max-width: none;
     width: auto;
+    min-width: 0;
     margin: 0;
     border-radius: 0;
     box-shadow: none;
-    padding: 20px 22px 18px;
+    padding: 18px 20px 16px;
     justify-content: flex-start;
     min-height: 0 !important;
     height: auto !important;
+    overflow: hidden;
   }
 
   .portal-login-page--unified .native-login-sheet::before {
@@ -678,9 +685,13 @@ html.native-app body.portal-login-page--unified {
   }
 
   .portal-login-page--unified #login-shell,
-  .portal-login-page--unified .portal-login-form {
+  .portal-login-page--unified .portal-login-form,
+  .portal-login-page--unified .portal-login-card {
     flex: none !important;
+    min-width: 0 !important;
     min-height: 0 !important;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .portal-login-page--unified .portal-login-card,
