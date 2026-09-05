@@ -310,7 +310,7 @@ body.admin-portal .nav-crumb {
   }
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 900px) and (hover: hover), (min-width: 1100px) {
   .portal-login-page:not(.portal-login-page--unified) {
     box-sizing: border-box;
     align-items: center;
