@@ -269,40 +269,40 @@ body.admin-portal .nav-crumb {
 @media (min-width: 900px) {
   .portal-login-page {
     align-items: center;
-    padding: 40px 24px;
+    padding: 28px 24px;
   }
 
   .portal-login-shell,
   .portal-login-shell--streamlined {
-    max-width: 640px;
-    width: min(100%, 640px);
-    gap: 22px;
-    padding: 12px 8px 40px;
+    max-width: 440px;
+    width: min(100%, 440px);
+    gap: 16px;
+    padding: 8px 8px 28px;
   }
 
   .portal-login-card--streamlined {
-    border-radius: 24px;
+    border-radius: 20px;
   }
 
   .portal-login-card-body {
-    padding: 36px 44px 32px;
+    padding: 24px 28px 22px;
   }
 
   .portal-login-card-head--streamlined h1,
   .portal-login-card-head h1 {
-    font-size: 2rem;
+    font-size: 1.45rem;
   }
 
   .portal-login-form--streamlined {
-    gap: 16px;
+    gap: 12px;
   }
 
   .portal-login-brand-logo {
-    width: 64px;
-    height: 64px;
-    max-width: 64px;
-    max-height: 64px;
-    border-radius: 14px;
+    width: 48px;
+    height: 48px;
+    max-width: 48px;
+    max-height: 48px;
+    border-radius: 12px;
   }
 
   .portal-login-brand-copy {
@@ -313,7 +313,7 @@ body.admin-portal .nav-crumb {
 @media (min-width: 1100px) {
   .portal-login-page:not(.portal-login-page--unified) {
     align-items: center;
-    padding: 48px 24px 56px;
+    padding: 32px 24px;
     background:
       radial-gradient(ellipse 50% 40% at 12% 20%, rgba(29, 158, 117, 0.12), transparent 55%),
       var(--page-bg, #f5f4f0);
@@ -321,18 +321,18 @@ body.admin-portal .nav-crumb {
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell,
   .portal-login-page:not(.portal-login-page--unified) .portal-login-shell--streamlined {
-    max-width: 1080px;
-    width: min(100%, 1080px);
+    max-width: 760px;
+    width: min(100%, 760px);
     display: grid;
-    grid-template-columns: minmax(340px, 0.9fr) minmax(500px, 1.15fr);
+    grid-template-columns: minmax(240px, 280px) minmax(380px, 1fr);
     align-items: stretch;
     gap: 0;
     padding: 0;
     margin: 0 auto;
-    border-radius: 28px;
+    border-radius: 22px;
     overflow: hidden;
     background: #fff;
-    box-shadow: 0 28px 80px rgba(7, 25, 18, 0.14);
+    box-shadow: 0 18px 48px rgba(7, 25, 18, 0.14);
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-brand {
@@ -340,23 +340,23 @@ body.admin-portal .nav-crumb {
       radial-gradient(ellipse 80% 60% at 80% 10%, rgba(29, 158, 117, 0.28), transparent 60%),
       linear-gradient(168deg, #071912 0%, #0a2219 28%, #0f6e56 72%, #0a5c47 100%);
     color: #fff;
-    padding: 48px 40px;
-    min-height: 100%;
-    gap: 16px;
+    padding: 28px 24px;
+    min-height: 0;
+    gap: 12px;
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-brand-logo {
-    width: 88px;
-    height: 88px;
-    max-width: 88px;
-    max-height: 88px;
-    border-radius: 20px;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+    width: 56px;
+    height: 56px;
+    max-width: 56px;
+    max-height: 56px;
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-brand-copy {
     color: rgba(255, 255, 255, 0.82);
-    font-size: 0.82rem;
+    font-size: 0.72rem;
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-card {
@@ -367,13 +367,18 @@ body.admin-portal .nav-crumb {
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-card-body {
-    padding: 48px 48px 36px;
+    padding: 28px 32px 24px;
+  }
+
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-card-head h1,
+  .portal-login-page:not(.portal-login-page--unified) .portal-login-card-head--streamlined h1 {
+    font-size: 1.4rem;
   }
 
   .portal-login-page:not(.portal-login-page--unified) .portal-login-footnote {
     grid-column: 1 / -1;
     margin: 0;
-    padding: 14px 24px 20px;
+    padding: 10px 20px 14px;
     background: #fff;
     border-top: 1px solid var(--card-border, #e8e6dc);
   }
