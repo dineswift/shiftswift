@@ -43,6 +43,9 @@ let pendingMfaMeta = {
 };
 
 async function postJsonAuth(path, body, bearerToken) {
+  if (window.ShiftSwiftBrand?.postJson) {
+    return window.ShiftSwiftBrand.postJson(path, body, { bearerToken });
+  }
   const headers = { "Content-Type": "application/json" };
   if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
   let response;
@@ -172,13 +175,16 @@ function setStatus(message) {
 }
 
 function friendlyLoginError(message, endpoint, username) {
-  if (message === "Failed to fetch" || message === "Load failed") {
+  if (message === "Failed to fetch" || message === "Load failed" || message === "Request timed out") {
     const host = window.location.hostname;
     const isLocal = host === "localhost" || host === "127.0.0.1";
     if (isLocal) {
       return "Cannot reach the API. Start it with: bash scripts/start_local.sh";
     }
-    return "Cannot reach the API. The service may be restarting — try again in a minute, or contact support if this continues.";
+    if (message === "Request timed out") {
+      return "Sign-in timed out. Try again — if this keeps happening the API may be restarting.";
+    }
+    return "Cannot reach the sign-in API. Hard-refresh (Ctrl+Shift+R) and try again. If it continues, check that api.shiftswifthr.co.uk is not blocked.";
   }
   if (message === "Invalid credentials for this login type") {
     if (endpoint.includes("master")) {
@@ -196,9 +202,12 @@ function friendlyLoginError(message, endpoint, username) {
 }
 
 async function postJson(path, body) {
+  if (window.ShiftSwiftBrand?.postJson) {
+    return window.ShiftSwiftBrand.postJson(path, body);
+  }
   let response;
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 25000);
+  const timeoutId = window.setTimeout(() => controller.abort(), 20000);
   try {
     response = await fetch(`${getApiBase()}${path}`, {
       method: "POST",
@@ -239,8 +248,12 @@ function storeSession(data) {
 
 async function storeSessionAndGo(data, url) {
   storeSession(data);
-  if (window.ShiftSwiftSession?.persistNativeSession) {
-    await window.ShiftSwiftSession.persistNativeSession();
+  try {
+    if (window.ShiftSwiftSession?.persistNativeSession) {
+      await window.ShiftSwiftSession.persistNativeSession();
+    }
+  } catch {
+    /* Native persist must not block a successful web sign-in. */
   }
   window.location.replace(url);
 }
@@ -393,7 +406,7 @@ function bindMfaForm() {
       });
       await storeSessionAndGo(data, redirectForRole(data, pendingRedirect));
     } catch (error) {
-      setStatus(error.message);
+      setStatus(friendlyLoginError(error.message, "/auth/mfa/verify", pendingMfaUsername));
     }
   });
 }

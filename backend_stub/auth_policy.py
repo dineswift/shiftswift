@@ -35,3 +35,13 @@ def email_otp_enabled_for_portal(settings: Settings, portal: str) -> bool:
     if str(portal) == "master":
         return False
     return login_require_email_mfa(settings)
+
+
+def resolve_mfa_verify_method(method: str | None, portal: str) -> str:
+    """Pick the verifier. Master is authenticator-only even if a client sends email/auto."""
+    resolved = str(method or "auto").strip().lower()
+    if resolved not in {"email", "totp", "auto"}:
+        resolved = "auto"
+    if str(portal or "") == "master":
+        return "totp"
+    return resolved

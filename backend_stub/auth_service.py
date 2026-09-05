@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from collections import defaultdict, deque
@@ -416,7 +417,11 @@ def log_security_event(
         return
     import psycopg2
 
-    conn = psycopg2.connect(settings.database_url)
+    try:
+        conn = psycopg2.connect(settings.database_url)
+    except Exception:
+        logging.getLogger(__name__).exception("security audit log connect failed")
+        return
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -436,5 +441,7 @@ def log_security_event(
                 ),
             )
         conn.commit()
+    except Exception:
+        logging.getLogger(__name__).exception("security audit log insert failed")
     finally:
         conn.close()

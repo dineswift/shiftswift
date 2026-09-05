@@ -66,15 +66,17 @@
   }
 
   async function postJson(path, body, bearerToken, options = {}) {
+    if (window.ShiftSwiftBrand?.postJson && !window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+      return window.ShiftSwiftBrand.postJson(path, body, {
+        bearerToken,
+        timeoutMs: Number(options.timeoutMs) || 20000,
+      });
+    }
     const headers = { "Content-Type": "application/json" };
     if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
-    const timeoutMs = Number(options.timeoutMs) || 0;
-    const controller = timeoutMs > 0 ? new AbortController() : null;
-    const timeoutId =
-      controller &&
-      window.setTimeout(() => {
-        controller.abort();
-      }, timeoutMs);
+    const timeoutMs = Number(options.timeoutMs) || 20000;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
     let response;
     try {
       const url = `${getApiBase()}${path}`;
@@ -82,7 +84,7 @@
         method: "POST",
         headers,
         body: body ? JSON.stringify(body) : undefined,
-        signal: controller?.signal,
+        signal: controller.signal,
       };
       if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
         response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
@@ -95,7 +97,7 @@
       }
       throw new Error("Failed to fetch");
     } finally {
-      if (timeoutId) window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId);
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -165,11 +167,14 @@
   }
 
   function friendlyLoginError(message) {
-    if (message === "Failed to fetch" || message === "Load failed") {
+    if (message === "Failed to fetch" || message === "Load failed" || message === "Request timed out") {
       if (window.ShiftSwiftBrand?.isLocalDevHost?.()) {
         return "Cannot reach the API. Start it with: bash scripts/start_local.sh";
       }
-      return "Cannot reach the API. Check your connection and try again.";
+      if (message === "Request timed out") {
+        return "Sign-in timed out. Try again — if this keeps happening the API may be restarting.";
+      }
+      return "Cannot reach the sign-in API. Hard-refresh (Ctrl+Shift+R) and try again. If it continues, check that api.shiftswifthr.co.uk is not blocked.";
     }
     if (String(message || "").includes("Master console not available from this network")) {
       return "Platform master sign-in is not allowed from this network. Use approved Wi‑Fi or VPN.";
@@ -527,7 +532,7 @@
           });
           await finishAuthSuccess(data, pendingEmail, redirectForRole(data, pendingRedirect));
         } catch (error) {
-          setStatus(error.message || "Verification failed");
+          setStatus(friendlyLoginError(error.message || "Verification failed"));
         }
       });
     }

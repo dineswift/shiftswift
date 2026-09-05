@@ -551,17 +551,17 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
 
-    method = (payload.method or "auto").strip().lower()
-    if method not in {"email", "totp", "auto"}:
-        method = "auto"
+    from auth_policy import resolve_mfa_verify_method
+
+    method = resolve_mfa_verify_method(payload.method, str(challenge.get("portal") or ""))
 
     conn = _db_conn()
     try:
-        from auth_email_mfa import verify_email_mfa_code
-
         ok = False
         used_method = method
         if method in {"email", "auto"}:
+            from auth_email_mfa import verify_email_mfa_code
+
             ok = verify_email_mfa_code(
                 conn=conn,
                 username=challenge["sub"],

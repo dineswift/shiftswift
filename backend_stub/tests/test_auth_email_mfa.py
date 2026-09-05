@@ -203,6 +203,17 @@ def test_auth_policy_email_mfa_default_on() -> None:
     assert not email_otp_enabled_for_portal(settings, "master")
 
 
+def test_master_verify_method_is_always_totp() -> None:
+    from auth_policy import resolve_mfa_verify_method
+
+    assert resolve_mfa_verify_method("email", "master") == "totp"
+    assert resolve_mfa_verify_method("auto", "master") == "totp"
+    assert resolve_mfa_verify_method(None, "master") == "totp"
+    assert resolve_mfa_verify_method("email", "business") == "email"
+    assert resolve_mfa_verify_method("totp", "business") == "totp"
+    assert resolve_mfa_verify_method("nope", "employee") == "auto"
+
+
 def test_send_email_code_route_is_registered() -> None:
     from auth_routes import router
 
