@@ -10,6 +10,7 @@ rewrite ^/docs/privacy-policy\.md$ /privacy-policy.html permanent;
 rewrite ^/docs/cookies\.md$ /cookies.html permanent;
 rewrite ^/docs/eula_hr_module\.md$ /eula.html permanent;
 rewrite ^/docs/hr_dpa_outline\.md$ /dpa.html permanent;
+rewrite ^/docs/delete-account\.md$ /delete-account.html permanent;
 ```
 
 After saving, test: `sudo nginx -t` then reload.
@@ -21,5 +22,6 @@ Canonical pages (no redirect needed):
 - `/cookies.html`
 - `/eula.html`
 - `/dpa.html`
+- `/delete-account.html`
 
 These are deployed with `bash deploy/cloudpanel/pull-production.sh`.

@@ -14,7 +14,7 @@ Login, admin, employee portal, signup, time clock, platform OPS.
 
 ## www.shiftswifthr.co.uk (marketing only)
 
-Homepage, pricing, legal pages (`privacy-policy.html`, `eula.html`, …).
+Homepage, pricing, legal pages (`privacy-policy.html`, `eula.html`, `delete-account.html`, …).
 
 1. Site root should **not** contain `business-login.html`, `admin.html`, or other HR app pages.
 2. `pull-production.sh` syncs **marketing files only** to www; the full app goes to **app.** only.

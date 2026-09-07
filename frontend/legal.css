@@ -117,6 +117,90 @@ body.legal-page {
   font-size: 0.875rem;
 }
 
+.legal-doc ol {
+  margin: 0 0 12px;
+  padding-left: 1.25rem;
+}
+
+.legal-form {
+  margin: 8px 0 24px;
+  padding: 18px 16px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: var(--gray-100);
+}
+
+.legal-form h2 {
+  margin-top: 0;
+}
+
+.legal-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--green-800);
+}
+
+.legal-form__field input,
+.legal-form__field select,
+.legal-form__field textarea {
+  font: inherit;
+  font-weight: 500;
+  color: var(--gray-900);
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+}
+
+.legal-form__field textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.legal-form__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.legal-form__check input {
+  margin-top: 3px;
+}
+
+.legal-form__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green-700);
+  color: var(--white);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.legal-form__submit:hover {
+  background: var(--green-800);
+}
+
+.legal-form__fallback,
+.legal-form__status {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  color: var(--gray-500);
+}
+
 .legal-page__footer {
   margin-top: 24px;
   text-align: center;

@@ -1,6 +1,6 @@
 # Privacy Policy | ShiftSwift HR
 
-**Last updated:** 10 June 2026  
+**Last updated:** 7 September 2026  
 **Applies to:** ShiftSwift HR (https://www.shiftswifthr.co.uk) and the ShiftSwift HR admin application (https://app.shiftswifthr.co.uk)
 
 ---
@@ -110,6 +110,8 @@ We aim to keep HR data in the UK/EEA. If data is transferred outside the UK, we 
 ## 10. Your rights
 
 If we process your data as **controller** (e.g. your sign-up details), you may request access, correction, erasure, restriction, or portability where applicable. Contact legal@datasoftwareanalytics.co.uk.
+
+To delete a ShiftSwift HR app account and associated data, use https://www.shiftswifthr.co.uk/delete-account.html (Google Play Data safety deletion URL).
 
 For **employee HR data**, contact your employer first. They are the controller.
 

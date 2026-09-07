@@ -1,7 +1,7 @@
 # ShiftSwift HR — compliance checklist (operator)
 
 **For:** Datasoftware Analytics Ltd (ShiftSwift HR)  
-**Last updated:** 10 June 2026  
+**Last updated:** 7 September 2026  
 **Not legal advice** — use with a UK solicitor specialising in SaaS and employment data.
 
 ---
@@ -21,7 +21,7 @@ Work through each section. Mark **Done**, **In progress**, or **N/A**. Revisit q
 | 1.3 | Cookie policy + consent banner live | ☐ | `cookies.html` + `cookie-consent.js` on public pages |
 | 1.4 | Record of Processing Activities (ROPA) written | ☐ | Internal doc: what, why, lawful basis, retention, recipients |
 | 1.5 | Data breach playbook (72h to customers) | ☐ | Who decides, who emails, template notification |
-| 1.6 | SAR / erasure process documented | ☐ | `legal@datasoftwareanalytics.co.uk` owner + SLA |
+| 1.6 | SAR / erasure process documented | ☐ | `legal@datasoftwareanalytics.co.uk` + public page `frontend/delete-account.html` |
 | 1.7 | Customer offboarding: export + delete runbook | ☐ | Align with DPA § deletion (30–90 days) |
 
 ---
@@ -102,6 +102,7 @@ Work through each section. Mark **Done**, **In progress**, or **N/A**. Revisit q
 | Document | Path |
 |----------|------|
 | Privacy policy | `frontend/privacy-policy.html` |
+| Account / data deletion | `frontend/delete-account.html` (`https://www.shiftswifthr.co.uk/delete-account.html`) |
 | Cookie policy | `frontend/cookies.html` |
 | DPA outline | `frontend/dpa.html` |
 | Production readiness | `docs/production_readiness.md` |

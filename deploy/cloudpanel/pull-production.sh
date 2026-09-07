@@ -81,6 +81,7 @@ rsync -a --delete --delete-excluded \
   --include='eula.html' \
   --include='dpa.html' \
   --include='payment-terms.html' \
+  --include='delete-account.html' \
   --include='legal.css' \
   --include='payroll-export-guide.html' \
   --include='staff-export-guide.html' \
@@ -146,6 +147,7 @@ LEGAL_PAGES=(
   cookies.html
   eula.html
   dpa.html
+  delete-account.html
   legal.css
 )
 LEGAL_DOCS=(
@@ -154,6 +156,7 @@ LEGAL_DOCS=(
   docs/cookies.md
   docs/eula_hr_module.md
   docs/hr_dpa_outline.md
+  docs/delete-account.md
 )
 for root in "${APP_ROOT}" "${WWW_ROOT}"; do
   for page in "${LEGAL_PAGES[@]}"; do
