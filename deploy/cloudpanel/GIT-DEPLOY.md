@@ -106,7 +106,7 @@ rsync -a --delete frontend/ /home/shiftswifthr-app/htdocs/app.shiftswifthr.co.uk
 rsync -a --delete frontend/ /home/shiftswifthr/htdocs/www.shiftswifthr.co.uk/
 ```
 
-**Legal pages:** Canonical URLs are `/payment-terms.html`, `/privacy-policy.html`, `/cookies.html`, `/eula.html`, `/dpa.html`. Deploy with `pull-production.sh` (rsyncs `frontend/`).
+**Legal pages:** Canonical URLs are `/payment-terms.html`, `/privacy-policy.html`, `/cookies.html`, `/eula.html`, `/dpa.html`, `/delete-account.html`. Deploy with `pull-production.sh` (rsyncs `frontend/`, including the www marketing allowlist).
 
 Legacy `/docs/*.md` links: optional nginx rewrites in `deploy/cloudpanel/www-legal-redirects.snippet`. **Do not paste Apache `.htaccess` into CloudPanel nginx config** — use the rewrite lines from that snippet only.
 

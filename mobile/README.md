@@ -81,7 +81,7 @@ SSHR_APP=business npx @capacitor/assets generate --ios
 
 1. **Apple Developer Program** — enroll at [developer.apple.com](https://developer.apple.com).
 2. **App Store Connect** — create two apps (Employee + HR Admin).
-3. **Privacy** — declare location and camera use (clock-in / QR); link to [privacy policy](https://app.shiftswifthr.co.uk/privacy-policy.html).
+3. **Privacy** — declare location and camera use (clock-in / QR); link to [privacy policy](https://www.shiftswifthr.co.uk/privacy-policy.html). Play Console Data safety **account deletion** and **data deletion** URLs must be [https://www.shiftswifthr.co.uk/delete-account.html](https://www.shiftswifthr.co.uk/delete-account.html) (must return HTTP 200).
 4. **Screenshots** — capture from iPhone simulator (6.7" and 6.1" required).
 5. **Archive** — Xcode → Product → Archive → Distribute to App Store.
 6. **Push notifications (optional v2)** — add APNs key in Apple Developer, enable Push capability in Xcode, extend API for native push tokens.

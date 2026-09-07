@@ -110,6 +110,7 @@
 - [ ] https://www.shiftswifthr.co.uk/eula.html
 - [ ] https://www.shiftswifthr.co.uk/dpa.html
 - [ ] https://www.shiftswifthr.co.uk/payment-terms.html
+- [ ] https://www.shiftswifthr.co.uk/delete-account.html (Google Play Data safety account + data deletion URL)
 - [ ] Cookie banner works on www (accept + essential-only paths)
 
 ---
