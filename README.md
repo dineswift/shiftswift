@@ -10,7 +10,7 @@ ShiftSwift HR stays at the repo root. A **lettings CRM** lives beside a snapshot
 |---------|--------|-------|
 | ShiftSwift HR (live) | repo root | `bash scripts/start_local.sh` |
 | ShiftSwift HR (UI snapshot) | `products/ShiftSwift/` | open `products/index.html` |
-| **SwiftCRM** (lettings & housing) | `products/SwiftCRM/` | `bash products/SwiftCRM/scripts/start.sh` |
+| **SwiftCRM** (lettings & housing) | `products/SwiftCRM/` | `SWIFTCRM_RESET=1 bash products/SwiftCRM/scripts/install_local.sh` then `bash products/SwiftCRM/scripts/start.sh` |
 
 SwiftCRM uses ink navy and copper — not the HR pine/verdant palette.
 

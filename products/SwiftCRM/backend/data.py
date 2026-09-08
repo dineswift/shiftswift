@@ -1,19 +1,20 @@
-"""SwiftCRM seed data and SQLite store — lettings domain (not ShiftSwift HR)."""
+"""SwiftCRM store — lettings desk: properties, tenants, landlords, tax, communications."""
 
 from __future__ import annotations
 
-import json
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 DB_PATH = Path(__file__).resolve().parent / "data" / "swiftcrm.db"
+SCHEMA_VERSION = "2"
 
-# Occupier / landlord demo password is only used at login (not stored hashed in v1).
 DEMO_EMAIL = "agency@swiftcrm.local"
 DEMO_PASSWORD = "Lettings-Demo-2026"
 DEMO_TOKEN = "swiftcrm-demo-agency-token"
+TENANT_PORTAL_PASSWORD = "Tenant-Demo-2026"
+LANDLORD_PORTAL_PASSWORD = "Landlord-Demo-2026"
 
 
 def connect() -> sqlite3.Connection:
@@ -22,6 +23,15 @@ def connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    return {str(r[1]) for r in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _add_column(conn: sqlite3.Connection, table: str, name: str, ddl: str) -> None:
+    if name not in _columns(conn, table):
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
 
 def init_db() -> None:
@@ -94,14 +104,72 @@ def init_db() -> None:
               value_pcm INTEGER,
               notes TEXT
             );
+            CREATE TABLE IF NOT EXISTS communications (
+              id INTEGER PRIMARY KEY,
+              created_at TEXT NOT NULL,
+              author_role TEXT NOT NULL,
+              author_name TEXT NOT NULL,
+              audience TEXT NOT NULL,
+              channel TEXT NOT NULL,
+              property_id INTEGER,
+              tenancy_id INTEGER,
+              contact_id INTEGER,
+              subject TEXT NOT NULL,
+              body TEXT NOT NULL
+            );
             """
         )
+        _migrate(conn)
         seeded = conn.execute("SELECT value FROM meta WHERE key = 'seeded'").fetchone()
-        if seeded:
-            return
-        _seed(conn)
-        conn.execute("INSERT INTO meta (key, value) VALUES ('seeded', '1')")
+        if not seeded:
+            _seed(conn)
+            conn.execute("INSERT INTO meta (key, value) VALUES ('seeded', '1')")
+        version = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+        if not version:
+            _seed_tax_and_comms(conn)
+            conn.execute(
+                "INSERT INTO meta (key, value) VALUES ('schema_version', ?)",
+                (SCHEMA_VERSION,),
+            )
+        elif version["value"] != SCHEMA_VERSION:
+            conn.execute(
+                "UPDATE meta SET value = ? WHERE key = 'schema_version'",
+                (SCHEMA_VERSION,),
+            )
         conn.commit()
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for name, ddl in [
+        ("address_line", "TEXT"),
+        ("city", "TEXT"),
+        ("postcode", "TEXT"),
+        ("date_of_birth", "TEXT"),
+        ("utr", "TEXT"),
+        ("nrl_status", "TEXT"),
+        ("nrl_ref", "TEXT"),
+        ("preferred_channel", "TEXT"),
+    ]:
+        _add_column(conn, "contacts", name, ddl)
+
+    for name, ddl in [
+        ("council_tax_band", "TEXT"),
+        ("council_tax_authority", "TEXT"),
+        ("council_tax_account", "TEXT"),
+        ("council_tax_liable", "TEXT"),
+        ("epc_rating", "TEXT"),
+        ("gas_due", "TEXT"),
+        ("eicr_due", "TEXT"),
+    ]:
+        _add_column(conn, "properties", name, ddl)
+
+    for name, ddl in [
+        ("rent_due_day", "INTEGER"),
+        ("deposit_scheme", "TEXT"),
+        ("deposit_ref", "TEXT"),
+        ("furnished", "TEXT"),
+    ]:
+        _add_column(conn, "tenancies", name, ddl)
 
 
 def _seed(conn: sqlite3.Connection) -> None:
@@ -117,10 +185,10 @@ def _seed(conn: sqlite3.Connection) -> None:
         (7, "Ben Cole", "ben.cole@example.com", "07700 900115", "applicant", "Offer accepted, referencing in progress."),
         (8, "Helen Frost", "helen.frost@example.com", "07700 900116", "guarantor", "Guarantor for Luca Bianchi."),
     ]
-    for row in landlords + occupiers:
+    for item in landlords + occupiers:
         conn.execute(
             "INSERT INTO contacts (id, name, email, phone, role, notes) VALUES (?,?,?,?,?,?)",
-            row,
+            item,
         )
 
     properties = [
@@ -136,7 +204,6 @@ def _seed(conn: sqlite3.Connection) -> None:
         properties,
     )
 
-    today = date.today()
     tenancies = [
         (1, 1, 3, 1, "2025-03-01", "2026-02-28", 95000, 95000, "active"),
         (2, 2, 4, 2, "2024-09-14", "2026-09-13", 125000, 144000, "active"),
@@ -149,6 +216,7 @@ def _seed(conn: sqlite3.Connection) -> None:
         tenancies,
     )
 
+    today = date.today()
     invoices = [
         (1, "INV-2026-0041", 1, 1, 3, (today - timedelta(days=40)).isoformat(), (today - timedelta(days=32)).isoformat(), 95000, "paid", "Rent — Mapperley Park garden flat", "synced"),
         (2, "INV-2026-0048", 1, 1, 3, (today - timedelta(days=10)).isoformat(), (today - timedelta(days=2)).isoformat(), 95000, "due", "Rent — Mapperley Park garden flat", "queued"),
@@ -163,26 +231,84 @@ def _seed(conn: sqlite3.Connection) -> None:
            VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
         invoices,
     )
-
-    payments = [
-        (1, 1, 95000, (today - timedelta(days=33)).isoformat(), "bacs", "GC-MAP-0041"),
-        (2, 3, 125000, (today - timedelta(days=6)).isoformat(), "bacs", "GC-CHL-0039"),
-        (3, 6, 18000, (today - timedelta(days=14)).isoformat(), "card", "ST-FEE-0044"),
-    ]
     conn.executemany(
         "INSERT INTO payments (id, invoice_id, amount_pence, paid_on, method, reference) VALUES (?,?,?,?,?,?)",
-        payments,
+        [
+            (1, 1, 95000, (today - timedelta(days=33)).isoformat(), "bacs", "GC-MAP-0041"),
+            (2, 3, 125000, (today - timedelta(days=6)).isoformat(), "bacs", "GC-CHL-0039"),
+            (3, 6, 18000, (today - timedelta(days=14)).isoformat(), "card", "ST-FEE-0044"),
+        ],
     )
-
-    deals = [
-        (1, "Lenton HMO — room 2 enquiry", 6, 3, "viewing", 60000, "Viewing Friday 4pm."),
-        (2, "Chilwell — next AST", 7, 2, "referencing", 125000, "Offer accepted. Credit & RTB checks."),
-        (3, "New landlord instruction — West Bridgford", 1, None, "enquiry", None, "Two-bed from October. Valuation booked."),
-        (4, "Station Street — arrears plan", 5, 4, "offer", 72500, "Occupier proposed £100/wk catch-up."),
-    ]
     conn.executemany(
         "INSERT INTO deals (id, title, contact_id, property_id, stage, value_pcm, notes) VALUES (?,?,?,?,?,?,?)",
-        deals,
+        [
+            (1, "Lenton HMO — room 2 enquiry", 6, 3, "viewing", 60000, "Viewing Friday 4pm."),
+            (2, "Chilwell — next AST", 7, 2, "referencing", 125000, "Offer accepted. Credit & RTB checks."),
+            (3, "New landlord instruction — West Bridgford", 1, None, "enquiry", None, "Two-bed from October. Valuation booked."),
+            (4, "Station Street — arrears plan", 5, 4, "offer", 72500, "Occupier proposed £100/wk catch-up."),
+        ],
+    )
+
+
+def _seed_tax_and_comms(conn: sqlite3.Connection) -> None:
+    conn.executemany(
+        """UPDATE contacts SET address_line=?, city=?, postcode=?, date_of_birth=?, utr=?, nrl_status=?, nrl_ref=?, preferred_channel=?
+           WHERE id=?""",
+        [
+            ("12 Huntingdon Drive", "Nottingham", "NG3 5AU", None, "1234567890", "uk_resident", None, "email", 1),
+            ("88 Derby Road", "Nottingham", "NG1 5FB", None, "5556677889", "nrl_applied", "NRL-2026-441", "email", 2),
+            ("14 Mapperley Park", "Nottingham", "NG3 5AA", "1994-06-12", None, None, None, "sms", 3),
+            ("8 Chilwell Lane", "Beeston", "NG9 1BB", None, None, None, None, "email", 4),
+            ("3 Station Street", "Long Eaton", "NG10 1DD", "1990-01-20", None, None, None, "phone", 5),
+            ("22 Derby Road", "Lenton", "NG7 1CC", "1998-03-03", None, None, None, "email", 6),
+            ("4 Abbey Street", "Dunkirk", "NG7 2NZ", "1996-11-08", None, None, None, "email", 7),
+            ("19 Wollaton Vale", "Nottingham", "NG8 2PE", None, None, None, None, "email", 8),
+        ],
+    )
+    conn.executemany(
+        """UPDATE properties SET council_tax_band=?, council_tax_authority=?, council_tax_account=?, council_tax_liable=?, epc_rating=?, gas_due=?, eicr_due=?
+           WHERE id=?""",
+        [
+            ("B", "Nottingham City Council", "NCC-88421", "occupier", "C", "2026-10-12", "2027-02-01", 1),
+            ("D", "Broxtowe Borough Council", "BBC-10293", "occupier", "C", "2026-08-20", "2026-12-15", 2),
+            ("C", "Nottingham City Council", "NCC-66102", "landlord", "D", "2026-11-04", "2027-01-18", 3),
+            ("A", "Erewash Borough Council", "EBC-44019", "occupier", "E", "2027-01-09", "2027-03-22", 4),
+        ],
+    )
+    conn.executemany(
+        "UPDATE tenancies SET rent_due_day=?, deposit_scheme=?, deposit_ref=?, furnished=? WHERE id=?",
+        [
+            (1, "TDS", "TDS-889201", "part", 1),
+            (14, "DPS", "DPS-441882", "unfurnished", 2),
+            (1, "MyDeposits", "MD-220194", "furnished", 3),
+        ],
+    )
+
+    now = datetime.now(timezone.utc)
+
+    def stamp(days: int) -> str:
+        return (now - timedelta(days=days)).replace(microsecond=0).isoformat()
+
+    existing = conn.execute("SELECT COUNT(*) FROM communications").fetchone()[0]
+    if existing:
+        return
+
+    messages = [
+        (stamp(18), "agency", "Alex Morgan", "occupier", "email", 1, 1, 3, "Welcome to Mapperley Park", "Hannah — keys, meter readings and the AST pack are in your portal. Council tax is in your name with Nottingham City (band B)."),
+        (stamp(9), "agency", "Alex Morgan", "landlord", "email", 1, 1, 1, "Gas service booked", "Priya — British Gas booked 12 Oct for Mapperley Park. Tenant Hannah has been told."),
+        (stamp(8), "occupier", "Hannah Reid", "occupier", "portal", 1, 1, 3, "Boiler making a noise", "The boiler kicks in loudly overnight. Happy for an engineer any weekday after 9am."),
+        (stamp(7), "agency", "Alex Morgan", "both", "email", 1, 1, 3, "Engineer arranged", "An engineer will attend Thursday 10:00. Landlord Priya and tenant Hannah are both copied."),
+        (stamp(5), "agency", "Alex Morgan", "occupier", "sms", 4, 3, 5, "Rent arrears — payment plan", "Luca — INV-2026-0050 is overdue. We can take £100/week by Bacs until you are current. Reply if that works."),
+        (stamp(4), "occupier", "Luca Bianchi", "occupier", "portal", 4, 3, 5, "Re: payment plan", "£100 a week is ok from Friday. Please confirm the reference."),
+        (stamp(3), "agency", "Alex Morgan", "landlord", "email", 4, 3, 1, "Arrears update — Station Street", "Priya — Luca has agreed £100/week catch-up. We will collect and report weekly."),
+        (stamp(2), "agency", "Alex Morgan", "landlord", "email", 3, None, 2, "HMO licence and council tax", "James — Derby Road remains landlord-liable for council tax while room 2 is void. NRL application NRL-2026-441 is on file; we are not withholding yet."),
+        (stamp(1), "landlord", "James Okafor", "landlord", "portal", 3, None, 2, "Room 2 viewing", "Please go ahead with Amira Khan viewing on Friday. Keep me posted on referencing."),
+    ]
+    conn.executemany(
+        """INSERT INTO communications
+           (created_at, author_role, author_name, audience, channel, property_id, tenancy_id, contact_id, subject, body)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        messages,
     )
 
 
@@ -202,7 +328,3 @@ def execute(query: str, params: tuple[Any, ...] = ()) -> int:
         cur = conn.execute(query, params)
         conn.commit()
         return int(cur.lastrowid)
-
-
-def dumps_pretty(data: Any) -> str:
-    return json.dumps(data, indent=2, default=str)

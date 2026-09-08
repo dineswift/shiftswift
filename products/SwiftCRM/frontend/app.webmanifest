@@ -1,0 +1,9 @@
+{
+  "name": "SwiftCRM Agency",
+  "short_name": "SwiftCRM",
+  "start_url": "./app.html",
+  "display": "standalone",
+  "background_color": "#0e1726",
+  "theme_color": "#0e1726",
+  "icons": [{ "src": "./assets/mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

@@ -244,10 +244,48 @@ dialog.sheet::backdrop { background: rgba(14, 23, 38, 0.45); }
 .login-card label { display: grid; gap: 6px; font-weight: 650; font-size: 0.85rem; }
 .login-card .hint { margin: 16px 0 0; font-size: 0.8rem; color: var(--stone); }
 
+.chip--occupier, .chip--tenant { background: var(--copper-soft); color: var(--copper-dark); }
+.chip--both { background: #e8eef6; color: var(--navy); }
+.chip--internal { background: #eee; color: var(--stone); }
+.chip--uk_resident { background: #e4f0e8; color: var(--ok); }
+.chip--nrl_applied, .chip--nrl_approval, .chip--withheld { background: #fef3c7; color: var(--warn); }
+.chip--void { background: var(--linen-dark); color: var(--stone); }
+.chip--email, .chip--sms, .chip--phone, .chip--portal, .chip--note { background: #e8eef6; color: var(--navy); }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+}
+
+.kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 0.92rem; }
+.kv dt { color: var(--stone); margin: 0; }
+.kv dd { margin: 0; font-weight: 650; color: var(--navy); }
+
+.thread { display: grid; gap: 10px; padding-bottom: 16px; }
+.msg {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: var(--linen);
+}
+.msg--agency { background: #fff; }
+.msg--landlord { border-color: #c5d0e4; }
+.msg--occupier { border-color: var(--copper-soft); }
+.msg header { display: flex; justify-content: space-between; gap: 8px; font-size: 0.78rem; color: var(--stone); margin-bottom: 4px; }
+.msg b { color: var(--navy); display: block; margin-bottom: 4px; }
+.msg p { margin: 0; white-space: pre-wrap; }
+
+.back { font-weight: 650; text-decoration: none; color: var(--copper); font-size: 0.88rem; }
+
+table.data a { color: var(--navy); font-weight: 650; text-decoration: none; }
+table.data a:hover { color: var(--copper); }
+
 @media (max-width: 980px) {
   body.app { grid-template-columns: 1fr; }
   .sidebar { min-height: auto; position: relative; flex-direction: row; flex-wrap: wrap; }
   .sidebar .agency { margin-top: 0; width: 100%; }
   .kpi-grid { grid-template-columns: 1fr 1fr; }
   .pipeline { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+  .detail-grid { grid-template-columns: 1fr; }
 }

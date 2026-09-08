@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SwiftCRM · Agency desk</title>
     <meta name="theme-color" content="#0e1726" />
+    <link rel="manifest" href="./app.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
     <link rel="stylesheet" href="./css/app.css" />
   </head>
@@ -14,15 +15,18 @@
         <img src="./assets/mark.svg" alt="" />
         SwiftCRM
       </a>
-      <p class="nav-label">Desk</p>
+      <p class="nav-label">Records</p>
       <a class="nav-link is-active" data-section="overview" href="#overview">Overview</a>
+      <a class="nav-link" data-section="lettings" href="#lettings">Lettings</a>
       <a class="nav-link" data-section="properties" href="#properties">Properties</a>
-      <a class="nav-link" data-section="people" href="#people">People</a>
-      <a class="nav-link" data-section="tenancies" href="#tenancies">Tenancies</a>
+      <a class="nav-link" data-section="tenants" href="#tenants">Tenants</a>
+      <a class="nav-link" data-section="landlords" href="#landlords">Landlords</a>
+      <p class="nav-label">Agency</p>
+      <a class="nav-link" data-section="inbox" href="#inbox">Updates</a>
+      <a class="nav-link" data-section="tax" href="#tax">Local tax</a>
       <p class="nav-label">Money</p>
       <a class="nav-link" data-section="invoices" href="#invoices">Invoices</a>
       <a class="nav-link" data-section="payments" href="#payments">Payments</a>
-      <p class="nav-label">Lettings</p>
       <a class="nav-link" data-section="pipeline" href="#pipeline">Pipeline</a>
       <a class="nav-link" data-section="settings" href="#settings">Settings</a>
       <div class="agency">
@@ -60,6 +64,15 @@
           </select>
         </label>
         <label>Rent £ / month <input name="rent_pcm" type="number" min="1" step="1" required /></label>
+        <label>Council tax band <input name="council_tax_band" placeholder="A–H" maxlength="2" /></label>
+        <label>Billing authority <input name="council_tax_authority" placeholder="Nottingham City Council" /></label>
+        <label>Who is liable
+          <select name="council_tax_liable">
+            <option value="occupier">Tenant</option>
+            <option value="landlord">Landlord</option>
+            <option value="void">Void / empty</option>
+          </select>
+        </label>
         <label>Notes <textarea name="notes" rows="2"></textarea></label>
         <p class="error hidden" id="property-error"></p>
         <div class="sheet-actions">
@@ -76,11 +89,24 @@
         <label>Email <input name="email" type="email" /></label>
         <label>Phone <input name="phone" /></label>
         <label>Role
-          <select name="role">
+          <select name="role" id="contact-role">
+            <option value="occupier">Tenant</option>
             <option value="landlord">Landlord</option>
-            <option value="occupier">Occupier</option>
             <option value="applicant">Applicant</option>
             <option value="guarantor">Guarantor</option>
+          </select>
+        </label>
+        <label>Address <input name="address_line" /></label>
+        <label>City <input name="city" /></label>
+        <label>Postcode <input name="postcode" /></label>
+        <label class="landlord-only hidden">UTR (self assessment) <input name="utr" /></label>
+        <label class="landlord-only hidden">NRL status
+          <select name="nrl_status">
+            <option value="">—</option>
+            <option value="uk_resident">UK resident</option>
+            <option value="nrl_applied">NRL applied</option>
+            <option value="nrl_approval">NRL approval</option>
+            <option value="withheld">Withholding</option>
           </select>
         </label>
         <label>Notes <textarea name="notes" rows="2"></textarea></label>
@@ -108,6 +134,65 @@
         <div class="sheet-actions">
           <button type="button" class="btn btn--ghost" id="invoice-cancel">Cancel</button>
           <button type="submit" class="btn btn--copper">Issue invoice</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="letting-dialog">
+      <form class="sheet-body" id="letting-form">
+        <h3>Record a letting</h3>
+        <label>Property <select name="property_id" id="letting-property" required></select></label>
+        <label>Tenant <select name="occupier_id" id="letting-tenant" required></select></label>
+        <label>Landlord <select name="landlord_id" id="letting-landlord" required></select></label>
+        <label>Start <input name="start_date" type="date" required /></label>
+        <label>End <input name="end_date" type="date" /></label>
+        <label>Rent £ / month <input name="rent_pcm" type="number" min="1" step="1" required /></label>
+        <label>Deposit £ <input name="deposit" type="number" min="0" step="1" required /></label>
+        <label>Rent due day <input name="rent_due_day" type="number" min="1" max="28" value="1" /></label>
+        <label>Deposit scheme
+          <select name="deposit_scheme">
+            <option value="TDS">TDS</option>
+            <option value="DPS">DPS</option>
+            <option value="MyDeposits">MyDeposits</option>
+          </select>
+        </label>
+        <label>Deposit ref <input name="deposit_ref" /></label>
+        <p class="error hidden" id="letting-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="letting-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save letting</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="message-dialog">
+      <form class="sheet-body" id="message-form">
+        <h3>Send an update</h3>
+        <label>To
+          <select name="audience">
+            <option value="occupier">Tenant</option>
+            <option value="landlord">Landlord</option>
+            <option value="both">Tenant and landlord</option>
+            <option value="internal">Internal note</option>
+          </select>
+        </label>
+        <label>Channel
+          <select name="channel">
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+            <option value="phone">Phone call</option>
+            <option value="portal">Portal</option>
+            <option value="note">File note</option>
+          </select>
+        </label>
+        <label>Property <select name="property_id" id="message-property"></select></label>
+        <label>Person <select name="contact_id" id="message-contact"></select></label>
+        <label>Subject <input name="subject" required /></label>
+        <label>Message <textarea name="body" rows="4" required></textarea></label>
+        <p class="error hidden" id="message-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="message-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Log update</button>
         </div>
       </form>
     </dialog>

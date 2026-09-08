@@ -1,0 +1,9 @@
+{
+  "name": "SwiftCRM Tenant",
+  "short_name": "Tenant",
+  "start_url": "./tenant.html",
+  "display": "standalone",
+  "background_color": "#152238",
+  "theme_color": "#152238",
+  "icons": [{ "src": "./assets/mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

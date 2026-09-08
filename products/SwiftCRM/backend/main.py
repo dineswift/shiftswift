@@ -9,7 +9,18 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from data import DEMO_EMAIL, DEMO_PASSWORD, DEMO_TOKEN, execute, init_db, row, rows
+from data import (
+    DEMO_EMAIL,
+    DEMO_PASSWORD,
+    DEMO_TOKEN,
+    LANDLORD_PORTAL_PASSWORD,
+    TENANT_PORTAL_PASSWORD,
+    execute,
+    init_db,
+    row,
+    rows,
+)
+from desk import bind as bind_desk_routes
 
 app = FastAPI(title="SwiftCRM", version="0.1.0", description="Lettings & housing CRM")
 app.add_middleware(
@@ -28,12 +39,35 @@ def startup() -> None:
     init_db()
 
 
-def require_auth(authorization: str | None) -> None:
+def parse_actor(authorization: str | None) -> dict[str, Any]:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Sign in required")
     token = authorization.split(" ", 1)[1].strip()
-    if token != DEMO_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid session")
+    if token == DEMO_TOKEN:
+        return {"role": "agency", "id": 0, "name": "Alex Morgan", "email": DEMO_EMAIL}
+    if token.startswith("swiftcrm-portal-"):
+        parts = token.split("-")
+        if len(parts) >= 4:
+            role = parts[2]
+            try:
+                cid = int(parts[3])
+            except ValueError as exc:
+                raise HTTPException(status_code=401, detail="Invalid session") from exc
+            person = row("SELECT * FROM contacts WHERE id = ? AND role = ?", (cid, role))
+            if person:
+                return {"role": role, "id": cid, "name": person["name"], "email": person["email"]}
+    raise HTTPException(status_code=401, detail="Invalid session")
+
+
+def require_agency(authorization: str | None) -> dict[str, Any]:
+    actor = parse_actor(authorization)
+    if actor["role"] != "agency":
+        raise HTTPException(status_code=403, detail="Agency desk only")
+    return actor
+
+
+def require_auth(authorization: str | None) -> None:
+    require_agency(authorization)
 
 
 def gbp(pence: int | None) -> float | None:
@@ -87,6 +121,7 @@ def decorate_invoice(item: dict[str, Any]) -> dict[str, Any]:
 class LoginBody(BaseModel):
     email: str
     password: str
+    portal: str | None = None
 
 
 class PropertyCreate(BaseModel):
@@ -99,6 +134,11 @@ class PropertyCreate(BaseModel):
     rent_pcm: float = Field(gt=0)
     landlord_id: int | None = None
     notes: str | None = None
+    council_tax_band: str | None = None
+    council_tax_authority: str | None = None
+    council_tax_account: str | None = None
+    council_tax_liable: str | None = None
+    epc_rating: str | None = None
 
 
 class ContactCreate(BaseModel):
@@ -107,6 +147,13 @@ class ContactCreate(BaseModel):
     phone: str | None = None
     role: str = Field(pattern="^(landlord|occupier|applicant|guarantor)$")
     notes: str | None = None
+    address_line: str | None = None
+    city: str | None = None
+    postcode: str | None = None
+    utr: str | None = None
+    nrl_status: str | None = None
+    nrl_ref: str | None = None
+    preferred_channel: str | None = None
 
 
 class InvoiceCreate(BaseModel):
@@ -133,14 +180,34 @@ def health() -> dict[str, str]:
 
 @app.post("/auth/login")
 def login(body: LoginBody) -> dict[str, Any]:
-    if body.email.strip().lower() != DEMO_EMAIL or body.password != DEMO_PASSWORD:
+    email = body.email.strip().lower()
+    portal = (body.portal or "agency").lower()
+    if portal == "agency":
+        if email != DEMO_EMAIL or body.password != DEMO_PASSWORD:
+            raise HTTPException(status_code=401, detail="Check email and password")
+        return {
+            "token": DEMO_TOKEN,
+            "user": {
+                "name": "Alex Morgan",
+                "email": DEMO_EMAIL,
+                "role": "agency_admin",
+                "agency": "Charlbury Lettings",
+            },
+        }
+    role = "occupier" if portal in {"tenant", "occupier"} else "landlord"
+    expected = TENANT_PORTAL_PASSWORD if role == "occupier" else LANDLORD_PORTAL_PASSWORD
+    if body.password != expected:
         raise HTTPException(status_code=401, detail="Check email and password")
+    person = row("SELECT * FROM contacts WHERE lower(email) = ? AND role = ?", (email, role))
+    if not person:
+        raise HTTPException(status_code=401, detail="No portal account for that email")
     return {
-        "token": DEMO_TOKEN,
+        "token": f"swiftcrm-portal-{role}-{person['id']}",
         "user": {
-            "name": "Alex Morgan",
-            "email": DEMO_EMAIL,
-            "role": "agency_admin",
+            "id": person["id"],
+            "name": person["name"],
+            "email": person["email"],
+            "role": role,
             "agency": "Charlbury Lettings",
         },
     }
@@ -166,6 +233,8 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
     arrears = row(
         "SELECT COALESCE(SUM(amount_pence),0) AS total FROM invoices WHERE status = 'overdue'"
     )
+    lettings = row("SELECT COUNT(*) AS n FROM tenancies WHERE status = 'active'")
+    inbox = row("SELECT COUNT(*) AS n FROM communications")
     pipeline = row("SELECT COUNT(*) AS n FROM deals WHERE stage NOT IN ('lost','move_in')")
     by_status = {r["status"]: r["n"] for r in props}
     inv = {r["status"]: {"count": r["n"], "amount": gbp(r["total"])} for r in invoices}
@@ -177,14 +246,22 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
            WHERE i.status IN ('due','overdue')
            ORDER BY i.due_on ASC LIMIT 6"""
     )
+    latest = rows(
+        """SELECT c.*, p.name AS property_name
+           FROM communications c
+           LEFT JOIN properties p ON p.id = c.property_id
+           ORDER BY c.created_at DESC LIMIT 5"""
+    )
     return {
         "portfolio": {
             "properties": sum(by_status.values()),
             "let": by_status.get("let", 0),
             "available": by_status.get("available", 0),
+            "lettings": int(lettings["n"]) if lettings else 0,
         },
         "arrears_gbp": gbp(int(arrears["total"]) if arrears else 0),
         "open_pipeline": int(pipeline["n"]) if pipeline else 0,
+        "inbox": int(inbox["n"]) if inbox else 0,
         "invoices": inv,
         "attention": [
             {
@@ -198,6 +275,7 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
             }
             for r in due_soon
         ],
+        "latest_updates": latest,
     }
 
 
@@ -213,8 +291,9 @@ def create_property(body: PropertyCreate, authorization: str | None = Header(def
     require_auth(authorization)
     new_id = execute(
         """INSERT INTO properties
-           (name, address_line, city, postcode, beds, property_type, status, rent_pcm, landlord_id, notes)
-           VALUES (?,?,?,?,?,?, 'available',?,?,?)""",
+           (name, address_line, city, postcode, beds, property_type, status, rent_pcm, landlord_id, notes,
+            council_tax_band, council_tax_authority, council_tax_account, council_tax_liable, epc_rating)
+           VALUES (?,?,?,?,?,?, 'available',?,?,?,?,?,?,?,?)""",
         (
             body.name,
             body.address_line,
@@ -225,6 +304,11 @@ def create_property(body: PropertyCreate, authorization: str | None = Header(def
             int(round(body.rent_pcm * 100)),
             body.landlord_id,
             body.notes,
+            body.council_tax_band,
+            body.council_tax_authority,
+            body.council_tax_account,
+            body.council_tax_liable or "occupier",
+            body.epc_rating,
         ),
     )
     created = row("SELECT * FROM properties WHERE id = ?", (new_id,))
@@ -248,8 +332,23 @@ def list_contacts(
 def create_contact(body: ContactCreate, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     require_auth(authorization)
     new_id = execute(
-        "INSERT INTO contacts (name, email, phone, role, notes) VALUES (?,?,?,?,?)",
-        (body.name, body.email, body.phone, body.role, body.notes),
+        """INSERT INTO contacts
+           (name, email, phone, role, notes, address_line, city, postcode, utr, nrl_status, nrl_ref, preferred_channel)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            body.name,
+            body.email,
+            body.phone,
+            body.role,
+            body.notes,
+            body.address_line,
+            body.city,
+            body.postcode,
+            body.utr,
+            body.nrl_status,
+            body.nrl_ref,
+            body.preferred_channel or "email",
+        ),
     )
     return row("SELECT * FROM contacts WHERE id = ?", (new_id,)) or {}
 
@@ -258,7 +357,8 @@ def create_contact(body: ContactCreate, authorization: str | None = Header(defau
 def list_tenancies(authorization: str | None = Header(default=None)) -> dict[str, Any]:
     require_auth(authorization)
     items = rows(
-        """SELECT t.*, p.name AS property_name, p.address_line, p.city,
+        """SELECT t.*, p.name AS property_name, p.address_line, p.city, p.postcode,
+                  p.council_tax_band, p.council_tax_liable,
                   o.name AS occupier_name, l.name AS landlord_name
            FROM tenancies t
            JOIN properties p ON p.id = t.property_id
@@ -388,3 +488,6 @@ def patch_deal(
         raise HTTPException(status_code=404, detail="Deal not found")
     execute("UPDATE deals SET stage = ? WHERE id = ?", (body.stage, deal_id))
     return row("SELECT * FROM deals WHERE id = ?", (deal_id,)) or {}
+
+
+app.include_router(bind_desk_routes(require_agency, parse_actor))

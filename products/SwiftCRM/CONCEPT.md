@@ -26,23 +26,28 @@ They need one place for **properties, people, tenancies, rent, and arrears** —
 
 ---
 
-## Domain model (v1)
+## Domain model
 
 ```
 Agency (SaaS customer)
-  ├── Properties / units
-  ├── Contacts
-  │     ├── Landlord
-  │     ├── Occupier  (never called "tenant" in code — that word is the SaaS agency)
-  │     ├── Applicant
-  │     └── Guarantor
-  ├── Tenancies (property + occupier + rent + deposit + AST dates)
-  ├── Invoices (rent, fees, arrears statements)
-  ├── Payments (card / Bacs mandate → allocate to invoice)
-  └── Pipeline deals (enquiry → viewing → offer → referencing → move-in)
+  ├── Properties / units + council tax
+  ├── Landlords (UTR, NRL)
+  ├── Tenants (shown as "tenants" in the UI; stored as occupier so we do not clash with ShiftSwift tenant_id)
+  ├── Lettings (property + tenant + landlord + AST)
+  ├── Updates (to tenant, landlord, or both)
+  ├── Invoices / payments
+  └── Pipeline (applicants)
 ```
 
-**Naming rule:** `agency_id` is the SaaS customer. Occupiers are `occupiers`. This avoids colliding with ShiftSwift’s `tenant_id`.
+The agency is the communicator. Tenant app and landlord app each see only their lettings and the updates addressed to them.
+
+## Apps
+
+| App | Who | Purpose |
+|-----|-----|---------|
+| Agency desk | Lettings agent | Record everything, message both sides |
+| Tenant app | Occupier | Letting, council tax, talk to the agent |
+| Landlord app | Owner | Portfolio, tenant updates, NRL/UTR on file |
 
 ---
 

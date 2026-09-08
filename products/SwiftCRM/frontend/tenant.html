@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Tenant app · SwiftCRM</title>
+    <meta name="theme-color" content="#152238" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SwiftCRM Tenant" />
+    <link rel="manifest" href="./tenant.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="login-page" id="portal-root" data-portal="tenant">
+    <div class="login-card" id="login-card">
+      <img src="./assets/mark.svg" width="40" height="40" alt="" />
+      <h1>Tenant app</h1>
+      <p class="lede">See your letting, council tax, and messages from the agency.</p>
+      <form id="portal-login">
+        <label>Email <input name="email" type="email" required value="hannah.reid@example.com" /></label>
+        <label>Password <input name="password" type="password" required value="Tenant-Demo-2026" /></label>
+        <p id="login-error" class="error hidden"></p>
+        <button class="btn btn--copper" type="submit">Open my letting</button>
+      </form>
+      <p class="hint">Demo: hannah.reid@example.com · Tenant-Demo-2026</p>
+    </div>
+    <div class="app hidden" id="portal-app" style="grid-template-columns: 1fr">
+      <div class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="portal-title">Your letting</h1>
+            <p id="portal-sub">Charlbury Lettings</p>
+          </div>
+          <button type="button" class="btn btn--ghost btn--sm" id="portal-out">Sign out</button>
+        </header>
+        <div class="workspace" id="portal-workspace"></div>
+      </div>
+    </div>
+    <script src="./js/api.js"></script>
+    <script src="./js/portal.js"></script>
+  </body>
+</html>
