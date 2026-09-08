@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -162,11 +163,17 @@ def bind(require_agency):
         ctype = request.headers.get("content-type", "")
         if "json" in ctype:
             payload = await request.json()
-        elif "form" in ctype or "urlencoded" in ctype:
-            form = await request.form()
-            payload = {str(k): str(v) for k, v in form.items()}
         else:
-            payload = dict(request.query_params)
+            raw = (await request.body()).decode("utf-8", errors="replace")
+            if raw.strip().startswith("{"):
+                import json
+
+                payload = json.loads(raw)
+            else:
+                parsed = parse_qs(raw, keep_blank_values=True)
+                payload = {k: (v[0] if v else "") for k, v in parsed.items()}
+            if not payload:
+                payload = dict(request.query_params)
 
         from_raw = payload.get("From") or payload.get("from_number") or payload.get("from") or ""
         to_raw = payload.get("To") or payload.get("to_number") or payload.get("to")
