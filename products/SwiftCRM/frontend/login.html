@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in · SwiftCRM</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="login-page">
+    <div class="login-card">
+      <img src="./assets/mark.svg" width="40" height="40" alt="SwiftCRM" />
+      <h1>Agency sign in</h1>
+      <p class="lede">Charlbury Lettings demo desk.</p>
+      <form id="login-form">
+        <label>
+          Work email
+          <input name="email" type="email" required autocomplete="username" value="agency@swiftcrm.local" />
+        </label>
+        <label>
+          Password
+          <input name="password" type="password" required autocomplete="current-password" value="Lettings-Demo-2026" />
+        </label>
+        <p id="login-error" class="error hidden"></p>
+        <button class="btn btn--copper" type="submit">Open the desk</button>
+      </form>
+      <p class="hint">Demo: agency@swiftcrm.local · Lettings-Demo-2026</p>
+    </div>
+    <script src="./js/api.js"></script>
+    <script src="./js/login.js"></script>
+  </body>
+</html>

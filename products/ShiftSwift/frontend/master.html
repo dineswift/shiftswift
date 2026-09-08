@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script>
+      (function () {
+        try {
+          if (!window.Capacitor?.isNativePlatform?.()) return;
+          window.__SSHR_BUNDLED_NATIVE_BOOT = true;
+          var scheme =
+            window.Capacitor.config && window.Capacitor.config.ios
+              ? window.Capacitor.config.ios.scheme
+              : "App";
+          if (!scheme) scheme = "App";
+          document.write(
+            '<script src="' +
+              scheme +
+              '://localhost/native-app-portal-guard.js?v=16"><\/script>',
+          );
+          document.write(
+            '<script src="' +
+              scheme +
+              '://localhost/native-app-bootstrap.js?v=16"><\/script>',
+          );
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./native-app-bootstrap.js?v=6"><\/script>');
+      }
+    </script>
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#142033" />
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <title>ShiftSwift | Master Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./master.css?v=24" />
+  </head>
+  <body class="master-app">
+    <script>
+      (function () {
+        function stripStartupLoader() {
+          try {
+            var loader = document.getElementById("native-startup-loader");
+            if (loader) loader.remove();
+            document.documentElement.classList.remove("native-startup-active");
+            document.body.classList.remove("native-startup-active");
+          } catch (e) {}
+        }
+        stripStartupLoader();
+        document.addEventListener("DOMContentLoaded", stripStartupLoader, { once: true });
+      })();
+    </script>
+    <div id="master-overlay" class="master-overlay" hidden aria-hidden="true"></div>
+
+    <aside class="master-sidebar" id="master-sidebar">
+      <div class="master-sidebar__head">
+        <div class="master-brand">
+          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" class="master-brand__logo" />
+          <span class="master-badge master-badge--admin">Master admin</span>
+        </div>
+        <button type="button" class="master-sidebar__close" id="master-sidebar-close" aria-label="Close menu">×</button>
+      </div>
+
+      <nav class="master-nav">
+        <p class="master-nav__group">Platform</p>
+        <a class="master-nav__link is-active" href="#tenants" data-master-section="tenants"><span class="master-nav__icon" data-nav-icon="building" aria-hidden="true"></span><span class="master-nav__label">Tenants</span></a>
+        <a class="master-nav__link" href="#revenue" data-master-section="revenue"><span class="master-nav__icon" data-nav-icon="trending-up" aria-hidden="true"></span><span class="master-nav__label">MRR &amp; revenue</span></a>
+        <a class="master-nav__link" href="#billing" data-master-section="billing"><span class="master-nav__icon" data-nav-icon="card" aria-hidden="true"></span><span class="master-nav__label">Billing &amp; Stripe</span></a>
+        <a class="master-nav__link" href="#alerts" data-master-section="alerts"><span class="master-nav__icon" data-nav-icon="bell" aria-hidden="true"></span><span class="master-nav__label">Platform alerts</span></a>
+
+        <p class="master-nav__group">Operations</p>
+        <a class="master-nav__link" href="#support" data-master-section="support"><span class="master-nav__icon" data-nav-icon="clipboard" aria-hidden="true"></span><span class="master-nav__label">Support tickets</span></a>
+        <a class="master-nav__link" href="#audit" data-master-section="audit"><span class="master-nav__icon" data-nav-icon="file-text" aria-hidden="true"></span><span class="master-nav__label">Audit log</span></a>
+        <a class="master-nav__link" href="#email-log" data-master-section="email-log"><span class="master-nav__icon" data-nav-icon="mail" aria-hidden="true"></span><span class="master-nav__label">Email logs</span></a>
+
+        <p class="master-nav__group">System</p>
+        <a class="master-nav__link" href="#infrastructure" data-master-section="infrastructure"><span class="master-nav__icon" data-nav-icon="plug" aria-hidden="true"></span><span class="master-nav__label">Infrastructure</span></a>
+        <a class="master-nav__link" href="#api-keys" data-master-section="api-keys"><span class="master-nav__icon" data-nav-icon="lock" aria-hidden="true"></span><span class="master-nav__label">API keys</span></a>
+        <a class="master-nav__link" href="#settings" data-master-section="settings"><span class="master-nav__icon" data-nav-icon="settings" aria-hidden="true"></span><span class="master-nav__label">Platform settings</span></a>
+        <a class="master-nav__link" href="#account" data-master-section="account"><span class="master-nav__icon" data-nav-icon="users" aria-hidden="true"></span><span class="master-nav__label">Master account</span></a>
+      </nav>
+
+      <div class="master-sidebar__foot">
+        <div class="master-sidebar__user">
+          <div class="master-sidebar__avatar" id="master-user-avatar">GC</div>
+          <div class="master-sidebar__user-meta">
+            <strong id="master-user-name">Platform owner</strong>
+            <span id="master-provider-name">Datasoftware Analytics Ltd</span>
+          </div>
+        </div>
+        <button type="button" class="master-signout-btn" data-master-sign-out>
+          <svg class="master-signout-btn__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+          Sign out
+        </button>
+      </div>
+    </aside>
+
+    <div class="master-shell">
+      <header class="master-topbar">
+        <button type="button" class="master-menu-btn" id="master-menu-btn" aria-label="Open menu" aria-controls="master-sidebar">
+          <span></span><span></span><span></span>
+        </button>
+        <div class="master-topbar__brand">
+          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="" class="master-topbar__logo" />
+          <span class="master-badge master-badge--admin">Master admin</span>
+        </div>
+        <button type="button" class="master-signout-btn master-signout-btn--compact" data-master-sign-out>
+          <svg class="master-signout-btn__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+          Sign out
+        </button>
+      </header>
+
+      <main class="master-main">
+        <section id="master-section-tenants" class="master-section" data-master-panel="tenants">
+        <header class="master-page-head">
+          <div>
+            <h1>Tenant accounts</h1>
+            <p class="master-page-sub" id="master-page-sub">Loading…</p>
+          </div>
+          <div class="master-page-toolbar">
+            <div class="master-page-actions">
+              <button type="button" class="master-btn master-btn--outline" id="master-export-btn" disabled>
+                <span class="master-btn__icon" data-btn-icon="download" aria-hidden="true"></span>
+                Export CSV
+              </button>
+              <button type="button" class="master-btn master-btn--outline" id="master-cleanup-duplicates-btn">Remove duplicate trials</button>
+              <button type="button" class="master-btn master-btn--primary" id="master-create-tenant-btn">
+                <span class="master-btn__icon" data-btn-icon="plus" aria-hidden="true"></span>
+                Create account
+              </button>
+            </div>
+            <div class="master-page-actions master-page-actions--secondary">
+              <button type="button" class="master-btn master-btn--ghost master-btn--danger" id="master-delete-selected-btn" disabled title="Select a tenant to delete">
+                <span class="master-btn__icon" data-btn-icon="trash" aria-hidden="true"></span>
+                Delete selected
+              </button>
+              <label class="master-check master-page-actions__check">
+                <input type="checkbox" id="master-exclude-test" />
+                <span>Hide test accounts</span>
+              </label>
+              <label class="master-check master-page-actions__check">
+                <input type="checkbox" id="master-include-deleted" />
+                <span>Show deleted</span>
+              </label>
+            </div>
+          </div>
+        </header>
+
+        <section class="master-metrics" id="master-metrics" aria-label="Key metrics"></section>
+
+        <div class="master-toolbar">
+          <div class="master-filters" id="master-filters" role="tablist" aria-label="Filter tenants"></div>
+          <label class="master-search">
+            <span class="sr-only">Search tenants</span>
+            <input type="search" id="master-search" placeholder="Search business, email, location…" autocomplete="off" />
+            <kbd class="master-search-kbd" aria-hidden="true">⌘K</kbd>
+          </label>
+        </div>
+
+        <div id="master-create-panel" class="master-create-panel" hidden>
+          <h2>Create customer account</h2>
+          <p class="muted">Sales-led onboarding — offline billing by default (no Stripe). One email = one workspace.</p>
+          <form id="master-create-form" class="master-create-form">
+            <label>Business name<input name="business_name" required maxlength="200" autocomplete="organization" /></label>
+            <label>Billing / HR login email<input name="billing_email" type="email" required autocomplete="email" /></label>
+            <label>HR password
+              <span class="master-create-password-row">
+                <input name="admin_password" type="text" required minlength="8" autocomplete="new-password" />
+                <button type="button" class="master-btn master-btn--ghost" id="master-generate-password">Generate</button>
+              </span>
+            </label>
+            <label>Plan
+              <select name="plan_id" id="master-create-plan"></select>
+            </label>
+            <label>Max employees<input name="max_employees" type="number" min="1" max="9999" placeholder="Plan default" /></label>
+            <label>Access
+              <select name="access" id="master-create-access">
+                <option value="active" selected>Active (no trial)</option>
+                <option value="trialing">Trial period</option>
+              </select>
+            </label>
+            <label id="master-create-trial-wrap" hidden>Trial days<input name="trial_days" type="number" min="1" max="90" value="14" /></label>
+            <label>Billing
+              <select name="billing_mode">
+                <option value="offline" selected>Offline / invoice (recommended)</option>
+                <option value="stripe">Stripe subscription</option>
+              </select>
+            </label>
+            <label>Billing notes<textarea name="billing_notes" rows="2" placeholder="e.g. £79/mo agreed, invoice quarterly, PO ref…"></textarea></label>
+            <label class="master-check"><input type="checkbox" name="send_welcome_email" checked /> Send welcome email</label>
+            <p class="master-inline-status muted" id="master-create-status" aria-live="polite"></p>
+            <div class="master-create-form__actions">
+              <button type="submit" class="master-btn master-btn--primary">Create workspace</button>
+              <button type="button" class="master-btn master-btn--ghost" id="master-create-cancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="master-layout" id="master-layout">
+          <section class="master-table-panel" aria-label="Tenant register">
+            <p class="master-table-hint">Click a business row or <strong>View</strong> to open tenant details. Use the row selector for bulk delete.</p>
+            <div class="master-table-wrap">
+              <table class="master-table master-table--desktop">
+                <thead>
+                  <tr>
+                    <th scope="col" class="master-col-select" aria-label="Select"></th>
+                    <th>Business</th>
+                    <th>Plan</th>
+                    <th>Status</th>
+                    <th>Trial / renewal</th>
+                    <th>Staff</th>
+                    <th>MRR</th>
+                    <th>Last active</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="master-table-body"></tbody>
+              </table>
+            </div>
+            <div class="master-cards" id="master-card-list"></div>
+            <p class="master-empty" id="master-empty" hidden>No tenants match this filter.</p>
+          </section>
+        </div>
+        </section>
+
+        <section id="master-section-revenue" class="master-section" data-master-panel="revenue" hidden>
+          <header class="master-page-head"><div><h1>MRR &amp; revenue</h1><p class="master-page-sub muted">Paying tenants and plan breakdown</p></div></header>
+          <div id="master-revenue-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-billing" class="master-section" data-master-panel="billing" hidden>
+          <header class="master-page-head"><div><h1>Billing &amp; Stripe</h1><p class="master-page-sub muted">Stripe connection status (keys managed on server)</p></div></header>
+          <div id="master-billing-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-alerts" class="master-section" data-master-panel="alerts" hidden>
+          <header class="master-page-head"><div><h1>Platform alerts</h1><p class="master-page-sub muted">Overdue billing and compliance attention</p></div></header>
+          <div id="master-alerts-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-support" class="master-section" data-master-panel="support" hidden>
+          <header class="master-page-head"><div><h1>Support tickets</h1><p class="master-page-sub muted">Coming soon — integrate your helpdesk here</p></div></header>
+          <div class="master-panel-card master-empty-panel"><p>Support ticket inbox is not connected yet. Use tenant email and audit log for now.</p></div>
+        </section>
+
+        <section id="master-section-audit" class="master-section" data-master-panel="audit" hidden>
+          <header class="master-page-head"><div><h1>Audit log</h1><p class="master-page-sub muted">Platform master actions</p></div></header>
+          <div id="master-audit-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-email-log" class="master-section" data-master-panel="email-log" hidden>
+          <header class="master-page-head"><div><h1>Email logs</h1><p class="master-page-sub muted">Queued and sent platform emails</p></div></header>
+          <div id="master-email-log-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-infrastructure" class="master-section" data-master-panel="infrastructure" hidden>
+          <header class="master-page-head"><div><h1>Infrastructure</h1><p class="master-page-sub muted">Host and database health</p></div></header>
+          <div id="master-infra-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-api-keys" class="master-section" data-master-panel="api-keys" hidden>
+          <header class="master-page-head"><div><h1>API keys</h1><p class="master-page-sub muted">Masked key status — update on VPS <code>.env</code> and restart API</p></div></header>
+          <div id="master-api-keys-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-settings" class="master-section" data-master-panel="settings" hidden>
+          <header class="master-page-head"><div><h1>Platform settings</h1><p class="master-page-sub muted">Environment and security policy</p></div></header>
+          <div id="master-settings-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+
+        <section id="master-section-account" class="master-section" data-master-panel="account" hidden>
+          <header class="master-page-head"><div><h1>Master account</h1><p class="master-page-sub muted">Password and MFA for platform sign-in</p></div></header>
+          <div id="master-account-content" class="master-panel-card"><p class="muted">Loading…</p></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="master-tenant-modal" class="master-tenant-modal" hidden role="dialog" aria-modal="true" aria-labelledby="detail-name">
+      <div class="master-tenant-modal__backdrop" data-tenant-modal-close tabindex="-1" aria-hidden="true"></div>
+      <div class="master-tenant-modal__panel" role="document">
+        <header class="master-tenant-modal__head">
+          <div class="master-tenant-page__title-wrap">
+            <div class="master-tenant-page__title-row">
+              <h2 id="detail-name">Loading tenant…</h2>
+              <p class="master-tenant-page__last-active muted" id="detail-last-active-top">—</p>
+            </div>
+            <p class="master-tenant-page__meta">
+              <span class="master-status" id="detail-status">…</span>
+              <span id="detail-tenant-meta">—</span>
+            </p>
+          </div>
+          <button type="button" class="master-tenant-modal__close" data-tenant-modal-close aria-label="Close tenant details">×</button>
+        </header>
+
+        <div class="master-tenant-modal__body">
+          <div class="master-tenant-page__card" id="detail-card">
+            <div class="master-alert master-alert--compact">
+              Impersonation actions are logged with timestamp and admin ID.
+            </div>
+
+            <div class="master-tenant-tabs" role="tablist" aria-label="Tenant sections">
+              <button type="button" class="master-tenant-tabs__btn is-active" role="tab" aria-selected="true" data-tenant-tab="account">Account</button>
+              <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="billing">Billing</button>
+              <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="legal">Legal</button>
+              <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="usage">Usage</button>
+              <button type="button" class="master-tenant-tabs__btn" role="tab" aria-selected="false" data-tenant-tab="admin">Admin</button>
+            </div>
+
+            <section class="master-tenant-tab-panel" data-tenant-tab-panel="account" role="tabpanel">
+              <div id="detail-account-sections"><p class="muted">Loading…</p></div>
+            </section>
+
+            <section class="master-tenant-tab-panel" data-tenant-tab-panel="billing" role="tabpanel" hidden>
+              <div id="detail-billing-sections"></div>
+              <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
+                <h3>Change plan</h3>
+                <label class="master-change-plan__field">
+                  New plan
+                  <select id="detail-change-plan-select"></select>
+                </label>
+                <label class="master-change-plan__field">
+                  Billing note
+                  <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
+                </label>
+                <fieldset class="master-change-plan__addons">
+                  <legend>Add-ons <span class="muted">(priced separately — enable when purchased)</span></legend>
+                  <label class="signup-check"><input type="checkbox" id="detail-rota-advanced-addon" /> Advanced rota (templates, coverage, hours)</label>
+                  <label class="signup-check"><input type="checkbox" id="detail-rota-multisite-addon" /> Multi-site rota</label>
+                  <label class="signup-check"><input type="checkbox" id="detail-crm-addon" /> CRM — IT, HR &amp; B2B sales pipeline</label>
+                  <label class="master-change-plan__field">
+                    CRM monthly price (£, ex VAT)
+                    <input id="detail-crm-monthly-gbp" type="number" min="0" step="0.01" placeholder="10.00" />
+                  </label>
+                  <label class="master-change-plan__field">
+                    CRM billing note
+                    <input id="detail-crm-billing-notes" type="text" placeholder="Invoice cadence, PO ref…" maxlength="2000" />
+                  </label>
+                  <label class="signup-check"><input type="checkbox" id="detail-ai-document-addon" /> AI document assistant (HR templates)</label>
+                  <label class="master-change-plan__field">
+                    AI document monthly price (£, ex VAT)
+                    <input id="detail-ai-document-monthly-gbp" type="number" min="0" step="0.01" placeholder="10.00" />
+                  </label>
+                </fieldset>
+                <div class="master-change-plan__actions">
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-apply">Apply changes</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-change-plan-cancel">Cancel</button>
+                </div>
+                <p class="master-inline-status muted" id="detail-change-plan-status" aria-live="polite"></p>
+              </div>
+            </section>
+
+            <section class="master-tenant-tab-panel" data-tenant-tab-panel="legal" role="tabpanel" hidden>
+              <div id="detail-legal-sections"><p class="muted">Open this tab to manage service agreements.</p></div>
+            </section>
+
+            <section class="master-tenant-tab-panel" data-tenant-tab-panel="usage" role="tabpanel" hidden>
+              <div id="detail-usage-sections"></div>
+            </section>
+
+            <section class="master-tenant-tab-panel" data-tenant-tab-panel="admin" role="tabpanel" hidden>
+              <div class="master-notes">
+                <h3>Internal notes</h3>
+                <textarea id="detail-notes" rows="3" placeholder="Support notes visible to platform admins only"></textarea>
+                <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
+                <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
+              </div>
+
+              <div class="master-tenant-actions" id="detail-actions">
+                <button type="button" class="master-btn master-btn--gold master-tenant-actions__primary" id="detail-impersonate">Impersonate this account</button>
+                <div class="master-tenant-actions__grid">
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-action-change-plan">Change plan</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-email-tenant">Email tenant</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
+                </div>
+                <div class="master-tenant-actions__secondary">
+                  <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-trial">Offline billing (keep trial)</button>
+                  <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-active">Offline billing (active)</button>
+                  <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-restore-tenant" hidden>Restore deleted tenant</button>
+                </div>
+                <button type="button" class="master-btn master-btn--ghost master-tenant-actions__danger" id="detail-delete-tenant">Delete tenant</button>
+                <p class="master-detail-hint muted" id="detail-delete-hint" hidden></p>
+              </div>
+            </section>
+          </div>
+
+          <p id="master-tenant-load-error" class="master-tenant-page__error" hidden></p>
+        </div>
+      </div>
+    </div>
+
+    <script src="./brand-config.js?v=brand-v4"></script>
+    <script src="./session-auth.js?v=12"></script>
+    <script src="./master-session.js?v=1"></script>
+    <script src="./master-auth-guard.js?v=6"></script>
+    <script src="./master-tenant-detail.js?v=5"></script>
+    <script src="./master-tenant-contracts.js?v=1"></script>
+    <script src="./admin-icons.js?v=5"></script>
+    <script src="./master.js?v=23"></script>
+  </body>
+</html>

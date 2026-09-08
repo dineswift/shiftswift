@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () {
+        var host = location.hostname.toLowerCase();
+        var path = location.pathname || "/";
+        if (host === "app.shiftswifthr.co.uk" && (path === "/" || /\/index\.html$/i.test(path))) {
+          location.replace("./login.html");
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ShiftSwift HR | Right to Work, Day-9 Alerts &amp; Sponsor Licence Tools</title>
+    <meta
+      name="description"
+      content="ShiftSwift HR — UK HR software for sponsor licence holders, right-to-work checks, and payroll compliance. Geofenced time clock, day-9 alerts, and Home Office audit exports. Free 14-day trial."
+    />
+    <link rel="canonical" href="https://www.shiftswifthr.co.uk/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ShiftSwift HR" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:url" content="https://www.shiftswifthr.co.uk/" />
+    <meta property="og:title" content="ShiftSwift HR | Right to Work, Day-9 Alerts &amp; Sponsor Licence Tools" />
+    <meta
+      property="og:description"
+      content="Time clock, accountant-ready hours reports, RTW checks, day-9 alerts, employee portal, and Home Office audit packs — built for UK SMEs and sponsor licence holders. Free 14-day trial."
+    />
+    <meta property="og:image" content="https://www.shiftswifthr.co.uk/assets/og-image.png?v=4" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ShiftSwift HR — RTW evidence, day-9 alerts, time clock, audit export packs. 14-day free trial." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ShiftSwift HR | Right to Work, Day-9 Alerts &amp; Sponsor Licence Tools" />
+    <meta
+      name="twitter:description"
+      content="Geofenced clock-in, monthly hours for your accountant, RTW &amp; day-9 compliance, employee portal — UK HR without enterprise pricing. Free 14-day trial."
+    />
+    <meta name="twitter:image" content="https://www.shiftswifthr.co.uk/assets/og-image.png?v=4" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon.png?v=brandkit-v2" />
+    <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v2" />
+    <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v2" />
+    <link rel="stylesheet" href="./theme.css?v=brandkit-v1" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v37" />
+    <style>
+      /* Critical hero band — survives stale CSS cache / missing theme import */
+      .hero-band {
+        background-color: #0f2e22;
+        color: #eaf3de;
+      }
+      .hero-band .hero-copy h1 {
+        color: #ffffff;
+      }
+      .hero-band .hero-lead,
+      .hero-band .hero-trust {
+        color: rgba(234, 243, 222, 0.88);
+      }
+      .hero-band .hero-gradient-text {
+        color: #9fe1cb;
+        -webkit-text-fill-color: #9fe1cb;
+      }
+    </style>
+    <link rel="stylesheet" href="./pricing.css?v=13" />
+  </head>
+  <body>
+    <div id="startup-loader" class="startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
+      <div class="startup-loader__inner">
+        <div class="startup-loader__icon-wrap">
+          <span class="startup-loader__ring" aria-hidden="true"></span>
+          <svg
+            class="startup-loader__logo brand-logo-svg"
+            viewBox="0 0 380 88"
+            width="380"
+            height="88"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <g class="startup-loader__word">
+              <rect x="0" y="0" width="68" height="68" rx="14" fill="#0F6E56"/>
+              <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5"/>
+              <rect x="14" y="24" width="18" height="5" rx="2.5" fill="#9FE1CB"/>
+              <rect x="14" y="34" width="22" height="5" rx="2.5" fill="#5DCAA5"/>
+              <g class="logo-arrow">
+                <line class="logo-arrow__shaft" x1="14" y1="56" x2="54" y2="56" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+                <polyline class="logo-arrow__head" points="44,48 54,56 44,64" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </g>
+              <text x="84" y="52" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="800" font-size="36" letter-spacing="-1.2">
+                <tspan fill="#111111">Shift</tspan><tspan fill="#0F6E56">Swift</tspan>
+              </text>
+              <rect x="84" y="58" width="28" height="16" rx="4" fill="#0F6E56"/>
+              <text x="98" y="70" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="9" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1.2">HR</text>
+            </g>
+          </svg>
+        </div>
+        <p class="startup-loader__tagline">UK HR &amp; compliance software</p>
+      </div>
+    </div>
+    <script src="./landing-loader.js?v=1"></script>
+    <div class="page-bg" aria-hidden="true">
+      <span class="page-bg__orb page-bg__orb--1"></span>
+      <span class="page-bg__orb page-bg__orb--2"></span>
+      <span class="page-bg__orb page-bg__orb--3"></span>
+    </div>
+    <div class="page" data-lazy-root>
+      <div class="trust-strip trust-strip--animated" aria-label="Compliance credentials">
+        <span>Geofenced time clock</span>
+        <span aria-hidden="true">·</span>
+        <span>Built for UK GDPR</span>
+        <span aria-hidden="true">·</span>
+        <span>UK-hosted HR data</span>
+        <span aria-hidden="true">·</span>
+        <span>Home Office audit exports</span>
+        <span aria-hidden="true">·</span>
+        <span>Accountant hours reports</span>
+      </div>
+
+      <header class="nav nav--animated">
+        <a class="brand" href="./index.html" aria-label="ShiftSwift HR home">
+          <svg
+            class="brand-logo brand-logo-svg"
+            viewBox="0 0 380 88"
+            width="380"
+            height="88"
+            xmlns="http://www.w3.org/2000/svg"
+            role="img"
+            aria-label="ShiftSwift HR"
+          >
+            <rect x="0" y="0" width="68" height="68" rx="14" fill="#0F6E56"/>
+            <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5"/>
+            <rect x="14" y="24" width="18" height="5" rx="2.5" fill="#9FE1CB"/>
+            <rect x="14" y="34" width="22" height="5" rx="2.5" fill="#5DCAA5"/>
+            <g class="logo-arrow" aria-hidden="true">
+              <line class="logo-arrow__shaft" x1="14" y1="56" x2="54" y2="56" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+              <polyline class="logo-arrow__head" points="44,48 54,56 44,64" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+            <text x="84" y="52" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="800" font-size="36" letter-spacing="-1.2">
+              <tspan fill="#111111">Shift</tspan><tspan fill="#0F6E56">Swift</tspan>
+            </text>
+            <rect x="84" y="58" width="28" height="16" rx="4" fill="#0F6E56"/>
+            <text x="98" y="70" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="9" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1.2">HR</text>
+          </svg>
+        </a>
+        <nav class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#compliance">Compliance</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <div class="nav-cta">
+          <a class="btn ghost" href="https://app.shiftswifthr.co.uk/business-login.html">Sign in</a>
+          <a class="btn" href="https://app.shiftswifthr.co.uk/signup.html">Start free trial</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero-band">
+          <div class="hero hero--animated">
+          <div class="hero-copy">
+            <div class="badge badge--pulse hero-in hero-in--1">UK HR &amp; compliance · Time clock · Accountant hours · Home Office exports</div>
+            <h1 class="hero-in hero-in--2">One HR hub for <span class="hero-gradient-text">clock-in, compliance</span>, and month-end hours your accountant can use.</h1>
+            <p class="hero-in hero-in--3 hero-lead">
+              Built for restaurants, care, retail, and sponsor licence holders: geofenced mobile clock-in,
+              automatic day-9 absence alerts, employee portal with GDPR consent, and working-hours PDFs you can
+              email to payroll — without ShiftSwift running pay or HMRC submissions.
+            </p>
+            <div class="hero-actions hero-in hero-in--4">
+              <a class="btn btn--verdant" href="https://app.shiftswifthr.co.uk/signup.html">Start free 14-day trial — no card required</a>
+              <a class="btn ghost btn--on-pine" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a>
+            </div>
+            <ul class="hero-trust hero-in hero-in--5" aria-label="Trust highlights">
+              <li>Built for UK GDPR</li>
+              <li>UK-hosted data</li>
+              <li>Geofenced time clock</li>
+              <li>Monthly hours for accountants</li>
+              <li>Home Office audit exports</li>
+              <li>Cancel anytime</li>
+            </ul>
+          </div>
+          <div class="hero-visual hero-visual--pulse hero-in hero-in--6" data-scroll-parallax="0.04" aria-hidden="true">
+            <div class="hero-visual__frame">
+            <div class="hero-preview dashboard-mock--pulse dashboard-mock--float">
+              <div class="dashboard-mock__bar">
+                <span class="dashboard-mock__dot"></span>
+                <span class="dashboard-mock__dot"></span>
+                <span class="dashboard-mock__dot"></span>
+                <span class="dashboard-mock__title">Illustrative preview — <a href="#product-showcase">see console captures</a></span>
+              </div>
+              <div class="hero-preview__body">
+                <div class="hero-preview__stats">
+                  <div class="dashboard-stat dashboard-stat--enter" style="--enter-i: 0">
+                    <div class="dashboard-stat__label">Active employees</div>
+                    <div class="dashboard-stat__value dashboard-stat__value--highlight">18</div>
+                  </div>
+                  <div class="dashboard-stat dashboard-stat--pulse dashboard-stat--enter" style="--enter-i: 1">
+                    <div class="dashboard-stat__label">RTW due</div>
+                    <div class="dashboard-stat__value dashboard-stat__value--warn">3</div>
+                  </div>
+                  <div class="dashboard-stat dashboard-stat--enter" style="--enter-i: 2">
+                    <div class="dashboard-stat__label">Day-9 alerts</div>
+                    <div class="dashboard-stat__value dashboard-stat__value--ok">Clear</div>
+                  </div>
+                </div>
+
+                <div class="hero-preview__panel product-mock product-mock--rtw hero-preview__panel--mobile-only">
+                  <div class="product-mock__bar"><span>Right to Work</span><strong class="text-ok">3 due this month</strong></div>
+                  <div class="product-mock__row"><span>Passport (A. Patel)</span><span>Expires 14 Aug</span></div>
+                  <div class="product-mock__row"><span>BRP (J. Okonkwo)</span><span>Verified</span></div>
+                  <div class="product-mock__row product-mock__row--warn"><span>Share code (S. Ahmed)</span><span>Review</span></div>
+                </div>
+
+                <div class="hero-alert hero-alert--day9" aria-hidden="true">
+                  <span class="hero-alert__icon" aria-hidden="true">⚠</span>
+                  <div class="hero-alert__copy">
+                    <strong>Day-9 absence alert — S. Ahmed</strong>
+                    <p>Unreported absence reaches day 9 tomorrow. Report or clear before deadline.</p>
+                  </div>
+                </div>
+
+                <div class="hero-preview__panel product-mock product-mock--lifecycle hero-preview__panel--desktop-only">
+                  <div class="product-mock__bar"><span>Employee lifecycle</span><strong>Step 4 of 10</strong></div>
+                  <div class="product-mock__step product-mock__step--done">Recruitment</div>
+                  <div class="product-mock__step product-mock__step--done">Offer &amp; contract</div>
+                  <div class="product-mock__step product-mock__step--active">Right to work</div>
+                  <div class="product-mock__step">Time clock</div>
+                </div>
+
+                <div class="hero-preview__panel product-mock product-mock--audit hero-preview__panel--desktop-only">
+                  <div class="product-mock__bar"><span>Home Office audit pack</span><strong>Ready</strong></div>
+                  <div class="product-mock__row"><span>Sponsored workers</span><span>12 records</span></div>
+                  <div class="product-mock__row"><span>Absence alerts (day 9)</span><span>0 open</span></div>
+                  <div class="product-mock__row"><span>Export</span><span>PDF · JSON</span></div>
+                </div>
+
+                <div class="hero-preview__panel product-mock product-mock--hours hero-preview__panel--desktop-only">
+                  <div class="product-mock__bar"><span>Working hours report</span><strong class="text-ok">May 2026</strong></div>
+                  <div class="product-mock__row"><span>Staff with clock records</span><span>18</span></div>
+                  <div class="product-mock__row"><span>Total hours</span><span>1,240.5h</span></div>
+                  <div class="product-mock__row"><span>Sent to accountant</span><span>1 Jun · PDF</span></div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+          </div>
+        </section>
+
+        <section class="social-proof" aria-label="Why ShiftSwift HR">
+          <p class="social-proof__eyebrow">UK HR &amp; compliance</p>
+          <h2 class="social-proof__heading">HR, time clock, and sponsor compliance in one place</h2>
+          <p class="section-lead muted social-proof__lead">
+            ShiftSwift HR runs on UK-hosted infrastructure with a 14-day free trial. Book a demo to walk through the admin console,
+            or start a trial and explore on your own data.
+          </p>
+          <div class="social-proof-grid reveal-stagger">
+            <article class="social-proof-card social-proof-card--honest">
+              <h3>What you get</h3>
+              <ul class="social-proof-list">
+                <li>14-day trial — no card required</li>
+                <li>Employee lifecycle, RTW uploads, sponsor compliance</li>
+                <li>Geofenced time clock PWA + weekly rotas</li>
+                <li>Working-hours PDF for your accountant (manual or auto on the 1st)</li>
+                <li>Employee portal with GDPR consent &amp; HR-visible notes</li>
+              </ul>
+            </article>
+            <article class="social-proof-card social-proof-card--honest">
+              <h3>Built for</h3>
+              <ul class="social-proof-list">
+                <li>Restaurants &amp; hospitality</li>
+                <li>Care providers</li>
+                <li>Retail &amp; SMEs</li>
+                <li>Sponsor licence holders</li>
+              </ul>
+              <p><a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a></p>
+            </article>
+          </div>
+          <div class="logo-row reveal-stagger" aria-label="Industries we serve">
+            <span class="logo-pill">Restaurants &amp; hospitality</span>
+            <span class="logo-pill">Care providers</span>
+            <span class="logo-pill">Retail &amp; SMEs</span>
+            <span class="logo-pill">Sponsor licence holders</span>
+          </div>
+        </section>
+
+        <section id="product-showcase" class="section product-showcase" aria-labelledby="product-showcase-heading">
+          <h2 id="product-showcase-heading">Inside the admin console</h2>
+          <p class="section-lead muted">
+            Structured captures from the admin console — illustrative placeholders today, redacted screenshots as we publish customer stories.
+            Book a <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">live demo</a> for an unredacted walkthrough.
+          </p>
+          <div class="product-showcase-grid">
+            <figure class="product-showcase-card">
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/admin-overview.webp" />
+                <img
+                  src="/assets/screenshots/admin-overview.png"
+                  alt="ShiftSwift HR admin overview — illustrative placeholder"
+                  width="1200"
+                  height="750"
+                  decoding="async"
+                  fetchpriority="high"
+                />
+              </picture>
+              <figcaption>Overview — active employees, RTW due, day-9 status</figcaption>
+            </figure>
+            <figure class="product-showcase-card">
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/time-clock.webp" />
+                <img
+                  src="/assets/screenshots/time-clock.png"
+                  alt="ShiftSwift HR Time Clock — illustrative placeholder"
+                  width="1200"
+                  height="750"
+                  decoding="async"
+                />
+              </picture>
+              <figcaption>Time Clock — geofenced punch, monthly hours PDF for accountants</figcaption>
+            </figure>
+            <figure class="product-showcase-card">
+              <picture>
+                <source type="image/webp" srcset="/assets/screenshots/compliance.webp" />
+                <img
+                  src="/assets/screenshots/compliance.png"
+                  alt="ShiftSwift HR sponsor compliance — illustrative placeholder"
+                  width="1200"
+                  height="750"
+                  decoding="async"
+                />
+              </picture>
+              <figcaption>Compliance — right-to-work, day-9 alerts, Home Office audit export</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section id="document-samples" class="doc-samples section section-band section-band--sage" aria-labelledby="doc-samples-heading">
+          <h2 id="doc-samples-heading">Your compliance documents, organised</h2>
+          <p class="section-lead muted">Sample records stored in ShiftSwift HR: right-to-work evidence, contracts, and inspection-ready audit packs.</p>
+          <div class="doc-samples-grid reveal-stagger">
+            <article class="doc-sample doc-sample--rtw">
+              <div class="doc-sample__visual doc-sample__visual--rtw" aria-hidden="true">
+                <span class="doc-sample__clip" aria-hidden="true"></span>
+                <div class="doc-sample__sheet">
+                  <div class="doc-sample__sheet-head">
+                    <span>Right to Work check</span>
+                    <span class="doc-sample__chip doc-sample__chip--ok">Verified</span>
+                  </div>
+                  <div class="doc-sample__id-row">
+                    <div class="doc-sample__photo"><span>Photo</span></div>
+                    <div class="doc-sample__id-meta">
+                      <div class="doc-sample__line doc-sample__line--short"></div>
+                      <div class="doc-sample__line"></div>
+                      <div class="doc-sample__line doc-sample__line--medium"></div>
+                    </div>
+                  </div>
+                  <div class="doc-sample__line"></div>
+                  <div class="doc-sample__line doc-sample__line--medium"></div>
+                  <p class="doc-sample__footnote">Expires 14 Aug 2026 · Checked 12 Jan 2026</p>
+                </div>
+              </div>
+              <h3>Right-to-work evidence</h3>
+              <p>Passport, BRP, and share code uploads with expiry alerts and a timestamped audit trail.</p>
+            </article>
+            <article class="doc-sample">
+              <div class="doc-sample__visual doc-sample__visual--contract" aria-hidden="true">
+                <div class="doc-sample__sheet">
+                  <div class="doc-sample__sheet-head">
+                    <span>Employment contract</span>
+                    <span class="doc-sample__chip">Draft</span>
+                  </div>
+                  <div class="doc-sample__line doc-sample__line--wide"></div>
+                  <div class="doc-sample__line"></div>
+                  <div class="doc-sample__line"></div>
+                  <div class="doc-sample__line doc-sample__line--medium"></div>
+                  <div class="doc-sample__signature">
+                    <span class="doc-sample__sig-line"></span>
+                    <span>Signed · e-signature</span>
+                  </div>
+                </div>
+              </div>
+              <h3>Contracts &amp; offer letters</h3>
+              <p>HR templates with version history, ready to issue from the employee lifecycle workflow.</p>
+            </article>
+            <article class="doc-sample">
+              <div class="doc-sample__visual doc-sample__visual--audit" aria-hidden="true">
+                <div class="doc-sample__sheet doc-sample__sheet--folder">
+                  <div class="doc-sample__sheet-head">
+                    <span>Home Office audit pack</span>
+                    <span class="doc-sample__chip doc-sample__chip--ok">Ready</span>
+                  </div>
+                  <ul class="doc-sample__file-list">
+                    <li><span>RTW records</span><span>12 files</span></li>
+                    <li><span>Absence log (day 9)</span><span>PDF</span></li>
+                    <li><span>Sponsor duty checklist</span><span>PDF</span></li>
+                    <li><span>SMS change report</span><span>JSON</span></li>
+                  </ul>
+                  <div class="doc-sample__stamp">Inspection ready</div>
+                </div>
+              </div>
+              <h3>Audit export pack</h3>
+              <p>One-click PDF and JSON export for sponsor licence inspections and unexpected Home Office visits.</p>
+            </article>
+            <article class="doc-sample">
+              <div class="doc-sample__visual doc-sample__visual--hours" aria-hidden="true">
+                <div class="doc-sample__sheet">
+                  <div class="doc-sample__sheet-head">
+                    <span>Working hours report</span>
+                    <span class="doc-sample__chip doc-sample__chip--ok">May 2026</span>
+                  </div>
+                  <ul class="doc-sample__file-list">
+                    <li><span>A. Patel</span><span>142.0h</span></li>
+                    <li><span>J. Okonkwo</span><span>128.5h</span></li>
+                    <li><span>S. Ahmed</span><span>96.0h</span></li>
+                    <li><span>Team total</span><span>366.5h</span></li>
+                  </ul>
+                  <p class="doc-sample__footnote">Emailed to payroll@accountant.co.uk · 1 Jun 2026</p>
+                </div>
+              </div>
+              <h3>Accountant hours report</h3>
+              <p>PDF or CSV from clock punches — download anytime or auto-send on the 1st of each month to your payroll bureau.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="features" class="section section--after-doc-samples">
+          <h2>Everything your people team needs, without the enterprise price tag.</h2>
+          <p class="section-lead muted">Staff records, geofenced clock-in, sponsor compliance, recruitment, and accountant-ready hours — one UK platform instead of spreadsheets and WhatsApp totals.</p>
+          <div class="section-grid section-grid--features reveal-stagger">
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <h3>Right to Work</h3>
+              <p>Upload documents, set expiry dates, and receive automatic alerts before a worker's right to work lapses. Full timestamped audit trail for Home Office visits.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              </div>
+              <h3>Sponsor Licence Compliance</h3>
+              <p>Automatic notifications when a sponsored worker reaches day 9 of unreported absence, helping you meet sponsor licence duties without manual tracking.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <h3>Weekly rota</h3>
+              <p>Build and publish rotas, link shifts to clock-in attendance, and give staff a view of their week in the Time Clock app.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <h3>Time clock &amp; day-9 alerts</h3>
+              <p>Staff clock in on their phone with GPS geofencing — the same attendance signal powers day-9 sponsor absence alerts when someone doesn&rsquo;t show. Export hours as PDF or CSV anytime.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16"/><path d="M9 4v5"/><path d="M15 13h2"/><path d="M15 17h4"/></svg>
+              </div>
+              <h3>Monthly hours for your accountant</h3>
+              <p>Download a clear working-hours PDF from Time Clock, or set your accountant&rsquo;s email once and auto-send last month&rsquo;s report on the 1st (billing email CC&rsquo;d). BrightPay / Xero staff CSV export included — we don&rsquo;t run payroll.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+              </div>
+              <h3>Employee portal &amp; GDPR</h3>
+              <p>Staff sign in on mobile to view rotas, clock in, and read HR messages you choose to share. Mandatory GDPR consent when they create a portal account — you stay the data controller.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <h3>Employee lifecycle</h3>
+              <p>Onboarding checklists, contract templates, encrypted HR-only notes, employee-visible messages, offboarding, and promotions — one profile with role-based access for managers.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+              </div>
+              <h3>Recruitment &amp; grievance</h3>
+              <p>Track applicants through hire, then manage formal grievance cases with encrypted case notes and structured workflows on Growth and Scale plans — without bolting on extra tools.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <h3>Leave &amp; holiday requests</h3>
+              <p>Staff request annual, sick, or unpaid leave in the employee portal. HR approves with automatic working-day counts and annual leave balance tracking.</p>
+            </article>
+            <article class="feature-card feature-card--animated">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <h3>Home Office audit exports</h3>
+              <p>Export a complete compliance pack with right-to-work records, absence logs, and sponsor duty checklists, formatted for Home Office inspection.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section section--compact section--highlight-cards section-band section-band--sage reveal" aria-label="Payroll and compliance highlights">
+          <div class="highlight-cards-grid">
+            <article id="payroll-handoff" class="feature-card compliance-card feature-card--animated">
+              <h3>Payroll handoff — without running payroll</h3>
+              <p>
+                ShiftSwift HR records clock times and produces accountant-ready reports. Your bureau or BrightPay / Xero
+                still runs pay, NI, and HMRC. Set your accountant email once, tick auto-send on the 1st, or download
+                last month&rsquo;s PDF in one click from Time Clock.
+              </p>
+              <a class="btn ghost" href="./payroll-export-guide.html" target="_blank" rel="noopener">See hours export guide</a>
+            </article>
+            <article id="compliance" class="feature-card compliance-card feature-card--animated">
+              <h3>UK compliance ready</h3>
+              <p>ShiftSwift HR keeps your business aligned with Home Office checks and UK employment compliance, with retention and audit tooling built in.</p>
+              <a class="btn ghost" href="#document-samples">See document samples</a>
+            </article>
+          </div>
+        </section>
+
+        <section id="pricing" class="section pricing-section">
+          <div class="pricing-intro reveal">
+            <div class="badge">Fair per-head pricing</div>
+            <h2>Base fee + active employees — capped so it stays predictable.</h2>
+            <p>
+              UK compliance HR for sponsored workers and hospitality teams.
+              <strong>Geofenced time clock</strong>, accountant-ready hours reports, day-9 alerts, and Home Office audit exports —
+              billed monthly by active headcount with a hard cap. <strong>14-day free trial</strong>, no card required.
+            </p>
+            <p class="pricing-model-note muted">Managers and HR users are free — only active employees count toward billing.</p>
+          </div>
+          <div id="pricing-plans" class="pricing-grid pricing-grid--platform reveal-stagger"></div>
+          <div class="pricing-bottom reveal-stagger">
+          <div id="pricing-calculator" class="pricing-calculator" aria-labelledby="pricing-calc-heading">
+            <h3 id="pricing-calc-heading">Estimate your monthly bill</h3>
+            <p class="muted">Pick a plan and enter active employee headcount. Your monthly cap is applied automatically.</p>
+            <div class="pricing-calculator__controls">
+              <label>
+                Plan
+                <select id="pricing-calc-plan" aria-label="Subscription plan"></select>
+              </label>
+              <label>
+                Active employees
+                <input id="pricing-calc-headcount" type="number" min="0" max="500" value="10" inputmode="numeric" />
+              </label>
+            </div>
+            <p id="pricing-calc-result" class="pricing-calculator__result" aria-live="polite"></p>
+            <p id="pricing-calc-detail" class="pricing-calculator__detail muted"></p>
+          </div>
+          <div class="pricing-secondary" aria-label="Enterprise and integrations">
+            <article class="pricing-card pricing-card--enterprise">
+              <div class="pricing-card-head">
+                <span class="pricing-badge pricing-badge--muted">100+ staff per site</span>
+                <div class="pricing-plan-name">Enterprise</div>
+                <p class="pricing-plan-desc">Bespoke setup, SLA, procurement support, and custom data retention.</p>
+              </div>
+              <div class="pricing-amount">
+                <span class="value pricing-card--enterprise__value">Custom</span>
+                <span class="interval">per site / month</span>
+              </div>
+              <p class="pricing-staff-cap">Security reviews, multi-site rollouts, and dedicated onboarding.</p>
+              <div class="pricing-card-actions">
+                <a class="btn ghost" href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20Enterprise">Contact sales</a>
+              </div>
+            </article>
+            <div id="pricing-payroll-plans" class="pricing-integration-wrap" hidden></div>
+          </div>
+          </div>
+        </section>
+
+        <section class="section compare-section reveal" aria-labelledby="compare-heading">
+            <h2 id="compare-heading">ShiftSwift HR vs spreadsheets and guesswork</h2>
+            <div class="compare-table-wrap">
+              <table class="compare-table">
+                <colgroup>
+                  <col class="compare-table__col compare-table__col--challenge" />
+                  <col class="compare-table__col compare-table__col--spreadsheets" />
+                  <col class="compare-table__col compare-table__col--solution" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">Challenge</th>
+                    <th scope="col" class="compare-table__head compare-table__head--pain">With spreadsheets</th>
+                    <th scope="col" class="compare-table__head compare-table__head--win">With ShiftSwift HR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Employee records</td><td>Scattered spreadsheets, version chaos</td><td>One HR profile per person with documents and lifecycle steps</td></tr>
+                  <tr><td>Right-to-work audit trail</td><td>Folders, email, hard to prove at audit</td><td>Timestamped records, document uploads, expiry alerts</td></tr>
+                  <tr><td>Sponsor licence day-9 reporting</td><td>Calendar reminders that get missed</td><td>Automatic day-9 alerts and reportable absence logs</td></tr>
+                  <tr><td>Home Office inspection prep</td><td>Hours gathering documents</td><td>One-click audit export pack, inspection-ready</td></tr>
+                  <tr><td>Time &amp; attendance</td><td>Informal check-ins, weak audit trail</td><td>Geofenced time clock linked to rota and day-9 alerts</td></tr>
+                  <tr><td>Automated reminders</td><td>Calendar notes &amp; WhatsApp chasing</td><td>RTW expiry; sponsor day-5 &amp; day-9 (email + SMS); shift &amp; missed clock-in; portal sign-in (email + push); rota publish — all configurable</td></tr>
+                  <tr><td>Month-end hours for payroll</td><td>Manual totals, photo of a rota, errors</td><td>Working-hours PDF or CSV; optional auto-email to your accountant on the 1st</td></tr>
+                  <tr><td>Employee self-service</td><td>HR chases everyone on WhatsApp</td><td>Employee portal — rotas, clock-in, GDPR consent, HR-visible notes</td></tr>
+                  <tr><td>Multi-user access</td><td>Shared logins, no accountability</td><td>Role-based permissions per site and manager level</td></tr>
+                  <tr><td>Predictable cost</td><td>Hidden admin hours add up</td><td>Base + per active employee with a monthly cap — managers free</td></tr>
+                </tbody>
+              </table>
+            </div>
+        </section>
+
+        <section class="section compare-section compare-section--competitors reveal" aria-labelledby="compare-competitors-heading">
+            <h2 id="compare-competitors-heading">Where ShiftSwift HR fits</h2>
+            <p class="compare-section__lead muted">
+              <strong>Rotacloud</strong> is strong for shift scheduling. <strong>Breathe HR</strong> is a solid choice for general SME HR records.
+              <strong>ShiftSwift HR</strong> is for UK teams where <strong>right-to-work, sponsor duties, and geofenced clock-in</strong>
+              need to sit in one audit-ready place — especially sponsor licence holders and hospitality venues.
+            </p>
+            <p class="compare-section__note muted">
+              The table below is qualitative guidance based on our product today and public vendor information.
+              Book a demo to validate fit for your site.
+            </p>
+            <div class="compare-table-wrap">
+              <table class="compare-table compare-table--matrix">
+                <thead>
+                  <tr>
+                    <th scope="col">What you need</th>
+                    <th scope="col">Spreadsheets</th>
+                    <th scope="col">Rotacloud</th>
+                    <th scope="col">Breathe HR</th>
+                    <th scope="col" class="compare-table__head compare-table__head--win">ShiftSwift HR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Best for</td>
+                    <td>Tiny teams, low audit pressure</td>
+                    <td>Shift scheduling &amp; rotas</td>
+                    <td>Office-style SME HR</td>
+                    <td>UK venues &amp; sponsor licence holders</td>
+                  </tr>
+                  <tr>
+                    <td>Right-to-work &amp; expiry alerts</td>
+                    <td>Manual folders</td>
+                    <td>Not a core focus</td>
+                    <td>Strong (HR records)</td>
+                    <td>Strong (with audit trail)</td>
+                  </tr>
+                  <tr>
+                    <td>Sponsor day-9 &amp; audit export</td>
+                    <td>Manual tracking</td>
+                    <td>Not a core focus</td>
+                    <td>General HR; not sponsor-specific</td>
+                    <td>Built in (Compliance plan)</td>
+                  </tr>
+                  <tr>
+                    <td>Geofenced clock + premises QR</td>
+                    <td>Informal check-ins</td>
+                    <td>Clock-in available; geofence varies</td>
+                    <td>Not a core focus</td>
+                    <td>Built in</td>
+                  </tr>
+                  <tr>
+                    <td>Punch dispute audit trail</td>
+                    <td>None</td>
+                    <td>Shift &amp; clock logs</td>
+                    <td>Not a core focus</td>
+                    <td>HR review &amp; re-punch flags</td>
+                  </tr>
+                  <tr>
+                    <td>Weekly rota + attendance</td>
+                    <td>Manual</td>
+                    <td>Strong</td>
+                    <td>Basic / add-on</td>
+                    <td>Built in, linked to clock</td>
+                  </tr>
+                  <tr>
+                    <td>Compliance reminders</td>
+                    <td>DIY calendar</td>
+                    <td>Not a core focus</td>
+                    <td>RTW &amp; policy reminders</td>
+                    <td>RTW expiry; day-5 warning; day-9 alert (email + SMS)</td>
+                  </tr>
+                  <tr>
+                    <td>Clock &amp; portal reminders</td>
+                    <td>WhatsApp chasing</td>
+                    <td>Shift notifications (varies)</td>
+                    <td>Not a core focus</td>
+                    <td>Before shift; missed punch (staff + HR); portal sign-in (email + push); rota publish</td>
+                  </tr>
+                  <tr>
+                    <td>Hours export for accountant</td>
+                    <td>Rebuild each month</td>
+                    <td>Reports / exports available</td>
+                    <td>Export options</td>
+                    <td>PDF / CSV + optional auto-email</td>
+                  </tr>
+                  <tr>
+                    <td>Typical cost · ~20 staff, 1 site</td>
+                    <td>Hidden admin time</td>
+                    <td>Varies (per-user scheduling)</td>
+                    <td>Varies (base + per user)</td>
+                    <td>From £49/mo capped (Essentials, ex VAT)</td>
+                  </tr>
+                  <tr>
+                    <td>When another tool may be enough</td>
+                    <td>—</td>
+                    <td>Rota-only, no sponsor duties</td>
+                    <td>Generic HR, no clock/compliance pressure</td>
+                    <td>Sponsor + clock + audit in one place</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="compare-footnote muted">
+              Comparison is qualitative and for guidance only. Competitor features and pricing change — check each vendor&apos;s website.
+              ShiftSwift HR pricing is on our plans page. <strong>Last reviewed: June 2026.</strong>
+              <a href="#pricing">See ShiftSwift HR plans</a> ·
+              <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20comparison%20sheet">Request the full comparison sheet</a> ·
+              <a href="mailto:support@shiftswifthr.co.uk?subject=ShiftSwift%20HR%20demo">Book a 20-minute demo</a>.
+            </p>
+        </section>
+
+        <section id="faq" class="section faq-section" aria-labelledby="faq-heading">
+            <h2 id="faq-heading" class="reveal">Frequently asked questions</h2>
+            <div class="faq-list reveal-stagger">
+            <details class="faq-item">
+              <summary>How does per-head billing work?</summary>
+              <div class="faq-item__answer">
+                <p>Each plan has a small monthly base fee plus a per-active-employee charge. Only employees with an active, onboarding, or suspended status count — managers and HR admins are free. When headcount grows, your bill rises predictably until you hit the plan&apos;s monthly cap; above that, you pay the cap amount only.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Is ShiftSwift HR live?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. ShiftSwift HR is live on UK-hosted infrastructure with 14-day free trials, geofenced time clock, sponsor compliance tools, and Stripe billing. Book a demo or start a trial to explore the product on your own data.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Is ShiftSwift HR HR-only?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. We focus on employee records, geofenced time clock, weekly rotas, right-to-work, sponsor licence compliance, recruitment, and grievance workflows. We do not run pay, payslips, or HMRC submissions — but we do export working-hours PDFs and staff CSV files your accountant or BrightPay / Xero can use.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Can I email working hours to my accountant automatically?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. In Time Clock, add your accountant or payroll bureau email and enable automatic monthly reports. On the 1st of each month we email last month&apos;s working-hours PDF (your billing email is CC&apos;d). You can also download the PDF or CSV anytime, or use &ldquo;Send last month now&rdquo; for a one-off send.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Do I need to enter card details to start a trial?</summary>
+              <div class="faq-item__answer">
+                <p>No. Your 14-day free trial starts immediately. No payment details are required. At the end of your trial, you choose the plan that suits you.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Does ShiftSwift HR cover sponsor licence compliance?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. ShiftSwift HR includes day-9 absence alerts, SMS change reporting, right-to-work document management, and Home Office audit export packs, covering the core duties of a UK sponsor licence holder.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Is my data stored in the UK?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. All data is hosted on UK servers. ShiftSwift HR is designed to support UK GDPR compliance and is operated by Datasoftware Analytics Ltd, a UK-registered company registered with the ICO.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Can I cancel anytime?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. Monthly plans can be cancelled at any time and run to the end of the billing period. See our <a href="./payment-terms.html" target="_blank" rel="noopener">payment terms</a> for full details.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Do you support multi-site businesses?</summary>
+              <div class="faq-item__answer">
+                <p>Yes. Plans are priced per site — add a subscription for each location. The Multi-site plan includes a consolidated dashboard across locations; Enterprise covers larger rollouts and bespoke SLAs.</p>
+              </div>
+            </details>
+            </div>
+        </section>
+
+        <p class="pricing-footnote">
+          Prices exclude UK VAT unless stated. Monthly plans cancel at end of billing period.
+          <span class="pricing-footnote__link"><a href="./payment-terms.html" target="_blank" rel="noopener">Payment terms</a></span>
+        </p>
+      </main>
+
+      <footer class="site-footer">
+        <div class="site-footer__grid">
+          <div>
+            <strong>ShiftSwift HR</strong>
+            <p>UK HR, sponsor compliance &amp; accountant-ready hours — without running payroll.</p>
+          </div>
+          <div>
+            <div class="site-footer__label">Legal</div>
+            <a href="./eula.html" target="_blank" rel="noopener">EULA</a>
+            <a href="./payment-terms.html" target="_blank" rel="noopener">Payment terms</a>
+            <a href="./privacy-policy.html" target="_blank" rel="noopener">Privacy policy</a>
+            <a href="./cookies.html" target="_blank" rel="noopener">Cookies</a>
+            <a href="./dpa.html" target="_blank" rel="noopener">DPA</a>
+          </div>
+          <div>
+            <div class="site-footer__label">Operators</div>
+            <a href="./compliance-checklist.html" target="_blank" rel="noopener">Compliance checklist</a>
+            <a href="./payroll-export-guide.html" target="_blank" rel="noopener">Hours export guide</a>
+          </div>
+          <div>
+            <div class="site-footer__label">Company</div>
+            <p class="site-footer__legal">
+              ShiftSwift HR is a trading name of Datasoftware Analytics Ltd<br />
+              Registered in England &amp; Wales · Company No. 14568900<br />
+              235 Charlbury Road, Nottingham, NG8 1NF<br />
+              <a href="mailto:support@shiftswifthr.co.uk">support@shiftswifthr.co.uk</a>
+            </p>
+          </div>
+        </div>
+        <p class="site-footer__copy">© 2026 Datasoftware Analytics Ltd. All rights reserved.</p>
+      </footer>
+    </div>
+    <script src="./landing-animations.js?v=6"></script>
+    <script src="./landing-faq.js?v=3"></script>
+    <script src="./brand-config.js?v=brand-v4"></script>
+    <script src="./pricing.js?v=13"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        window.ShiftSwiftPricing?.initMarketing("pricing-plans", "pricing-payroll-plans");
+      });
+    </script>
+    <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

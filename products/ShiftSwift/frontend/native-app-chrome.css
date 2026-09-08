@@ -1,0 +1,209 @@
+/* Native shell chrome — employee + admin portals inside Capacitor */
+html.native-app {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+html.native-app body {
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html.native-app .portal-pwa-install-banner,
+html.native-app .pwa-ios-sheet,
+html.native-app .pwa-ios-sheet-backdrop,
+html.native-app #cookie-consent-banner {
+  display: none !important;
+}
+
+html.native-app .employee-app,
+html.native-app .admin-portal .app,
+html.native-app .app {
+  min-height: 100dvh;
+}
+
+html.native-app .topbar,
+html.native-app .app-mobile-header,
+html.native-app .employee-app .topbar {
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+}
+
+html.native-app body.admin-mobile-detail .topbar,
+html.native-app body.employee-mobile-detail .topbar {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+html.native-app .mobile-more-sheet,
+html.native-app .mobile-more-panel {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+html.native-app .sidebar {
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+html.native-app .btn,
+html.native-app .mobile-more-link,
+html.native-app .punch-view-tab {
+  touch-action: manipulation;
+}
+
+html.native-app .btn:not(.btn--sm):not(.mobile-tab):not(.mobile-back-btn):not(.topbar-icon-btn) {
+  min-height: 42px;
+}
+
+html.native-app .btn.btn--sm {
+  min-height: 36px;
+}
+
+html.native-app .edit-form-actions .btn,
+html.native-app .section-actions .btn,
+html.native-app .hr-detail-foot .btn,
+html.native-app .employment-detail-foot .btn {
+  min-height: 40px;
+}
+
+.sshr-action-toast-host {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 1300;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+html.native-app.admin-mobile-detail .sshr-action-toast-host,
+body.admin-mobile-detail .sshr-action-toast-host {
+  bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+.sshr-action-toast {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 10px 28px rgba(18, 53, 44, 0.16);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sshr-action-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sshr-action-toast--success {
+  background: #edf9f3;
+  border: 1px solid rgba(15, 110, 86, 0.28);
+  color: #0f6e56;
+}
+
+.sshr-action-toast--error {
+  background: #fff1f1;
+  border: 1px solid rgba(198, 40, 40, 0.24);
+  color: #b42318;
+}
+
+.sshr-action-toast--warn {
+  background: #fff8e8;
+  border: 1px solid rgba(181, 71, 8, 0.22);
+  color: #b54708;
+}
+
+html.native-app .employee-portal .content,
+html.native-app .admin-portal .content {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.native-app--unified .employee-portal .topbar-brand__app,
+html.native-app--unified .admin-portal .topbar-brand__app {
+  opacity: 0.92;
+}
+
+html.native-app .native-app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15, 110, 86, 0.12);
+  color: #0f6e56;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+html.native-app.ios-device .portal-login-page--unified {
+  background: #f9f8f4;
+}
+
+@media (display-mode: standalone), (max-width: 860px) {
+  html.native-app .employee-app .content,
+  html.native-app .admin-portal .content {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+html.native-app .punch-card--clock-widget {
+  gap: 14px;
+}
+
+html.native-app .punch-work-state-label--working {
+  color: var(--green-800, #166534);
+  font-weight: 600;
+}
+
+html.native-app .punch-work-state-label--out {
+  color: var(--text-muted, #64748b);
+}
+
+html.native-app .punch-clock-actions__phase--main {
+  display: grid;
+  gap: 10px;
+}
+
+html.native-app .punch-clock-primary--out.is-active-out:not(:disabled) {
+  background: var(--green-700, #0f6e56) !important;
+  border-color: var(--green-700, #0f6e56) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(15, 110, 86, 0.24);
+  font-weight: 700;
+  min-height: 52px;
+  font-size: 1.02rem;
+}
+
+html.native-app .punch-clock-primary--out.is-idle-out:not(:disabled),
+html.native-app .punch-clock-primary--out:disabled {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  color: #9ca3af !important;
+  box-shadow: none;
+  min-height: 48px;
+}
+
+html.native-app .punch-clock-secondary--out.is-active-out:not(:disabled) {
+  background: var(--green-700, #0f6e56) !important;
+  border-color: var(--green-700, #0f6e56) !important;
+  color: #fff !important;
+}
+
+html.native-app .punch-geofence-status {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+html.native-app .employee-shift-reminder-toast {
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 1200;
+}
