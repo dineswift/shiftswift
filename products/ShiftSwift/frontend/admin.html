@@ -1,0 +1,3213 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr" data-pwa-portal="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script>
+      (function () {
+        try {
+          if (!window.Capacitor?.isNativePlatform?.()) return;
+          window.__SSHR_BUNDLED_NATIVE_BOOT = true;
+          var scheme =
+            window.Capacitor.config && window.Capacitor.config.ios
+              ? window.Capacitor.config.ios.scheme
+              : "App";
+          if (!scheme) scheme = "App";
+          document.write(
+            '<script src="' +
+              scheme +
+              '://localhost/native-app-portal-guard.js?v=26"><\/script>',
+          );
+          document.write(
+            '<script src="' +
+              scheme +
+              '://localhost/native-app-bootstrap.js?v=26"><\/script>',
+          );
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./native-app-bootstrap.js?v=6"><\/script>');
+      }
+    </script>
+    <script src="./brand-config.js?v=brand-v8"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <meta name="theme-color" content="#0f6e56" />
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script>
+      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+        document.write('<script src="./native-app.js?v=6"><\/script>');
+      }
+    </script>
+    <script src="./pwa-ios.js?v=1"></script>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HR Admin" />
+    <meta name="description" content="Manage employees, compliance, rotas, and HR for your business." />
+    <title>ShiftSwift HR | Admin Console</title>
+    <script>
+      (function () {
+        try {
+          if (sessionStorage.getItem("impersonationActive")) return;
+          var role = localStorage.getItem("userRole");
+          var masterId = localStorage.getItem("masterTenantId") || "999";
+          var tenantId = localStorage.getItem("tenantId");
+          var isLocal = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+          if (role !== "admin" || !localStorage.getItem("token")) return;
+          if (isLocal && tenantId === "1" && masterId === "999") {
+            localStorage.setItem("tenantId", masterId);
+            tenantId = masterId;
+          }
+          if (tenantId === masterId) {
+            var hash = (location.hash || "").replace(/^#/, "");
+            if (hash === "promotions" || hash.startsWith("promotions/")) return;
+            window.location.replace("./master.html");
+          }
+        } catch (e) {
+          /* ignore storage errors */
+        }
+      })();
+    </script>
+    <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="./styles.css?v=admin-v139" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=10" />
+  </head>
+  <body class="admin-portal">
+    <script>
+      (function () {
+        function stripStartupLoader() {
+          try {
+            var loader = document.getElementById("native-startup-loader");
+            if (loader) loader.remove();
+            document.documentElement.classList.remove("native-startup-active");
+            document.body.classList.remove("native-startup-active");
+          } catch (e) {}
+        }
+        stripStartupLoader();
+        document.addEventListener("DOMContentLoaded", stripStartupLoader, { once: true });
+      })();
+    </script>
+    <script src="./admin-impersonation.js?v=1"></script>
+    <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+    <div class="app">
+      <aside class="sidebar" id="app-sidebar">
+        <div class="sidebar-head">
+          <a class="brand" href="./index.html">
+            <img class="brand-logo brand-logo--compact app-mark app-mark--chrome" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6" alt="ShiftSwift HR" />
+          </a>
+          <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
+        </div>
+        <nav class="nav" aria-label="Admin sections">
+          <a class="nav-link" href="#overview" data-section="overview">
+            <span class="nav-link__icon" data-nav-icon="layout" aria-hidden="true"></span>
+            <span class="nav-link__label">Overview</span>
+          </a>
+
+          <p class="nav-section-label">People</p>
+          <a class="nav-link" href="#employees" data-section="employees">
+            <span class="nav-link__icon" data-nav-icon="users" aria-hidden="true"></span>
+            <span class="nav-link__label">Employees</span>
+          </a>
+          <p class="nav-crumb" id="employee-nav-crumb" hidden aria-live="polite"></p>
+          <a class="nav-link" href="#recruitment" data-section="recruitment">
+            <span class="nav-link__icon" data-nav-icon="user-plus" aria-hidden="true"></span>
+            <span class="nav-link__label">Recruitment</span>
+          </a>
+          <a class="nav-link" href="#offboarding" data-section="offboarding">
+            <span class="nav-link__icon" data-nav-icon="user-minus" aria-hidden="true"></span>
+            <span class="nav-link__label">Offboarding</span>
+          </a>
+          <a class="nav-link" href="#promotions" data-section="promotions" data-platform-only hidden>
+            <span class="nav-link__icon" data-nav-icon="trending-up" aria-hidden="true"></span>
+            <span class="nav-link__label">Promotions</span>
+          </a>
+          <a class="nav-link" href="#crm" data-section="crm" data-addon="crm" hidden>
+            <span class="nav-link__icon" data-nav-icon="building" aria-hidden="true"></span>
+            <span class="nav-link__label">CRM</span>
+          </a>
+
+          <p class="nav-section-label">Compliance</p>
+          <a class="nav-link" href="#compliance" data-section="compliance" data-feature="sponsor-compliance">
+            <span class="nav-link__icon" data-nav-icon="passport" aria-hidden="true"></span>
+            <span class="nav-link__label">Sponsor compliance</span>
+          </a>
+          <a class="nav-link" href="#contracts" data-section="contracts">
+            <span class="nav-link__icon" data-nav-icon="file-certificate" aria-hidden="true"></span>
+            <span class="nav-link__label">Service agreements (MSA)</span>
+          </a>
+
+          <p class="nav-section-label">Cases</p>
+          <a class="nav-link" href="#employment-contracts" data-section="employment-contracts">
+            <span class="nav-link__icon" data-nav-icon="file-text" aria-hidden="true"></span>
+            <span class="nav-link__label">Employment contract templates</span>
+          </a>
+          <a class="nav-link" href="#grievance" data-section="grievance" data-feature="grievance">
+            <span class="nav-link__icon" data-nav-icon="scale" aria-hidden="true"></span>
+            <span class="nav-link__label">Grievance</span>
+          </a>
+          <a class="nav-link" href="#disciplinary" data-section="disciplinary" data-feature="disciplinary">
+            <span class="nav-link__icon" data-nav-icon="alert" aria-hidden="true"></span>
+            <span class="nav-link__label">Disciplinary</span>
+          </a>
+
+          <p class="nav-section-label">Operations</p>
+          <a class="nav-link" href="#time-punch" data-section="time-punch" data-requires-clock>
+            <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
+            <span class="nav-link__label">Time punch</span>
+          </a>
+          <a class="nav-link nav-link--clock-stub" href="#settings/time-punch" data-section="settings" aria-label="Time punch — enable in Settings">
+            <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
+            <span class="nav-link__label">Time punch (enable in Settings)</span>
+          </a>
+          <a class="nav-link" href="#rota" data-section="rota">
+            <span class="nav-link__icon" data-nav-icon="calendar" aria-hidden="true"></span>
+            <span class="nav-link__label">Rota</span>
+          </a>
+          <a class="nav-link" href="#leave" data-section="leave">
+            <span class="nav-link__icon" data-nav-icon="calendar-off" aria-hidden="true"></span>
+            <span class="nav-link__label">Leave</span>
+          </a>
+          <a class="nav-link" href="#profile-changes" data-section="profile-changes">
+            <span class="nav-link__icon" data-nav-icon="user" aria-hidden="true"></span>
+            <span class="nav-link__label">Contact updates</span>
+          </a>
+
+          <p class="nav-section-label">Tools</p>
+          <a class="nav-link" href="#templates" data-section="templates">
+            <span class="nav-link__icon" data-nav-icon="sparkles" aria-hidden="true"></span>
+            <span class="nav-link__label">HR Templates</span>
+          </a>
+          <a class="nav-link" href="#global-documents" data-section="global-documents">
+            <span class="nav-link__icon" data-nav-icon="folder" aria-hidden="true"></span>
+            <span class="nav-link__label">Global downloads</span>
+          </a>
+
+          <p class="nav-section-label">Admin</p>
+          <a class="nav-link" href="#settings" data-section="settings">
+            <span class="nav-link__icon" data-nav-icon="settings" aria-hidden="true"></span>
+            <span class="nav-link__label">Settings</span>
+          </a>
+          <button type="button" class="nav-link nav-link--signout" data-sign-out>
+            <span class="nav-link__icon" data-nav-icon="door" aria-hidden="true"></span>
+            <span class="nav-link__label">Sign out</span>
+          </button>
+        </nav>
+        <a
+          class="badge pill sidebar-brand-link"
+          href="#"
+          data-brand-marketing-url
+          data-brand-marketing-label="domain"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Visit marketing site (opens in new tab)"
+        >
+          <span data-brand-marketing-label="domain">shiftswifthr.co.uk</span>
+          <span class="sidebar-brand-link__icon" data-nav-icon="external-link" aria-hidden="true"></span>
+        </a>
+      </aside>
+      <main class="content">
+        <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
+          <div class="portal-pwa-install-banner__copy">
+            <strong id="portal-pwa-install-title">Download app</strong>
+            <p id="portal-pwa-install-copy">Install ShiftSwift HR Admin on this device for quick access.</p>
+          </div>
+          <div class="portal-pwa-install-banner__actions">
+            <button type="button" class="btn primary" id="portal-pwa-install-btn">Install app</button>
+            <button type="button" class="btn ghost portal-pwa-install-dismiss" id="portal-pwa-install-dismiss">Not now</button>
+          </div>
+        </div>
+
+        <div class="topbar app-mobile-header">
+          <div class="topbar-main">
+            <button type="button" class="mobile-back-btn" id="mobile-back-btn" aria-label="Go back" hidden>← Back</button>
+            <button
+              type="button"
+              class="sidebar-toggle sidebar-toggle--menu"
+              id="sidebar-toggle"
+              aria-label="Open menu"
+              aria-expanded="false"
+              aria-controls="app-sidebar"
+            >
+              <span class="sidebar-toggle__bar" aria-hidden="true"></span>
+              <span class="sidebar-toggle__bar" aria-hidden="true"></span>
+              <span class="sidebar-toggle__bar" aria-hidden="true"></span>
+            </button>
+            <a class="topbar-brand" href="#overview">
+              <img
+                class="topbar-brand__logo app-mark app-mark--chrome"
+                src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6"
+                alt=""
+              />
+              <span class="topbar-brand__text">
+                <span class="topbar-brand__name" id="topbar-business-name">ShiftSwift HR</span>
+                <span class="topbar-brand__app muted">Admin</span>
+              </span>
+            </a>
+          </div>
+          <div class="topbar-tools">
+            <button type="button" class="topbar-icon-btn" id="topbar-alerts-btn" aria-label="Open actions">
+              <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 3 6v3l2 2H5l2-2v-3a7 7 0 0 1 3-6"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+              <span class="topbar-icon-btn__badge" id="topbar-alerts-badge" hidden>0</span>
+            </button>
+            <button type="button" class="btn ghost btn-sm topbar-signout-btn topbar-signout-btn--mobile" data-sign-out>Sign out</button>
+            <details class="topbar-user-menu topbar-user-menu--desktop">
+              <summary class="topbar-user-menu__trigger" aria-label="Account menu">
+                <span class="topbar-user-menu__avatar" aria-hidden="true">HR</span>
+              </summary>
+              <div class="topbar-user-menu__panel">
+                <p class="topbar-user-menu__label muted" id="topbar-user-label">Admin account</p>
+                <a class="topbar-user-menu__link" href="#settings">Settings</a>
+                <a class="topbar-user-menu__link topbar-user-menu__link--signout" href="./business-login.html" data-sign-out>Sign out</a>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <div id="trial-upgrade-banner" class="promo-result" hidden></div>
+
+        <div id="mobile-more-panel" class="mobile-more-panel" hidden>
+          <h2 class="mobile-panel-title">More</h2>
+          <nav class="mobile-more-menu" aria-label="More options">
+            <p class="mobile-more-group">Workspace</p>
+            <a class="mobile-more-link" href="#settings">Settings</a>
+            <p class="mobile-more-group">People</p>
+            <a class="mobile-more-link" href="#employees">Employees</a>
+            <a class="mobile-more-link" href="#recruitment">Recruitment</a>
+            <a class="mobile-more-link" href="#offboarding">Offboarding</a>
+            <a class="mobile-more-link" href="#promotions" data-platform-only hidden>Promotions</a>
+            <a class="mobile-more-link" href="#crm" data-addon="crm" hidden>CRM</a>
+            <p class="mobile-more-group">Cases &amp; contracts</p>
+            <a class="mobile-more-link" href="#employment-contracts">Employment contract templates</a>
+            <a class="mobile-more-link" href="#grievance" data-feature="grievance">Grievance</a>
+            <a class="mobile-more-link" href="#disciplinary" data-feature="disciplinary">Disciplinary</a>
+            <a class="mobile-more-link" href="#contracts">Service agreements</a>
+            <p class="mobile-more-group">Operations</p>
+            <a class="mobile-more-link" href="#time-punch" data-requires-clock>Time punch</a>
+            <a class="mobile-more-link mobile-more-link--clock-stub" href="#settings/time-punch">Time punch (enable in Settings)</a>
+            <a class="mobile-more-link" href="#leave">Leave</a>
+            <a class="mobile-more-link" href="#profile-changes">Contact updates</a>
+            <a class="mobile-more-link" href="#templates">HR Templates</a>
+            <a class="mobile-more-link" href="#global-documents">Global downloads</a>
+            <p class="mobile-more-group">Support</p>
+            <a class="mobile-more-link" href="#" data-brand-support-mailto="Help and support">Help &amp; support</a>
+            <a class="mobile-more-link" href="./privacy-policy.html" target="_blank" rel="noopener">Legal &amp; privacy</a>
+            <a class="mobile-more-link mobile-more-link--signout" href="./business-login.html" data-sign-out>Sign out</a>
+          </nav>
+        </div>
+
+        <section id="overview" class="admin-section">
+          <div class="mobile-home-header admin-mobile-home-only" id="mobile-home-header">
+            <p class="mobile-greeting" id="mobile-greeting">Good afternoon</p>
+            <p class="mobile-business-name" id="mobile-business-name"></p>
+          </div>
+          <header class="section-header section-header--desktop">
+            <div>
+              <h2>Overview</h2>
+              <p class="muted" id="overview-subtitle">Your HR workspace at a glance.</p>
+            </div>
+          </header>
+          <div id="overview-trial-note" hidden></div>
+          <div class="hr-stats-grid overview-stats-grid" id="overview-metrics" aria-label="Workspace summary"></div>
+          <article class="mobile-subscription-card admin-mobile-home-only" id="mobile-subscription-card" hidden aria-label="Subscription"></article>
+          <div id="overview-setup-checklist" class="overview-setup-checklist" hidden aria-label="Workspace setup"></div>
+          <div class="overview-dashboard-layout">
+            <div class="overview-main">
+              <h3 class="overview-section-title overview-section-title--desktop">Modules</h3>
+              <h2 class="mobile-panel-title mobile-panel-title--modules">Modules</h2>
+              <div class="overview-module-grid" id="overview-modules" aria-label="HR modules"></div>
+            </div>
+            <aside class="overview-actions-panel" id="overview-actions-panel">
+              <div class="overview-actions-head">
+                <h3 class="overview-section-title">Open actions</h3>
+                <span class="overview-actions-count" id="overview-actions-count">0</span>
+              </div>
+              <div id="overview-actions" class="overview-actions-list" aria-label="Open actions"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="employees" class="admin-section" hidden>
+          <header class="section-header employees-page-header">
+            <div>
+              <h2 class="employees-page-title">Employees</h2>
+              <p class="muted employees-page-lead">Manage your register, onboarding progress, and employee records.</p>
+            </div>
+            <div class="section-actions employees-desktop-only employees-lifecycle-shortcuts" hidden aria-hidden="true">
+              <a class="btn ghost" href="#recruitment">Recruitment pipeline</a>
+              <a class="btn ghost" href="#offboarding">Offboarding workflow</a>
+            </div>
+          </header>
+
+          <div class="lifecycle-stage-rail" id="lifecycle-stage-rail" aria-label="Employee lifecycle stages"></div>
+
+          <div id="employees-list-view">
+            <div id="employees-lifecycle-hub" class="employees-lifecycle-hub employees-mobile-only" hidden aria-label="Employee lifecycle overview"></div>
+
+            <div class="employees-desktop-layout hr-workspace-layout">
+              <div class="hr-main-pane">
+                <article class="hr-surface-panel hr-log-panel employees-quick-add-panel">
+                  <div class="employees-quick-add-head">
+                    <div>
+                      <h4 class="hr-section-title">Add employee</h4>
+                      <p class="employees-step-indicator" id="employees-step-indicator">Quick capture</p>
+                    </div>
+                  </div>
+                  <p class="muted employees-quick-add-lead">Name and email only — job details, documents, and compliance go in the employee record after you create them. Duplicate names or work emails are blocked.</p>
+                  <div id="employee-quick-add-form"></div>
+                </article>
+                <div class="employees-register-block">
+                  <div class="employees-register-head">
+                    <h4 class="hr-section-title">Employee register</h4>
+                    <div class="employees-register-actions link-row">
+                      <button type="button" class="btn outline" id="employees-bulk-invite-btn">Invite all without portal accounts</button>
+                      <p class="muted" id="employees-bulk-invite-status" aria-live="polite"></p>
+                    </div>
+                  </div>
+                  <div id="employees-register-filter-banner" class="employees-register-filter-banner" hidden></div>
+                  <div class="hr-table-wrap employees-desktop-table">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Department</th>
+                          <th>Status</th>
+                          <th>Portal</th>
+                          <th>Progress</th>
+                        </tr>
+                      </thead>
+                      <tbody id="employees-table-body">
+                        <tr><td colspan="5" class="muted">Open this section to load employees…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div id="employees-mobile-cards" class="employees-mobile-cards employees-mobile-only" hidden aria-live="polite"></div>
+                </div>
+              </div>
+              <aside class="hr-detail-panel employees-desktop-only" id="employees-side-panel">
+                <div id="employees-side-empty" class="hr-detail-empty employees-side-empty">
+                  <div class="employees-side-empty__icon" aria-hidden="true">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
+                      <path d="M5 20c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                  </div>
+                  <h4 class="employees-side-empty__title">No employee selected</h4>
+                  <p class="employees-side-empty__text">Select someone from the register to view and edit their profile, or create a new employee using the form on the left.</p>
+                </div>
+                <div id="employees-side-content" hidden></div>
+              </aside>
+            </div>
+          </div>
+
+          <div id="employees-detail-view" hidden>
+            <article class="card employee-workspace">
+              <button type="button" class="employee-back-link" id="employee-back-btn">← Back to lifecycle</button>
+              <div class="employee-profile-header">
+                <div class="employee-profile-main">
+                  <div class="employee-avatar" id="employee-avatar" aria-hidden="true">?</div>
+                  <div class="employee-profile-copy">
+                    <h3 id="employee-workspace-title">Employee</h3>
+                    <p class="employee-type-line muted" id="employee-workspace-subtitle">Standard employee</p>
+                    <div class="employee-summary-strip" id="employee-summary-strip"></div>
+                  </div>
+                </div>
+                <div class="employee-progress-block">
+                  <p class="employee-progress-heading" id="employee-progress-heading">Lifecycle progress — 0% complete</p>
+                  <div class="employee-progress-bar"><span id="employee-progress-fill"></span></div>
+                  <p class="employee-progress-next" id="employee-progress-next">Next step</p>
+                </div>
+              </div>
+              <div class="lifecycle-accordion" id="employee-lifecycle-accordion" aria-label="Employee lifecycle"></div>
+              <article class="card edit-panel" id="employee-kiosk-pin-panel" hidden>
+                <h4>Time clock kiosk PIN</h4>
+                <p class="muted employee-section-hint">For shared tablet clock-in at your premises. Staff enter their employee number and this PIN on the kiosk.</p>
+                <form id="employee-kiosk-pin-form" class="edit-form edit-form--cols-2">
+                  <p class="edit-form-status muted" id="employee-kiosk-pin-status-line" data-span="2">Loading…</p>
+                  <label class="edit-field">
+                    <span class="edit-label">New PIN (4–6 digits)</span>
+                    <input type="password" name="kiosk_pin" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="e.g. 1234" />
+                  </label>
+                  <label class="edit-field signup-check">
+                    <input type="checkbox" name="clear_kiosk_pin" />
+                    <span>Clear PIN (disable kiosk sign-in)</span>
+                  </label>
+                  <div class="edit-form-actions" data-span="2">
+                    <button type="submit" class="btn secondary">Save kiosk PIN</button>
+                    <p class="edit-form-status muted" id="employee-kiosk-pin-save-status" aria-live="polite"></p>
+                  </div>
+                </form>
+              </article>
+              <article class="card edit-panel" id="employee-change-history-panel" hidden>
+                <div class="employee-change-history__head">
+                  <div>
+                    <h4>Change history</h4>
+                    <p class="muted employee-section-hint">Previous values are kept when you update contact details, job information, and other profile fields.</p>
+                  </div>
+                  <button type="button" class="btn ghost btn-sm" id="employee-change-history-close">Close</button>
+                </div>
+                <div id="employee-change-history-list" class="employee-change-history-list">
+                  <p class="muted">Loading history…</p>
+                </div>
+              </article>
+              <article class="card edit-panel" id="employee-leave-history-panel" hidden>
+                <div class="employee-change-history__head">
+                  <div>
+                    <h4>Leave history</h4>
+                    <p class="muted employee-section-hint">Holiday and absence requests submitted by this employee, including pending and past decisions.</p>
+                  </div>
+                  <button type="button" class="btn ghost btn-sm" id="employee-leave-history-close">Close</button>
+                </div>
+                <div id="employee-leave-history-summary" class="employee-leave-history-summary" hidden></div>
+                <div id="employee-leave-history-list" class="employee-change-history-list">
+                  <p class="muted">Loading leave history…</p>
+                </div>
+              </article>
+              <article class="card edit-panel" id="employee-advanced-links" hidden>
+                <h4>Related workflows</h4>
+                <p class="link-row" id="employee-advanced-link-row">
+                  <a href="#grievance" class="btn ghost">Grievance cases</a>
+                  <a href="#offboarding" class="btn ghost">Offboarding</a>
+                  <a href="#time-punch" class="btn ghost" data-requires-clock>Time punch</a>
+                  <a href="#rota" class="btn ghost">Rota</a>
+                </p>
+              </article>
+            </article>
+          </div>
+        </section>
+
+        <section id="recruitment" class="admin-section" hidden>
+          <header class="section-header recruitment-page-header">
+            <div>
+              <h2>Recruitment</h2>
+              <p class="muted">Ten-step pipeline from vacancy to offer accepted — then hand off to employee onboarding.</p>
+            </div>
+            <div class="section-actions recruitment-page-actions">
+              <button type="button" class="btn ghost" id="recruitment-closed-tab-btn">Closed roles</button>
+              <button type="button" class="btn" id="recruitment-new-vacancy-btn">+ New vacancy</button>
+            </div>
+          </header>
+
+          <div id="recruitment-list-view">
+            <div class="recruitment-pipeline-stepper" id="recruitment-pipeline-stepper" aria-label="Recruitment pipeline overview"></div>
+
+            <div class="recruitment-toolbar">
+              <div class="recruitment-view-toggle" role="tablist" aria-label="Vacancy view">
+                <button type="button" class="recruitment-view-tab is-active" data-recruitment-view="pipeline" role="tab" aria-selected="true">Pipeline</button>
+                <button type="button" class="recruitment-view-tab" data-recruitment-view="list" role="tab" aria-selected="false">List</button>
+              </div>
+              <p class="recruitment-open-count muted" id="recruitment-open-count"></p>
+            </div>
+
+            <div class="recruitment-workspace-layout">
+              <div class="recruitment-main-pane">
+                <article class="card hr-workspace recruitment-create-panel" id="recruitment-create-panel" hidden>
+                  <div class="hr-workspace-body">
+                    <h4 class="hr-section-title">New vacancy</h4>
+                    <div id="recruitment-rlmt-notice" class="recruitment-rlmt-notice" hidden>
+                      This role may require a <strong>Resident Labour Market Test (RLMT)</strong>. You will be prompted to log advert evidence at the advert posting step.
+                    </div>
+                    <div id="recruitment-quick-add-form"></div>
+                  </div>
+                </article>
+
+                <div id="recruitment-pipeline-cards" class="recruitment-pipeline-cards"></div>
+
+                <div id="recruitment-list-table-wrap" class="hr-table-wrap" hidden>
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Role</th>
+                        <th>Department</th>
+                        <th>Status</th>
+                        <th>Pipeline</th>
+                        <th>Candidates</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="recruitment-table-body">
+                      <tr><td colspan="6" class="muted">Open this section to load vacancies…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <aside class="recruitment-detail-panel" id="recruitment-side-panel">
+                <div id="recruitment-side-panel-empty" class="recruitment-side-panel-empty muted">
+                  Select a vacancy to view its pipeline steps.
+                </div>
+                <div id="recruitment-side-panel-content" hidden></div>
+              </aside>
+            </div>
+          </div>
+
+          <div id="recruitment-detail-view" hidden>
+            <article class="card employee-workspace">
+              <div class="employee-workspace-header">
+                <button type="button" class="btn ghost" id="recruitment-back-btn">← Back to vacancies</button>
+                <div>
+                  <h3 id="recruitment-workspace-title">Vacancy</h3>
+                  <p class="muted" id="recruitment-workspace-subtitle"></p>
+                </div>
+                <div class="employee-progress-wrap">
+                  <div class="employee-progress-bar"><span id="recruitment-progress-fill"></span></div>
+                  <span class="muted" id="recruitment-progress-label"></span>
+                </div>
+              </div>
+              <div class="lifecycle-accordion" id="recruitment-lifecycle-accordion" aria-label="Recruitment pipeline"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="grievance" class="admin-section" data-feature="grievance" hidden>
+          <header class="section-header cases-page-header">
+            <div>
+              <h2>Grievance</h2>
+              <p class="muted">Encrypted investigation notes, ACAS deadlines, and compliance cross-triggers.</p>
+            </div>
+            <div class="section-actions">
+              <button type="button" class="btn ghost" id="grievance-export-btn">Export all cases</button>
+              <a class="btn ghost" href="#settings/documents" id="grievance-policy-link">Grievance policy</a>
+            </div>
+          </header>
+
+          <div class="grievance-status-workflow" id="grievance-status-workflow" aria-label="Case status workflow"></div>
+
+          <div class="grievance-workspace-layout">
+            <div class="grievance-main-pane">
+              <article class="hr-surface-panel hr-log-panel grievance-create-panel">
+                <h4 class="hr-section-title">Open new case</h4>
+                <p class="muted grievance-next-ref" id="grievance-next-ref"></p>
+                <div id="grievance-case-form"></div>
+              </article>
+
+              <h4 class="hr-section-title">Case register</h4>
+              <div class="hr-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Employee</th>
+                      <th>Allegation</th>
+                      <th>Severity</th>
+                      <th>Status</th>
+                      <th>ACAS deadline</th>
+                    </tr>
+                  </thead>
+                  <tbody id="grievance-cases-body">
+                    <tr><td colspan="6" class="muted">Open this section to load cases…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <aside class="grievance-detail-panel" id="grievance-case-detail">
+              <div id="grievance-case-detail-empty" class="grievance-detail-empty muted">
+                <p>Select a case from the register to view investigation details, ACAS deadlines, and encrypted notes.</p>
+              </div>
+              <div id="grievance-case-detail-content" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="disciplinary" class="admin-section" data-feature="disciplinary" hidden>
+          <header class="section-header cases-page-header disciplinary-page-header">
+            <div>
+              <h2>Disciplinary</h2>
+              <p class="muted">Investigation register with encrypted notes and hearing outcomes — ACAS code aligned.</p>
+            </div>
+            <div class="section-actions">
+              <button type="button" class="btn ghost" id="disciplinary-export-btn">Export all cases</button>
+            </div>
+          </header>
+
+          <div class="hr-status-workflow disciplinary-status-workflow" id="disciplinary-status-workflow" aria-label="Case status workflow"></div>
+
+          <div class="hr-stats-grid disciplinary-stats-grid" id="disciplinary-stats-grid" aria-label="Disciplinary summary" hidden>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📋</span>
+              <span class="hr-stat-card__label">Open cases</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-open">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-open-sub">Active register</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--warn" id="disciplinary-stat-investigation-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">🔍</span>
+              <span class="hr-stat-card__label">Investigation</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-investigation">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-investigation-sub">Gathering evidence</span>
+            </div>
+            <div class="hr-stat-card" id="disciplinary-stat-hearing-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">⚖</span>
+              <span class="hr-stat-card__label">At hearing</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-hearing">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-hearing-sub">Formal stage</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok" id="disciplinary-stat-closed-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Closed</span>
+              <span class="hr-stat-card__value" id="disciplinary-stat-closed">0</span>
+              <span class="hr-stat-card__sub" id="disciplinary-stat-closed-sub">Outcome recorded</span>
+            </div>
+          </div>
+
+          <div class="disciplinary-sync-banner">
+            <span class="disciplinary-sync-banner__icon" aria-hidden="true">🔒</span>
+            <p><strong>Encrypted records</strong> — investigation notes are HR-only. Opening a case creates an audit trail aligned to ACAS disciplinary procedure.</p>
+          </div>
+
+          <div class="grievance-workspace-layout disciplinary-workspace-layout" id="disciplinary-workspace">
+            <div class="grievance-main-pane disciplinary-main-pane">
+              <article class="hr-surface-panel disciplinary-open-hero" id="disciplinary-open-panel">
+                <div class="disciplinary-open-hero__head">
+                  <div class="disciplinary-open-hero__badge" aria-hidden="true">⚖</div>
+                  <div>
+                    <h4 class="disciplinary-open-hero__title">Open disciplinary case</h4>
+                    <p class="muted disciplinary-next-ref" id="disciplinary-next-ref"></p>
+                  </div>
+                </div>
+                <div id="disciplinary-case-form"></div>
+              </article>
+
+              <article class="hr-surface-panel disciplinary-register-panel">
+                <header class="hr-surface-panel__head disciplinary-panel-head">
+                  <div>
+                    <h4 class="hr-section-title">Case register</h4>
+                    <p class="muted disciplinary-register-sub" id="disciplinary-register-sub">Loading…</p>
+                  </div>
+                </header>
+                <div class="hr-table-wrap disciplinary-table-wrap">
+                  <table class="data-table data-table--register">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Employee</th>
+                        <th>Misconduct</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="disciplinary-cases-body">
+                      <tr><td colspan="5" class="muted">Open this section to load cases…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+
+            <aside class="grievance-detail-panel disciplinary-detail-panel" id="disciplinary-case-detail">
+              <header class="disciplinary-detail-panel__head">
+                <h4 class="disciplinary-detail-panel__title">Case detail</h4>
+              </header>
+              <div id="disciplinary-case-detail-empty" class="grievance-detail-empty disciplinary-detail-empty"></div>
+              <div id="disciplinary-case-detail-content" class="disciplinary-detail-body" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="offboarding" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Offboarding</h2>
+              <p class="muted">ACAS appeal windows and sponsorship cessation reporting.</p>
+            </div>
+          </header>
+
+          <div class="hr-status-workflow offboarding-status-workflow" id="offboarding-status-workflow" aria-label="Offboarding workflow"></div>
+
+          <div class="offboarding-workspace-layout hr-workspace-layout" id="offboarding-workspace">
+            <div class="hr-main-pane">
+              <article class="hr-surface-panel hr-log-panel offboarding-start-panel">
+                <h4 class="hr-section-title">Start leaver workflow</h4>
+                <p class="muted employee-section-hint employee-section-hint--warn offboarding-start-hint">Starting offboarding creates an ACAS appeal deadline and sponsor cessation tasks where applicable.</p>
+                <div class="offboarding-start-row">
+                  <label class="edit-field offboarding-start-field">
+                    <span class="edit-label">Employee</span>
+                    <select id="offboarding-employee"></select>
+                  </label>
+                  <label class="edit-field offboarding-start-field">
+                    <span class="edit-label">Reason</span>
+                    <select id="offboarding-reason-type">
+                      <option value="Resignation">Resignation</option>
+                      <option value="Dismissal">Dismissal</option>
+                      <option value="Redundancy">Redundancy</option>
+                      <option value="End of contract">End of contract</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </label>
+                  <label class="edit-field offboarding-start-field offboarding-reason-detail-field" id="offboarding-reason-detail-wrap" hidden>
+                    <span class="edit-label">Details</span>
+                    <input id="offboarding-reason-detail" type="text" placeholder="Brief reason…" maxlength="200" />
+                  </label>
+                  <div class="offboarding-start-actions">
+                    <button type="button" class="btn" id="offboarding-start-btn">Start workflow</button>
+                  </div>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel offboarding-register-panel">
+                <h4 class="hr-section-title">Active workflows</h4>
+                <div class="hr-table-wrap offboarding-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Employee</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>ACAS appeal by</th>
+                        <th>Cessation</th>
+                      </tr>
+                    </thead>
+                    <tbody id="offboarding-body">
+                      <tr><td colspan="6" class="muted">Open this section to load workflows…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel offboarding-guide-panel" id="offboarding-guide-panel">
+                <h4 class="hr-section-title">What happens when you start</h4>
+                <ul class="offboarding-checklist">
+                  <li><strong>ACAS appeal window</strong> — a 21-day appeal deadline is recorded from the leaver date.</li>
+                  <li><strong>Sponsored workers</strong> — sponsor cessation reporting tasks are created where applicable.</li>
+                  <li><strong>Employee record</strong> — open the leaver’s offboarding tab for documents and final checks.</li>
+                </ul>
+                <p class="muted offboarding-guide-foot">
+                  Linked disciplinary or grievance cases can be opened from the workflow detail panel.
+                  <a href="#grievance">View grievance cases</a>
+                </p>
+              </article>
+            </div>
+
+            <aside class="hr-detail-panel offboarding-detail-panel" id="offboarding-detail-panel" hidden>
+              <header class="hr-detail-panel__head offboarding-detail-panel__head">
+                <h4 class="offboarding-detail-panel__title">Workflow detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="offboarding-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="offboarding-detail-content" class="offboarding-detail-body" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="promotions" class="admin-section" data-platform-only hidden>
+          <header class="section-header section-header--compact">
+            <div>
+              <h2>Promotions</h2>
+              <p class="muted">Platform ops — validate codes and review active billing promotions.</p>
+            </div>
+          </header>
+
+          <div class="promo-workspace">
+            <article class="card promo-validator-surface">
+              <h3 class="promo-validator-surface__title">Billing code validator</h3>
+              <p class="muted promo-validator-surface__lead">Uses the same rules as signup. Select a plan, enter codes, preview pricing.</p>
+              <div id="promo-validate-form"></div>
+              <div id="promo-validation-result" class="promo-result" hidden></div>
+            </article>
+
+            <div class="promo-catalog-grid">
+              <article class="card promo-catalog-card">
+                <div class="promo-catalog-card__head">
+                  <h4 class="hr-section-title">Active discount codes</h4>
+                  <label class="promo-catalog-toggle signup-check">
+                    <input type="checkbox" id="promo-show-inactive-discount" />
+                    <span>Show inactive</span>
+                  </label>
+                </div>
+                <div class="hr-table-wrap promo-table-wrap">
+                  <table class="data-table data-table--compact">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Discount</th>
+                        <th>Plans</th>
+                        <th>Usage</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="discount-codes-body">
+                      <tr><td colspan="5" class="muted">Open this section to load discount codes…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="card promo-catalog-card">
+                <div class="promo-catalog-card__head">
+                  <div>
+                    <h4 class="hr-section-title">Active referral codes</h4>
+                    <p class="muted promo-catalog-card__lead">Introducer codes — commission paid manually.</p>
+                  </div>
+                  <div class="promo-catalog-card__actions">
+                    <label class="promo-catalog-toggle signup-check">
+                      <input type="checkbox" id="promo-show-inactive-referral" />
+                      <span>Show inactive</span>
+                    </label>
+                    <div id="introducer-export-actions" class="link-row" hidden>
+                      <button type="button" class="btn ghost btn-sm" id="export-all-introducers-btn">Export CSV</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="hr-table-wrap promo-table-wrap">
+                  <table class="data-table data-table--compact">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Partner</th>
+                        <th>Reward</th>
+                        <th>Usage</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="referral-codes-body">
+                      <tr><td colspan="5" class="muted">Open this section to load referral codes…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="crm" class="admin-section" data-addon="crm" hidden>
+          <header class="section-header">
+            <div>
+              <h2>CRM</h2>
+              <p class="muted">Track prospects and customers separately from employee HR records — IT services, HR software, consulting, support contracts, hospitality, and other B2B sales.</p>
+            </div>
+          </header>
+
+          <div class="crm-summary-strip" id="crm-summary-strip">
+            <span class="crm-summary-pill" id="crm-summary-deals">— deals</span>
+            <span class="crm-summary-pill" id="crm-summary-accounts">— companies</span>
+            <span class="crm-summary-pill" id="crm-summary-contacts">— contacts</span>
+            <span class="crm-summary-pill" id="crm-summary-value">— pipeline</span>
+            <span class="crm-summary-pill" id="crm-summary-activity">— activity</span>
+          </div>
+
+          <div id="crm-dashboard-stages" class="crm-dashboard-stages" hidden></div>
+
+          <div class="crm-tools-bar">
+            <div class="crm-tools-group">
+              <span class="crm-tools-label">Export</span>
+              <button type="button" class="btn btn--ghost btn--sm" id="crm-export-deals">Deals CSV</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="crm-export-accounts">Companies CSV</button>
+              <button type="button" class="btn btn--ghost btn--sm" id="crm-export-contacts">Contacts CSV</button>
+            </div>
+            <div class="crm-tools-group">
+              <span class="crm-tools-label">Import</span>
+              <label class="btn btn--ghost btn--sm crm-import-label">
+                Companies CSV
+                <input type="file" id="crm-import-accounts" accept=".csv,text/csv" hidden />
+              </label>
+              <label class="btn btn--ghost btn--sm crm-import-label">
+                Contacts CSV
+                <input type="file" id="crm-import-contacts" accept=".csv,text/csv" hidden />
+              </label>
+            </div>
+            <p class="muted crm-import-hint">Import companies first, then contacts with a matching company column.</p>
+          </div>
+          <p id="crm-import-result" class="promo-result" hidden aria-live="polite"></p>
+
+          <div class="crm-tabs" role="tablist" aria-label="CRM views">
+            <button type="button" class="crm-tab is-active" data-crm-tab="pipeline" role="tab" aria-selected="true">Pipeline</button>
+            <button type="button" class="crm-tab" data-crm-tab="accounts" role="tab" aria-selected="false">Companies</button>
+            <button type="button" class="crm-tab" data-crm-tab="contacts" role="tab" aria-selected="false">Contacts</button>
+          </div>
+
+          <div id="crm-panel-pipeline" class="crm-panel" data-crm-panel="pipeline">
+            <div class="section-header section-header--compact">
+              <p class="muted" id="crm-pipeline-name">Sales pipeline</p>
+              <div class="crm-toolbar">
+                <label class="crm-search">
+                  <span class="visually-hidden">Filter by deal type</span>
+                  <select id="crm-pipeline-category">
+                    <option value="">All deal types</option>
+                  </select>
+                </label>
+                <label class="crm-search">
+                  <span class="visually-hidden">Search deals</span>
+                  <input type="search" id="crm-pipeline-search" placeholder="Search deals…" maxlength="120" />
+                </label>
+                <button type="button" class="btn btn--primary" id="crm-add-deal-btn">Add deal</button>
+              </div>
+            </div>
+            <div id="crm-pipeline-board" class="crm-pipeline-board">
+              <p class="muted">Open this section to load your pipeline…</p>
+            </div>
+          </div>
+
+          <div id="crm-panel-accounts" class="crm-panel" data-crm-panel="accounts" hidden>
+            <div class="section-header section-header--compact">
+              <p class="muted">Companies and organisations you sell to.</p>
+              <div class="crm-toolbar">
+                <label class="crm-search">
+                  <span class="visually-hidden">Search companies</span>
+                  <input type="search" id="crm-accounts-search" placeholder="Search companies…" maxlength="120" />
+                </label>
+                <button type="button" class="btn btn--ghost" id="crm-add-account-btn">Add company</button>
+              </div>
+            </div>
+            <div class="hr-table-wrap">
+              <table class="data-table crm-clickable-table">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Type</th>
+                    <th>Industry</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+                </thead>
+                <tbody id="crm-accounts-body">
+                  <tr><td colspan="5" class="muted">No companies yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="crm-panel-contacts" class="crm-panel" data-crm-panel="contacts" hidden>
+            <div class="section-header section-header--compact">
+              <p class="muted">People at your prospect and customer organisations.</p>
+              <div class="crm-toolbar">
+                <label class="crm-search">
+                  <span class="visually-hidden">Search contacts</span>
+                  <input type="search" id="crm-contacts-search" placeholder="Search contacts…" maxlength="120" />
+                </label>
+                <button type="button" class="btn btn--ghost" id="crm-add-contact-btn">Add contact</button>
+              </div>
+            </div>
+            <div class="hr-table-wrap">
+              <table class="data-table crm-clickable-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Company</th>
+                    <th>Department</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+                </thead>
+                <tbody id="crm-contacts-body">
+                  <tr><td colspan="5" class="muted">No contacts yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <dialog id="crm-deal-dialog" class="hr-dialog">
+            <form method="dialog" id="crm-deal-form" class="hr-dialog-form">
+              <h3 id="crm-deal-dialog-title">Add deal</h3>
+              <input type="hidden" name="deal_id" id="crm-deal-id" value="" />
+              <label>Title<input name="title" required maxlength="200" /></label>
+              <label>Deal type<select name="deal_category" id="crm-deal-category-select"></select></label>
+              <label>Stage<select name="stage_id" id="crm-deal-stage-select"></select></label>
+              <label>Company<select name="account_id" id="crm-deal-account-select"><option value="">— None —</option></select></label>
+              <label>Contact<select name="contact_id" id="crm-deal-contact-select"><option value="">— None —</option></select></label>
+              <label>Value (£)<input name="value_gbp" type="number" min="0" step="0.01" /></label>
+              <label>Expected close<input name="expected_close_date" type="date" /></label>
+              <label>Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="hr-dialog-actions">
+                <button type="submit" class="btn btn--primary" id="crm-deal-save-btn">Save deal</button>
+                <button type="button" class="btn btn--ghost" id="crm-deal-cancel">Cancel</button>
+              </div>
+            </form>
+          </dialog>
+
+          <dialog id="crm-account-dialog" class="hr-dialog">
+            <form method="dialog" id="crm-account-form" class="hr-dialog-form">
+              <h3 id="crm-account-dialog-title">Add company</h3>
+              <input type="hidden" name="account_id" id="crm-account-id" value="" />
+              <label>Company name<input name="name" required maxlength="200" /></label>
+              <label>Account type<select name="account_type" id="crm-account-type-select"></select></label>
+              <label>Industry<input name="industry" maxlength="120" placeholder="e.g. IT, HR, hospitality" /></label>
+              <label>Email<input name="email" type="email" /></label>
+              <label>Phone<input name="phone" maxlength="32" /></label>
+              <label>Website<input name="website" maxlength="500" /></label>
+              <label>Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="hr-dialog-actions">
+                <button type="submit" class="btn btn--primary" id="crm-account-save-btn">Save company</button>
+                <button type="button" class="btn btn--danger btn--ghost" id="crm-account-delete-btn" hidden>Delete</button>
+                <button type="button" class="btn btn--ghost" id="crm-account-cancel">Cancel</button>
+              </div>
+            </form>
+          </dialog>
+
+          <dialog id="crm-contact-dialog" class="hr-dialog">
+            <form method="dialog" id="crm-contact-form" class="hr-dialog-form">
+              <h3 id="crm-contact-dialog-title">Add contact</h3>
+              <input type="hidden" name="contact_id" id="crm-contact-id" value="" />
+              <label>Name<input name="name" required maxlength="160" /></label>
+              <label>Company<select name="account_id" id="crm-contact-account-select"><option value="">— None —</option></select></label>
+              <label>Department<input name="department" maxlength="120" placeholder="e.g. IT, HR, Finance" /></label>
+              <label>Job title<input name="job_title" maxlength="120" /></label>
+              <label>Email<input name="email" type="email" /></label>
+              <label>Phone<input name="phone" maxlength="32" /></label>
+              <label>Notes<textarea name="notes" rows="3"></textarea></label>
+              <div class="hr-dialog-actions">
+                <button type="submit" class="btn btn--primary" id="crm-contact-save-btn">Save contact</button>
+                <button type="button" class="btn btn--danger btn--ghost" id="crm-contact-delete-btn" hidden>Delete</button>
+                <button type="button" class="btn btn--ghost" id="crm-contact-cancel">Cancel</button>
+              </div>
+            </form>
+          </dialog>
+
+          <aside id="crm-entity-drawer" class="crm-deal-drawer" hidden>
+            <header class="crm-deal-drawer__head">
+              <div>
+                <h3 id="crm-entity-drawer-title">Details</h3>
+                <p class="muted" id="crm-entity-drawer-meta"></p>
+              </div>
+              <div class="crm-drawer-actions">
+                <button type="button" class="btn btn--ghost" id="crm-entity-edit-btn">Edit</button>
+                <button type="button" class="btn btn--ghost" id="crm-entity-drawer-close">Close</button>
+              </div>
+            </header>
+            <div id="crm-entity-deals" class="crm-entity-deals"></div>
+            <form id="crm-entity-activity-form" class="crm-activity-form">
+              <h4>Log activity</h4>
+              <label>Type
+                <select name="activity_type">
+                  <option value="note">Note</option>
+                  <option value="call">Call</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="demo">Demo / presentation</option>
+                </select>
+              </label>
+              <label>Subject<input name="subject" maxlength="200" /></label>
+              <label>Details<textarea name="body" rows="3" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Save activity</button>
+            </form>
+            <div id="crm-entity-activity-list" class="crm-activity-list"></div>
+            <div class="crm-documents-block">
+              <h4>Documents</h4>
+              <label class="crm-upload-label btn btn--ghost btn--sm">
+                Upload file
+                <input type="file" id="crm-entity-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
+              </label>
+              <div id="crm-entity-documents" class="crm-documents-list"></div>
+            </div>
+          </aside>
+
+          <aside id="crm-deal-drawer" class="crm-deal-drawer" hidden>
+            <header class="crm-deal-drawer__head">
+              <div>
+                <h3 id="crm-deal-drawer-title">Deal</h3>
+                <p class="muted" id="crm-deal-drawer-meta"></p>
+              </div>
+              <div class="crm-drawer-actions">
+                <button type="button" class="btn btn--ghost" id="crm-deal-edit-btn">Edit</button>
+                <button type="button" class="btn btn--danger btn--ghost" id="crm-deal-delete-btn">Delete</button>
+                <button type="button" class="btn btn--ghost" id="crm-deal-drawer-close" aria-label="Close">Close</button>
+              </div>
+            </header>
+            <label>Move to stage
+              <select id="crm-deal-drawer-stage"></select>
+            </label>
+            <label>Deal type
+              <select id="crm-deal-drawer-category"></select>
+            </label>
+            <div class="crm-ai-block">
+              <h4>AI assistant</h4>
+              <p class="muted" id="crm-ai-status">Summarise the deal or draft a follow-up email (requires AI enabled).</p>
+              <div class="crm-ai-actions">
+                <button type="button" class="btn btn--ghost btn--sm" id="crm-deal-ai-summary">Summarise deal</button>
+                <button type="button" class="btn btn--ghost btn--sm" id="crm-deal-ai-draft">Draft follow-up email</button>
+              </div>
+              <div id="crm-deal-ai-output" class="crm-ai-output" hidden></div>
+            </div>
+            <form id="crm-email-form" class="crm-email-form">
+              <h4>Send email</h4>
+              <label>Template
+                <select id="crm-email-template"><option value="">Custom message</option></select>
+              </label>
+              <label>Personal note (optional)
+                <input id="crm-email-custom" type="text" maxlength="2000" placeholder="Extra line for template…" />
+              </label>
+              <label>To<input id="crm-email-to" type="email" required /></label>
+              <label>Subject<input id="crm-email-subject" maxlength="200" required /></label>
+              <label>Message<textarea id="crm-email-body" rows="5" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Send email</button>
+            </form>
+            <form id="crm-activity-form" class="crm-activity-form">
+              <h4>Log activity</h4>
+              <label>Type
+                <select name="activity_type">
+                  <option value="note">Note</option>
+                  <option value="call">Call</option>
+                  <option value="email">Email</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="demo">Demo / presentation</option>
+                </select>
+              </label>
+              <label>Subject<input name="subject" maxlength="200" /></label>
+              <label>Details<textarea name="body" rows="3" required></textarea></label>
+              <button type="submit" class="btn btn--primary">Save activity</button>
+            </form>
+            <div id="crm-activity-list" class="crm-activity-list"></div>
+            <div class="crm-documents-block">
+              <h4>Documents</h4>
+              <label class="crm-upload-label btn btn--ghost btn--sm">
+                Upload file
+                <input type="file" id="crm-deal-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
+              </label>
+              <div id="crm-deal-documents" class="crm-documents-list"></div>
+            </div>
+          </aside>
+        </section>
+
+        <section id="templates" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>HR Templates</h2>
+              <p class="muted">Curated UK HR documents — customise, preview, and download. AI drafting is available as a subscription add-on.</p>
+            </div>
+            <div class="section-actions">
+              <a class="btn ghost" href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS templates →</a>
+            </div>
+          </header>
+
+          <div id="hr-template-updates-banner" class="promo-result" hidden></div>
+          <div id="templates-ai-addon-notice" class="promo-result templates-ai-addon-notice" hidden></div>
+
+          <div class="templates-workspace hr-workspace-layout" id="templates-workspace">
+            <div class="hr-main-pane templates-main-pane">
+              <article class="hr-surface-panel templates-library-panel">
+                <div class="templates-library-toolbar">
+                  <h4 class="hr-section-title">Process template library</h4>
+                  <div class="templates-library-filters">
+                    <label class="templates-filter">
+                      <span class="edit-label">Category</span>
+                      <select id="hr-templates-category-filter">
+                        <option value="">All categories</option>
+                      </select>
+                    </label>
+                    <label class="templates-filter">
+                      <span class="edit-label">Download as</span>
+                      <select id="template-download-format">
+                        <option value="pdf">PDF</option>
+                        <option value="doc">Word</option>
+                        <option value="md">Markdown</option>
+                      </select>
+                    </label>
+                    <label class="templates-filter templates-filter--search">
+                      <span class="edit-label">Search</span>
+                      <input type="search" id="hr-templates-search" placeholder="Search templates…" maxlength="80" />
+                    </label>
+                  </div>
+                </div>
+                <div class="hr-table-wrap templates-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Template</th>
+                        <th>Category</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="hr-templates-body">
+                      <tr><td colspan="4" class="muted">Open this section to load templates…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="muted templates-library-foot">Double-click a row to edit · Single-click for summary</p>
+              </article>
+
+              <article class="hr-surface-panel template-editor-panel" id="template-editor-panel" hidden>
+                <header class="template-editor__head">
+                  <div class="template-editor__intro">
+                    <h3 id="template-editor-title">Edit template</h3>
+                    <p class="muted" id="template-editor-meta"></p>
+                    <div id="template-editor-badges" class="template-editor__badges"></div>
+                  </div>
+                  <div class="template-editor__actions">
+                    <button type="button" class="btn" id="template-save-btn">Save changes</button>
+                    <button type="button" class="btn ghost" id="template-editor-close">Close</button>
+                    <button type="button" class="btn ghost" id="template-apply-update-btn" hidden>Apply platform update</button>
+                    <button type="button" class="btn ghost" id="template-reset-btn">Reset to default</button>
+                    <button type="button" class="btn ghost btn--sm" id="template-download-platform-btn">Download platform</button>
+                    <button type="button" class="btn ghost btn--sm" id="template-download-btn">Download my copy</button>
+                  </div>
+                </header>
+
+                <div id="template-update-notice" class="promo-result template-editor__notice" hidden></div>
+
+                <div class="template-editor__meta">
+                  <div id="template-legal-meta" class="template-editor__legal muted"></div>
+                  <details id="template-revisions-panel" class="template-editor__revisions" hidden>
+                    <summary>Version history</summary>
+                    <ul id="template-revisions-list" class="muted"></ul>
+                  </details>
+                </div>
+
+                <label class="edit-field template-editor__title-field">
+                  <span class="edit-label">Document title</span>
+                  <input id="template-title-input" type="text" />
+                </label>
+
+                <div class="template-editor__split">
+                  <div class="template-editor__edit">
+                    <div class="template-editor__pane-head">
+                      <span class="template-editor__pane-label">Markdown source</span>
+                      <span class="muted template-editor__word-count" id="template-word-count"></span>
+                    </div>
+                    <textarea id="template-body-input" class="template-editor__textarea" spellcheck="true" rows="18"></textarea>
+                  </div>
+                  <div class="template-editor__preview-pane">
+                    <div class="template-editor__pane-head">
+                      <span class="template-editor__pane-label">Live preview</span>
+                      <span class="muted">How employees and HR will read this document</span>
+                    </div>
+                    <div id="template-preview-output" class="template-doc-preview" aria-live="polite"></div>
+                  </div>
+                </div>
+
+                <p class="template-editor__status muted" id="template-save-status" aria-live="polite"></p>
+
+                <details class="template-editor__ai" id="ai-assist-panel" hidden>
+                  <summary class="template-editor__ai-summary">AI assist — adapt this document</summary>
+                  <div class="template-editor__ai-body">
+                    <input type="hidden" id="ai-template-id" value="" />
+                    <label class="edit-field">
+                      <span class="edit-label">Brief for AI</span>
+                      <textarea id="ai-prompt-input" rows="3" placeholder="e.g. Adapt this onboarding checklist for a 40-seat restaurant with sponsored kitchen staff…"></textarea>
+                    </label>
+                    <label class="edit-field">
+                      <span class="edit-label">Business context (optional)</span>
+                      <textarea id="ai-context-input" rows="2" placeholder="Sites, brand name, typical roles…"></textarea>
+                    </label>
+                    <button type="button" class="btn" id="ai-draft-btn">Generate with AI</button>
+                    <p class="muted" id="ai-draft-status"></p>
+                    <p class="muted template-editor__ai-note">AI output is a draft only — review before saving. Not legal advice.</p>
+                  </div>
+                </details>
+              </article>
+            </div>
+
+            <aside class="hr-detail-panel templates-side-panel" id="templates-side-panel">
+              <div id="templates-side-empty" class="hr-detail-empty muted">
+                <p>Select a template to see version and download options. Double-click a row to open the document editor with live preview.</p>
+              </div>
+              <div id="templates-side-content" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="global-documents" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Global downloads</h2>
+              <p class="muted">Ready-made Word and Excel templates for every business — rota planners, timesheets, and HR forms. Free to download; customise offline and store in your document library.</p>
+            </div>
+            <div class="section-actions">
+              <a class="btn ghost" href="#templates">HR process templates →</a>
+              <a class="btn ghost" href="#settings/documents">Your document store →</a>
+            </div>
+          </header>
+
+          <article class="hr-surface-panel global-documents-panel">
+            <div class="templates-library-toolbar">
+              <h4 class="hr-section-title">Platform library</h4>
+              <div class="templates-library-filters">
+                <label class="templates-filter">
+                  <span class="edit-label">Category</span>
+                  <select id="global-documents-category-filter">
+                    <option value="">All categories</option>
+                  </select>
+                </label>
+                <label class="templates-filter templates-filter--search">
+                  <span class="edit-label">Search</span>
+                  <input type="search" id="global-documents-search" placeholder="Search downloads…" maxlength="80" />
+                </label>
+              </div>
+            </div>
+            <div class="global-documents-grid" id="global-documents-grid" aria-live="polite">
+              <p class="muted">Open this section to load downloads…</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="compliance" class="admin-section" hidden data-feature="sponsor-compliance">
+          <div id="mobile-compliance-shell" class="compliance-mobile-shell admin-mobile-compliance-only"></div>
+          <header class="section-header">
+            <div>
+              <h2>Sponsor compliance</h2>
+              <p class="muted">Recording tools and alerts for UK sponsor licence duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.</p>
+            </div>
+            <a class="btn secondary" id="rtw-checklist-link" href="#" target="_blank" rel="noopener">GOV.UK: Right to work checks guidance →</a>
+          </header>
+
+          <div id="sponsor-enabled-banner" class="sponsor-enabled-banner" hidden>
+            <div class="sponsor-enabled-banner__left">
+              <span class="sponsor-enabled-dot" aria-hidden="true"></span>
+              <div>
+                <p class="sponsor-enabled-banner__title">Sponsor compliance tools active</p>
+                <p class="sponsor-enabled-banner__meta">
+                  <span id="sponsor-enabled-meta"></span>
+                  · <button type="button" class="sponsor-reread-link" id="sponsor-reread-duties">Re-read duties</button>
+                </p>
+              </div>
+            </div>
+            <button type="button" class="btn ghost btn-sm" id="sponsor-banner-export-btn">Export audit pack</button>
+          </div>
+
+          <div id="sponsor-duties-section">
+          <article class="card sponsor-setup-card" id="sponsor-setup-checklist" hidden>
+            <h3 class="sponsor-setup-card__title">
+              Setup checklist
+              <span class="sponsor-setup-card__progress" id="sponsor-setup-progress">0 of 5 complete</span>
+            </h3>
+            <ol class="sponsor-setup-steps" id="sponsor-setup-steps"></ol>
+          </article>
+
+          <div id="sponsor-duty-cards" class="sponsor-duties-grid" hidden aria-label="Compliance duty areas"></div>
+          </div>
+
+          <article class="card sponsor-ack-card" id="sponsor-licence-ack-panel" hidden>
+            <header class="sponsor-ack-card__header">
+              <h3>Confirm sponsor licence holder &amp; your duties</h3>
+              <p class="muted">Read carefully — tick all three boxes to enable sponsor compliance tools.</p>
+            </header>
+            <div class="sponsor-ack-card__body">
+              <div class="sponsor-ack-disclaimer" id="sponsor-licence-ack-disclaimer"></div>
+              <div class="sponsor-ack-checks">
+                <label class="sponsor-ack-check">
+                  <input type="checkbox" id="sponsor-licence-holds" />
+                  <span>Our organisation holds (or is applying for) a valid UK Sponsor Licence</span>
+                </label>
+                <label class="sponsor-ack-check">
+                  <input type="checkbox" id="sponsor-licence-understand" />
+                  <span>I understand ShiftSwift HR records data we enter — it does not submit Home Office reports on our behalf</span>
+                </label>
+                <label class="sponsor-ack-check">
+                  <input type="checkbox" id="sponsor-licence-accept" />
+                  <span>
+                    I accept sponsor licence duty terms in the
+                    <a href="./eula.html" target="_blank" rel="noopener">HR Module EULA</a>
+                  </span>
+                </label>
+              </div>
+              <button type="button" class="btn sponsor-ack-enable-btn" id="sponsor-licence-ack-btn" disabled>Enable sponsor compliance tools</button>
+              <p class="sponsor-ack-progress" id="sponsor-ack-progress">Tick all 3 boxes to continue — 0 of 3 confirmed</p>
+              <p class="edit-form-status muted" id="sponsor-licence-ack-status"></p>
+            </div>
+          </article>
+
+          <div id="compliance-tools-content">
+
+          <article class="card absence-workspace" id="compliance-absence">
+            <header class="absence-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Absence monitoring</h3>
+                <p class="muted">Track unauthorised absences for sponsored workers — day-9 threshold alerts for Home Office reporting.</p>
+              </div>
+              <div class="section-actions absence-workspace-actions">
+                <button type="button" class="btn outline" id="absence-export-log-btn">Export log</button>
+                <button type="button" class="btn" id="absence-log-btn">+ Log absence</button>
+              </div>
+            </header>
+
+            <div class="absence-stats-grid" aria-label="Absence summary">
+              <div class="absence-stat-card absence-stat-card--danger">
+                <span class="absence-stat-card__label">Day-9 alerts</span>
+                <span class="absence-stat-card__value" id="absence-stat-day9">0</span>
+                <span class="absence-stat-card__sub">Action required now</span>
+              </div>
+              <div class="absence-stat-card absence-stat-card--warn">
+                <span class="absence-stat-card__label">Active absences</span>
+                <span class="absence-stat-card__value" id="absence-stat-active">0</span>
+                <span class="absence-stat-card__sub">Currently ongoing</span>
+              </div>
+              <div class="absence-stat-card">
+                <span class="absence-stat-card__label">Resolved this month</span>
+                <span class="absence-stat-card__value" id="absence-stat-resolved">0</span>
+                <span class="absence-stat-card__sub" id="absence-stat-month"></span>
+              </div>
+              <div class="absence-stat-card absence-stat-card--ok">
+                <span class="absence-stat-card__label">Sponsored workers</span>
+                <span class="absence-stat-card__value" id="absence-stat-sponsored">0</span>
+                <span class="absence-stat-card__sub">Under monitoring</span>
+              </div>
+            </div>
+
+            <div id="absence-primary-banner" class="absence-primary-banner" hidden></div>
+
+            <div class="absence-workspace-layout">
+              <div class="absence-main-pane">
+                <h4 class="absence-section-title">
+                  Active absences — sponsored workers
+                  <span class="absence-count-badge" id="absence-active-count">0 active</span>
+                </h4>
+                <div id="absence-mobile-cards" class="absence-mobile-cards" hidden aria-live="polite"></div>
+                <div class="absence-table-wrap absence-desktop-table">
+                  <table class="absence-table" aria-label="Active sponsored absences">
+                    <thead>
+                      <tr>
+                        <th scope="col"></th>
+                        <th scope="col">Worker</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Started</th>
+                        <th scope="col">Days</th>
+                        <th scope="col">Progress</th>
+                        <th scope="col">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="absence-active-body">
+                      <tr><td colspan="7" class="muted">Loading absence records…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <h4 class="absence-section-title absence-section-title--muted">
+                  Recent resolved absences
+                  <span class="absence-count-badge absence-count-badge--ok" id="absence-resolved-count">0 this month</span>
+                </h4>
+                <div class="absence-table-wrap">
+                  <table class="absence-table absence-table--resolved" aria-label="Resolved absences">
+                    <thead>
+                      <tr>
+                        <th scope="col"></th>
+                        <th scope="col">Worker</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Period</th>
+                        <th scope="col">Days</th>
+                        <th scope="col">Resolution</th>
+                        <th scope="col">Reported</th>
+                      </tr>
+                    </thead>
+                    <tbody id="absence-resolved-body">
+                      <tr><td colspan="7" class="muted">No resolved absences yet.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <aside id="absence-detail-panel" class="absence-detail-panel" hidden>
+                <div class="absence-detail-panel__head">
+                  <h4>Absence record</h4>
+                  <span id="absence-detail-badge" class="absence-panel-badge" hidden></span>
+                </div>
+                <div id="absence-detail-content" class="absence-detail-panel__body"></div>
+                <label class="edit-field absence-ho-ref-field" id="absence-ho-ref-wrap" hidden>
+                  <span class="edit-label">Home Office report reference (optional)</span>
+                  <input type="text" id="absence-ho-ref-input" maxlength="120" placeholder="SMS reference or case ID" />
+                </label>
+                <div class="absence-detail-panel__foot">
+                  <button type="button" class="btn outline" id="absence-mark-sms-btn">Mark SMS reported</button>
+                  <button type="button" class="btn" id="absence-mark-returned-btn">Mark returned to work</button>
+                </div>
+              </aside>
+            </div>
+
+            <div id="absence-log-panel" class="absence-log-panel" hidden>
+              <header class="absence-log-panel__head">
+                <h4>Log absence day</h4>
+                <button type="button" class="absence-log-panel__close" id="absence-log-panel-close" aria-label="Close">×</button>
+              </header>
+              <div id="absence-day-form"></div>
+            </div>
+          </article>
+
+          <article class="card hr-workspace hr-workspace--compact" id="compliance-working-calendar">
+            <header class="hr-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Working calendar (bank holidays)</h3>
+                <p class="muted">Mark non-working days so weekends and bank holidays do not break absence streaks incorrectly.</p>
+              </div>
+            </header>
+            <div class="hr-workspace-body">
+              <div id="working-calendar-form"></div>
+              <div class="hr-table-wrap">
+                <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="working-calendar-body">
+                  <tr><td colspan="3" class="muted">No custom calendar entries. All weekdays count as working days.</td></tr>
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </article>
+
+          <article class="card rtw-workspace" id="compliance-rtw">
+            <header class="rtw-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Right to work</h3>
+                <p class="muted">Immutable RTW records, expiry tracking, and document audit trail for all staff.</p>
+              </div>
+              <div class="section-actions rtw-workspace-actions">
+                <button type="button" class="btn outline" id="rtw-export-all-btn">Export all records</button>
+                <button type="button" class="btn" id="rtw-add-check-btn">+ Add RTW check</button>
+              </div>
+            </header>
+
+            <div class="rtw-stats-grid" aria-label="RTW summary">
+              <div class="rtw-stat-card rtw-stat-card--neutral">
+                <span class="rtw-stat-card__value" id="rtw-stat-total">0</span>
+                <span class="rtw-stat-card__label">Total checks</span>
+              </div>
+              <div class="rtw-stat-card rtw-stat-card--ok">
+                <span class="rtw-stat-card__value" id="rtw-stat-verified">0</span>
+                <span class="rtw-stat-card__label">Verified</span>
+              </div>
+              <div class="rtw-stat-card rtw-stat-card--warn">
+                <span class="rtw-stat-card__value" id="rtw-stat-expiring">0</span>
+                <span class="rtw-stat-card__label">Expiring soon <span class="rtw-stat-card__hint">Within 30 days</span></span>
+              </div>
+              <div class="rtw-stat-card rtw-stat-card--clear">
+                <span class="rtw-stat-card__value" id="rtw-stat-review">0</span>
+                <span class="rtw-stat-card__label">Needs review <span class="rtw-stat-card__hint">All clear</span></span>
+              </div>
+            </div>
+
+            <div class="rtw-toolbar">
+              <div class="rtw-filter-scroll">
+                <div class="rtw-filter-tabs" role="tablist" aria-label="Filter RTW records">
+                  <button type="button" class="rtw-filter-tab is-active" data-rtw-filter="all">All</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="verified">Verified</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="expiring_soon">Expiring soon</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="needs_review">Needs review</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="sponsored">Sponsored</button>
+                </div>
+              </div>
+              <label class="rtw-search">
+                <span class="sr-only">Search RTW records</span>
+                <input type="search" id="rtw-search-input" placeholder="Search records" autocomplete="off" />
+              </label>
+            </div>
+
+            <div class="rtw-workspace-layout">
+              <div class="rtw-table-wrap rtw-desktop-table">
+                <table class="rtw-table" aria-label="Right to work checks">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Document type</th>
+                      <th>Check date</th>
+                      <th>Expiry</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rtw-table-body">
+                    <tr><td colspan="5" class="muted">Loading RTW records…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div id="rtw-mobile-cards" class="rtw-mobile-cards" hidden aria-live="polite"></div>
+              <aside id="rtw-detail-panel" class="rtw-detail-panel" hidden>
+                <div class="rtw-detail-panel__head">
+                  <h4>RTW record</h4>
+                  <button type="button" class="rtw-detail-edit-link" id="rtw-detail-recheck-link">Re-check</button>
+                </div>
+                <div id="rtw-detail-content"></div>
+                <div class="rtw-detail-panel__foot">
+                  <button type="button" class="btn ghost" id="rtw-send-reminder-btn">Send reminder</button>
+                  <button type="button" class="btn" id="rtw-detail-recheck-btn">Re-check</button>
+                </div>
+              </aside>
+            </div>
+
+            <div id="rtw-add-panel" class="rtw-add-panel" hidden>
+              <header class="rtw-add-panel__head">
+                <h4>Add RTW check</h4>
+                <button type="button" class="rtw-add-panel__close" id="rtw-add-panel-close" aria-label="Close">×</button>
+              </header>
+              <div id="rtw-upload-form"></div>
+              <div id="share-code-form"></div>
+              <div id="share-code-result" class="promo-result" hidden></div>
+            </div>
+
+            <p class="rtw-immutable-note">
+              <strong>Immutable records.</strong> Once saved, RTW checks cannot be edited or deleted — only new entries are added, with timestamp and user logged for audit trail integrity.
+            </p>
+          </article>
+
+          <article class="card hr-workspace hr-workspace--compact feature-gated-panel" id="compliance-audit-export" data-feature="audit-export">
+            <header class="hr-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Home Office audit export</h3>
+                <p class="muted">One-click pack for unexpected sponsor licence inspections.</p>
+              </div>
+              <div class="link-row">
+                <label class="edit-field" style="min-width:140px;margin:0;">
+                  <span class="edit-label">Employee ID (optional)</span>
+                  <input id="audit-export-employee" type="number" placeholder="All" />
+                </label>
+                <button type="button" class="btn secondary" id="audit-export-json">Download JSON</button>
+                <button type="button" class="btn" id="audit-export-pdf">Download PDF</button>
+              </div>
+            </header>
+          </article>
+
+          <article class="card hr-workspace hr-workspace--compact">
+            <header class="hr-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Open reporting triggers</h3>
+                <p class="muted">Auto-created when sponsored workers are suspended or offboarded.</p>
+              </div>
+            </header>
+            <div class="hr-workspace-body">
+              <div class="hr-table-wrap">
+                <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Employee</th>
+                    <th>Description</th>
+                    <th>Deadline</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="reporting-triggers-body">
+                  <tr><td colspan="5" class="muted">Open compliance section to load triggers…</td></tr>
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </article>
+
+          <article class="card hr-workspace hr-workspace--compact">
+            <header class="hr-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Advertisement records &amp; links</h3>
+                <p class="muted">Log where each vacancy was advertised with live URLs and related archive links.</p>
+              </div>
+              <div class="link-row" id="gov-recruitment-links"></div>
+            </header>
+            <div class="hr-workspace-body">
+              <div id="advert-form"></div>
+              <div class="hr-table-wrap">
+                <table class="data-table" id="advert-records-table">
+                <thead>
+                  <tr>
+                    <th>Job title</th>
+                    <th>Platform</th>
+                    <th>Posted</th>
+                    <th>Primary link</th>
+                    <th>Other links</th>
+                  </tr>
+                </thead>
+                <tbody id="advert-records-body">
+                  <tr><td colspan="5" class="muted">Loading advertisement records…</td></tr>
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </article>
+
+          <article class="card hr-workspace hr-workspace--compact legal-note">
+            <div class="hr-workspace-body">
+              <h3>Software records — you act on duties</h3>
+              <p class="muted legal-note-copy">
+                ShiftSwift HR stores the evidence and alerts your team creates. You must still perform Right to Work checks,
+                submit SMS reports through official Home Office channels, and respond to day-9 absence alerts. See the
+                <a href="./eula.html" target="_blank" rel="noopener">HR Module EULA</a> for full liability terms.
+              </p>
+              <a class="btn ghost" href="./eula.html" target="_blank" rel="noopener">View HR Module EULA</a>
+            </div>
+          </article>
+          </div>
+        </section>
+
+        <section id="contracts" class="admin-section" hidden>
+          <header class="section-header contracts-page-header">
+            <div>
+              <h2>Service agreements</h2>
+              <p class="muted">Your ShiftSwift subscription agreements (MSA, DPA, order form). Issued by ShiftSwift — view status and sign when prompted. For employee contracts, use Employment contracts.</p>
+            </div>
+            <div class="section-actions">
+              <a class="btn ghost" href="./payment-terms.html" target="_blank" rel="noopener">Payment terms</a>
+              <a class="btn ghost" href="./dpa.html" target="_blank" rel="noopener">DPA template</a>
+            </div>
+          </header>
+
+          <div class="contracts-status-workflow" aria-label="Agreement status workflow">
+            <span class="contracts-workflow-step">Received</span>
+            <span class="contracts-workflow-arrow" aria-hidden="true">→</span>
+            <span class="contracts-workflow-step">Signed</span>
+            <span class="contracts-workflow-arrow" aria-hidden="true">→</span>
+            <span class="contracts-workflow-step">Stored</span>
+          </div>
+
+          <div class="contracts-workspace-layout">
+            <div class="contracts-main-pane">
+              <article class="hr-surface-panel hr-log-panel contracts-readonly-notice">
+                <h4 class="hr-section-title">Platform agreements</h4>
+                <p class="muted">MSA, DPA, and subscription order forms are issued by ShiftSwift. Only agreements sent to you appear below — preview them and sign using the link emailed to your signatory.</p>
+                <p class="muted">Need a revised pack after a company or plan change? Contact <a href="#" data-brand-support-mailto>ShiftSwift support</a>.</p>
+              </article>
+
+              <h4 class="hr-section-title">Agreement register</h4>
+              <div class="hr-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Template</th>
+                      <th>Customer</th>
+                      <th>Agreement</th>
+                      <th>Signatory</th>
+                      <th>Your signature</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contracts-table-body">
+                    <tr><td colspan="6" class="muted">Open this section to load contracts…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <aside class="contracts-detail-panel" id="contracts-detail-panel">
+              <div id="contracts-detail-empty" class="contracts-detail-empty muted">
+                <p>Select an agreement to preview it. Signing happens via the secure link emailed to your authorised signatory.</p>
+              </div>
+              <div id="contracts-detail-content" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="employment-contracts" class="admin-section" hidden>
+          <header class="section-header contracts-page-header employment-page-header">
+            <div>
+              <h2>Employment contracts</h2>
+              <p class="muted">ACAS-aligned templates, employee e-signature, and signed copies stored on each employee profile.</p>
+            </div>
+            <div class="section-actions">
+              <a class="btn ghost" href="#templates">HR Templates</a>
+              <a class="btn ghost" href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS templates →</a>
+            </div>
+          </header>
+
+          <div class="hr-status-workflow employment-status-workflow" id="employment-contracts-status-workflow" aria-label="Employment contract workflow"></div>
+
+          <div class="hr-stats-grid employment-stats-grid" id="employment-stats-grid" aria-label="Contract summary" hidden>
+            <div class="hr-stat-card" id="employment-stat-total-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📄</span>
+              <span class="hr-stat-card__label">Contracts</span>
+              <span class="hr-stat-card__value" id="employment-stat-total">0</span>
+              <span class="hr-stat-card__sub" id="employment-stat-total-sub">On register</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--warn" id="employment-stat-draft-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✎</span>
+              <span class="hr-stat-card__label">Draft</span>
+              <span class="hr-stat-card__value" id="employment-stat-draft">0</span>
+              <span class="hr-stat-card__sub" id="employment-stat-draft-sub">Ready to send</span>
+            </div>
+            <div class="hr-stat-card" id="employment-stat-sent-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✉</span>
+              <span class="hr-stat-card__label">Awaiting signature</span>
+              <span class="hr-stat-card__value" id="employment-stat-sent">0</span>
+              <span class="hr-stat-card__sub" id="employment-stat-sent-sub">Sent to employees</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok" id="employment-stat-signed-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Signed</span>
+              <span class="hr-stat-card__value" id="employment-stat-signed">0</span>
+              <span class="hr-stat-card__sub" id="employment-stat-signed-sub">Stored on file</span>
+            </div>
+          </div>
+
+          <div id="employment-template-sync-note" class="employment-sync-banner">
+            <span class="employment-sync-banner__icon" aria-hidden="true">↻</span>
+            <p><strong>Platform sync</strong> — templates live in HR Templates (category: contracts). When UK law changes, apply platform updates there before generating new contracts.</p>
+          </div>
+
+          <div class="employment-contracts-workspace contracts-workspace-layout" id="employment-contracts-workspace">
+            <div class="contracts-main-pane">
+              <article class="hr-surface-panel employment-generate-hero" id="employment-contracts-generate-panel">
+                <div class="employment-generate-hero__head">
+                  <div class="employment-generate-hero__badge" aria-hidden="true">📝</div>
+                  <div>
+                    <h4 class="employment-generate-hero__title">Generate employment contract</h4>
+                    <p class="muted employment-generate-hint">Prefills from employee profile and business settings. Email required before sending for signature.</p>
+                  </div>
+                </div>
+                <form id="employment-contract-generate-form" class="employment-contract-generate-row">
+                  <label class="edit-field employment-contract-field">
+                    <span class="edit-label">Employee</span>
+                    <select name="employee_id" id="employment-contract-employee" required></select>
+                  </label>
+                  <label class="edit-field employment-contract-field">
+                    <span class="edit-label">Template</span>
+                    <select name="template_id" id="employment-contract-template" required></select>
+                  </label>
+                  <div class="employment-contract-generate-actions">
+                    <button type="submit" class="btn primary">Generate contract</button>
+                  </div>
+                </form>
+                <p class="muted" id="employment-contract-email-hint" hidden></p>
+                <p class="muted employment-generate-status" id="employment-contract-generate-status"></p>
+                <p class="muted employment-generate-foot">
+                  <a href="#templates">Customise templates</a>
+                  <span aria-hidden="true">·</span>
+                  <a href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS guidance</a>
+                </p>
+              </article>
+
+              <article class="hr-surface-panel employment-template-panel">
+                <header class="hr-surface-panel__head employment-panel-head">
+                  <div>
+                    <h4 class="hr-section-title">Template library</h4>
+                    <p class="muted employment-template-panel-hint">Job offer letters are for candidates — use <a href="#recruitment">Recruitment</a> before employment starts.</p>
+                  </div>
+                </header>
+                <div id="employment-template-list" class="employment-template-grid">
+                  <p class="muted">Open this section to load templates…</p>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel employment-register-panel">
+                <header class="hr-surface-panel__head employment-panel-head">
+                  <div>
+                    <h4 class="hr-section-title">Contract register</h4>
+                    <p class="muted employment-register-sub" id="employment-register-sub">Loading…</p>
+                  </div>
+                </header>
+                <div class="hr-table-wrap employment-contracts-table-wrap">
+                  <table class="data-table data-table--register">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Employee</th>
+                        <th>Template</th>
+                        <th>Status</th>
+                        <th>Version</th>
+                        <th>Signed</th>
+                      </tr>
+                    </thead>
+                    <tbody id="employment-contracts-body">
+                      <tr><td colspan="6" class="muted">Open this section to load contracts…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <div class="employment-foot-grid">
+                <article class="hr-surface-panel employment-guide-panel" id="employment-contracts-guide-panel">
+                  <h4 class="hr-section-title">How it works</h4>
+                  <ol class="employment-steps">
+                    <li><span class="employment-steps__num">1</span><span><strong>Customise</strong> templates in HR Templates — or use platform defaults.</span></li>
+                    <li><span class="employment-steps__num">2</span><span><strong>Generate</strong> — merges employee and business details.</span></li>
+                    <li><span class="employment-steps__num">3</span><span><strong>Send</strong> for e-signature in the employee browser.</span></li>
+                    <li><span class="employment-steps__num">4</span><span><strong>Signed copy</strong> saves to the employee document store.</span></li>
+                  </ol>
+                </article>
+                <article class="hr-surface-panel employment-legal-panel">
+                  <h4 class="hr-section-title">ACAS guidance</h4>
+                  <p class="muted employment-legal-copy">Templates align to <a href="https://www.acas.org.uk/templates" target="_blank" rel="noopener">ACAS templates</a>. We do not scrape acas.org.uk automatically — legal-reviewed updates ship on deploy. Have contracts reviewed by qualified UK employment solicitors before issue.</p>
+                </article>
+              </div>
+            </div>
+
+            <aside class="contracts-detail-panel employment-contracts-detail-panel" id="employment-contracts-detail-panel" hidden>
+              <header class="hr-detail-panel__head employment-contracts-detail-head">
+                <h4 class="employment-contracts-detail-title">Contract detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="employment-contract-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="employment-contracts-detail-content" class="employment-contracts-detail-body" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="time-punch" class="admin-section" hidden>
+          <header class="section-header section-header--compact">
+            <div>
+              <h2>Time punch</h2>
+              <p class="muted">Geofenced clock in/out — staff punch via the Time Clock app with GPS outdoors or premises QR indoors.</p>
+            </div>
+            <div class="section-actions">
+              <button type="button" class="btn outline" id="punch-header-export-btn"><span aria-hidden="true">⬇</span> Export punches</button>
+              <button type="button" class="btn primary" id="punch-header-admin-btn"><span aria-hidden="true">👤</span> Admin punch</button>
+            </div>
+          </header>
+
+          <div id="punch-address-warning" class="alert-card alert-card-warning punch-alert" hidden>
+            <div class="alert-card-head">
+              <span class="alert-label">Business address required</span>
+            </div>
+            <p class="alert-copy">Set a registered business address before syncing your first punch site. Include the full street address and UK postcode (e.g. 156 Front street, Nottingham, NG5 7EG).</p>
+            <div class="punch-alert-actions">
+              <a href="#settings/business" class="btn outline">Set business address in Settings →</a>
+            </div>
+          </div>
+
+          <div id="punch-toast" class="punch-toast" hidden role="status" aria-live="polite"></div>
+          <p id="punch-admin-message" class="muted punch-admin-message punch-admin-message--info" aria-live="polite" hidden></p>
+
+          <div class="hr-stats-grid punch-stats-grid" aria-label="Time punch summary">
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📍</span>
+              <span class="hr-stat-card__label">Punch sites</span>
+              <span class="hr-stat-card__value" id="punch-stat-sites">0</span>
+              <span class="hr-stat-card__sub">Configured locations</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok">
+              <span class="hr-stat-card__icon" aria-hidden="true">🕐</span>
+              <span class="hr-stat-card__label">Today's punches</span>
+              <span class="hr-stat-card__value" id="punch-stat-today">0</span>
+              <span class="hr-stat-card__sub" id="punch-stat-today-sub">No punches yet</span>
+            </div>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">🏢</span>
+              <span class="hr-stat-card__label">Primary site</span>
+              <span class="hr-stat-card__value punch-stat-primary-name" id="punch-stat-primary">None</span>
+              <span class="hr-stat-card__sub" id="punch-stat-primary-sub">Not configured</span>
+            </div>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">⭕</span>
+              <span class="hr-stat-card__label">Geofence radius</span>
+              <span class="hr-stat-card__value" id="punch-stat-radius">—</span>
+              <span class="hr-stat-card__sub" id="punch-stat-radius-sub">Staff must be on site to punch</span>
+            </div>
+          </div>
+
+          <p id="punch-data-loaded-at" class="punch-data-loaded-at muted" hidden aria-live="polite"></p>
+
+          <div class="punch-view-tabs" role="tablist" aria-label="Time punch views">
+            <button type="button" class="punch-view-tab is-active" data-punch-tab="sites" role="tab" aria-selected="true"><span aria-hidden="true">📍</span> Configure sites</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="records" role="tab" aria-selected="false"><span aria-hidden="true">🕐</span> Punch records</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="log" role="tab" aria-selected="false"><span aria-hidden="true">✏️</span> Admin punch</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="timesheet" role="tab" aria-selected="false"><span aria-hidden="true">📋</span> Timesheets</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="accountant" role="tab" aria-selected="false"><span aria-hidden="true">✉️</span> Accountant report</button>
+            <button type="button" class="punch-view-tab" data-punch-tab="summary" role="tab" aria-selected="false"><span aria-hidden="true">📊</span> Activity summary</button>
+          </div>
+
+          <div class="hr-workspace-layout">
+            <div class="hr-main-pane">
+              <div id="punch-tab-sites" class="punch-tab-panel" data-punch-panel="sites">
+                <div id="punch-sync-address-host" class="punch-sync-address-host"></div>
+                <div class="punch-action-row">
+                  <button type="button" class="btn punch-sync-btn" id="sync-punch-site-btn">
+                    <span class="punch-sync-btn__label">Sync from address</span>
+                    <span class="punch-sync-btn__meta" id="punch-sync-meta">Last: never</span>
+                  </button>
+                  <button type="button" class="btn outline" id="punch-add-site-btn"><span aria-hidden="true">＋</span> Add site manually</button>
+                  <button type="button" class="btn outline" id="punch-print-all-poster-btn"><span aria-hidden="true">🖨</span> Print A4 poster (all sites)</button>
+                </div>
+
+                <div id="punch-manual-form" class="punch-manual-form" hidden>
+                  <h4 class="hr-section-title">Add site manually</h4>
+                  <form id="punch-manual-form-el" class="punch-inline-form">
+                    <label class="edit-field"><span class="edit-label">Site name</span><input type="text" name="name" required placeholder="e.g. Main office" /></label>
+                    <label class="edit-field" data-span="2"><span class="edit-label">Address</span><textarea name="address" rows="2" required placeholder="Full street address including UK postcode, e.g. 156 Front street, Nottingham, NG5 7EG"></textarea></label>
+                    <label class="edit-field"><span class="edit-label">Geofence radius</span>
+                      <select name="radius_preset" id="punch-radius-preset">
+                        <option value="50">50m</option>
+                        <option value="100">100m</option>
+                        <option value="200">200m</option>
+                        <option value="500">500m</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label class="edit-field punch-radius-custom" id="punch-radius-custom-wrap" hidden><span class="edit-label">Custom radius (metres)</span><input type="number" name="radius_custom" min="25" max="2000" value="150" /></label>
+                    <label class="edit-field"><span class="edit-label">Permitted roles</span>
+                      <select name="permitted_roles" id="punch-permitted-roles">
+                        <option value="all">All staff</option>
+                        <option value="kitchen">Kitchen</option>
+                        <option value="front_of_house">Front of house</option>
+                        <option value="bar">Bar</option>
+                        <option value="management">Management</option>
+                        <option value="custom">Custom…</option>
+                      </select>
+                    </label>
+                    <label class="edit-field punch-roles-custom" id="punch-roles-custom-wrap" hidden><span class="edit-label">Custom roles</span><input type="text" name="permitted_roles_custom" placeholder="e.g. Kitchen, Bar" /></label>
+                    <div class="punch-inline-form__actions">
+                      <button type="submit" class="btn primary">Add punch site</button>
+                      <button type="button" class="btn ghost" id="punch-hide-manual-btn">Cancel</button>
+                    </div>
+                  </form>
+                </div>
+
+                <h4 class="hr-section-title">Punch sites</h4>
+                <div class="hr-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Address</th>
+                        <th>Radius</th>
+                        <th>Permitted roles</th>
+                        <th>Status</th>
+                        <th>QR &amp; print</th>
+                      </tr>
+                    </thead>
+                    <tbody id="punch-sites-body">
+                      <tr><td colspan="6" class="muted">Open this section to load sites…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <section id="punch-qr-gallery" class="punch-qr-gallery" hidden aria-label="Premises QR codes">
+                  <div class="punch-table-head">
+                    <div>
+                      <h4 class="hr-section-title">Premises QR codes</h4>
+                      <p class="muted punch-tab-intro">Download or print QR codes for staff to scan indoors in the Time Clock app.</p>
+                    </div>
+                    <button type="button" class="btn outline punch-table-head__btn" id="punch-gallery-poster-btn">
+                      <span aria-hidden="true">🖨</span> Print A4 poster (all sites)
+                    </button>
+                  </div>
+                  <div id="punch-qr-gallery-grid" class="punch-qr-gallery-grid muted">Sync a punch site to generate QR codes.</div>
+                </section>
+
+                <div class="punch-records-promo card">
+                  <p class="muted punch-tab-intro">Individual clock in/out records are on the <strong>Punch records</strong> tab — filter them, mark as reviewed by HR, and export. The Rota tab only compares published shifts to attendance.</p>
+                  <button type="button" class="btn outline btn-sm" id="punch-open-records-btn">Open punch records</button>
+                </div>
+              </div>
+
+              <div id="punch-tab-records" class="punch-tab-panel" data-punch-panel="records" hidden>
+                <p class="muted punch-tab-intro">Each clock in and clock out from the Time Clock app. Review and accept records before payroll — this is separate from the Rota attendance view.</p>
+                <div class="punch-today-preview punch-records-panel">
+                  <div class="punch-table-head">
+                    <div>
+                      <h4 class="hr-section-title">Punch records</h4>
+                      <div class="punch-day-nav" aria-label="Choose day">
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-prev" aria-label="Previous day">←</button>
+                        <input type="date" id="punch-day-picker" class="punch-day-picker" aria-label="Punch date" />
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-next" aria-label="Next day">→</button>
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-today">Today</button>
+                        <button type="button" class="btn ghost btn-sm" id="punch-day-refresh" title="Refresh punch list">↻ Refresh</button>
+                      </div>
+                    </div>
+                    <div class="punch-table-head__actions">
+                      <div class="punch-records-view-toggle" role="group" aria-label="Record layout">
+                        <button type="button" class="btn ghost btn-sm is-active" id="punch-records-view-each" data-records-view="each">Each punch</button>
+                        <button type="button" class="btn ghost btn-sm" id="punch-records-view-shifts" data-records-view="shifts">By shift</button>
+                      </div>
+                      <button type="button" class="btn outline punch-table-head__btn" id="punch-records-review-all">Accept visible</button>
+                      <button type="button" class="btn outline punch-table-head__btn" id="punch-preview-export-btn">Export…</button>
+                    </div>
+                  </div>
+                  <p id="punch-day-summary" class="punch-day-summary muted" aria-live="polite"></p>
+                  <div class="punch-filters punch-day-filters" aria-label="Filter punch records">
+                    <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-day-filter-employee"><option value="">All employees</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Site</span><select id="punch-day-filter-site"><option value="">All sites</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Type</span><select id="punch-day-filter-type"><option value="">All types</option><option value="in">Clock in only</option><option value="out">Clock out only</option></select></label>
+                    <label class="edit-field"><span class="edit-label">HR review</span><select id="punch-day-filter-review"><option value="">All</option><option value="pending">Needs review</option><option value="reviewed">Reviewed</option></select></label>
+                    <button type="button" class="btn ghost" id="punch-day-filter-apply">Apply</button>
+                    <button type="button" class="btn ghost" id="punch-day-filter-clear">Clear</button>
+                  </div>
+                  <div class="hr-table-wrap punch-records-table-wrap" id="punch-records-each-wrap">
+                    <table class="data-table punch-day-table">
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Employee</th>
+                          <th>Type</th>
+                          <th>Location</th>
+                          <th>HR review</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="punch-records-each-body">
+                        <tr><td colspan="6" class="muted">Loading punches…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="hr-table-wrap punch-records-table-wrap" id="punch-records-shifts-wrap" hidden>
+                    <table class="data-table punch-day-table">
+                      <thead>
+                        <tr>
+                          <th>Employee</th>
+                          <th>Clock in</th>
+                          <th>Clock out</th>
+                          <th>Duration</th>
+                          <th>Location</th>
+                        </tr>
+                      </thead>
+                      <tbody id="punch-today-preview-body">
+                        <tr><td colspan="5" class="muted">Loading punches…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p class="muted punch-tab-intro punch-day-footnote">Times shown in your local timezone. Accept records after checking geofence and admin corrections. Rota colours (late / no show) are on the Rota tab only.</p>
+                </div>
+              </div>
+
+              <div id="punch-tab-log" class="punch-tab-panel" data-punch-panel="log" hidden>
+                <div id="punch-admin-panel" class="punch-admin-panel">
+                  <h4 class="hr-section-title">Admin punch</h4>
+                  <p class="muted punch-tab-intro">Manually clock in or out a staff member — for forgotten punches, lateness, or corrections.</p>
+                  <form id="punch-admin-form" class="punch-admin-form">
+                    <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" id="punch-admin-employee" required><option value="">Select employee…</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Punch site</span><select name="punch_site_id" id="punch-admin-site" required><option value="">Select site…</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Type</span>
+                      <select name="punch_type">
+                        <option value="in">Clock in</option>
+                        <option value="out">Clock out</option>
+                      </select>
+                    </label>
+                    <label class="edit-field"><span class="edit-label">Timestamp</span><input type="datetime-local" name="punched_at" id="punch-admin-when" /></label>
+                    <label class="edit-field" data-span="2"><span class="edit-label">Reason</span><textarea name="admin_note" rows="2" placeholder="e.g. Forgot to punch — confirmed on CCTV"></textarea></label>
+                    <div class="punch-inline-form__actions">
+                      <button type="submit" class="btn primary">Record admin punch</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="punch-table-head">
+                  <h4 class="hr-section-title">Punch log</h4>
+                  <div class="punch-table-head__actions">
+                    <button type="button" class="btn outline punch-table-head__btn" id="punch-export-last-month-pdf-btn">Last month PDF</button>
+                    <button type="button" class="btn outline punch-table-head__btn" id="punch-export-hours-pdf-btn">Export hours PDF</button>
+                    <button type="button" class="btn outline punch-table-head__btn" id="punch-export-csv-btn">Export CSV</button>
+                  </div>
+                </div>
+                <div class="punch-filters">
+                  <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-filter-employee"><option value="">All employees</option></select></label>
+                  <label class="edit-field"><span class="edit-label">Site</span><select id="punch-filter-site"><option value="">All sites</option></select></label>
+                  <label class="edit-field"><span class="edit-label">From</span><input type="date" id="punch-filter-from" /></label>
+                  <label class="edit-field"><span class="edit-label">To</span><input type="date" id="punch-filter-to" /></label>
+                  <label class="edit-field"><span class="edit-label">Type</span><select id="punch-filter-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option></select></label>
+                  <button type="button" class="btn ghost" id="punch-filter-last-month">Last month</button>
+                  <button type="button" class="btn ghost" id="punch-filter-apply">Apply</button>
+                  <button type="button" class="btn ghost" id="punch-filter-clear">Clear</button>
+                </div>
+                <div class="hr-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>Site</th>
+                        <th>Location</th>
+                      </tr>
+                    </thead>
+                    <tbody id="recent-punches-body">
+                      <tr><td colspan="5" class="muted">Open this section to load punches…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="punch-tab-accountant" class="punch-tab-panel" data-punch-panel="accountant" hidden>
+                <article class="card punch-accountant-card" id="punch-accountant-settings">
+                  <h4 class="hr-section-title">Payroll accountant report</h4>
+                  <p class="muted punch-tab-intro">
+                    Email working hours to your accountant or payroll bureau. ShiftSwift HR records clock times only — it does not calculate pay or submit to HMRC.
+                  </p>
+                  <form id="punch-accountant-form" class="edit-form edit-form--cols-2">
+                    <label class="edit-field" data-span="2">
+                      <span class="edit-label">Accountant / payroll email</span>
+                      <input type="email" name="payroll_accountant_email" placeholder="payroll@youraccountant.co.uk" autocomplete="email" />
+                    </label>
+                    <label class="edit-field signup-check punch-accountant-enable" data-span="2">
+                      <input type="checkbox" name="payroll_hours_report_enabled" />
+                      <span>Automatically email last month's hours PDF on the 1st of each month (billing email CC'd)</span>
+                    </label>
+                    <div class="edit-form-actions punch-accountant-actions" data-span="2">
+                      <button type="button" class="btn secondary" id="punch-accountant-save-btn">Save settings</button>
+                      <button type="button" class="btn ghost" id="punch-accountant-send-btn">Send last month now</button>
+                      <p class="edit-form-status muted" id="punch-accountant-status" aria-live="polite"></p>
+                    </div>
+                  </form>
+                </article>
+              </div>
+
+              <div id="punch-tab-timesheet" class="punch-tab-panel" data-punch-panel="timesheet" hidden>
+                <div class="punch-table-head">
+                  <div class="punch-timesheet-nav">
+                    <button type="button" class="btn ghost" id="punch-timesheet-prev" aria-label="Previous week">←</button>
+                    <strong id="punch-timesheet-week-label">Week</strong>
+                    <button type="button" class="btn ghost" id="punch-timesheet-next" aria-label="Next week">→</button>
+                    <button type="button" class="btn ghost" id="punch-timesheet-this-week">This week</button>
+                  </div>
+                  <button type="button" class="btn primary" id="punch-timesheet-approve-all">Approve all complete</button>
+                </div>
+                <p id="punch-timesheet-summary" class="muted punch-tab-intro">Review hours before payroll. Amber cells have missing clock-out or open shifts.</p>
+                <div class="hr-table-wrap">
+                  <table class="data-table punch-timesheet-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+                        <th>Total</th>
+                        <th>Breaks</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="punch-timesheet-body">
+                      <tr><td colspan="11" class="muted">Open Timesheets tab to load…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="muted punch-tab-intro">Set each employee&apos;s 4–6 digit kiosk PIN under Employees → open their record → Time clock kiosk PIN (below the lifecycle steps).</p>
+              </div>
+
+              <div id="punch-tab-summary" class="punch-tab-panel" data-punch-panel="summary" hidden>
+                <h4 class="hr-section-title">Activity summary</h4>
+                <p class="muted punch-tab-intro">Punches by day this week — low-coverage days are highlighted.</p>
+                <div id="punch-activity-chart" class="punch-activity-chart" aria-label="Punches by day this week"></div>
+              </div>
+            </div>
+            <aside class="hr-detail-panel" id="punch-detail-panel">
+              <div id="punch-detail-empty" class="hr-detail-empty muted">
+                <div id="punch-setup-guide">
+                  <h3>Get started</h3>
+                  <ol class="punch-setup-steps">
+                    <li><strong>Step 1</strong> — Sync your business address to create your first punch site.</li>
+                    <li><strong>Step 2</strong> — Download or print the premises QR below; staff scan it in the Time Clock app indoors.</li>
+                    <li><strong>Step 3</strong> — Review punch activity and export hours PDF or CSV for payroll.</li>
+                  </ol>
+                  <button type="button" class="btn primary" id="punch-setup-sync-btn">Sync from address</button>
+                  <div id="punch-setup-qr-actions" class="punch-setup-qr-actions">
+                    <button type="button" class="btn outline" id="punch-setup-poster-btn">Print A4 poster</button>
+                    <button type="button" class="btn outline" id="punch-setup-view-qr-btn">View QR codes</button>
+                  </div>
+                </div>
+                <p id="punch-detail-select-hint" hidden>Select a punch site to view geofence details.</p>
+              </div>
+              <div id="punch-detail-content" hidden></div>
+            </aside>
+          </div>
+        </section>
+
+        <dialog id="punch-export-dialog" class="punch-export-dialog">
+          <form method="dialog" class="punch-export-dialog__card">
+            <header class="punch-export-dialog__head">
+              <h3>Export punch data</h3>
+              <p class="muted">Choose a date range and format for payroll or your records.</p>
+            </header>
+            <div class="punch-export-dialog__presets" role="group" aria-label="Quick ranges">
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="today">Today</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="week">This week</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="last-month">Last month</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="custom">Custom range</button>
+            </div>
+            <div class="punch-export-dialog__fields edit-form edit-form--cols-2">
+              <label class="edit-field"><span class="edit-label">From</span><input type="date" id="punch-export-from" required /></label>
+              <label class="edit-field"><span class="edit-label">To</span><input type="date" id="punch-export-to" required /></label>
+              <label class="edit-field" data-span="2">
+                <span class="edit-label">Format</span>
+                <select id="punch-export-format">
+                  <option value="csv">Punch log CSV (every clock in/out)</option>
+                  <option value="hours-pdf">Working hours PDF (for accountant)</option>
+                </select>
+              </label>
+              <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-export-employee"><option value="">All employees</option></select></label>
+              <label class="edit-field"><span class="edit-label">Site</span><select id="punch-export-site"><option value="">All sites</option></select></label>
+              <label class="edit-field" data-span="2"><span class="edit-label">Punch type</span><select id="punch-export-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option></select></label>
+              <label class="edit-field" data-span="2"><span class="edit-label">HR review</span><select id="punch-export-review"><option value="">All</option><option value="pending">Needs review</option><option value="reviewed">Reviewed</option></select></label>
+            </div>
+            <footer class="punch-export-dialog__foot">
+              <button type="button" class="btn ghost" id="punch-export-cancel">Cancel</button>
+              <button type="submit" class="btn primary" id="punch-export-submit">Download export</button>
+            </footer>
+          </form>
+        </dialog>
+
+        <section id="rota" class="admin-section" hidden>
+          <header class="section-header rota-builder-header">
+            <div>
+              <div class="rota-builder-title-row">
+                <h2>Rota</h2>
+                <span id="rota-mode-badge" class="rota-mode-badge" hidden></span>
+                <span id="rota-week-status"></span>
+              </div>
+              <p class="muted rota-builder-lead rota-desktop-only">Build your rota, save as draft, then publish — staff see shifts in the Time Clock app.</p>
+              <p class="muted rota-builder-lead rota-mobile-only">Tap a day, then tap a staff member to add their shift. Save as draft or publish when ready.</p>
+            </div>
+            <div class="section-actions rota-builder-actions rota-desktop-only">
+              <div class="rota-week-nav">
+                <button type="button" class="btn ghost" id="rota-prev-week" aria-label="Previous week">←</button>
+                <strong id="rota-week-label" class="rota-week-nav__label">Week</strong>
+                <button type="button" class="btn ghost" id="rota-next-week" aria-label="Next week">→</button>
+                <button type="button" class="btn ghost rota-this-week-btn" id="rota-this-week">This week</button>
+              </div>
+              <button type="button" class="btn ghost" id="rota-export-csv-btn">Grid CSV</button>
+              <button type="button" class="btn ghost" id="rota-export-pdf-btn">Grid PDF</button>
+              <button type="button" class="btn ghost" id="rota-copy-prev-btn">Copy prev week</button>
+              <button type="button" class="btn ghost" id="rota-reload-btn">Reload</button>
+              <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
+              <label class="signup-check rota-notify-check">
+                <input type="checkbox" id="rota-notify-staff" checked />
+                <span>Notify staff by email (re-publish emails only people with changes)</span>
+              </label>
+              <button type="button" class="btn primary" id="rota-publish-btn">Publish rota</button>
+            </div>
+          </header>
+          <div id="rota-admin-message" class="rota-admin-message" aria-live="polite" hidden></div>
+          <div id="rota-readonly-notice" class="rota-readonly-notice" hidden role="status"></div>
+
+          <div class="hr-stats-grid rota-stats-grid" id="rota-stats-grid" aria-label="Rota week summary" hidden>
+            <div class="hr-stat-card" id="rota-stat-shifts-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📅</span>
+              <span class="hr-stat-card__label">Shifts</span>
+              <span class="hr-stat-card__value" id="rota-stat-shifts">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-shifts-sub">This week</span>
+            </div>
+            <div class="hr-stat-card" id="rota-stat-staff-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">👥</span>
+              <span class="hr-stat-card__label">Staff scheduled</span>
+              <span class="hr-stat-card__value" id="rota-stat-staff">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-staff-sub">Active employees</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok" id="rota-stat-attended-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Attended</span>
+              <span class="hr-stat-card__value" id="rota-stat-attended">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-attended-sub">Clock-in matched</span>
+            </div>
+            <div class="hr-stat-card" id="rota-stat-noshow-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">⚠</span>
+              <span class="hr-stat-card__label">No shows</span>
+              <span class="hr-stat-card__value" id="rota-stat-noshow">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-noshow-sub">All clear</span>
+            </div>
+            <div class="hr-stat-card" id="rota-stat-requests-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">🔄</span>
+              <span class="hr-stat-card__label">Requests</span>
+              <span class="hr-stat-card__value" id="rota-stat-requests">0</span>
+              <span class="hr-stat-card__sub" id="rota-stat-requests-sub">Cover &amp; swap</span>
+            </div>
+          </div>
+
+          <div id="rota-advanced-panel" class="rota-advanced-panel" hidden>
+            <div class="rota-advanced-toolbar">
+              <label class="rota-advanced-template">
+                Staffing template
+                <select id="rota-template-select" aria-label="Staffing template"></select>
+              </label>
+              <button type="button" class="btn outline" id="rota-generate-draft-btn">Generate draft</button>
+              <a class="btn ghost" href="#settings/rota" id="rota-manage-templates-link">Manage templates</a>
+            </div>
+            <div class="rota-advanced-grid">
+              <article class="card rota-advanced-card">
+                <h4>Coverage gaps</h4>
+                <div id="rota-coverage-gaps" class="rota-advanced-list"><p class="muted">Loading…</p></div>
+              </article>
+              <article class="card rota-advanced-card">
+                <h4>Weekly hours</h4>
+                <div id="rota-hours-warnings" class="rota-advanced-list"><p class="muted">Loading…</p></div>
+              </article>
+            </div>
+          </div>
+          <article class="card hr-workspace">
+          <div class="rota-mobile-only" id="rota-mobile-shell">
+            <nav class="rota-mobile-week-nav" aria-label="Week navigation">
+              <button type="button" class="btn ghost rota-mobile-week-btn" id="rota-mobile-prev-week" aria-label="Previous week">←</button>
+              <button type="button" class="rota-mobile-week-label-btn" id="rota-mobile-week-label-btn" aria-label="Jump to this week"></button>
+              <button type="button" class="btn ghost rota-mobile-week-btn" id="rota-mobile-next-week" aria-label="Next week">→</button>
+            </nav>
+            <div id="rota-mobile-day-strip" class="rota-mobile-day-strip" role="tablist" aria-label="Day of week"></div>
+            <p id="rota-mobile-day-status" class="rota-mobile-day-status" role="status" aria-live="polite"></p>
+            <div id="rota-mobile-staff-list" class="rota-mobile-staff-list" aria-label="Staff for selected day"></div>
+            <div class="rota-mobile-secondary" aria-label="More rota actions">
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-csv">Grid CSV</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-pdf">Grid PDF</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-clear">Clear rota</button>
+              <button type="button" class="rota-mobile-chip rota-mobile-chip--toggle" id="rota-mobile-notify-btn" aria-pressed="true">Notify by email</button>
+            </div>
+          </div>
+
+          <div class="rota-builder-subbar rota-desktop-only">
+            <div class="rota-builder-subbar__left">
+              <div class="rota-view-toggle" role="tablist" aria-label="Rota view">
+                <button type="button" class="btn ghost is-active" id="rota-view-grid" data-view="grid">Grid</button>
+                <button type="button" class="btn ghost" id="rota-view-list" data-view="list">List</button>
+              </div>
+              <p id="rota-week-summary" class="rota-week-summary"></p>
+            </div>
+            <p class="rota-builder-hint muted">Drag to move · Alt+drag to copy · Right-click for options · Click empty cell to add</p>
+            <button type="button" class="btn btn--ghost btn--danger btn-sm rota-clear-inline" id="rota-clear-btn">Clear rota</button>
+            <ul class="rota-attendance-legend" aria-label="Shift colour key">
+              <li><span class="rota-shift-block rota-shift-block--kitchen rota-attendance-legend__chip">Shift</span> Scheduled</li>
+              <li><span class="rota-shift-block rota-shift-block--attended rota-attendance-legend__chip">Shift</span> Attended</li>
+              <li><span class="rota-shift-block rota-shift-block--late rota-attendance-legend__chip">Shift</span> Late clock-in</li>
+              <li><span class="rota-shift-block rota-shift-block--no_show rota-attendance-legend__chip">Shift</span> No show</li>
+            </ul>
+          </div>
+
+          <div class="rota-desktop-row rota-desktop-only">
+          <div class="rota-builder-shell" id="rota-builder-shell">
+          <div class="rota-builder-layout" id="rota-grid-view">
+            <article class="card rota-builder-main">
+              <div id="rota-empty-state" class="rota-empty-state" hidden>
+                <div class="rota-empty-state__icon" aria-hidden="true">📅</div>
+                <h4>No active employees yet</h4>
+                <p class="muted">Add team members before you can build a weekly rota.</p>
+                <a class="btn" href="#employees">Add employees</a>
+              </div>
+              <div id="rota-grid" class="rota-grid-scroll" aria-label="Weekly rota grid"></div>
+            </article>
+          </div>
+          </div>
+          </div>
+          <article class="card rota-desktop-only" id="rota-list-panel" hidden>
+            <div class="rota-list-panel__head">
+              <div class="rota-list-panel__head-main">
+                <h3>Shifts this week</h3>
+                <p class="muted rota-list-panel__lead">Scheduled shifts with attendance status — not the raw punch log.</p>
+              </div>
+              <div class="rota-list-panel__exports">
+                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-csv">Shift list CSV</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-shifts-export-pdf">Shift list PDF</button>
+              </div>
+            </div>
+            <div id="rota-shifts-cards" class="rota-shift-cards" hidden aria-label="Shifts this week"></div>
+            <div class="table-wrap rota-shifts-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>Employee</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Role</th>
+                    <th>Attendance</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="rota-shifts-body">
+                  <tr><td colspan="7" class="muted">Open this section to load the rota…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <article class="card" id="rota-attendance-panel" hidden>
+            <div class="rota-list-panel__head">
+              <div class="rota-list-panel__head-main">
+                <h3>Attendance flags</h3>
+                <p class="muted rota-list-panel__lead" id="rota-attendance-sub">Exceptions and clock-in status for published shifts. Upcoming scheduled shifts appear in the list above.</p>
+                <p class="muted rota-list-panel__lead">For individual punch records, filters, and HR review, use <a href="#time-punch">Time punch → Punch records</a>.</p>
+              </div>
+              <div class="rota-list-panel__exports">
+                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-csv">Flags CSV</button>
+                <button type="button" class="btn ghost btn-sm" id="rota-attendance-export-pdf">Flags PDF</button>
+              </div>
+            </div>
+            <div class="table-wrap rota-attendance-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>Employee</th>
+                    <th>Shift</th>
+                    <th>Status</th>
+                    <th>Detail</th>
+                  </tr>
+                </thead>
+                <tbody id="rota-attendance-body">
+                  <tr><td colspan="5" class="muted">Publish the rota to track attendance.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <article class="card rota-desktop-only rota-requests-panel" id="rota-requests-panel">
+            <header class="rota-list-panel__head rota-requests-panel__head">
+              <div class="rota-list-panel__head-main">
+                <h3>Cover &amp; swap requests</h3>
+                <p class="muted rota-requests-sub" id="rota-requests-sub">Loading…</p>
+              </div>
+            </header>
+            <div class="table-wrap rota-requests-table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Employee</th>
+                    <th>Type</th>
+                    <th>Note</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="rota-requests-body">
+                  <tr><td colspan="5" class="muted">No pending requests.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+          </article>
+          <div class="rota-mobile-footer rota-mobile-only" id="rota-mobile-footer">
+            <div class="rota-mobile-footer__inner">
+              <button type="button" class="btn outline rota-mobile-footer-btn" id="rota-mobile-save-btn">Save draft</button>
+              <button type="button" class="btn primary rota-mobile-footer-btn" id="rota-mobile-publish-btn">Publish rota</button>
+            </div>
+          </div>
+          <div id="rota-panel-portal-home">
+          <div id="rota-shift-backdrop" class="rota-shift-backdrop mobile-editor-backdrop" hidden aria-hidden="true"></div>
+          <aside id="rota-shift-panel" class="rota-shift-panel mobile-editor-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rota-shift-popover-title">
+            <div class="mobile-editor-sheet__grabber" aria-hidden="true"></div>
+            <div class="rota-shift-panel__head mobile-editor-sheet__head">
+              <div class="rota-shift-panel__head-main">
+                <h3 id="rota-shift-popover-title">Add shift</h3>
+                <span class="rota-shift-panel__drag-hint rota-desktop-only" aria-hidden="true">Drag to move</span>
+              </div>
+              <div class="rota-shift-panel__head-actions">
+                <button type="button" class="btn primary rota-shift-head-save" id="rota-shift-head-save">Save shift</button>
+                <button type="button" class="rota-shift-panel__close mobile-editor-sheet__close" id="rota-shift-popover-close" aria-label="Close panel">×</button>
+              </div>
+            </div>
+            <p id="rota-shift-popover-context" class="muted rota-shift-panel__context mobile-editor-sheet__context"></p>
+            <div class="rota-shift-panel__body mobile-editor-sheet__body">
+              <label class="rota-field">
+                <span class="rota-field-label">Employee</span>
+                <select id="rota-add-employee"></select>
+                <span id="rota-employee-empty-hint" class="rota-inline-hint" hidden>
+                  No active employees. <a href="#employees">Add employees →</a>
+                </span>
+              </label>
+              <label class="rota-field">
+                <span class="rota-field-label">Day</span>
+                <select id="rota-add-day"></select>
+              </label>
+              <label class="rota-field">
+                <span class="rota-field-label">Start time</span>
+                <select id="rota-add-start"></select>
+              </label>
+              <label class="rota-field">
+                <span class="rota-field-label">End time</span>
+                <select id="rota-add-end"></select>
+              </label>
+              <p id="rota-shift-duration" class="rota-duration-badge"></p>
+              <label class="rota-field">
+                <span class="rota-field-label">Role <span class="muted">(from profile)</span></span>
+                <input id="rota-add-role" type="text" maxlength="80" list="rota-role-suggestions" placeholder="e.g. Kitchen, Floor, Bar" />
+              </label>
+              <label class="rota-field">
+                <span class="rota-field-label">Note <span class="muted">(optional)</span></span>
+                <input id="rota-add-notes" type="text" maxlength="500" placeholder="e.g. cover for absence" />
+              </label>
+              <datalist id="rota-role-suggestions"></datalist>
+              <div id="rota-bulk-times" class="rota-bulk-times" hidden>
+                <p class="rota-field-label">Apply these hours to other days (same employee)</p>
+                <p class="rota-bulk-times__hint muted">Updates existing shifts or adds new ones with the times above.</p>
+                <div id="rota-bulk-days" class="rota-bulk-days"></div>
+                <button type="button" class="btn ghost btn-sm" id="rota-bulk-apply-btn">Apply times to selected days</button>
+              </div>
+              <p class="rota-overlap-hint muted">Several employees can share the same hours. Overlap only blocks one person being scheduled twice on the same day.</p>
+              <p id="rota-overlap-status" class="rota-overlap-status rota-overlap-status--ok"></p>
+            </div>
+            <div class="rota-shift-panel__foot mobile-editor-sheet__foot">
+              <button type="button" class="btn btn--ghost btn--danger" id="rota-panel-delete-btn" hidden>Delete shift</button>
+              <button type="button" class="btn ghost" id="rota-panel-copy-btn" hidden>Copy shift…</button>
+              <button type="button" class="btn ghost" id="rota-shift-cancel-btn">Cancel</button>
+              <button type="button" class="btn primary" id="rota-add-btn">Add to rota</button>
+            </div>
+          </aside>
+          </div>
+        </section>
+
+        <section id="leave" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Leave</h2>
+              <p class="muted">Staff submit requests in the employee portal. Approve or reject here — working days Mon–Fri are counted automatically.</p>
+            </div>
+          </header>
+
+          <div class="hr-status-workflow leave-status-workflow" id="leave-status-workflow" aria-label="Leave request workflow"></div>
+
+          <div class="hr-stats-grid leave-stats-grid" aria-label="Leave summary">
+            <div class="hr-stat-card hr-stat-card--warn">
+              <span class="hr-stat-card__icon" aria-hidden="true">⏳</span>
+              <span class="hr-stat-card__label">Pending approval</span>
+              <span class="hr-stat-card__value" id="leave-stat-pending">0</span>
+              <span class="hr-stat-card__sub" id="leave-stat-pending-sub">Awaiting your decision</span>
+            </div>
+            <div class="hr-stat-card hr-stat-card--ok">
+              <span class="hr-stat-card__icon" aria-hidden="true">✓</span>
+              <span class="hr-stat-card__label">Approved</span>
+              <span class="hr-stat-card__value" id="leave-stat-approved">0</span>
+              <span class="hr-stat-card__sub">In current view</span>
+            </div>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">📅</span>
+              <span class="hr-stat-card__label">Days requested</span>
+              <span class="hr-stat-card__value" id="leave-stat-days">0</span>
+              <span class="hr-stat-card__sub">Working days in view</span>
+            </div>
+            <div class="hr-stat-card">
+              <span class="hr-stat-card__icon" aria-hidden="true">👥</span>
+              <span class="hr-stat-card__label">Employees</span>
+              <span class="hr-stat-card__value" id="leave-stat-employees">0</span>
+              <span class="hr-stat-card__sub">With requests in view</span>
+            </div>
+          </div>
+
+          <div class="leave-workspace-layout hr-workspace-layout" id="leave-workspace">
+            <div class="hr-main-pane">
+              <article class="hr-surface-panel leave-register-panel">
+                <header class="hr-surface-panel__head leave-register-head">
+                  <div>
+                    <h4 class="hr-section-title">Leave requests</h4>
+                    <p class="muted leave-register-sub" id="leave-register-sub">Loading…</p>
+                  </div>
+                  <div class="leave-register-toolbar">
+                    <div class="hr-filter-tabs leave-filter-tabs" role="tablist" aria-label="Filter leave requests">
+                      <button type="button" class="hr-filter-tab is-active" data-leave-filter="pending">Pending</button>
+                      <button type="button" class="hr-filter-tab" data-leave-filter="approved">Approved</button>
+                      <button type="button" class="hr-filter-tab" data-leave-filter="rejected">Rejected</button>
+                      <button type="button" class="hr-filter-tab" data-leave-filter="">All</button>
+                    </div>
+                    <button type="button" class="btn ghost btn--sm" id="leave-browse-employees-btn">Browse employees</button>
+                    <label class="leave-search">
+                      <span class="visually-hidden">Search leave requests</span>
+                      <input type="search" id="leave-search-input" placeholder="Search employee…" maxlength="80" />
+                    </label>
+                  </div>
+                </header>
+                <div id="leave-employee-filter-banner" class="leave-employee-filter-banner" hidden>
+                  <span>Showing leave for <strong id="leave-employee-filter-name"></strong></span>
+                  <button type="button" class="btn ghost btn--sm" id="leave-employee-filter-clear">Show all employees</button>
+                </div>
+                <div class="hr-table-wrap leave-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leave-requests-body">
+                      <tr><td colspan="6" class="muted">Loading leave requests…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div id="leave-mobile-grid" class="leave-mobile-grid" hidden aria-live="polite"></div>
+              </article>
+
+              <article class="hr-surface-panel leave-guide-panel" id="leave-guide-panel">
+                <h4 class="hr-section-title">How leave works</h4>
+                <ul class="leave-guide-list">
+                  <li><strong>Employee portal</strong> — staff submit annual, sick, unpaid, or other leave from their dashboard.</li>
+                  <li><strong>Working days</strong> — Mon–Fri are counted automatically; weekends are excluded.</li>
+                  <li><strong>Annual balance</strong> — approving annual leave checks the employee’s remaining allowance for the year.</li>
+                  <li><strong>Sponsored workers</strong> — approved leave is mirrored to sponsor absence tracking where applicable.</li>
+                </ul>
+                <p class="muted leave-guide-foot">
+                  Set annual leave allowance on each employee profile under
+                  <a href="#employees">Employees</a>.
+                </p>
+              </article>
+            </div>
+
+            <aside class="hr-detail-panel leave-detail-panel" id="leave-detail-panel" hidden>
+              <header class="hr-detail-panel__head leave-detail-panel__head">
+                <h4 class="leave-detail-panel__title">Request detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="leave-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="leave-detail-content" class="leave-detail-body" hidden></div>
+              <div id="leave-detail-empty" class="hr-detail-empty muted">
+                Select a leave request to review dates, balance, and approve or reject.
+              </div>
+            </aside>
+          </div>
+
+          <div id="leave-employee-picker" class="leave-employee-picker" hidden>
+            <button type="button" class="leave-employee-picker__backdrop" id="leave-employee-picker-backdrop" aria-label="Close employee list"></button>
+            <div
+              class="leave-employee-picker__panel"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="leave-employee-picker-title"
+            >
+              <header class="leave-employee-picker__head">
+                <div>
+                  <h4 id="leave-employee-picker-title">Select employee</h4>
+                  <p class="muted">Choose someone to view their leave requests. No new employees are added here.</p>
+                </div>
+                <button type="button" class="btn ghost btn--sm" id="leave-employee-picker-close" aria-label="Close">Close</button>
+              </header>
+              <label class="leave-employee-picker__search">
+                <span class="visually-hidden">Search employees</span>
+                <input type="search" id="leave-employee-picker-search" placeholder="Search by name…" maxlength="80" />
+              </label>
+              <div id="leave-employee-picker-list" class="leave-employee-picker__list" role="listbox" aria-label="Employees"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="profile-changes" class="admin-section" hidden>
+          <header class="section-header">
+            <div>
+              <h2>Contact detail updates</h2>
+              <p class="muted">Staff can request changes to phone, home address, and emergency contact. Approve to update their employee record.</p>
+            </div>
+          </header>
+
+          <div class="hr-stats-grid leave-stats-grid" aria-label="Contact update summary">
+            <article class="hr-stat-card">
+              <span class="hr-stat-card__label">Pending</span>
+              <span class="hr-stat-card__value" id="profile-change-stat-pending">0</span>
+              <span class="hr-stat-card__sub" id="profile-change-stat-pending-sub">Awaiting your decision</span>
+            </article>
+          </div>
+
+          <div class="leave-workspace-layout hr-workspace-layout" id="profile-change-workspace">
+            <div class="hr-workspace-main">
+              <article class="hr-surface-panel leave-register-panel">
+                <header class="hr-surface-panel__head leave-register-head">
+                  <div>
+                    <h4 class="hr-section-title">Update requests</h4>
+                    <p class="muted leave-register-sub" id="profile-change-register-sub">Loading…</p>
+                  </div>
+                  <div class="leave-register-toolbar">
+                    <div class="hr-filter-tabs leave-filter-tabs" role="tablist" aria-label="Filter contact updates">
+                      <button type="button" class="hr-filter-tab is-active" data-profile-change-filter="pending">Pending</button>
+                      <button type="button" class="hr-filter-tab" data-profile-change-filter="approved">Approved</button>
+                      <button type="button" class="hr-filter-tab" data-profile-change-filter="rejected">Rejected</button>
+                      <button type="button" class="hr-filter-tab" data-profile-change-filter="">All</button>
+                    </div>
+                    <label class="leave-search">
+                      <span class="visually-hidden">Search contact updates</span>
+                      <input type="search" id="profile-change-search-input" placeholder="Search employee…" maxlength="80" />
+                    </label>
+                  </div>
+                </header>
+                <div class="hr-table-wrap leave-table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Fields</th>
+                        <th>Submitted</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="profile-change-requests-body">
+                      <tr><td colspan="4" class="muted">Loading contact detail updates…</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="hr-surface-panel leave-guide-panel" id="profile-change-guide-panel">
+                <h4 class="hr-section-title">How contact updates work</h4>
+                <ul class="leave-guide-list">
+                  <li><strong>Employee portal</strong> — staff edit phone, home address, and emergency contact under My details.</li>
+                  <li><strong>HR approval</strong> — you review proposed values and approve or reject. Approved changes update the employee record and change history.</li>
+                  <li><strong>Email alerts</strong> — HR is notified on submission; the employee is emailed when you decide.</li>
+                </ul>
+              </article>
+            </div>
+
+            <aside class="hr-detail-panel leave-detail-panel" id="profile-change-detail-panel" hidden>
+              <header class="hr-detail-panel__head leave-detail-panel__head">
+                <h4 class="leave-detail-panel__title">Request detail</h4>
+                <button type="button" class="btn ghost btn--sm" id="profile-change-detail-close" aria-label="Close detail panel">Close</button>
+              </header>
+              <div id="profile-change-detail-content" class="leave-detail-body" hidden></div>
+              <div id="profile-change-detail-empty" class="hr-detail-empty muted">
+                Select an update request to review changes and approve or reject.
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="settings" class="admin-section" hidden>
+          <div class="settings-workspace settings-workspace--hub">
+            <div class="settings-main">
+              <header class="settings-topbar">
+                <button type="button" class="btn ghost settings-back-btn" id="settings-back-btn" hidden aria-label="Back to settings menu">
+                  <span aria-hidden="true">←</span> Back
+                </button>
+                <div class="settings-topbar__copy">
+                  <h2 class="settings-topbar__title" id="settings-panel-title">Settings</h2>
+                  <p class="settings-topbar__subtitle muted" id="settings-panel-subtitle">Choose a section to manage.</p>
+                </div>
+                <div class="settings-plan-badge">
+                  <span id="settings-plan-label">Loading plan…</span>
+                  <button type="button" class="settings-upgrade-link" id="settings-upgrade-link">View plans →</button>
+                </div>
+              </header>
+
+              <div id="settings-toast" class="settings-toast" hidden role="status"></div>
+
+              <div id="settings-setup-banner" class="settings-setup-banner" hidden aria-label="Workspace setup progress"></div>
+
+              <nav id="settings-hub" class="settings-hub" aria-label="Settings sections"></nav>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="business" hidden>
+                <div class="hr-workspace-body">
+                  <div id="tenant-profile-form"></div>
+                </div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="documents" hidden>
+                <div class="hr-workspace-body settings-doc-panel">
+                  <div id="documents-panel-alert" class="settings-doc-alert" hidden role="alert" aria-live="assertive"></div>
+
+                  <div class="settings-doc-toolbar">
+                    <div class="settings-doc-toolbar__primary">
+                      <div class="settings-doc-tabs" role="tablist" aria-label="Add document">
+                        <button type="button" class="settings-doc-tab is-active" data-doc-tab="upload" role="tab" aria-selected="true">Upload file</button>
+                        <button type="button" class="settings-doc-tab" data-doc-tab="distribute" role="tab" aria-selected="false">Send to employees</button>
+                        <button type="button" class="settings-doc-tab" data-doc-tab="link" role="tab" aria-selected="false">Link external document</button>
+                      </div>
+                      <p class="settings-doc-tab-desc muted" id="document-tab-desc">Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.</p>
+                    </div>
+                    <div class="settings-doc-toolbar__actions" id="document-export-actions">
+                      <div class="settings-doc-export-actions">
+                        <button type="button" class="btn outline settings-export-btn" id="documents-export-csv">
+                          <span aria-hidden="true">⬇</span> CSV manifest
+                        </button>
+                        <button type="button" class="btn outline settings-export-btn" id="documents-export-zip">
+                          <span aria-hidden="true">⬇</span> ZIP pack
+                        </button>
+                      </div>
+                      <label class="signup-check settings-export-check">
+                        <input type="checkbox" id="documents-export-include-rtw" />
+                        <span>Include RTW PDFs in ZIP</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div id="document-upload-panel" class="settings-doc-tab-panel" data-doc-panel="upload">
+                    <form id="document-upload-form" class="edit-form edit-form--cols-2 settings-doc-form settings-doc-upload-form" enctype="multipart/form-data">
+                      <section class="settings-doc-upload-section" aria-labelledby="document-upload-details-title">
+                        <h5 class="settings-doc-upload-section__title" id="document-upload-details-title">Document details</h5>
+                        <label class="edit-field" data-span="2">
+                          <span class="edit-label">File</span>
+                          <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="document-upload-dropzone">
+                            <input name="file" type="file" id="document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+                            <input type="file" id="document-upload-camera" accept="image/*" capture="environment" hidden />
+                            <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+                            <p class="doc-upload-dropzone__hint muted" data-document-upload-hint>PDF, JPEG or PNG · max 10 MB per file</p>
+                            <p class="doc-upload-filename" id="document-upload-filename" hidden></p>
+                          </div>
+                        </label>
+                        <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Employee handbook 2026" /></label>
+                        <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-upload-category"></select></label>
+                        <label class="edit-field"><span class="edit-label">Lifecycle stage</span><select name="lifecycle_stage" id="document-upload-stage"></select></label>
+                      </section>
+
+                      <section class="settings-doc-upload-section" aria-labelledby="document-upload-audience-title">
+                        <h5 class="settings-doc-upload-section__title" id="document-upload-audience-title">Audience</h5>
+                        <fieldset class="settings-doc-audience-field">
+                          <legend class="visually-hidden">Document audience</legend>
+                          <div class="settings-doc-audience settings-doc-audience--compact" role="radiogroup" aria-label="Document audience">
+                            <label class="settings-doc-audience-option">
+                              <input type="radio" name="doc_audience" value="company" checked />
+                              <span class="settings-doc-audience-option__label">All employees</span>
+                            </label>
+                            <label class="settings-doc-audience-option">
+                              <input type="radio" name="doc_audience" value="employee" />
+                              <span class="settings-doc-audience-option__label">One employee</span>
+                            </label>
+                            <label class="settings-doc-audience-option">
+                              <input type="radio" name="doc_audience" value="hr" />
+                              <span class="settings-doc-audience-option__label">HR only</span>
+                            </label>
+                          </div>
+                          <p class="settings-doc-audience-caption muted" id="document-upload-audience-caption">Company handbooks and policies for every staff member.</p>
+                        </fieldset>
+                        <label class="edit-field" id="document-upload-employee-field" data-span="2" hidden>
+                          <span class="edit-label">Employee</span>
+                          <input type="text" id="document-upload-employee-search" placeholder="Search by name…" list="document-upload-employees" autocomplete="off" />
+                          <datalist id="document-upload-employees"></datalist>
+                          <input type="hidden" name="employee_id" id="document-upload-employee-id" value="" />
+                        </label>
+                      </section>
+
+                      <section class="settings-doc-upload-section" aria-labelledby="document-upload-expiry-title">
+                        <h5 class="settings-doc-upload-section__title" id="document-upload-expiry-title">Expiry &amp; HR alerts</h5>
+                        <label class="edit-field" data-span="2">
+                          <span class="edit-label">Expiry date <span class="muted">(optional)</span></span>
+                          <input name="expires_at" id="document-upload-expires-at" type="date" value="" autocomplete="off" />
+                          <span class="muted edit-hint" id="document-upload-expiry-hint">Leave blank if this document doesn&rsquo;t expire.</span>
+                        </label>
+                        <label class="edit-field" data-span="2" id="document-upload-alert-field" hidden>
+                          <span class="edit-label">HR alert window</span>
+                          <select name="expiry_alert_days" id="document-upload-alert-days">
+                            <option value="30">30 days before</option>
+                            <option value="60">60 days before</option>
+                            <option value="90">90 days before</option>
+                          </select>
+                          <span class="muted edit-hint" id="document-upload-alert-hint">ShiftSwift will alert HR before this document expires.</span>
+                        </label>
+                      </section>
+
+                      <section class="settings-doc-upload-section" data-span="2" id="document-upload-visibility-section" aria-labelledby="document-upload-visibility-title">
+                        <h5 class="settings-doc-upload-section__title" id="document-upload-visibility-title">Visibility &amp; notifications</h5>
+                        <label class="ss-check-row" id="document-upload-visible-field">
+                          <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="document-upload-visible" value="true" checked />
+                          <span class="ss-check-row__box" aria-hidden="true"></span>
+                          <span class="ss-check-row__content">
+                            <span class="ss-check-row__title">Show in employee portal</span>
+                            <span class="ss-check-row__hint muted" id="document-upload-visible-hint">All staff will see this under Company documents.</span>
+                          </span>
+                        </label>
+                        <label class="ss-check-row" id="document-upload-notify-row">
+                          <input class="ss-check-row__input" type="checkbox" name="notify_employees" id="document-upload-notify" value="true" checked />
+                          <span class="ss-check-row__box" aria-hidden="true"></span>
+                          <span class="ss-check-row__content">
+                            <span class="ss-check-row__title" id="document-upload-notify-title">Notify employees when published</span>
+                            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
+                          </span>
+                        </label>
+                        <div id="document-upload-notify-targets" class="settings-doc-notify-targets" hidden>
+                          <fieldset class="settings-doc-notify-scope" id="document-upload-notify-scope-field">
+                            <legend class="edit-label settings-doc-notify-scope__legend">Who to notify</legend>
+                            <div class="settings-doc-choice-cards" role="radiogroup" aria-label="Who to notify">
+                              <label class="settings-doc-choice-card">
+                                <input type="radio" name="notify_scope" value="all" checked />
+                                <span class="settings-doc-choice-card__body">
+                                  <span class="settings-doc-choice-card__title">All employees</span>
+                                  <span class="settings-doc-choice-card__hint muted">Every active staff member is notified</span>
+                                </span>
+                              </label>
+                              <label class="settings-doc-choice-card">
+                                <input type="radio" name="notify_scope" value="selected" />
+                                <span class="settings-doc-choice-card__body">
+                                  <span class="settings-doc-choice-card__title">Selected employees only</span>
+                                  <span class="settings-doc-choice-card__hint muted">Choose specific staff below</span>
+                                </span>
+                              </label>
+                            </div>
+                          </fieldset>
+                          <label class="edit-field" id="document-upload-notify-select-field" hidden>
+                            <span class="edit-label">Employees to notify</span>
+                            <select class="settings-doc-notify-select" id="document-upload-notify-employees" multiple size="6" aria-label="Employees to notify"></select>
+                            <span class="muted edit-hint">Hold Cmd (Mac) or Ctrl (Windows) to select multiple staff.</span>
+                          </label>
+                          <label class="ss-check-row settings-doc-notify-email">
+                            <input class="ss-check-row__input" type="checkbox" name="send_email" id="document-upload-notify-email" value="true" checked />
+                            <span class="ss-check-row__box" aria-hidden="true"></span>
+                            <span class="ss-check-row__content">
+                              <span class="ss-check-row__title">Email employees when notified</span>
+                              <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
+                            </span>
+                          </label>
+                        </div>
+                      </section>
+
+                      <label class="edit-field" data-span="2"><span class="edit-label">Notes <span class="muted">(optional)</span></span><textarea name="notes" rows="2" placeholder="Internal note for HR…"></textarea></label>
+                      <div class="edit-form-actions settings-doc-form-actions" data-span="2">
+                        <button class="btn" type="submit">Upload document</button>
+                        <p class="edit-form-status muted" data-status></p>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div id="document-distribute-panel" class="settings-doc-tab-panel" data-doc-panel="distribute" hidden>
+                    <form id="document-distribute-form" class="edit-form edit-form--cols-2 settings-doc-form" enctype="multipart/form-data">
+                      <label class="edit-field" data-span="2">
+                        <span class="edit-label">File</span>
+                        <div class="doc-upload-dropzone" id="document-distribute-dropzone">
+                          <input name="file" type="file" id="document-distribute-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+                          <input type="file" id="document-distribute-camera" accept="image/*" capture="environment" hidden />
+                          <p class="doc-upload-dropzone__lead">Drag &amp; drop a file here, or <button type="button" class="doc-upload-browse" data-distribute-browse>browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+                          <p class="doc-upload-dropzone__hint muted" data-document-upload-hint>PDF, JPEG or PNG · max 10 MB per file</p>
+                          <p class="doc-upload-filename" id="document-distribute-filename" hidden></p>
+                        </div>
+                      </label>
+                      <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
+                      <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-distribute-category"></select></label>
+                      <label class="edit-field"><span class="edit-label">Pay period</span><input name="pay_period" id="document-distribute-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+                      <label class="edit-field"><span class="edit-label">Send to</span><select name="employee_id" id="document-distribute-employee"><option value="">All active employees</option></select><span class="muted edit-hint">Choose one employee for an individual payslip — do not use &ldquo;All active employees&rdquo; unless the same file applies to everyone.</span></label>
+                      <label class="edit-field" data-span="2"><span class="edit-label">Notes (optional)</span><textarea name="notes" rows="2"></textarea></label>
+                      <label class="ss-check-row" data-span="2">
+                        <input class="ss-check-row__input" type="checkbox" name="send_email" value="true" checked />
+                        <span class="ss-check-row__box" aria-hidden="true"></span>
+                        <span class="ss-check-row__content">
+                          <span class="ss-check-row__title">Email employees when shared</span>
+                          <span class="ss-check-row__hint muted">Sends a notification with a link to the employee portal.</span>
+                        </span>
+                      </label>
+                      <div class="edit-form-actions settings-doc-form-actions" data-span="2">
+                        <button class="btn" type="submit">Upload &amp; distribute</button>
+                        <p class="edit-form-status muted" data-status></p>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div id="document-link-panel" class="settings-doc-tab-panel" data-doc-panel="link" hidden>
+                    <div id="document-form"></div>
+                  </div>
+
+                  <section class="settings-doc-expiring" id="documents-expiring-section" aria-labelledby="documents-expiring-title">
+                    <div class="settings-doc-expiring-head">
+                      <div class="settings-doc-section-label">
+                        <span class="settings-doc-section-icon" aria-hidden="true">⏰</span>
+                        <h4 class="hr-section-title" id="documents-expiring-title">Expiring documents</h4>
+                      </div>
+                      <div class="settings-doc-expiring-stats" id="documents-expiring-stats" aria-label="Expiry summary" aria-busy="true">
+                        <span class="doc-expiry-stat doc-expiry-stat--skeleton" aria-hidden="true"></span>
+                        <span class="doc-expiry-stat doc-expiry-stat--skeleton" aria-hidden="true"></span>
+                        <span class="doc-expiry-stat doc-expiry-stat--skeleton" aria-hidden="true"></span>
+                        <span class="visually-hidden">Loading expiry summary</span>
+                      </div>
+                    </div>
+                    <div class="hr-table-wrap">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                            <th>Title</th>
+                            <th>Employee</th>
+                            <th>Category</th>
+                            <th>Expires</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody id="documents-expiring-body">
+                          <tr class="settings-doc-skeleton-row"><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td></tr>
+                          <tr class="settings-doc-skeleton-row"><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td><td><span class="settings-doc-skeleton-line settings-doc-skeleton-line--md" aria-hidden="true"></span></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section class="settings-doc-stored" id="documents-stored-section">
+                    <div class="settings-doc-list-head">
+                      <div class="settings-doc-section-label">
+                        <span class="settings-doc-section-icon" aria-hidden="true">📁</span>
+                        <h4 class="hr-section-title">Stored documents</h4>
+                      </div>
+                      <div id="document-filters" class="settings-doc-filters"></div>
+                    </div>
+                    <div id="document-edit-panel" class="edit-panel" hidden></div>
+                    <div id="documents-strip-list" class="settings-doc-strip-list" aria-live="polite">
+                      <p class="muted settings-doc-strip-loading">Loading documents…</p>
+                    </div>
+                    <div class="hr-table-wrap settings-doc-table-wrap settings-doc-desktop-table" hidden aria-hidden="true">
+                      <table class="data-table">
+                        <thead>
+                          <tr>
+                          <th>Title</th>
+                          <th>Audience</th>
+                          <th>Category</th>
+                          <th>Stage</th>
+                          <th>Portal</th>
+                            <th>File</th>
+                            <th>Link</th>
+                            <th>Expires</th>
+                            <th>Added</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="documents-table-body">
+                          <tr><td colspan="10" class="muted">Loading documents…</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="billing" hidden>
+                <div class="hr-workspace-body" id="settings-billing-content">
+                  <p class="muted">Loading billing details…</p>
+                </div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="notifications" hidden>
+                <div class="hr-workspace-body" id="settings-notifications-content"></div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="rota" hidden>
+                <div class="hr-workspace-body" id="settings-rota-content"></div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="users" hidden>
+                <div class="hr-workspace-body" id="settings-users-content"></div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="security" hidden>
+                <div class="hr-workspace-body" id="settings-security-content">
+                  <p class="muted">Loading security settings…</p>
+                </div>
+              </article>
+
+              <article class="card settings-panel hr-workspace" data-settings-panel="addons" hidden>
+                <div class="hr-workspace-body" id="settings-addons-content">
+                  <p class="muted">Loading add-ons…</p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <nav class="mobile-tab-bar" id="mobile-tab-bar" aria-label="Main navigation">
+      <button type="button" class="mobile-tab mobile-tab--active" data-mobile-tab="home">
+        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+        <span class="mobile-tab__label">Home</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="modules">
+        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M4 4h7v7H4z"/><path d="M13 4h7v7h-7z"/><path d="M4 13h7v7H4z"/><path d="M13 13h7v7h-7z"/></svg>
+        <span class="mobile-tab__label">Modules</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="rota">
+        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 8h18"/><path d="M5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"/></svg>
+        <span class="mobile-tab__label">Rota</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="compliance" data-feature="sponsor-compliance">
+        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8.5-8 9c-4.5-.5-8-4-8-9V7z"/><path d="M9 12l2 2l4-4"/></svg>
+        <span class="mobile-tab__label">Compliance</span>
+      </button>
+      <button type="button" class="mobile-tab" data-mobile-tab="more">
+        <svg class="mobile-tab__icon admin-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M5 12h.01"/><path d="M12 12h.01"/><path d="M19 12h.01"/></svg>
+        <span class="mobile-tab__label">More</span>
+      </button>
+    </nav>
+
+    <script src="./session-auth.js?v=11"></script>
+    <script src="./auth-guard.js?v=security-v5"></script>
+    <script src="./portal-pwa-stability.js?v=3"></script>
+    <script src="./admin-pwa.js?v=12"></script>
+    <script>
+      window.ShiftSwiftAdminPwa?.registerAdminSw?.();
+    </script>
+    <script
+      src="./portal-pwa-install.js?v=4"
+      data-portal="admin"
+      data-app-name="ShiftSwift HR Admin"
+      data-manifest="./admin-manifest.webmanifest?v=8"
+      data-sw="./admin-sw.js?v=11"
+    ></script>
+    <script src="./mobile-shell.js?v=7"></script>
+    <script src="./mobile-tables.js?v=1"></script>
+    <script src="./admin-icons.js?v=5"></script>
+    <script src="./admin-mobile.js?v=16"></script>
+    <script src="./admin-compliance-mobile.js?v=3"></script>
+    <script src="./action-feedback.js?v=3"></script>
+    <script src="./admin-shared.js?v=admin-v45"></script>
+    <script src="./admin-settings.js?v=34"></script>
+    <script src="./admin-workspace.js?v=admin-v27"></script>
+    <script src="./admin-address-picker.js?v=4"></script>
+    <script src="./admin-documents.js?v=28"></script>
+    <script src="./admin-employees.js?v=29"></script>
+    <script src="./admin-recruitment.js?v=7"></script>
+    <script src="./admin-promotions.js?v=admin-v6"></script>
+    <script src="./admin-crm.js?v=5"></script>
+    <script src="./admin-compliance.js?v=admin-v11"></script>
+    <script src="./admin-absence.js?v=3"></script>
+    <script src="./admin-rtw.js?v=4"></script>
+    <script src="./admin-grievance.js?v=6"></script>
+    <script src="./admin-disciplinary.js?v=3"></script>
+    <script src="./admin-offboarding.js?v=admin-v7"></script>
+    <script src="./admin-templates.js?v=admin-v13"></script>
+    <script src="./admin-global-documents.js?v=2"></script>
+    <script src="./admin-time-punch.js?v=36"></script>
+    <script src="./admin-rota.js?v=36"></script>
+    <script src="./admin-leave.js?v=admin-v7"></script>
+    <script src="./admin-profile-changes.js?v=3"></script>
+    <script src="./app.js?v=admin-v6"></script>
+    <script src="./contracts.js?v=7"></script>
+    <script src="./employment-contracts.js?v=7"></script>
+      <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

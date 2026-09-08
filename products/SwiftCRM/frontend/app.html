@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwiftCRM · Agency desk</title>
+    <meta name="theme-color" content="#0e1726" />
+    <link rel="manifest" href="./app.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="app">
+    <aside class="sidebar">
+      <a class="brand" href="#overview">
+        <img src="./assets/mark.svg" alt="" />
+        SwiftCRM
+      </a>
+      <p class="nav-label">Records</p>
+      <a class="nav-link is-active" data-section="overview" href="#overview">Overview</a>
+      <a class="nav-link" data-section="lettings" href="#lettings">Lettings</a>
+      <a class="nav-link" data-section="properties" href="#properties">Properties</a>
+      <a class="nav-link" data-section="tenants" href="#tenants">Tenants</a>
+      <a class="nav-link" data-section="landlords" href="#landlords">Landlords</a>
+      <p class="nav-label">Agency</p>
+      <a class="nav-link" data-section="inbox" href="#inbox">Updates</a>
+      <a class="nav-link" data-section="jobs" href="#jobs">Jobs</a>
+      <a class="nav-link" data-section="tax" href="#tax">Local tax</a>
+      <p class="nav-label">Money</p>
+      <a class="nav-link" data-section="invoices" href="#invoices">Invoices</a>
+      <a class="nav-link" data-section="payments" href="#payments">Payments</a>
+      <a class="nav-link" data-section="pipeline" href="#pipeline">Pipeline</a>
+      <a class="nav-link" data-section="settings" href="#settings">Settings</a>
+      <div class="agency">
+        <b id="agency-name">Charlbury Lettings</b>
+        <span id="agency-user">Alex Morgan</span>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Overview</h1>
+          <p id="page-sub">Portfolio, arrears and what needs a chase today.</p>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" class="btn btn--copper btn--sm" id="simulate-ring">Incoming call</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="sign-out">Sign out</button>
+        </div>
+      </header>
+      <div class="workspace" id="workspace"></div>
+    </div>
+
+    <dialog class="sheet" id="property-dialog">
+      <form class="sheet-body" id="property-form">
+        <h3>Add property</h3>
+        <label>Name <input name="name" required placeholder="Garden flat, Mapperley" /></label>
+        <label>Address <input name="address_line" required placeholder="14 Mapperley Park" /></label>
+        <label>City <input name="city" required placeholder="Nottingham" /></label>
+        <label>Postcode <input name="postcode" required placeholder="NG3 5AA" /></label>
+        <label>Beds <input name="beds" type="number" min="0" value="2" required /></label>
+        <label>Type
+          <select name="property_type">
+            <option value="flat">Flat</option>
+            <option value="house">House</option>
+            <option value="hmo">HMO</option>
+            <option value="studio">Studio</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Rent £ / month <input name="rent_pcm" type="number" min="1" step="1" required /></label>
+        <label>Council tax band <input name="council_tax_band" placeholder="A–H" maxlength="2" /></label>
+        <label>Billing authority <input name="council_tax_authority" placeholder="Nottingham City Council" /></label>
+        <label>Who is liable
+          <select name="council_tax_liable">
+            <option value="occupier">Tenant</option>
+            <option value="landlord">Landlord</option>
+            <option value="void">Void / empty</option>
+          </select>
+        </label>
+        <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        <p class="error hidden" id="property-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" value="cancel" id="property-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save property</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="contact-dialog">
+      <form class="sheet-body" id="contact-form">
+        <h3>Add person</h3>
+        <label>Name <input name="name" required /></label>
+        <label>Email <input name="email" type="email" /></label>
+        <label>Phone <input name="phone" /></label>
+        <label>Role
+          <select name="role" id="contact-role">
+            <option value="occupier">Tenant</option>
+            <option value="landlord">Landlord</option>
+            <option value="applicant">Applicant</option>
+            <option value="guarantor">Guarantor</option>
+          </select>
+        </label>
+        <label>Address <input name="address_line" /></label>
+        <label>City <input name="city" /></label>
+        <label>Postcode <input name="postcode" /></label>
+        <label class="landlord-only hidden">UTR (self assessment) <input name="utr" /></label>
+        <label class="landlord-only hidden">NRL status
+          <select name="nrl_status">
+            <option value="">—</option>
+            <option value="uk_resident">UK resident</option>
+            <option value="nrl_applied">NRL applied</option>
+            <option value="nrl_approval">NRL approval</option>
+            <option value="withheld">Withholding</option>
+          </select>
+        </label>
+        <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        <p class="error hidden" id="contact-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="contact-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save person</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="invoice-dialog">
+      <form class="sheet-body" id="invoice-form">
+        <h3>Raise invoice</h3>
+        <label>Property
+          <select name="property_id" id="invoice-property" required></select>
+        </label>
+        <label>Bill to
+          <select name="contact_id" id="invoice-contact" required></select>
+        </label>
+        <label>Amount £ <input name="amount" type="number" min="1" step="0.01" required /></label>
+        <label>Due <input name="due_on" type="date" required /></label>
+        <label>Description <input name="description" required value="Rent" /></label>
+        <p class="error hidden" id="invoice-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="invoice-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Issue invoice</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="letting-dialog">
+      <form class="sheet-body" id="letting-form">
+        <h3>Record a letting</h3>
+        <label>Property <select name="property_id" id="letting-property" required></select></label>
+        <label>Tenant <select name="occupier_id" id="letting-tenant" required></select></label>
+        <label>Landlord <select name="landlord_id" id="letting-landlord" required></select></label>
+        <label>Start <input name="start_date" type="date" required /></label>
+        <label>End <input name="end_date" type="date" /></label>
+        <label>Rent £ / month <input name="rent_pcm" type="number" min="1" step="1" required /></label>
+        <label>Deposit £ <input name="deposit" type="number" min="0" step="1" required /></label>
+        <label>Rent due day <input name="rent_due_day" type="number" min="1" max="28" value="1" /></label>
+        <label>Deposit scheme
+          <select name="deposit_scheme">
+            <option value="TDS">TDS</option>
+            <option value="DPS">DPS</option>
+            <option value="MyDeposits">MyDeposits</option>
+          </select>
+        </label>
+        <label>Deposit ref <input name="deposit_ref" /></label>
+        <p class="error hidden" id="letting-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="letting-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save letting</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="message-dialog">
+      <form class="sheet-body" id="message-form">
+        <h3>Send an update</h3>
+        <label>To
+          <select name="audience">
+            <option value="occupier">Tenant</option>
+            <option value="landlord">Landlord</option>
+            <option value="both">Tenant and landlord</option>
+            <option value="internal">Internal note</option>
+          </select>
+        </label>
+        <label>Channel
+          <select name="channel">
+            <option value="email">Email</option>
+            <option value="sms">SMS</option>
+            <option value="phone">Phone call</option>
+            <option value="portal">Portal</option>
+            <option value="note">File note</option>
+          </select>
+        </label>
+        <label>Property <select name="property_id" id="message-property"></select></label>
+        <label>Person <select name="contact_id" id="message-contact"></select></label>
+        <label>Subject <input name="subject" required /></label>
+        <label>Message <textarea name="body" rows="4" required></textarea></label>
+        <p class="error hidden" id="message-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="message-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Log update</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="job-dialog">
+      <form class="sheet-body" id="job-form">
+        <h3>Raise a job</h3>
+        <input type="hidden" name="call_id" />
+        <input type="hidden" name="property_id" />
+        <input type="hidden" name="tenancy_id" />
+        <input type="hidden" name="contact_id" />
+        <label>Title <input name="title" required placeholder="Leaking tap" /></label>
+        <label>Detail <textarea name="detail" rows="3"></textarea></label>
+        <label>Priority
+          <select name="priority">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        <p class="error hidden" id="job-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="job-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save job</button>
+        </div>
+      </form>
+    </dialog>
+
+    <aside id="call-pop" class="call-pop hidden" aria-live="polite">
+      <p class="call-pop__pulse" id="call-pop-status">Incoming call</p>
+      <h2 id="call-pop-name">Unknown caller</h2>
+      <p id="call-pop-number" class="muted"></p>
+      <p id="call-pop-context"></p>
+      <p id="call-pop-arrears"></p>
+      <div class="call-pop__actions">
+        <button type="button" class="btn btn--copper btn--sm" id="call-answer">Answer</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="call-hangup">Decline</button>
+        <button type="button" class="btn btn--navy btn--sm" id="call-job">Raise job</button>
+        <a class="btn btn--ghost btn--sm" id="call-record" href="#tenants">Open record</a>
+      </div>
+    </aside>
+
+    <script src="./js/api.js"></script>
+    <script src="./js/app.js"></script>
+  </body>
+</html>

@@ -2,6 +2,18 @@
 
 UK HR software with sponsor licence safeguards (RTW, day-9 absence alerts, SMS reporting, grievance, audit export).
 
+## Product family
+
+ShiftSwift HR stays at the repo root. A **lettings CRM** lives beside a snapshot of this app under [`products/`](products/README.md):
+
+| Product | Folder | Start |
+|---------|--------|-------|
+| ShiftSwift HR (live) | repo root | `bash scripts/start_local.sh` |
+| ShiftSwift HR (UI snapshot) | `products/ShiftSwift/` | open `products/index.html` |
+| **SwiftCRM** (lettings & housing) | `products/SwiftCRM/` | `SWIFTCRM_RESET=1 bash products/SwiftCRM/scripts/install_local.sh` then `bash products/SwiftCRM/scripts/start.sh` |
+
+SwiftCRM uses ink navy and copper — not the HR pine/verdant palette.
+
 ## Fresh local install (recommended)
 
 Drops the local database and rebuilds from scratch — not an upgrade path.

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <title>Sign contract | ShiftSwift HR</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon.png?v=brandkit-v1" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v1" />
+    <style>
+      .contract-preview {
+        max-height: 420px;
+        overflow: auto;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        background: var(--white);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .contract-preview h1 { font-size: 1.4rem; }
+      .contract-preview h2 { font-size: 1.1rem; margin-top: 1rem; }
+    </style>
+  </head>
+  <body class="auth-body">
+    <div class="setup-shell">
+      <div class="auth-card">
+        <a class="brand" href="./index.html">
+          <img class="brand-logo" src="./assets/shiftswift-hr-logo-nav.svg?v=brandkit-v4" alt="ShiftSwift HR" />
+        </a>
+        <h1>Review & sign agreement</h1>
+        <p class="muted" id="contract-meta">Loading contract…</p>
+        <div id="contract-preview" class="contract-preview"></div>
+        <form id="sign-form" class="stack" style="margin-top:16px;">
+          <label>Your full name (electronic signature)<input name="signature_name" required /></label>
+          <label>Job title<input name="signature_title" placeholder="Director" /></label>
+          <label class="checkbox-row">
+            <input type="checkbox" name="accept_terms" required />
+            <span>I have read this agreement and sign on behalf of my organisation.</span>
+          </label>
+          <button class="btn" type="submit">Sign contract</button>
+          <p id="sign-status" class="edit-form-status muted" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+    <script src="./action-feedback.js?v=3"></script>
+    <script src="./sign-contract.js?v=4"></script>
+      <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

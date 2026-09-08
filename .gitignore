@@ -12,6 +12,8 @@ __pycache__/
 .mypy_cache/
 backend_stub/.venv/
 .venv/
+products/SwiftCRM/.venv/
+products/SwiftCRM/backend/data/*.db
 
 # Build / staging
 .pack-staging/

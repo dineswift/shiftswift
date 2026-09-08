@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en" data-app-icon="clock">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./brand-config.js?v=brand-v6"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <title>Premises clock-in QR card</title>
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <link rel="stylesheet" href="./theme.css?v=brand-v1" />
+    <style>
+      :root {
+        --card-w: 85mm;
+        --card-h: 55mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-body);
+        color: var(--ink-900);
+        background: #e8ecef;
+      }
+
+      .toolbar {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .toolbar p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--gray-700);
+      }
+
+      .toolbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.55rem 1rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn--primary {
+        background: var(--green-700);
+        color: #fff;
+      }
+
+      .btn--ghost {
+        background: #fff;
+        color: var(--green-800);
+        border: 1px solid var(--green-300);
+      }
+
+      .preview-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        justify-content: center;
+        padding: 0 1rem 2rem;
+      }
+
+      .punch-card {
+        width: var(--card-w);
+        height: var(--card-h);
+        background: #fff;
+        border-radius: 4mm;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+        padding: 4mm;
+        display: grid;
+        grid-template-columns: 28mm 1fr;
+        gap: 3mm;
+        align-items: center;
+        overflow: hidden;
+      }
+
+      .punch-card__qr img {
+        width: 28mm;
+        height: 28mm;
+        display: block;
+        border-radius: 2mm;
+      }
+
+      .punch-card__brand {
+        display: flex;
+        align-items: center;
+        gap: 2mm;
+        margin-bottom: 1.5mm;
+      }
+
+      .punch-card__brand img {
+        width: 6mm;
+        height: 6mm;
+        border-radius: 1mm;
+      }
+
+      .punch-card__brand span {
+        font-size: 2.6mm;
+        font-weight: 700;
+        color: var(--green-800);
+        letter-spacing: 0.02em;
+      }
+
+      .punch-card__site {
+        margin: 0 0 1mm;
+        font-size: 4.2mm;
+        line-height: 1.15;
+        color: var(--ink-900);
+      }
+
+      .punch-card__lead {
+        margin: 0 0 1.5mm;
+        font-size: 2.8mm;
+        line-height: 1.35;
+        color: var(--gray-700);
+      }
+
+      .punch-card__steps {
+        margin: 0;
+        padding-left: 3.5mm;
+        font-size: 2.5mm;
+        line-height: 1.35;
+        color: var(--gray-700);
+      }
+
+      .punch-card__steps li + li {
+        margin-top: 0.6mm;
+      }
+
+      .punch-card__portals {
+        margin-top: 1.5mm;
+        padding-top: 1.5mm;
+        border-top: 0.3mm solid var(--green-200);
+        font-size: 2.2mm;
+        line-height: 1.35;
+        color: var(--gray-700);
+      }
+
+      .punch-card__portals div + div {
+        margin-top: 0.5mm;
+      }
+
+      .punch-card__portals strong {
+        color: var(--green-900);
+      }
+
+      .sheet-note {
+        max-width: 85mm;
+        font-size: 0.82rem;
+        color: var(--gray-600);
+        line-height: 1.45;
+      }
+
+      .tent-sheet {
+        width: 210mm;
+        height: 297mm;
+        background: #fff;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .tent-panel {
+        flex: 1;
+        padding: 14mm 16mm;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        border: 1px dashed var(--green-300);
+      }
+
+      .tent-panel--bottom {
+        transform: rotate(180deg);
+        border-top: 2px dashed var(--green-500);
+      }
+
+      .tent-panel--top {
+        border-bottom: 2px dashed var(--green-500);
+      }
+
+      .tent-panel__brand {
+        display: flex;
+        align-items: center;
+        gap: 3mm;
+        margin-bottom: 5mm;
+      }
+
+      .tent-panel__brand img {
+        width: 10mm;
+        height: 10mm;
+        border-radius: 2mm;
+      }
+
+      .tent-panel__brand span {
+        font-size: 4mm;
+        font-weight: 700;
+        color: var(--green-800);
+      }
+
+      .tent-panel__site {
+        margin: 0 0 3mm;
+        font-size: 9mm;
+        line-height: 1.1;
+      }
+
+      .tent-panel__qr img {
+        width: 58mm;
+        height: 58mm;
+        display: block;
+        margin: 0 auto 4mm;
+      }
+
+      .tent-panel__lead {
+        margin: 0 0 4mm;
+        font-size: 4.2mm;
+        line-height: 1.4;
+        color: var(--gray-700);
+        max-width: 150mm;
+      }
+
+      .tent-panel__steps {
+        margin: 0;
+        padding-left: 5mm;
+        text-align: left;
+        font-size: 4mm;
+        line-height: 1.45;
+        color: var(--gray-700);
+        max-width: 150mm;
+      }
+
+      .tent-fold-note {
+        max-width: 210mm;
+        font-size: 0.82rem;
+        color: var(--gray-600);
+        line-height: 1.45;
+      }
+
+      .layout-tent .punch-card-wrap {
+        display: none;
+      }
+
+      .layout-pocket .tent-wrap,
+      .layout-desk .tent-wrap {
+        display: none;
+      }
+
+      .empty-state {
+        max-width: 520px;
+        margin: 2rem auto;
+        padding: 1.25rem;
+        background: #fff;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--card-border);
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .toolbar,
+        .sheet-note,
+        .tent-fold-note {
+          display: none !important;
+        }
+
+        .preview-wrap {
+          padding: 0;
+          display: block;
+        }
+
+        .punch-card {
+          box-shadow: none;
+          page-break-after: always;
+          margin: 0 auto;
+        }
+
+        .tent-sheet {
+          box-shadow: none;
+          page-break-after: always;
+          margin: 0 auto;
+        }
+
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <p>Print on thick paper or laminate. Staff scan with the Time Clock app — not a separate hardware scanner.</p>
+      <div class="toolbar-actions">
+        <button type="button" class="btn btn--ghost" id="card-size-pocket">Pocket card</button>
+        <button type="button" class="btn btn--ghost" id="card-size-desk">Desk card</button>
+        <button type="button" class="btn btn--ghost" id="card-size-tent">Tent card</button>
+        <button type="button" class="btn btn--primary" id="card-print-btn">Print</button>
+      </div>
+    </div>
+
+    <div id="card-empty" class="empty-state" hidden>
+      <h1>Missing QR link</h1>
+      <p>Open this page from <strong>Admin → Time punch → select a site → Print QR card</strong>, or add <code>?url=…&amp;site=…</code> to the address bar.</p>
+    </div>
+
+    <div class="preview-wrap" id="card-preview" hidden>
+      <div class="punch-card-wrap">
+        <article class="punch-card" id="punch-card">
+          <div class="punch-card__qr">
+            <img id="card-qr-image" alt="" />
+          </div>
+          <div class="punch-card__body">
+            <div class="punch-card__brand">
+              <img src="./assets/shiftswift-clock-app-icon-192.png?v=brandkit-v5" alt="" />
+              <span>ShiftSwift Time Clock</span>
+            </div>
+            <h1 class="punch-card__site" id="card-site-name">Main site</h1>
+            <p class="punch-card__lead">Scan to verify you are on premises, then clock in or out in the app.</p>
+            <ol class="punch-card__steps">
+              <li>Open <strong>Time Clock</strong> on your phone</li>
+              <li>Tap <strong>Scan premises QR</strong></li>
+              <li>Clock in or out</li>
+            </ol>
+            <div class="punch-card__portals" id="card-portals" aria-label="ShiftSwift app addresses"></div>
+          </div>
+        </article>
+        <p class="sheet-note">
+          Tip: print several copies for entrances, tills, and back-of-house. Rotate the QR in admin if a card is lost.
+        </p>
+      </div>
+
+      <div class="tent-wrap" hidden>
+        <article class="tent-sheet" id="tent-sheet">
+          <section class="tent-panel tent-panel--top">
+            <div class="tent-panel__brand">
+              <img src="./assets/shiftswift-clock-app-icon-192.png?v=brandkit-v5" alt="" />
+              <span>ShiftSwift Time Clock</span>
+            </div>
+            <h1 class="tent-panel__site" id="tent-site-name">Main site</h1>
+            <div class="tent-panel__qr">
+              <img id="tent-qr-image" alt="" />
+            </div>
+            <p class="tent-panel__lead">Scan this QR, then clock in or out in the Time Clock app.</p>
+          </section>
+          <section class="tent-panel tent-panel--bottom">
+            <ol class="tent-panel__steps">
+              <li>Open the <strong>Time Clock</strong> app on your phone</li>
+              <li>Tap <strong>Scan premises QR</strong></li>
+              <li>Point your camera at this code</li>
+              <li>Tap <strong>Clock in</strong> or <strong>Clock out</strong></li>
+            </ol>
+            <p class="tent-panel__lead">Outdoors with good GPS? You can clock in without scanning.</p>
+          </section>
+        </article>
+        <p class="tent-fold-note">
+          Fold along the dashed line, stand on a counter, and laminate for daily use. Both sides remain readable when folded into a tent.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        function qrSrc(url, embedded) {
+          if (embedded) return embedded;
+          if (!url) return "";
+          return (
+            "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=" +
+            encodeURIComponent(url)
+          );
+        }
+
+        function readCardPayload() {
+          const raw = sessionStorage.getItem("punchCardPayload");
+          if (!raw) return null;
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return null;
+          }
+        }
+
+        const stored = readCardPayload();
+        const params = new URLSearchParams(window.location.search);
+        const clockUrl = stored?.clock_url || params.get("url") || "";
+        const siteName = stored?.site_name || params.get("site") || "Work site";
+        const embeddedQr = stored?.qr_image_data_uri || "";
+        const preview = document.getElementById("card-preview");
+        const empty = document.getElementById("card-empty");
+        const qrImg = document.getElementById("card-qr-image");
+        const siteEl = document.getElementById("card-site-name");
+        const tentSiteEl = document.getElementById("tent-site-name");
+        const tentQrImg = document.getElementById("tent-qr-image");
+        const cardWrap = document.querySelector(".punch-card-wrap");
+        const tentWrap = document.querySelector(".tent-wrap");
+        const printBtn = document.getElementById("card-print-btn");
+        const pocketBtn = document.getElementById("card-size-pocket");
+        const deskBtn = document.getElementById("card-size-desk");
+        const tentBtn = document.getElementById("card-size-tent");
+
+        function setLayout(mode) {
+          document.body.classList.remove("layout-pocket", "layout-desk", "layout-tent");
+          document.body.classList.add(`layout-${mode}`);
+          const isTent = mode === "tent";
+          if (cardWrap) cardWrap.hidden = isTent;
+          if (tentWrap) tentWrap.hidden = !isTent;
+          const root = document.documentElement;
+          if (mode === "desk") {
+            root.style.setProperty("--card-w", "105mm");
+            root.style.setProperty("--card-h", "74mm");
+          } else if (mode === "pocket") {
+            root.style.setProperty("--card-w", "85mm");
+            root.style.setProperty("--card-h", "55mm");
+          }
+        }
+
+        function renderPortalLines(containerId) {
+          const host = document.getElementById(containerId);
+          if (!host || !window.ShiftSwiftBrand?.portals) return;
+          const lines = window.ShiftSwiftBrand.portals().filter((p) => p.id !== "master");
+          host.innerHTML = lines
+            .map((p) => `<div><strong>${p.label}</strong> ${p.display}</div>`)
+            .join("");
+        }
+
+        if (!clockUrl) {
+          empty.hidden = false;
+          return;
+        }
+
+        preview.hidden = false;
+        siteEl.textContent = siteName;
+        if (tentSiteEl) tentSiteEl.textContent = siteName;
+        const qr = qrSrc(clockUrl, embeddedQr);
+        qrImg.src = qr;
+        qrImg.alt = "Premises clock-in QR for " + siteName;
+        if (tentQrImg) {
+          tentQrImg.src = qr;
+          tentQrImg.alt = qrImg.alt;
+        }
+        renderPortalLines("card-portals");
+
+        const initialLayout =
+          stored?.layout ||
+          (params.get("layout") === "tent" ? "tent" : params.get("layout") === "desk" ? "desk" : "pocket");
+        setLayout(initialLayout);
+
+        printBtn?.addEventListener("click", () => window.print());
+        pocketBtn?.addEventListener("click", () => setLayout("pocket"));
+        deskBtn?.addEventListener("click", () => setLayout("desk"));
+        tentBtn?.addEventListener("click", () => setLayout("tent"));
+      })();
+    </script>
+  </body>
+</html>

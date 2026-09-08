@@ -1,0 +1,9 @@
+{
+  "name": "SwiftCRM Landlord",
+  "short_name": "Landlord",
+  "start_url": "./landlord.html",
+  "display": "standalone",
+  "background_color": "#152238",
+  "theme_color": "#152238",
+  "icons": [{ "src": "./assets/mark.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
