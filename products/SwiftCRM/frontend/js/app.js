@@ -987,7 +987,9 @@ async function refreshCallPop() {
 function startCallWatch() {
   refreshCallPop();
   setInterval(refreshCallPop, 1500);
-  document.getElementById("simulate-ring")?.addEventListener("click", () => simulateIncoming("07700 900111"));
+  document.getElementById("simulate-ring")?.addEventListener("click", () => {
+    simulateIncoming("07700 900111").catch((err) => alert(err.message || "Could not ring the desk"));
+  });
   document.getElementById("call-answer")?.addEventListener("click", async () => {
     const id = document.getElementById("call-pop").dataset.callId;
     if (!id) return;

@@ -63,6 +63,17 @@ class SeedAndCallTests(unittest.TestCase):
         self.assertIsNotNone(pop["letting"])
         self.assertEqual(pop["letting"]["property_name"], "Mapperley Park garden flat")
 
+    def test_new_ring_ends_previous_live_call(self) -> None:
+        first = create_inbound_call("07700 900111")
+        from data import execute, row
+
+        execute("UPDATE calls SET status = 'answered' WHERE id = ?", (first["call"]["id"],))
+        second = create_inbound_call("07700 900113")
+        self.assertEqual(second["contact"]["name"], "Luca Bianchi")
+        self.assertEqual(second["call"]["status"], "ringing")
+        previous = row("SELECT status FROM calls WHERE id = ?", (first["call"]["id"],))
+        self.assertEqual(previous["status"], "ended")
+
     def test_unknown_caller(self) -> None:
         pop = create_inbound_call("07700 900999")
         self.assertFalse(pop["matched"])

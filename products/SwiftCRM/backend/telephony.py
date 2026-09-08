@@ -102,7 +102,7 @@ def create_inbound_call(
     to_e164_num = to_e164(to_raw) or AGENCY_E164
     contact = match_contact(from_raw)
     letting = active_letting_for(contact["id"]) if contact else None
-    execute("UPDATE calls SET status = 'missed' WHERE status = 'ringing'")
+    execute("UPDATE calls SET status = 'ended' WHERE status IN ('ringing', 'answered')")
     new_id = execute(
         """INSERT INTO calls
            (created_at, direction, from_e164, to_e164, from_raw, contact_id, property_id, tenancy_id, status, provider_sid)
@@ -193,7 +193,7 @@ def bind(require_agency):
         require_agency(authorization)
         call = row(
             """SELECT * FROM calls WHERE status IN ('ringing', 'answered')
-               ORDER BY id DESC LIMIT 1"""
+               ORDER BY CASE status WHEN 'ringing' THEN 0 ELSE 1 END, id DESC LIMIT 1"""
         )
         if not call:
             return {"call": None, "matched": False}
