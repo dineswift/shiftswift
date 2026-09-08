@@ -35,6 +35,8 @@ Agency (SaaS customer)
   ├── Tenants (shown as "tenants" in the UI; stored as occupier so we do not clash with ShiftSwift tenant_id)
   ├── Lettings (property + tenant + landlord + AST)
   ├── Updates (to tenant, landlord, or both)
+  ├── Calls (caller ID → screen-pop)
+  ├── Jobs (maintenance)
   ├── Invoices / payments
   └── Pipeline (applicants)
 ```
@@ -75,9 +77,9 @@ SwiftCRM is **ink navy / copper / linen** — estate-agency desk: warmer, more e
 
 ## Roadmap after this slice
 
-1. Recurring rent schedules (rent due day → auto invoice)
+1. Live SIP/Twilio media (this slice matches caller ID and pops the record; it does not terminate audio)
 2. GoCardless / Stripe Bacs for occupier Direct Debit
-3. One-way Xero invoice + payment sync (FreeAgent second)
-4. Occupier portal (rent due, payment link)
-5. Compliance diary (gas, EICR, EPC)
+3. Live Xero OAuth (this slice queues invoices for a connector)
+4. SMTP send for the mail outbox
+5. Compliance diary (gas, EICR, EPC) beyond the fields already on the property
 6. Client money / CMP reporting (regulated — do not fake this)

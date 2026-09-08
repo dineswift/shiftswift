@@ -19,8 +19,11 @@ from data import (
     init_db,
     row,
     rows,
+    verify_password,
 )
 from desk import bind as bind_desk_routes
+from phones import to_e164
+from telephony import bind as bind_telephony
 
 app = FastAPI(title="SwiftCRM", version="0.1.0", description="Lettings & housing CRM")
 app.add_middleware(
@@ -182,13 +185,16 @@ def health() -> dict[str, str]:
 def login(body: LoginBody) -> dict[str, Any]:
     email = body.email.strip().lower()
     portal = (body.portal or "agency").lower()
+    user = row("SELECT * FROM users WHERE lower(email) = ?", (email,))
+    password_ok = bool(user and verify_password(body.password, user["password_hash"]))
     if portal == "agency":
-        if email != DEMO_EMAIL or body.password != DEMO_PASSWORD:
+        demo_ok = email == DEMO_EMAIL and body.password == DEMO_PASSWORD
+        if not ((user and user["role"] == "agency" and password_ok) or demo_ok):
             raise HTTPException(status_code=401, detail="Check email and password")
         return {
             "token": DEMO_TOKEN,
             "user": {
-                "name": "Alex Morgan",
+                "name": user["name"] if user else "Alex Morgan",
                 "email": DEMO_EMAIL,
                 "role": "agency_admin",
                 "agency": "Charlbury Lettings",
@@ -196,9 +202,12 @@ def login(body: LoginBody) -> dict[str, Any]:
         }
     role = "occupier" if portal in {"tenant", "occupier"} else "landlord"
     expected = TENANT_PORTAL_PASSWORD if role == "occupier" else LANDLORD_PORTAL_PASSWORD
-    if body.password != expected:
-        raise HTTPException(status_code=401, detail="Check email and password")
-    person = row("SELECT * FROM contacts WHERE lower(email) = ? AND role = ?", (email, role))
+    if user and password_ok and user["role"] == role and user.get("contact_id"):
+        person = row("SELECT * FROM contacts WHERE id = ?", (user["contact_id"],))
+    elif body.password == expected:
+        person = row("SELECT * FROM contacts WHERE lower(email) = ? AND role = ?", (email, role))
+    else:
+        person = None
     if not person:
         raise HTTPException(status_code=401, detail="No portal account for that email")
     return {
@@ -215,13 +224,21 @@ def login(body: LoginBody) -> dict[str, Any]:
 
 @app.get("/me")
 def me(authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    require_auth(authorization)
+    actor = require_agency(authorization)
+    queued = row("SELECT COUNT(*) AS n FROM mail_outbox WHERE status = 'queued'") or {"n": 0}
+    xero_n = row("SELECT COUNT(*) AS n FROM xero_export") or {"n": 0}
     return {
-        "name": "Alex Morgan",
-        "email": DEMO_EMAIL,
+        "name": actor["name"],
+        "email": actor.get("email") or DEMO_EMAIL,
         "role": "agency_admin",
         "agency": "Charlbury Lettings",
-        "accounting": {"xero": "not_connected", "freeagent": "not_connected"},
+        "phone": "0115 000 1000",
+        "accounting": {
+            "xero": "export_queue" if int(xero_n["n"]) else "not_connected",
+            "freeagent": "not_connected",
+            "xero_export_rows": int(xero_n["n"]),
+        },
+        "mail_queued": int(queued["n"]),
     }
 
 
@@ -236,6 +253,8 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
     lettings = row("SELECT COUNT(*) AS n FROM tenancies WHERE status = 'active'")
     inbox = row("SELECT COUNT(*) AS n FROM communications")
     pipeline = row("SELECT COUNT(*) AS n FROM deals WHERE stage NOT IN ('lost','move_in')")
+    jobs = row("SELECT COUNT(*) AS n FROM jobs WHERE status NOT IN ('done','cancelled')")
+    ringing = row("SELECT COUNT(*) AS n FROM calls WHERE status = 'ringing'")
     by_status = {r["status"]: r["n"] for r in props}
     inv = {r["status"]: {"count": r["n"], "amount": gbp(r["total"])} for r in invoices}
     due_soon = rows(
@@ -262,6 +281,8 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
         "arrears_gbp": gbp(int(arrears["total"]) if arrears else 0),
         "open_pipeline": int(pipeline["n"]) if pipeline else 0,
         "inbox": int(inbox["n"]) if inbox else 0,
+        "open_jobs": int(jobs["n"]) if jobs else 0,
+        "ringing": int(ringing["n"]) if ringing else 0,
         "invoices": inv,
         "attention": [
             {
@@ -333,12 +354,13 @@ def create_contact(body: ContactCreate, authorization: str | None = Header(defau
     require_auth(authorization)
     new_id = execute(
         """INSERT INTO contacts
-           (name, email, phone, role, notes, address_line, city, postcode, utr, nrl_status, nrl_ref, preferred_channel)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+           (name, email, phone, phone_e164, role, notes, address_line, city, postcode, utr, nrl_status, nrl_ref, preferred_channel)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             body.name,
             body.email,
             body.phone,
+            to_e164(body.phone),
             body.role,
             body.notes,
             body.address_line,
@@ -405,6 +427,48 @@ def create_invoice(body: InvoiceCreate, authorization: str | None = Header(defau
     )
     created = row("SELECT * FROM invoices WHERE id = ?", (new_id,))
     return decorate_invoice(created or {})
+
+
+@app.post("/invoices/generate-rent")
+def generate_rent(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    require_auth(authorization)
+    period = date.today().strftime("%Y-%m")
+    lettings = rows("SELECT * FROM tenancies WHERE status = 'active'")
+    created_ids: list[int] = []
+    skipped = 0
+    count = row("SELECT COUNT(*) AS n FROM invoices") or {"n": 0}
+    seq = int(count["n"]) + 60
+    for letting in lettings:
+        existing = row(
+            "SELECT id FROM invoices WHERE tenancy_id = ? AND period_month = ?",
+            (letting["id"], period),
+        )
+        if existing:
+            skipped += 1
+            continue
+        seq += 1
+        number = f"INV-2026-{seq:04d}"
+        prop = row("SELECT name FROM properties WHERE id = ?", (letting["property_id"],))
+        due_day = int(letting["rent_due_day"] or 1)
+        due_on = f"{period}-{due_day:02d}"
+        new_id = execute(
+            """INSERT INTO invoices
+               (number, tenancy_id, property_id, contact_id, issued_on, due_on, amount_pence, status, description, xero_status, period_month)
+               VALUES (?,?,?,?,?,?,?,'due',?,'not_synced',?)""",
+            (
+                number,
+                letting["id"],
+                letting["property_id"],
+                letting["occupier_id"],
+                date.today().isoformat(),
+                due_on,
+                letting["rent_pcm"],
+                f"Rent {period} — {(prop or {}).get('name') or 'letting'}",
+                period,
+            ),
+        )
+        created_ids.append(new_id)
+    return {"created": len(created_ids), "skipped": skipped, "period": period, "invoice_ids": created_ids}
 
 
 @app.post("/invoices/{invoice_id}/collect")
@@ -491,3 +555,4 @@ def patch_deal(
 
 
 app.include_router(bind_desk_routes(require_agency, parse_actor))
+app.include_router(bind_telephony(require_agency))

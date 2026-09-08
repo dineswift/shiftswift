@@ -23,6 +23,7 @@
       <a class="nav-link" data-section="landlords" href="#landlords">Landlords</a>
       <p class="nav-label">Agency</p>
       <a class="nav-link" data-section="inbox" href="#inbox">Updates</a>
+      <a class="nav-link" data-section="jobs" href="#jobs">Jobs</a>
       <a class="nav-link" data-section="tax" href="#tax">Local tax</a>
       <p class="nav-label">Money</p>
       <a class="nav-link" data-section="invoices" href="#invoices">Invoices</a>
@@ -41,7 +42,10 @@
           <h1 id="page-title">Overview</h1>
           <p id="page-sub">Portfolio, arrears and what needs a chase today.</p>
         </div>
-        <button type="button" class="btn btn--ghost btn--sm" id="sign-out">Sign out</button>
+        <div class="topbar-actions">
+          <button type="button" class="btn btn--copper btn--sm" id="simulate-ring">Incoming call</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="sign-out">Sign out</button>
+        </div>
       </header>
       <div class="workspace" id="workspace"></div>
     </div>
@@ -196,6 +200,45 @@
         </div>
       </form>
     </dialog>
+
+    <dialog class="sheet" id="job-dialog">
+      <form class="sheet-body" id="job-form">
+        <h3>Raise a job</h3>
+        <input type="hidden" name="call_id" />
+        <input type="hidden" name="property_id" />
+        <input type="hidden" name="tenancy_id" />
+        <input type="hidden" name="contact_id" />
+        <label>Title <input name="title" required placeholder="Leaking tap" /></label>
+        <label>Detail <textarea name="detail" rows="3"></textarea></label>
+        <label>Priority
+          <select name="priority">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+        <p class="error hidden" id="job-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="job-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save job</button>
+        </div>
+      </form>
+    </dialog>
+
+    <aside id="call-pop" class="call-pop hidden" aria-live="polite">
+      <p class="call-pop__pulse" id="call-pop-status">Incoming call</p>
+      <h2 id="call-pop-name">Unknown caller</h2>
+      <p id="call-pop-number" class="muted"></p>
+      <p id="call-pop-context"></p>
+      <p id="call-pop-arrears"></p>
+      <div class="call-pop__actions">
+        <button type="button" class="btn btn--copper btn--sm" id="call-answer">Answer</button>
+        <button type="button" class="btn btn--ghost btn--sm" id="call-hangup">Decline</button>
+        <button type="button" class="btn btn--navy btn--sm" id="call-job">Raise job</button>
+        <a class="btn btn--ghost btn--sm" id="call-record" href="#tenants">Open record</a>
+      </div>
+    </aside>
 
     <script src="./js/api.js"></script>
     <script src="./js/app.js"></script>

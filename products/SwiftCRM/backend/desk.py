@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import json
+import os
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from data import execute, row, rows
+from phones import to_e164
 
 router = APIRouter()
 
@@ -120,6 +123,129 @@ class PortalMessageCreate(BaseModel):
     tenancy_id: int | None = None
 
 
+class ContactPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    email: str | None = None
+    phone: str | None = None
+    notes: str | None = None
+    address_line: str | None = None
+    city: str | None = None
+    postcode: str | None = None
+    utr: str | None = None
+    nrl_status: str | None = None
+    nrl_ref: str | None = None
+    preferred_channel: str | None = None
+
+
+class PropertyPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    address_line: str | None = None
+    city: str | None = None
+    postcode: str | None = None
+    notes: str | None = None
+    council_tax_band: str | None = None
+    council_tax_authority: str | None = None
+    council_tax_account: str | None = None
+    council_tax_liable: str | None = None
+    epc_rating: str | None = None
+    gas_due: str | None = None
+    eicr_due: str | None = None
+    rent_pcm: float | None = Field(default=None, gt=0)
+    status: str | None = None
+
+
+class TenancyPatch(BaseModel):
+    rent_pcm: float | None = Field(default=None, gt=0)
+    deposit: float | None = Field(default=None, ge=0)
+    end_date: str | None = None
+    rent_due_day: int | None = Field(default=None, ge=1, le=28)
+    deposit_scheme: str | None = None
+    deposit_ref: str | None = None
+    furnished: str | None = None
+    status: str | None = None
+
+
+class JobCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    detail: str | None = None
+    property_id: int | None = None
+    tenancy_id: int | None = None
+    contact_id: int | None = None
+    call_id: int | None = None
+    priority: str = Field(default="normal", pattern="^(low|normal|high|urgent)$")
+    reported_via: str | None = None
+
+
+class JobPatch(BaseModel):
+    status: str | None = Field(default=None, pattern="^(open|booked|in_progress|done|cancelled)$")
+    title: str | None = None
+    detail: str | None = None
+    priority: str | None = Field(default=None, pattern="^(low|normal|high|urgent)$")
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def occupier_lettings_sql() -> str:
+    return """SELECT t.*, p.name AS property_name, p.address_line, p.city, p.postcode,
+                     p.council_tax_band, p.council_tax_authority, p.council_tax_liable,
+                     l.name AS landlord_name
+              FROM tenancies t
+              JOIN properties p ON p.id = t.property_id
+              JOIN contacts l ON l.id = t.landlord_id
+              WHERE t.occupier_id = ? OR t.id IN (
+                SELECT tenancy_id FROM tenancy_occupiers WHERE contact_id = ?
+              )
+              ORDER BY t.start_date DESC"""
+
+
+def tenancy_occupiers(tenancy_id: int) -> list[dict[str, Any]]:
+    return rows(
+        """SELECT c.id, c.name, c.email, c.phone, c.phone_e164, x.is_primary
+           FROM tenancy_occupiers x
+           JOIN contacts c ON c.id = x.contact_id
+           WHERE x.tenancy_id = ?
+           ORDER BY x.is_primary DESC, c.name""",
+        (tenancy_id,),
+    )
+
+
+def apply_patch(table: str, item_id: int, allowed: dict[str, Any]) -> None:
+    fields = {k: v for k, v in allowed.items() if v is not None}
+    if not fields:
+        return
+    sets = ", ".join(f"{key} = ?" for key in fields)
+    execute(f"UPDATE {table} SET {sets} WHERE id = ?", (*fields.values(), item_id))
+
+
+def queue_mail_for_message(comm_id: int, audience: str, contact_id: int | None, property_id: int | None, subject: str, body: str) -> None:
+    recipients: list[str] = []
+    if contact_id:
+        person = row("SELECT email FROM contacts WHERE id = ?", (contact_id,))
+        if person and person.get("email"):
+            recipients.append(person["email"])
+    if audience in {"landlord", "both"} and property_id:
+        landlord = row(
+            """SELECT c.email FROM properties p JOIN contacts c ON c.id = p.landlord_id
+               WHERE p.id = ?""",
+            (property_id,),
+        )
+        if landlord and landlord.get("email"):
+            recipients.append(landlord["email"])
+    seen: set[str] = set()
+    for email in recipients:
+        key = email.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        execute(
+            """INSERT INTO mail_outbox (created_at, to_email, subject, body, status, communication_id)
+               VALUES (?, ?, ?, ?, 'queued', ?)""",
+            (now_iso(), email, subject, body, comm_id),
+        )
+
+
 def bind(require_agency, parse_actor):  # wired from main to avoid circular imports
     @router.get("/properties/{property_id}")
     def get_property(property_id: int, authorization: str | None = Header(default=None)) -> dict[str, Any]:
@@ -160,16 +286,7 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
         if person["role"] == "occupier":
             lettings = [
                 decorate_tenancy(t)
-                for t in rows(
-                    """SELECT t.*, p.name AS property_name, p.address_line, p.city, p.postcode,
-                              p.council_tax_band, p.council_tax_authority, p.council_tax_liable,
-                              l.name AS landlord_name
-                       FROM tenancies t
-                       JOIN properties p ON p.id = t.property_id
-                       JOIN contacts l ON l.id = t.landlord_id
-                       WHERE t.occupier_id = ? ORDER BY t.start_date DESC""",
-                    (contact_id,),
-                )
+                for t in rows(occupier_lettings_sql(), (contact_id, contact_id))
             ]
         messages = rows(
             """SELECT * FROM communications
@@ -209,10 +326,13 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
             decorate_invoice(i)
             for i in rows("SELECT * FROM invoices WHERE tenancy_id = ? ORDER BY due_on DESC", (tenancy_id,))
         ]
+        jobs = rows("SELECT * FROM jobs WHERE tenancy_id = ? ORDER BY id DESC", (tenancy_id,))
         return {
             **decorate_tenancy(item),
+            "occupiers": tenancy_occupiers(tenancy_id),
             "communications": [decorate_message(m) for m in messages],
             "invoices": invoices,
+            "jobs": jobs,
         }
 
     @router.post("/tenancies")
@@ -246,6 +366,10 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
             "UPDATE properties SET status = 'let', landlord_id = ? WHERE id = ?",
             (body.landlord_id, body.property_id),
         )
+        execute(
+            "INSERT INTO tenancy_occupiers (tenancy_id, contact_id, is_primary) VALUES (?, ?, 1)",
+            (new_id, body.occupier_id),
+        )
         created = row("SELECT * FROM tenancies WHERE id = ?", (new_id,))
         return decorate_tenancy(created or {})
 
@@ -277,7 +401,7 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
                (created_at, author_role, author_name, audience, channel, property_id, tenancy_id, contact_id, subject, body)
                VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (
-                datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                now_iso(),
                 "agency",
                 actor["name"],
                 body.audience,
@@ -289,6 +413,10 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
                 body.body,
             ),
         )
+        if body.channel == "email":
+            queue_mail_for_message(
+                new_id, body.audience, body.contact_id, body.property_id, body.subject, body.body
+            )
         created = row("SELECT * FROM communications WHERE id = ?", (new_id,))
         return decorate_message(created or {})
 
@@ -326,16 +454,7 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
         if actor["role"] == "occupier":
             lettings = [
                 decorate_tenancy(t)
-                for t in rows(
-                    """SELECT t.*, p.name AS property_name, p.address_line, p.city, p.postcode,
-                              p.council_tax_band, p.council_tax_authority, p.council_tax_liable,
-                              l.name AS landlord_name
-                       FROM tenancies t
-                       JOIN properties p ON p.id = t.property_id
-                       JOIN contacts l ON l.id = t.landlord_id
-                       WHERE t.occupier_id = ? ORDER BY t.start_date DESC""",
-                    (cid,),
-                )
+                for t in rows(occupier_lettings_sql(), (cid, cid))
             ]
             invoices = [
                 decorate_invoice(i)
@@ -410,5 +529,167 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
         )
         created = row("SELECT * FROM communications WHERE id = ?", (new_id,))
         return decorate_message(created or {})
+
+    @router.patch("/contacts/{contact_id}")
+    def patch_contact(
+        contact_id: int,
+        body: ContactPatch,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_agency(authorization)
+        if not row("SELECT id FROM contacts WHERE id = ?", (contact_id,)):
+            raise HTTPException(status_code=404, detail="Person not found")
+        payload = body.model_dump(exclude_unset=True)
+        if "phone" in payload:
+            payload["phone_e164"] = to_e164(payload.get("phone"))
+        apply_patch("contacts", contact_id, payload)
+        return row("SELECT * FROM contacts WHERE id = ?", (contact_id,)) or {}
+
+    @router.patch("/properties/{property_id}")
+    def patch_property(
+        property_id: int,
+        body: PropertyPatch,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_agency(authorization)
+        if not row("SELECT id FROM properties WHERE id = ?", (property_id,)):
+            raise HTTPException(status_code=404, detail="Property not found")
+        payload = body.model_dump(exclude_unset=True)
+        if "rent_pcm" in payload and payload["rent_pcm"] is not None:
+            payload["rent_pcm"] = int(round(float(payload["rent_pcm"]) * 100))
+        if "postcode" in payload and payload["postcode"]:
+            payload["postcode"] = str(payload["postcode"]).upper()
+        apply_patch("properties", property_id, payload)
+        item = row("SELECT * FROM properties WHERE id = ?", (property_id,))
+        return decorate_property(item or {})
+
+    @router.patch("/tenancies/{tenancy_id}")
+    def patch_tenancy(
+        tenancy_id: int,
+        body: TenancyPatch,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_agency(authorization)
+        if not row("SELECT id FROM tenancies WHERE id = ?", (tenancy_id,)):
+            raise HTTPException(status_code=404, detail="Letting not found")
+        payload = body.model_dump(exclude_unset=True)
+        if "rent_pcm" in payload and payload["rent_pcm"] is not None:
+            payload["rent_pcm"] = int(round(float(payload["rent_pcm"]) * 100))
+        if "deposit" in payload and payload["deposit"] is not None:
+            payload["deposit"] = int(round(float(payload["deposit"]) * 100))
+        apply_patch("tenancies", tenancy_id, payload)
+        return decorate_tenancy(row("SELECT * FROM tenancies WHERE id = ?", (tenancy_id,)) or {})
+
+    @router.post("/tenancies/{tenancy_id}/end")
+    def end_tenancy(tenancy_id: int, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        item = row("SELECT * FROM tenancies WHERE id = ?", (tenancy_id,))
+        if not item:
+            raise HTTPException(status_code=404, detail="Letting not found")
+        execute(
+            "UPDATE tenancies SET status = 'ended', end_date = COALESCE(end_date, ?) WHERE id = ?",
+            (date.today().isoformat(), tenancy_id),
+        )
+        other = row(
+            "SELECT id FROM tenancies WHERE property_id = ? AND status = 'active' AND id != ?",
+            (item["property_id"], tenancy_id),
+        )
+        if not other:
+            execute("UPDATE properties SET status = 'available' WHERE id = ?", (item["property_id"],))
+        return decorate_tenancy(row("SELECT * FROM tenancies WHERE id = ?", (tenancy_id,)) or {})
+
+    @router.get("/jobs")
+    def list_jobs(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        items = rows(
+            """SELECT j.*, p.name AS property_name, c.name AS contact_name
+               FROM jobs j
+               LEFT JOIN properties p ON p.id = j.property_id
+               LEFT JOIN contacts c ON c.id = j.contact_id
+               ORDER BY CASE j.status WHEN 'open' THEN 0 WHEN 'booked' THEN 1 WHEN 'in_progress' THEN 2 ELSE 3 END, j.id DESC"""
+        )
+        return {"jobs": items}
+
+    @router.post("/jobs")
+    def create_job(body: JobCreate, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        new_id = execute(
+            """INSERT INTO jobs (created_at, property_id, tenancy_id, contact_id, call_id, title, detail, status, priority, reported_via)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)""",
+            (
+                now_iso(),
+                body.property_id,
+                body.tenancy_id,
+                body.contact_id,
+                body.call_id,
+                body.title,
+                body.detail,
+                body.priority,
+                body.reported_via or ("phone" if body.call_id else "desk"),
+            ),
+        )
+        return row("SELECT * FROM jobs WHERE id = ?", (new_id,)) or {}
+
+    @router.patch("/jobs/{job_id}")
+    def patch_job(
+        job_id: int,
+        body: JobPatch,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_agency(authorization)
+        if not row("SELECT id FROM jobs WHERE id = ?", (job_id,)):
+            raise HTTPException(status_code=404, detail="Job not found")
+        apply_patch("jobs", job_id, body.model_dump(exclude_unset=True))
+        return row("SELECT * FROM jobs WHERE id = ?", (job_id,)) or {}
+
+    @router.get("/mail/outbox")
+    def mail_outbox(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        return {"messages": rows("SELECT * FROM mail_outbox ORDER BY id DESC LIMIT 50")}
+
+    @router.post("/mail/flush")
+    def mail_flush(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        pending = rows("SELECT * FROM mail_outbox WHERE status = 'queued'")
+        host = os.environ.get("SWIFTCRM_SMTP_HOST")
+        if not host:
+            return {
+                "flushed": 0,
+                "queued": len(pending),
+                "note": "No SMTP host configured. Messages stay in the outbox until SWIFTCRM_SMTP_HOST is set.",
+            }
+        return {
+            "flushed": 0,
+            "queued": len(pending),
+            "note": f"SMTP host {host} is set; wire a sender in production. Outbox unchanged.",
+        }
+
+    @router.post("/xero/sync")
+    def xero_sync(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        invoices = rows("SELECT * FROM invoices WHERE xero_status != 'synced'")
+        exported = 0
+        for inv in invoices:
+            payload = json.dumps(
+                {
+                    "number": inv["number"],
+                    "contact_id": inv["contact_id"],
+                    "amount_pence": inv["amount_pence"],
+                    "due_on": inv["due_on"],
+                    "description": inv["description"],
+                }
+            )
+            execute(
+                "INSERT INTO xero_export (created_at, invoice_id, payload, status) VALUES (?, ?, ?, 'queued')",
+                (now_iso(), inv["id"], payload),
+            )
+            execute("UPDATE invoices SET xero_status = 'synced' WHERE id = ?", (inv["id"],))
+            exported += 1
+        return {"exported": exported, "note": "Copied to the Xero export queue. Live OAuth is not connected."}
+
+    @router.get("/xero/export")
+    def xero_export(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+        require_agency(authorization)
+        return {"items": rows("SELECT * FROM xero_export ORDER BY id DESC LIMIT 40")}
 
     return router

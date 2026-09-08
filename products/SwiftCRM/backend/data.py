@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import os
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent / "data" / "swiftcrm.db"
-SCHEMA_VERSION = "2"
+from phones import to_e164
+
+DB_PATH = Path(os.environ.get("SWIFTCRM_DB") or (Path(__file__).resolve().parent / "data" / "swiftcrm.db"))
+SCHEMA_VERSION = "3"
 
 DEMO_EMAIL = "agency@swiftcrm.local"
 DEMO_PASSWORD = "Lettings-Demo-2026"
@@ -127,11 +132,13 @@ def init_db() -> None:
         version = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
         if not version:
             _seed_tax_and_comms(conn)
+            _seed_v3(conn)
             conn.execute(
                 "INSERT INTO meta (key, value) VALUES ('schema_version', ?)",
                 (SCHEMA_VERSION,),
             )
         elif version["value"] != SCHEMA_VERSION:
+            _seed_v3(conn)
             conn.execute(
                 "UPDATE meta SET value = ? WHERE key = 'schema_version'",
                 (SCHEMA_VERSION,),
@@ -170,6 +177,81 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("furnished", "TEXT"),
     ]:
         _add_column(conn, "tenancies", name, ddl)
+
+    _add_column(conn, "contacts", "phone_e164", "TEXT")
+    _add_column(conn, "communications", "call_id", "INTEGER")
+    _add_column(conn, "communications", "direction", "TEXT")
+    _add_column(conn, "invoices", "period_month", "TEXT")
+
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS agencies (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          phone TEXT,
+          phone_e164 TEXT
+        );
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY,
+          email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          name TEXT NOT NULL,
+          role TEXT NOT NULL,
+          contact_id INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS tenancy_occupiers (
+          tenancy_id INTEGER NOT NULL,
+          contact_id INTEGER NOT NULL,
+          is_primary INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (tenancy_id, contact_id)
+        );
+        CREATE TABLE IF NOT EXISTS calls (
+          id INTEGER PRIMARY KEY,
+          created_at TEXT NOT NULL,
+          direction TEXT NOT NULL,
+          from_e164 TEXT,
+          to_e164 TEXT,
+          from_raw TEXT,
+          contact_id INTEGER,
+          property_id INTEGER,
+          tenancy_id INTEGER,
+          status TEXT NOT NULL,
+          duration_sec INTEGER,
+          provider_sid TEXT,
+          notes TEXT
+        );
+        CREATE TABLE IF NOT EXISTS jobs (
+          id INTEGER PRIMARY KEY,
+          created_at TEXT NOT NULL,
+          property_id INTEGER,
+          tenancy_id INTEGER,
+          contact_id INTEGER,
+          call_id INTEGER,
+          title TEXT NOT NULL,
+          detail TEXT,
+          status TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'normal',
+          reported_via TEXT
+        );
+        CREATE TABLE IF NOT EXISTS mail_outbox (
+          id INTEGER PRIMARY KEY,
+          created_at TEXT NOT NULL,
+          to_email TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          body TEXT NOT NULL,
+          status TEXT NOT NULL,
+          communication_id INTEGER,
+          error TEXT
+        );
+        CREATE TABLE IF NOT EXISTS xero_export (
+          id INTEGER PRIMARY KEY,
+          created_at TEXT NOT NULL,
+          invoice_id INTEGER NOT NULL,
+          payload TEXT NOT NULL,
+          status TEXT NOT NULL
+        );
+        """
+    )
 
 
 def _seed(conn: sqlite3.Connection) -> None:
@@ -310,6 +392,91 @@ def _seed_tax_and_comms(conn: sqlite3.Connection) -> None:
            VALUES (?,?,?,?,?,?,?,?,?,?)""",
         messages,
     )
+
+
+def hash_password(password: str) -> str:
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120_000)
+    return f"{salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        salt_hex, digest_hex = stored.split("$", 1)
+    except ValueError:
+        return False
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), 120_000
+    )
+    return hmac.compare_digest(digest.hex(), digest_hex)
+
+
+def _seed_v3(conn: sqlite3.Connection) -> None:
+    if not conn.execute("SELECT 1 FROM agencies LIMIT 1").fetchone():
+        conn.execute(
+            "INSERT INTO agencies (id, name, phone, phone_e164) VALUES (1, 'Charlbury Lettings', '0115 000 1000', '+441150001000')"
+        )
+
+    people = conn.execute("SELECT id, phone FROM contacts").fetchall()
+    for person in people:
+        e164 = to_e164(person["phone"])
+        if e164:
+            conn.execute("UPDATE contacts SET phone_e164 = ? WHERE id = ?", (e164, person["id"]))
+
+    if not conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+        conn.executemany(
+            "INSERT INTO users (email, password_hash, name, role, contact_id) VALUES (?,?,?,?,?)",
+            [
+                (DEMO_EMAIL, hash_password(DEMO_PASSWORD), "Alex Morgan", "agency", None),
+                ("hannah.reid@example.com", hash_password(TENANT_PORTAL_PASSWORD), "Hannah Reid", "occupier", 3),
+                ("priya@mapperleyholdings.example", hash_password(LANDLORD_PORTAL_PASSWORD), "Priya Sharma", "landlord", 1),
+                ("james@okaforlets.example", hash_password(LANDLORD_PORTAL_PASSWORD), "James Okafor", "landlord", 2),
+                ("luca.b@example.com", hash_password(TENANT_PORTAL_PASSWORD), "Luca Bianchi", "occupier", 5),
+                ("wards@example.com", hash_password(TENANT_PORTAL_PASSWORD), "Tom Ward", "occupier", 4),
+            ],
+        )
+
+    if not conn.execute("SELECT 1 FROM tenancy_occupiers LIMIT 1").fetchone():
+        conn.executemany(
+            "INSERT INTO tenancy_occupiers (tenancy_id, contact_id, is_primary) VALUES (?,?,?)",
+            [(1, 3, 1), (2, 4, 1), (3, 5, 1)],
+        )
+        conn.execute(
+            """INSERT INTO contacts (name, email, phone, phone_e164, role, notes, preferred_channel)
+               VALUES ('Elise Ward', 'elise.ward@example.com', '07700 900117', '+447700900117', 'occupier',
+                       'Joint tenant with Tom at Chilwell Lane.', 'email')"""
+        )
+        elise_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        conn.execute(
+            "INSERT INTO tenancy_occupiers (tenancy_id, contact_id, is_primary) VALUES (2, ?, 0)",
+            (elise_id,),
+        )
+        conn.execute(
+            "INSERT INTO users (email, password_hash, name, role, contact_id) VALUES (?,?,?,?,?)",
+            ("elise.ward@example.com", hash_password(TENANT_PORTAL_PASSWORD), "Elise Ward", "occupier", elise_id),
+        )
+
+    if not conn.execute("SELECT 1 FROM jobs LIMIT 1").fetchone():
+        now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        conn.execute(
+            """INSERT INTO jobs (created_at, property_id, tenancy_id, contact_id, title, detail, status, priority, reported_via)
+               VALUES (?, 1, 1, 3, 'Boiler noise overnight', 'Tenant reported loud ignition. Engineer Thursday 10:00.', 'booked', 'high', 'portal')""",
+            (now,),
+        )
+        conn.execute(
+            """INSERT INTO jobs (created_at, property_id, tenancy_id, contact_id, title, detail, status, priority, reported_via)
+               VALUES (?, 4, 3, 5, 'Damp around window', 'Luca reported condensation on the rear window.', 'open', 'normal', 'phone')""",
+            (now,),
+        )
+
+    if not conn.execute("SELECT 1 FROM calls LIMIT 1").fetchone():
+        past = (datetime.now(timezone.utc) - timedelta(hours=5)).replace(microsecond=0).isoformat()
+        conn.execute(
+            """INSERT INTO calls (created_at, direction, from_e164, to_e164, from_raw, contact_id, property_id, tenancy_id, status, duration_sec, notes)
+               VALUES (?, 'in', '+447700900111', '+441150001000', '07700 900111', 3, 1, 1, 'ended', 184, 'Hannah called about boiler.')""",
+            (past,),
+        )
+
 
 
 def rows(query: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:

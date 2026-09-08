@@ -111,3 +111,4 @@ a { color: inherit; }
 .chip--queued { background: #eef2ff; color: #3730a3; }
 .chip--synced { background: #e4f0e8; color: var(--ok); }
 .chip--not_synced { background: var(--linen-dark); color: var(--stone); }
+.chip--export_queue { background: #eef2ff; color: #3730a3; }
