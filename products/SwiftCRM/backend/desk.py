@@ -356,6 +356,7 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
             "communications": [decorate_message(m) for m in messages],
             "invoices": invoices,
             "jobs": jobs,
+            **property_record_bundle(item["property_id"]),
         }
 
     @router.post("/tenancies")

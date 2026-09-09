@@ -11,26 +11,14 @@
   </head>
   <body class="app">
     <aside class="sidebar">
-      <a class="brand" href="#overview">
+      <a class="brand" href="#today">
         <img src="./assets/mark.svg" alt="" />
         SwiftCRM
       </a>
-      <p class="nav-label">Records</p>
-      <a class="nav-link is-active" data-section="overview" href="#overview">Overview</a>
+      <a class="nav-link is-active" data-section="today" href="#today">Today</a>
       <a class="nav-link" data-section="lettings" href="#lettings">Lettings</a>
-      <a class="nav-link" data-section="properties" href="#properties">Properties</a>
-      <a class="nav-link" data-section="tenants" href="#tenants">Tenants</a>
-      <a class="nav-link" data-section="landlords" href="#landlords">Landlords</a>
-      <a class="nav-link" data-section="suppliers" href="#suppliers">Suppliers</a>
-      <p class="nav-label">Agency</p>
-      <a class="nav-link" data-section="inbox" href="#inbox">Updates</a>
-      <a class="nav-link" data-section="jobs" href="#jobs">Jobs</a>
-      <a class="nav-link" data-section="compliance" href="#compliance">Compliance</a>
-      <a class="nav-link" data-section="tax" href="#tax">Local tax</a>
-      <p class="nav-label">Money</p>
-      <a class="nav-link" data-section="invoices" href="#invoices">Invoices</a>
-      <a class="nav-link" data-section="payments" href="#payments">Payments</a>
-      <a class="nav-link" data-section="pipeline" href="#pipeline">Pipeline</a>
+      <a class="nav-link" data-section="inbox" href="#inbox">Inbox</a>
+      <a class="nav-link" data-section="money" href="#money">Money</a>
       <a class="nav-link" data-section="settings" href="#settings">Settings</a>
       <div class="agency">
         <b id="agency-name">Charlbury Lettings</b>
@@ -41,8 +29,8 @@
     <div class="main">
       <header class="topbar">
         <div>
-          <h1 id="page-title">Overview</h1>
-          <p id="page-sub">Portfolio, arrears and what needs a chase today.</p>
+          <h1 id="page-title">Today</h1>
+          <p id="page-sub">Arrears, certificates, jobs and who rang.</p>
         </div>
         <div class="topbar-actions">
           <button type="button" class="btn btn--copper btn--sm" id="simulate-ring">Incoming call</button>
@@ -324,7 +312,7 @@
         <button type="button" class="btn btn--copper btn--sm" id="call-answer">Answer</button>
         <button type="button" class="btn btn--ghost btn--sm" id="call-hangup">Decline</button>
         <button type="button" class="btn btn--navy btn--sm" id="call-job">Raise job</button>
-        <a class="btn btn--ghost btn--sm" id="call-record" href="#tenants">Open record</a>
+        <a class="btn btn--ghost btn--sm" id="call-record" href="#lettings">Open letting</a>
       </div>
     </aside>
 

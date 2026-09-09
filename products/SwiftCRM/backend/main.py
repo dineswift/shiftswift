@@ -278,11 +278,20 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
            ORDER BY c.created_at DESC LIMIT 5"""
     )
     compliance_attention = rows(
-        """SELECT c.id, c.kind, c.title, c.due_on, c.status, p.name AS property_name
+        """SELECT c.id, c.kind, c.title, c.due_on, c.status, p.id AS property_id, p.name AS property_name,
+                  (SELECT t.id FROM tenancies t WHERE t.property_id = p.id AND t.status = 'active' LIMIT 1) AS tenancy_id
            FROM compliance_items c
            JOIN properties p ON p.id = c.property_id
            WHERE c.status IN ('overdue', 'due_soon', 'booked')
            ORDER BY c.due_on IS NULL, c.due_on ASC LIMIT 6"""
+    )
+    open_jobs = rows(
+        """SELECT j.id, j.title, j.status, j.priority, j.property_id, j.tenancy_id, p.name AS property_name
+           FROM jobs j
+           LEFT JOIN properties p ON p.id = j.property_id
+           WHERE j.status NOT IN ('done', 'cancelled')
+           ORDER BY CASE j.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 ELSE 2 END, j.id DESC
+           LIMIT 6"""
     )
     return {
         "portfolio": {
@@ -305,6 +314,8 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
                 "status": r["status"],
                 "due_on": r["due_on"],
                 "amount": gbp(r["amount_pence"]),
+                "property_id": r["property_id"],
+                "tenancy_id": r["tenancy_id"],
                 "property_name": r["property_name"],
                 "contact_name": r["contact_name"],
             }
@@ -312,6 +323,7 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
         ],
         "latest_updates": latest,
         "compliance_attention": compliance_attention,
+        "open_job_list": open_jobs,
     }
 
 
