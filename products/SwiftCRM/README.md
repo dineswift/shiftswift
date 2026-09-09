@@ -1,6 +1,8 @@
 # SwiftCRM
 
-Lettings CRM for UK agencies that sit between **landlords and tenants**: record lettings, talk to both sides, keep local tax on file, then collect rent.
+Lettings CRM for a **1–3 person UK letting agency**: who rang, who owes, what is due, who to tell.
+
+The desk has five jobs. Everything else lives inside a letting.
 
 ## Install on this machine
 
@@ -18,32 +20,28 @@ bash products/SwiftCRM/scripts/start.sh
 
 On a phone, open the tenant or landlord URL and use **Add to Home Screen** — each has a standalone web-app manifest.
 
-## What the desk records
+## The five jobs
 
-- **Lettings** — tenant + landlord + property + rent + deposit scheme (joint occupiers, end a letting)
-- **Tenants** and **landlords** as separate people (the agency is the go-between)
-- **Telephone** — inbound caller ID screen-pop (Twilio-shaped `POST /telephony/inbound`), click-to-call, demo ring from the desk
-- **Jobs** — maintenance raised from the desk or from an inbound call
-- **Updates** — email / SMS / phone / portal, addressed to tenant, landlord, or both (email lands in the mail outbox)
-- **Local tax** — council tax band, authority, account, who is liable; landlord UTR and NRL
-- Rent invoices (generate a month's rent), fake Bacs collect, Xero export queue
+1. **Today** — arrears, certificates due, open jobs, latest updates, incoming call
+2. **Lettings** — property + tenant + landlord + tenancy + house file in one record
+3. **Inbox** — tenant / landlord / supplier
+4. **Money** — invoices and payments, then a Xero queue
+5. **Settings** — agency, telephone webhook, mail outbox, accounting queue
 
-See [CONCEPT.md](./CONCEPT.md).
+Not in the sidebar (on purpose): sales pipeline, portal feeds, a second accounts pack, AI tools, block management.
 
-## Records — suppliers, insurance, compliance, documents
+## Inside a letting
 
-Each house record now holds:
+- People (joint occupiers, landlord, click-to-call)
+- Council tax and landlord NRL / UTR
+- Thread, jobs, rent on this letting
+- **House file** — suppliers (gas, electricity, maintenance, insurance), policies, compliance diary, document uploads
 
-- **Suppliers** — gas, electricity, maintenance, insurance broker, licensing / other, with a message thread to that contractor
-- **Insurance** — buildings, contents, landlord liability, rent guarantee (renewal dates on the compliance diary)
-- **Compliance diary** — gas safety, EICR, EPC, smoke/CO, legionella, HMO licence, AST, inventory
-- **Documents** — upload certificates, policies, ASTs and inventories; mark AST/inventory as sent or signed (this is a file store, not live e-sign)
-
-Agency nav: **Suppliers** and **Compliance**. Open a property for the full house file.
+Vacant units still have a house file from the lettings list.
 
 ## Telephone
 
-The desk polls `GET /telephony/active`. When a call is ringing, an overlay shows the matched tenant/landlord, letting, and arrears.
+The desk polls `GET /telephony/active`. When a call is ringing, an overlay shows the matched tenant/landlord, letting, and arrears, then **Open letting**.
 
 Point a PBX/Twilio voice webhook at:
 
@@ -54,3 +52,9 @@ POST http://localhost:3100/telephony/inbound
 Form or JSON fields: `From`, `To`, `CallSid`. UK numbers are normalised to E.164 and matched to `contacts.phone_e164`.
 
 Demo: **Incoming call** on the agency top bar rings Hannah Reid (`07700 900111`). Settings can ring Luca (arrears), Elise (joint tenant), or an unknown number.
+
+## Honest gaps
+
+Live SIP/Twilio audio, SMTP send, GoCardless, Xero OAuth, CMP/client money, live e-sign, AML/referencing, and portal feeds are **not** connected. The desk records the work; it does not fake a regulated product.
+
+See [CONCEPT.md](./CONCEPT.md).

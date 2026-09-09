@@ -100,6 +100,15 @@ class SeedAndCallTests(unittest.TestCase):
         self.assertEqual(ast["signed_status"], "signed")
         self.assertTrue((upload_dir() / ast["stored_name"]).exists())
 
+    def test_house_file_on_property(self) -> None:
+        from records import property_record_bundle
+
+        mapperley = row("SELECT id FROM properties WHERE name LIKE 'Mapperley%'")
+        bundle = property_record_bundle(mapperley["id"])
+        self.assertGreaterEqual(len(bundle["suppliers"]), 2)
+        self.assertTrue(any(c["kind"] == "gas_safety" for c in bundle["compliance"]))
+        self.assertTrue(bundle["documents"])
+
 
 if __name__ == "__main__":
     unittest.main()

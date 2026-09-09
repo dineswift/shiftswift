@@ -16,7 +16,7 @@ UK letting and managing agents who currently run the desk on:
 - Xero or FreeAgent for invoices (or paper)
 - A separate property list in email
 
-They need one place for **properties, people, tenancies, rent, and arrears** — then post the money into Xero/FreeAgent.
+They need one place for **who rang, who owes, what certificate is due, and who to tell** — then post the money into Xero/FreeAgent.
 
 ## Who it is not for
 
@@ -33,17 +33,16 @@ Agency (SaaS customer)
   ├── Properties / units + council tax
   ├── Landlords (UTR, NRL)
   ├── Tenants (shown as "tenants" in the UI; stored as occupier so we do not clash with ShiftSwift tenant_id)
-  ├── Lettings (property + tenant + landlord + AST)
-  ├── Updates (to tenant, landlord, or both)
-  ├── Calls (caller ID → screen-pop)
-  ├── Jobs (maintenance)
-  ├── Suppliers (gas, electricity, maintenance, insurance, other)
-  ├── Insurance policies (per house)
-  ├── Compliance diary (gas, EICR, EPC, alarms, licences, AST)
-  ├── Documents (certificates, policies, AST / inventory)
+  ├── Lettings (property + tenant + landlord + AST + house file)
+  ├── Inbox (tenant, landlord, supplier)
+  ├── Calls (caller ID → screen-pop the letting)
+  ├── Jobs (maintenance, on Today and on the letting)
+  ├── House file (suppliers, insurance, compliance diary, documents)
   ├── Invoices / payments
-  └── Pipeline (applicants)
+  └── Settings (phone webhook, mail outbox, Xero queue)
 ```
+
+Pipeline / applicants, portal feeds, and a second ledger are **out of the desk** until they are necessary.
 
 The agency is the communicator. Tenant app and landlord app each see only their lettings and the updates addressed to them.
 
