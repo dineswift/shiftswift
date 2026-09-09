@@ -323,8 +323,15 @@ table.data a:hover { color: var(--copper); }
 .chip--cancelled, .chip--missed { background: var(--linen-dark); color: var(--stone); }
 .chip--high, .chip--urgent { background: #fde8e6; color: var(--bad); }
 
-a.tel { color: var(--copper); font-weight: 650; text-decoration: none; }
-a.tel:hover { text-decoration: underline; }
+.chip--gas, .chip--gas_safety { background: #fde8e6; color: var(--bad); }
+.chip--electricity, .chip--eicr { background: #fef3c7; color: var(--warn); }
+.chip--maintenance { background: var(--copper-soft); color: var(--copper-dark); }
+.chip--insurance, .chip--buildings, .chip--landlord, .chip--contents, .chip--rent_guarantee { background: #e8eef6; color: var(--navy); }
+.chip--due_soon, .chip--booked { background: #fef3c7; color: var(--warn); }
+.chip--signed { background: #e4f0e8; color: var(--ok); }
+.chip--sent, .chip--unsigned { background: #eef2ff; color: #3730a3; }
+.chip--supplier { background: #e8eef6; color: var(--navy); }
+.chip--ast, .chip--inventory, .chip--licence, .chip--hmo_licence, .chip--legionella, .chip--smoke_alarms, .chip--epc { background: var(--linen-dark); color: var(--navy); }
 
 @media (max-width: 980px) {
   body.app { grid-template-columns: 1fr; }

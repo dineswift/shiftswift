@@ -12,10 +12,11 @@ from pydantic import BaseModel, Field
 
 from data import execute, row, rows
 from phones import to_e164
+from records import property_record_bundle
 
 router = APIRouter()
 
-AUDIENCES = ("landlord", "occupier", "both", "internal")
+AUDIENCES = ("landlord", "occupier", "both", "internal", "supplier")
 CHANNELS = ("note", "email", "sms", "phone", "portal")
 
 
@@ -89,7 +90,12 @@ def decorate_message(item: dict[str, Any]) -> dict[str, Any]:
         if item.get("contact_id")
         else None
     )
-    return {**item, "property": prop, "contact": contact}
+    supplier = (
+        row("SELECT id, name, kind FROM suppliers WHERE id = ?", (item["supplier_id"],))
+        if item.get("supplier_id")
+        else None
+    )
+    return {**item, "property": prop, "contact": contact, "supplier": supplier}
 
 
 class TenancyCreate(BaseModel):
@@ -107,11 +113,12 @@ class TenancyCreate(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    audience: str = Field(pattern="^(landlord|occupier|both|internal)$")
+    audience: str = Field(pattern="^(landlord|occupier|both|internal|supplier)$")
     channel: str = Field(default="note", pattern="^(note|email|sms|phone|portal)$")
     property_id: int | None = None
     tenancy_id: int | None = None
     contact_id: int | None = None
+    supplier_id: int | None = None
     subject: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=8000)
 
@@ -219,12 +226,24 @@ def apply_patch(table: str, item_id: int, allowed: dict[str, Any]) -> None:
     execute(f"UPDATE {table} SET {sets} WHERE id = ?", (*fields.values(), item_id))
 
 
-def queue_mail_for_message(comm_id: int, audience: str, contact_id: int | None, property_id: int | None, subject: str, body: str) -> None:
+def queue_mail_for_message(
+    comm_id: int,
+    audience: str,
+    contact_id: int | None,
+    property_id: int | None,
+    subject: str,
+    body: str,
+    supplier_id: int | None = None,
+) -> None:
     recipients: list[str] = []
     if contact_id:
         person = row("SELECT email FROM contacts WHERE id = ?", (contact_id,))
         if person and person.get("email"):
             recipients.append(person["email"])
+    if supplier_id:
+        supplier = row("SELECT email FROM suppliers WHERE id = ?", (supplier_id,))
+        if supplier and supplier.get("email"):
+            recipients.append(supplier["email"])
     if audience in {"landlord", "both"} and property_id:
         landlord = row(
             """SELECT c.email FROM properties p JOIN contacts c ON c.id = p.landlord_id
@@ -257,7 +276,11 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
             "SELECT * FROM communications WHERE property_id = ? ORDER BY created_at DESC",
             (property_id,),
         )
-        return {**decorate_property(item), "communications": [decorate_message(m) for m in messages]}
+        return {
+            **decorate_property(item),
+            "communications": [decorate_message(m) for m in messages],
+            **property_record_bundle(property_id),
+        }
 
     @router.get("/contacts/{contact_id}")
     def get_contact(contact_id: int, authorization: str | None = Header(default=None)) -> dict[str, Any]:
@@ -398,8 +421,8 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
             raise HTTPException(status_code=400, detail="Unknown audience or channel")
         new_id = execute(
             """INSERT INTO communications
-               (created_at, author_role, author_name, audience, channel, property_id, tenancy_id, contact_id, subject, body)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+               (created_at, author_role, author_name, audience, channel, property_id, tenancy_id, contact_id, supplier_id, subject, body)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 now_iso(),
                 "agency",
@@ -409,13 +432,20 @@ def bind(require_agency, parse_actor):  # wired from main to avoid circular impo
                 body.property_id,
                 body.tenancy_id,
                 body.contact_id,
+                body.supplier_id,
                 body.subject,
                 body.body,
             ),
         )
         if body.channel == "email":
             queue_mail_for_message(
-                new_id, body.audience, body.contact_id, body.property_id, body.subject, body.body
+                new_id,
+                body.audience,
+                body.contact_id,
+                body.property_id,
+                body.subject,
+                body.body,
+                body.supplier_id,
             )
         created = row("SELECT * FROM communications WHERE id = ?", (new_id,))
         return decorate_message(created or {})

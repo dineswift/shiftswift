@@ -30,6 +30,17 @@ On a phone, open the tenant or landlord URL and use **Add to Home Screen** — e
 
 See [CONCEPT.md](./CONCEPT.md).
 
+## Records — suppliers, insurance, compliance, documents
+
+Each house record now holds:
+
+- **Suppliers** — gas, electricity, maintenance, insurance broker, licensing / other, with a message thread to that contractor
+- **Insurance** — buildings, contents, landlord liability, rent guarantee (renewal dates on the compliance diary)
+- **Compliance diary** — gas safety, EICR, EPC, smoke/CO, legionella, HMO licence, AST, inventory
+- **Documents** — upload certificates, policies, ASTs and inventories; mark AST/inventory as sent or signed (this is a file store, not live e-sign)
+
+Agency nav: **Suppliers** and **Compliance**. Open a property for the full house file.
+
 ## Telephone
 
 The desk polls `GET /telephony/active`. When a call is ringing, an overlay shows the matched tenant/landlord, letting, and arrears.

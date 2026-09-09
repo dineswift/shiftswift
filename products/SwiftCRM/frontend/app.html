@@ -21,9 +21,11 @@
       <a class="nav-link" data-section="properties" href="#properties">Properties</a>
       <a class="nav-link" data-section="tenants" href="#tenants">Tenants</a>
       <a class="nav-link" data-section="landlords" href="#landlords">Landlords</a>
+      <a class="nav-link" data-section="suppliers" href="#suppliers">Suppliers</a>
       <p class="nav-label">Agency</p>
       <a class="nav-link" data-section="inbox" href="#inbox">Updates</a>
       <a class="nav-link" data-section="jobs" href="#jobs">Jobs</a>
+      <a class="nav-link" data-section="compliance" href="#compliance">Compliance</a>
       <a class="nav-link" data-section="tax" href="#tax">Local tax</a>
       <p class="nav-label">Money</p>
       <a class="nav-link" data-section="invoices" href="#invoices">Invoices</a>
@@ -177,6 +179,7 @@
             <option value="occupier">Tenant</option>
             <option value="landlord">Landlord</option>
             <option value="both">Tenant and landlord</option>
+            <option value="supplier">Supplier</option>
             <option value="internal">Internal note</option>
           </select>
         </label>
@@ -191,6 +194,7 @@
         </label>
         <label>Property <select name="property_id" id="message-property"></select></label>
         <label>Person <select name="contact_id" id="message-contact"></select></label>
+        <label>Supplier <select name="supplier_id" id="message-supplier"></select></label>
         <label>Subject <input name="subject" required /></label>
         <label>Message <textarea name="body" rows="4" required></textarea></label>
         <p class="error hidden" id="message-error"></p>
@@ -222,6 +226,90 @@
         <div class="sheet-actions">
           <button type="button" class="btn btn--ghost" id="job-cancel">Cancel</button>
           <button type="submit" class="btn btn--copper">Save job</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="supplier-dialog">
+      <form class="sheet-body" id="supplier-form">
+        <h3>Add supplier</h3>
+        <label>Name <input name="name" required placeholder="British Gas" /></label>
+        <label>Type
+          <select name="kind">
+            <option value="gas">Gas</option>
+            <option value="electricity">Electricity</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="insurance">Insurance</option>
+            <option value="other">Other compliance</option>
+          </select>
+        </label>
+        <label>Contact <input name="contact_name" /></label>
+        <label>Email <input name="email" type="email" /></label>
+        <label>Phone <input name="phone" /></label>
+        <label>Account ref <input name="account_ref" /></label>
+        <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        <p class="error hidden" id="supplier-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="supplier-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save supplier</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="policy-dialog">
+      <form class="sheet-body" id="policy-form">
+        <h3>House insurance</h3>
+        <input type="hidden" name="property_id" />
+        <label>Cover
+          <select name="kind">
+            <option value="buildings">Buildings</option>
+            <option value="contents">Contents</option>
+            <option value="landlord">Landlord liability</option>
+            <option value="rent_guarantee">Rent guarantee</option>
+          </select>
+        </label>
+        <label>Insurer <input name="insurer" required placeholder="NFU Mutual" /></label>
+        <label>Policy number <input name="policy_number" /></label>
+        <label>Broker <select name="broker_id" id="policy-broker"></select></label>
+        <label>Start <input name="start_on" type="date" /></label>
+        <label>End <input name="end_on" type="date" /></label>
+        <label>Excess £ <input name="excess" type="number" min="0" step="1" value="250" /></label>
+        <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        <p class="error hidden" id="policy-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="policy-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save policy</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="compliance-dialog">
+      <form class="sheet-body" id="compliance-form">
+        <h3>Compliance item</h3>
+        <input type="hidden" name="property_id" />
+        <label>Type
+          <select name="kind">
+            <option value="gas_safety">Gas safety (LGSR)</option>
+            <option value="eicr">EICR</option>
+            <option value="epc">EPC</option>
+            <option value="smoke_alarms">Smoke / CO alarms</option>
+            <option value="legionella">Legionella</option>
+            <option value="hmo_licence">HMO licence</option>
+            <option value="insurance">Insurance</option>
+            <option value="ast">AST</option>
+            <option value="inventory">Inventory</option>
+          </select>
+        </label>
+        <label>Title <input name="title" required /></label>
+        <label>Reference <input name="reference" /></label>
+        <label>Issued <input name="issued_on" type="date" /></label>
+        <label>Due <input name="due_on" type="date" /></label>
+        <label>Supplier <select name="supplier_id" id="compliance-supplier"></select></label>
+        <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        <p class="error hidden" id="compliance-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="compliance-cancel">Cancel</button>
+          <button type="submit" class="btn btn--copper">Save item</button>
         </div>
       </form>
     </dialog>
