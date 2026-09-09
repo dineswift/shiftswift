@@ -7,7 +7,9 @@ window.SwiftCRM = {
   },
 
   async request(path, options = {}) {
-    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    const isForm = typeof FormData !== "undefined" && options.body instanceof FormData;
+    const headers = { ...(options.headers || {}) };
+    if (!isForm && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
     const token = this.token();
     if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`${this.apiBase}${path}`, { ...options, headers });

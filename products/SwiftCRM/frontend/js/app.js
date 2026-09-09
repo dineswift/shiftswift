@@ -9,8 +9,10 @@ const COPY = {
   properties: ["Properties", "Units on the books with council tax and who lives there."],
   tenants: ["Tenants", "People in occupation. The agency talks to them for the landlord."],
   landlords: ["Landlords", "Owners the agency acts for — tax status, portfolio, updates."],
-  inbox: ["Updates", "Messages to tenants, landlords, or both. The agency is in the middle."],
+  suppliers: ["Suppliers", "Gas, electricity, maintenance, insurance and other contractors the desk talks to."],
+  inbox: ["Updates", "Messages to tenants, landlords, suppliers, or both. The agency is in the middle."],
   jobs: ["Jobs", "Maintenance raised from the desk, portal, or an inbound call."],
+  compliance: ["Compliance", "Gas, EICR, EPC, alarms, licences, insurance and AST dates for the book."],
   tax: ["Local tax", "Council tax liability per property, plus landlord NRL / UTR."],
   invoices: ["Invoices", "Rent and fees. Collect payment, then queue Xero."],
   payments: ["Payments", "Money in — Bacs, card, allocated to an invoice."],
@@ -31,6 +33,14 @@ const escapeHtml = (value) =>
 function chip(kind, label) {
   const text = label || String(kind || "").replaceAll("_", " ");
   return `<span class="chip chip--${kind}">${escapeHtml(text)}</span>`;
+}
+
+function docHref(id) {
+  return `${api.apiBase}/documents/${id}/file?token=${encodeURIComponent(api.token())}`;
+}
+
+function kindLabel(kind) {
+  return String(kind || "").replaceAll("_", " ");
 }
 
 function telLink(phone, contactId) {
@@ -73,7 +83,7 @@ function thread(items) {
         </header>
         <b>${escapeHtml(m.subject)}</b>
         <p>${escapeHtml(m.body)}</p>
-        <p class="muted">${escapeHtml(m.property?.name || m.property_name || "")}</p>
+        <p class="muted">${escapeHtml(m.property?.name || m.property_name || "")}${m.supplier?.name ? ` · ${escapeHtml(m.supplier.name)}` : ""}</p>
       </article>`,
     )
     .join("")}</div>`;
@@ -86,7 +96,7 @@ async function loadOverview() {
       <div class="kpi"><span>Lettings</span><b>${data.portfolio.lettings || 0}</b></div>
       <div class="kpi"><span>Let / vacant</span><b>${data.portfolio.let} / ${data.portfolio.available}</b></div>
       <div class="kpi"><span>Arrears</span><b>${money(data.arrears_gbp)}</b></div>
-      <div class="kpi"><span>Open jobs</span><b>${data.open_jobs || 0}</b></div>
+      <div class="kpi"><span>Compliance due</span><b>${data.compliance_due || 0}</b></div>
     </div>
     <div class="panel">
       <div class="panel-head"><h2>Needs a chase</h2><a href="#invoices">Invoices</a></div>
@@ -104,6 +114,24 @@ async function loadOverview() {
               </tr>`,
             )
             .join("") || `<tr><td colspan="5" class="muted">Nothing due.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Compliance diary</h2><a href="#compliance">All dates</a></div>
+      <table class="data">
+        <thead><tr><th>Item</th><th>Property</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody>
+          ${(data.compliance_attention || [])
+            .map(
+              (row) => `<tr>
+                <td>${escapeHtml(row.title)} <span class="muted">${escapeHtml(kindLabel(row.kind))}</span></td>
+                <td>${escapeHtml(row.property_name)}</td>
+                <td>${escapeHtml(row.due_on || "—")}</td>
+                <td>${chip(row.status)}</td>
+              </tr>`,
+            )
+            .join("") || `<tr><td colspan="4" class="muted">Nothing due.</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -242,6 +270,10 @@ async function loadProperties() {
 
 async function loadPropertyDetail(id) {
   const p = await api.request(`/properties/${id}`);
+  const suppliers = p.suppliers || [];
+  const policies = p.policies || [];
+  const compliance = p.compliance || [];
+  const documents = p.documents || [];
   workspace.innerHTML = `
     <p><a class="back" href="#properties">← Portfolio</a></p>
     <div class="detail-grid">
@@ -254,12 +286,7 @@ async function loadPropertyDetail(id) {
           <dt>Landlord</dt><dd>${p.landlord ? `<a href="#landlords/${p.landlord.id}">${escapeHtml(p.landlord.name)}</a>` : "—"}</dd>
           <dt>Tenant</dt><dd>${p.current_tenancy ? `<a href="#tenants/${p.current_tenancy.occupier_id}">${escapeHtml(p.current_tenancy.occupier_name)}</a>` : "Vacant"}</dd>
           <dt>Council tax</dt><dd>Band ${escapeHtml(p.council_tax_band || "—")} · ${escapeHtml(p.council_tax_authority || "")}<div class="muted">${escapeHtml(p.council_tax_account || "")} · liable: ${escapeHtml(p.council_tax_liable === "occupier" ? "tenant" : p.council_tax_liable || "—")}</div></dd>
-          <dt>EPC / gas / EICR</dt><dd>${escapeHtml(p.epc_rating || "—")} · ${escapeHtml(p.gas_due || "—")} · ${escapeHtml(p.eicr_due || "—")}</dd>
         </dl>
-        <p>
-          <label class="muted">Band <input id="prop-band" value="${escapeHtml(p.council_tax_band || "")}" maxlength="2" style="width:4rem" /></label>
-          <button type="button" class="btn btn--ghost btn--sm" id="save-property">Save tax band</button>
-        </p>
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Property updates</h2>
@@ -267,14 +294,148 @@ async function loadPropertyDetail(id) {
         ${thread(p.communications)}
       </div>
     </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Suppliers for this house</h2>
+        <button type="button" class="btn btn--ghost btn--sm" id="add-supplier">Add supplier</button></div>
+      <table class="data">
+        <thead><tr><th>Role</th><th>Supplier</th><th>Account</th><th>Phone</th><th></th></tr></thead>
+        <tbody>
+          ${
+            suppliers
+              .map(
+                (s) => `<tr>
+                  <td>${chip(s.role || s.kind)}</td>
+                  <td><a href="#suppliers/${s.id}">${escapeHtml(s.name)}</a><div class="muted">${escapeHtml(s.contact_name || "")}</div></td>
+                  <td>${escapeHtml(s.property_account || s.account_ref || "—")}</td>
+                  <td>${escapeHtml(s.phone || "—")}</td>
+                  <td><button type="button" class="btn btn--ghost btn--sm supplier-msg" data-id="${s.id}" data-role="${escapeHtml(s.role || s.kind)}">Message</button></td>
+                </tr>`,
+              )
+              .join("") || `<tr><td colspan="5" class="muted">No suppliers on this record yet.</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Insurance</h2>
+        <button type="button" class="btn btn--ghost btn--sm" id="add-policy">Add policy</button></div>
+      <table class="data">
+        <thead><tr><th>Cover</th><th>Insurer</th><th>Number</th><th>Ends</th><th>Excess</th></tr></thead>
+        <tbody>
+          ${
+            policies
+              .map(
+                (pol) => `<tr>
+                  <td>${chip(pol.kind)} ${chip(pol.status)}</td>
+                  <td>${escapeHtml(pol.insurer)}${pol.broker ? `<div class="muted">${escapeHtml(pol.broker.name)}</div>` : ""}</td>
+                  <td>${escapeHtml(pol.policy_number || "—")}</td>
+                  <td>${escapeHtml(pol.end_on || "—")}</td>
+                  <td class="money">${money(pol.excess)}</td>
+                </tr>`,
+              )
+              .join("") || `<tr><td colspan="5" class="muted">No policies on file.</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Compliance</h2>
+        <button type="button" class="btn btn--ghost btn--sm" id="add-compliance">Add date</button></div>
+      <table class="data">
+        <thead><tr><th>Item</th><th>Ref</th><th>Due</th><th>Supplier</th><th>Status</th></tr></thead>
+        <tbody>
+          ${
+            compliance
+              .map(
+                (c) => `<tr>
+                  <td>${escapeHtml(c.title)}<div class="muted">${escapeHtml(kindLabel(c.kind))}</div></td>
+                  <td>${escapeHtml(c.reference || "—")}</td>
+                  <td>${escapeHtml(c.due_on || "—")}</td>
+                  <td>${c.supplier ? `<a href="#suppliers/${c.supplier.id}">${escapeHtml(c.supplier.name)}</a>` : "—"}</td>
+                  <td>${chip(c.status)}</td>
+                </tr>`,
+              )
+              .join("") || `<tr><td colspan="5" class="muted">No diary items.</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Documents</h2></div>
+      <form id="upload-form" class="toolbar" style="margin-bottom:12px">
+        <input type="file" name="file" required />
+        <select name="kind">
+          <option value="other">Other</option>
+          <option value="gas">Gas certificate</option>
+          <option value="eicr">EICR</option>
+          <option value="epc">EPC</option>
+          <option value="insurance">Insurance</option>
+          <option value="ast">AST</option>
+          <option value="inventory">Inventory</option>
+          <option value="licence">Licence</option>
+        </select>
+        <input name="title" placeholder="Title" />
+        <select name="signed_status">
+          <option value="n/a">No signature</option>
+          <option value="unsigned">Unsigned</option>
+          <option value="sent">Sent for signature</option>
+          <option value="signed">Signed</option>
+        </select>
+        <button type="submit" class="btn btn--copper btn--sm">Upload</button>
+      </form>
+      <table class="data">
+        <thead><tr><th>Document</th><th>Type</th><th>Signature</th><th></th></tr></thead>
+        <tbody>
+          ${
+            documents
+              .map(
+                (d) => `<tr>
+                  <td>${escapeHtml(d.title)}<div class="muted">${escapeHtml(d.filename)}</div></td>
+                  <td>${chip(d.kind)}</td>
+                  <td>${chip(d.signed_status || "n/a")}${
+                    d.kind === "ast" || d.kind === "inventory"
+                      ? ` <button type="button" class="btn btn--ghost btn--sm sign-doc" data-id="${d.id}" data-status="${d.signed_status === "signed" ? "sent" : "signed"}">${d.signed_status === "signed" ? "Mark sent" : "Mark signed"}</button>`
+                      : ""
+                  }</td>
+                  <td><a class="btn btn--ghost btn--sm" href="${docHref(d.id)}" target="_blank" rel="noopener">Open</a></td>
+                </tr>`,
+              )
+              .join("") || `<tr><td colspan="4" class="muted">No files yet.</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
   `;
   document.getElementById("open-message").onclick = () =>
     openMessageDialog({ property_id: p.id, audience: "both" });
-  document.getElementById("save-property").onclick = async () => {
-    await api.request(`/properties/${p.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ council_tax_band: document.getElementById("prop-band").value }),
-    });
+  document.getElementById("add-supplier").onclick = () =>
+    document.getElementById("supplier-dialog").showModal();
+  document.getElementById("add-policy").onclick = () => openPolicyDialog(p.id);
+  document.getElementById("add-compliance").onclick = () => openComplianceDialog(p.id);
+  workspace.querySelectorAll(".supplier-msg").forEach((btn) => {
+    btn.onclick = () =>
+      openMessageDialog({
+        audience: "supplier",
+        property_id: p.id,
+        supplier_id: Number(btn.dataset.id),
+      });
+  });
+  workspace.querySelectorAll(".sign-doc").forEach((btn) => {
+    btn.onclick = async () => {
+      await api.request(`/documents/${btn.dataset.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ signed_status: btn.dataset.status }),
+      });
+      await loadPropertyDetail(id);
+    };
+  });
+  document.getElementById("upload-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const payload = new FormData(form);
+    payload.set("property_id", String(p.id));
+    if (p.current_tenancy) payload.set("tenancy_id", String(p.current_tenancy.id));
+    await api.request("/documents", { method: "POST", body: payload });
     await loadPropertyDetail(id);
   };
 }
@@ -378,6 +539,136 @@ async function loadInbox() {
     </div>
   `;
   document.getElementById("open-message").onclick = () => openMessageDialog();
+}
+
+async function loadSuppliers() {
+  const data = await api.request("/suppliers");
+  workspace.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Gas, power, maintenance and insurance</h2>
+        <button type="button" class="btn btn--copper btn--sm" id="add-supplier">Add supplier</button>
+      </div>
+      <table class="data">
+        <thead><tr><th>Supplier</th><th>Type</th><th>Contact</th><th>Houses</th></tr></thead>
+        <tbody>
+          ${(data.suppliers || [])
+            .map(
+              (s) => `<tr>
+                <td><a href="#suppliers/${s.id}">${escapeHtml(s.name)}</a></td>
+                <td>${chip(s.kind)}</td>
+                <td>${escapeHtml(s.contact_name || "—")}<div class="muted">${escapeHtml(s.email || "")} · ${escapeHtml(s.phone || "")}</div></td>
+                <td>${(s.properties || []).map((p) => escapeHtml(p.property_name)).join(", ") || "—"}</td>
+              </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById("add-supplier").onclick = () => document.getElementById("supplier-dialog").showModal();
+}
+
+async function loadSupplierDetail(id) {
+  const s = await api.request(`/suppliers/${id}`);
+  workspace.innerHTML = `
+    <p><a class="back" href="#suppliers">← All suppliers</a></p>
+    <div class="detail-grid">
+      <div class="panel">
+        <div class="panel-head"><h2>${escapeHtml(s.name)}</h2>${chip(s.kind)}</div>
+        <dl class="kv">
+          <dt>Contact</dt><dd>${escapeHtml(s.contact_name || "—")}</dd>
+          <dt>Email</dt><dd>${escapeHtml(s.email || "—")}</dd>
+          <dt>Phone</dt><dd>${escapeHtml(s.phone || "—")}</dd>
+          <dt>Account</dt><dd>${escapeHtml(s.account_ref || "—")}</dd>
+          <dt>Notes</dt><dd>${escapeHtml(s.notes || "—")}</dd>
+        </dl>
+        <h3>Houses</h3>
+        <ul>${
+          (s.properties || [])
+            .map(
+              (p) =>
+                `<li><a href="#properties/${p.property_id}">${escapeHtml(p.property_name)}</a> · ${escapeHtml(kindLabel(p.role))}</li>`,
+            )
+            .join("") || "<li class='muted'>Not assigned.</li>"
+        }</ul>
+        <p><button type="button" class="btn btn--copper btn--sm" id="open-message">Log a message</button></p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Communication</h2></div>
+        ${thread(s.communications || [])}
+      </div>
+    </div>
+  `;
+  document.getElementById("open-message").onclick = () =>
+    openMessageDialog({
+      audience: "supplier",
+      supplier_id: s.id,
+      property_id: s.properties?.[0]?.property_id,
+    });
+}
+
+async function loadCompliance() {
+  const data = await api.request("/compliance");
+  workspace.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><h2>Attention</h2><span class="muted">Overdue, due soon, or booked</span></div>
+      <table class="data">
+        <thead><tr><th>Item</th><th>Property</th><th>Due</th><th>Supplier</th><th>Status</th></tr></thead>
+        <tbody>
+          ${(data.attention || [])
+            .map(
+              (c) => `<tr>
+                <td>${escapeHtml(c.title)}<div class="muted">${escapeHtml(kindLabel(c.kind))}</div></td>
+                <td>${c.property ? `<a href="#properties/${c.property.id}">${escapeHtml(c.property.name)}</a>` : "—"}</td>
+                <td>${escapeHtml(c.due_on || "—")}</td>
+                <td>${c.supplier ? `<a href="#suppliers/${c.supplier.id}">${escapeHtml(c.supplier.name)}</a>` : "—"}</td>
+                <td>${chip(c.status)}</td>
+              </tr>`,
+            )
+            .join("") || `<tr><td colspan="5" class="muted">Clear.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Whole diary</h2></div>
+      <table class="data">
+        <thead><tr><th>Item</th><th>Property</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody>
+          ${(data.compliance || [])
+            .map(
+              (c) => `<tr>
+                <td>${escapeHtml(c.title)}</td>
+                <td>${c.property ? `<a href="#properties/${c.property.id}">${escapeHtml(c.property.name)}</a>` : "—"}</td>
+                <td>${escapeHtml(c.due_on || "—")}</td>
+                <td>${chip(c.status)}</td>
+              </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function openPolicyDialog(propertyId) {
+  const suppliers = await api.request("/suppliers?kind=insurance");
+  document.querySelector('#policy-form [name="property_id"]').value = String(propertyId);
+  document.getElementById("policy-broker").innerHTML =
+    `<option value="">—</option>` +
+    (suppliers.suppliers || []).map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+  document.getElementById("policy-dialog").showModal();
+}
+
+async function openComplianceDialog(propertyId) {
+  const suppliers = await api.request("/suppliers");
+  document.querySelector('#compliance-form [name="property_id"]').value = String(propertyId);
+  document.getElementById("compliance-supplier").innerHTML =
+    `<option value="">—</option>` +
+    (suppliers.suppliers || []).map((s) => `<option value="${s.id}">${s.name} (${s.kind})</option>`).join("");
+  const kind = document.querySelector('#compliance-form [name="kind"]');
+  document.querySelector('#compliance-form [name="title"]').value = kind.options[kind.selectedIndex].text;
+  document.getElementById("compliance-dialog").showModal();
 }
 
 async function loadJobs() {
@@ -567,7 +858,11 @@ async function openLettingDialog() {
 }
 
 async function openMessageDialog(prefill = {}) {
-  const [props, people] = await Promise.all([api.request("/properties"), api.request("/contacts")]);
+  const [props, people, suppliers] = await Promise.all([
+    api.request("/properties"),
+    api.request("/contacts"),
+    api.request("/suppliers"),
+  ]);
   document.getElementById("message-property").innerHTML =
     `<option value="">—</option>` +
     props.properties.map((p) => `<option value="${p.id}">${p.name}</option>`).join("");
@@ -576,10 +871,14 @@ async function openMessageDialog(prefill = {}) {
     people.contacts
       .map((c) => `<option value="${c.id}">${c.name} (${c.role === "occupier" ? "tenant" : c.role})</option>`)
       .join("");
+  document.getElementById("message-supplier").innerHTML =
+    `<option value="">—</option>` +
+    (suppliers.suppliers || []).map((s) => `<option value="${s.id}">${s.name} (${s.kind})</option>`).join("");
   const form = document.getElementById("message-form");
   if (prefill.audience) form.audience.value = prefill.audience;
   if (prefill.property_id) form.property_id.value = String(prefill.property_id);
   if (prefill.contact_id) form.contact_id.value = String(prefill.contact_id);
+  if (prefill.supplier_id) form.supplier_id.value = String(prefill.supplier_id);
   form.dataset.tenancyId = prefill.tenancy_id || "";
   document.getElementById("message-dialog").showModal();
 }
@@ -741,8 +1040,11 @@ async function render() {
     else if (section === "tenants") await loadPeople("occupier", "Tenants in occupation");
     else if (section === "landlords" && id) await loadPersonDetail(id, "landlords");
     else if (section === "landlords") await loadPeople("landlord", "Landlords");
+    else if (section === "suppliers" && id) await loadSupplierDetail(id);
+    else if (section === "suppliers") await loadSuppliers();
     else if (section === "inbox") await loadInbox();
     else if (section === "jobs") await loadJobs();
+    else if (section === "compliance") await loadCompliance();
     else if (section === "tax") await loadTax();
     else if (section === "invoices") await loadInvoices();
     else if (section === "payments") await loadPayments();
@@ -770,7 +1072,7 @@ document.getElementById("contact-role")?.addEventListener("change", (event) => {
   });
 });
 
-["property-cancel", "contact-cancel", "invoice-cancel", "letting-cancel", "message-cancel", "job-cancel"].forEach((id) => {
+["property-cancel", "contact-cancel", "invoice-cancel", "letting-cancel", "message-cancel", "job-cancel", "supplier-cancel", "policy-cancel", "compliance-cancel"].forEach((id) => {
   document.getElementById(id)?.addEventListener("click", () => {
     document.getElementById(id.replace("-cancel", "-dialog")).close();
   });
@@ -880,12 +1182,93 @@ document.getElementById("message-form").addEventListener("submit", async (event)
         channel: raw.channel,
         property_id: raw.property_id ? Number(raw.property_id) : null,
         contact_id: raw.contact_id ? Number(raw.contact_id) : null,
+        supplier_id: raw.supplier_id ? Number(raw.supplier_id) : null,
         tenancy_id: event.target.dataset.tenancyId ? Number(event.target.dataset.tenancyId) : null,
         subject: raw.subject,
         body: raw.body,
       }),
     });
     document.getElementById("message-dialog").close();
+    event.target.reset();
+    await render();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.classList.remove("hidden");
+  }
+});
+
+document.getElementById("supplier-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const err = document.getElementById("supplier-error");
+  err.classList.add("hidden");
+  const raw = Object.fromEntries(new FormData(event.target).entries());
+  try {
+    const created = await api.request("/suppliers", { method: "POST", body: JSON.stringify(raw) });
+    const { section, id } = parseRoute();
+    if (section === "properties" && id) {
+      await api.request(`/properties/${id}/suppliers`, {
+        method: "POST",
+        body: JSON.stringify({ supplier_id: created.id, role: created.kind, account_ref: raw.account_ref }),
+      });
+    }
+    document.getElementById("supplier-dialog").close();
+    event.target.reset();
+    await render();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.classList.remove("hidden");
+  }
+});
+
+document.getElementById("policy-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const err = document.getElementById("policy-error");
+  err.classList.add("hidden");
+  const raw = Object.fromEntries(new FormData(event.target).entries());
+  try {
+    await api.request("/policies", {
+      method: "POST",
+      body: JSON.stringify({
+        property_id: Number(raw.property_id),
+        kind: raw.kind,
+        insurer: raw.insurer,
+        policy_number: raw.policy_number,
+        broker_id: raw.broker_id ? Number(raw.broker_id) : null,
+        start_on: raw.start_on || null,
+        end_on: raw.end_on || null,
+        excess: raw.excess ? Number(raw.excess) : 0,
+        notes: raw.notes,
+      }),
+    });
+    document.getElementById("policy-dialog").close();
+    event.target.reset();
+    await render();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.classList.remove("hidden");
+  }
+});
+
+document.getElementById("compliance-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const err = document.getElementById("compliance-error");
+  err.classList.add("hidden");
+  const raw = Object.fromEntries(new FormData(event.target).entries());
+  try {
+    await api.request("/compliance", {
+      method: "POST",
+      body: JSON.stringify({
+        property_id: Number(raw.property_id),
+        kind: raw.kind,
+        title: raw.title,
+        reference: raw.reference || null,
+        issued_on: raw.issued_on || null,
+        due_on: raw.end_on || raw.due_on || null,
+        supplier_id: raw.supplier_id ? Number(raw.supplier_id) : null,
+        notes: raw.notes,
+      }),
+    });
+    document.getElementById("compliance-dialog").close();
     event.target.reset();
     await render();
   } catch (ex) {

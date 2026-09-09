@@ -14,6 +14,8 @@ backend_stub/.venv/
 .venv/
 products/SwiftCRM/.venv/
 products/SwiftCRM/backend/data/*.db
+products/SwiftCRM/backend/data/uploads/*
+!products/SwiftCRM/backend/data/uploads/.gitkeep
 
 # Build / staging
 .pack-staging/

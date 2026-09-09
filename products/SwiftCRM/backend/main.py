@@ -23,6 +23,7 @@ from data import (
 )
 from desk import bind as bind_desk_routes
 from phones import to_e164
+from records import bind as bind_record_routes
 from telephony import bind as bind_telephony
 
 app = FastAPI(title="SwiftCRM", version="0.1.0", description="Lettings & housing CRM")
@@ -255,6 +256,11 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
     pipeline = row("SELECT COUNT(*) AS n FROM deals WHERE stage NOT IN ('lost','move_in')")
     jobs = row("SELECT COUNT(*) AS n FROM jobs WHERE status NOT IN ('done','cancelled')")
     ringing = row("SELECT COUNT(*) AS n FROM calls WHERE status = 'ringing'")
+    compliance_due = row(
+        """SELECT COUNT(*) AS n FROM compliance_items
+           WHERE status IN ('overdue', 'due_soon', 'booked')
+              OR (due_on IS NOT NULL AND due_on <= date('now', '+42 days'))"""
+    )
     by_status = {r["status"]: r["n"] for r in props}
     inv = {r["status"]: {"count": r["n"], "amount": gbp(r["total"])} for r in invoices}
     due_soon = rows(
@@ -271,6 +277,13 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
            LEFT JOIN properties p ON p.id = c.property_id
            ORDER BY c.created_at DESC LIMIT 5"""
     )
+    compliance_attention = rows(
+        """SELECT c.id, c.kind, c.title, c.due_on, c.status, p.name AS property_name
+           FROM compliance_items c
+           JOIN properties p ON p.id = c.property_id
+           WHERE c.status IN ('overdue', 'due_soon', 'booked')
+           ORDER BY c.due_on IS NULL, c.due_on ASC LIMIT 6"""
+    )
     return {
         "portfolio": {
             "properties": sum(by_status.values()),
@@ -283,6 +296,7 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
         "inbox": int(inbox["n"]) if inbox else 0,
         "open_jobs": int(jobs["n"]) if jobs else 0,
         "ringing": int(ringing["n"]) if ringing else 0,
+        "compliance_due": int(compliance_due["n"]) if compliance_due else 0,
         "invoices": inv,
         "attention": [
             {
@@ -297,6 +311,7 @@ def overview(authorization: str | None = Header(default=None)) -> dict[str, Any]
             for r in due_soon
         ],
         "latest_updates": latest,
+        "compliance_attention": compliance_attention,
     }
 
 
@@ -556,3 +571,4 @@ def patch_deal(
 
 app.include_router(bind_desk_routes(require_agency, parse_actor))
 app.include_router(bind_telephony(require_agency))
+app.include_router(bind_record_routes(require_agency))

@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from data import DEMO_EMAIL, DEMO_PASSWORD, init_db, row, rows, verify_password  # noqa: E402
+from data import DEMO_EMAIL, DEMO_PASSWORD, diary_status, init_db, row, rows, verify_password  # noqa: E402
 from phones import to_e164  # noqa: E402
 from telephony import create_inbound_call, match_contact  # noqa: E402
 
@@ -82,6 +82,23 @@ class SeedAndCallTests(unittest.TestCase):
     def test_jobs_seeded(self) -> None:
         jobs = rows("SELECT * FROM jobs")
         self.assertGreaterEqual(len(jobs), 2)
+
+    def test_suppliers_and_insurance(self) -> None:
+        gas = row("SELECT * FROM suppliers WHERE kind = 'gas'")
+        self.assertIsNotNone(gas)
+        self.assertEqual(gas["name"], "British Gas HomeCare")
+        assigned = rows("SELECT * FROM property_suppliers WHERE supplier_id = ?", (gas["id"],))
+        self.assertGreaterEqual(len(assigned), 3)
+        lapsed = row("SELECT * FROM policies WHERE policy_number = 'NFU-BLD-0304'")
+        self.assertEqual(diary_status(lapsed["end_on"]), "overdue")
+
+    def test_documents_on_disk(self) -> None:
+        from data import upload_dir
+
+        ast = row("SELECT * FROM documents WHERE kind = 'ast' AND title LIKE '%Hannah%'")
+        self.assertIsNotNone(ast)
+        self.assertEqual(ast["signed_status"], "signed")
+        self.assertTrue((upload_dir() / ast["stored_name"]).exists())
 
 
 if __name__ == "__main__":

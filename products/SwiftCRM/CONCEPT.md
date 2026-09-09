@@ -37,6 +37,10 @@ Agency (SaaS customer)
   ├── Updates (to tenant, landlord, or both)
   ├── Calls (caller ID → screen-pop)
   ├── Jobs (maintenance)
+  ├── Suppliers (gas, electricity, maintenance, insurance, other)
+  ├── Insurance policies (per house)
+  ├── Compliance diary (gas, EICR, EPC, alarms, licences, AST)
+  ├── Documents (certificates, policies, AST / inventory)
   ├── Invoices / payments
   └── Pipeline (applicants)
 ```
@@ -81,5 +85,5 @@ SwiftCRM is **ink navy / copper / linen** — estate-agency desk: warmer, more e
 2. GoCardless / Stripe Bacs for occupier Direct Debit
 3. Live Xero OAuth (this slice queues invoices for a connector)
 4. SMTP send for the mail outbox
-5. Compliance diary (gas, EICR, EPC) beyond the fields already on the property
+5. Live e-sign for AST / inventory (this slice stores the file and a signed/sent flag)
 6. Client money / CMP reporting (regulated — do not fake this)
