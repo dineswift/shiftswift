@@ -314,6 +314,10 @@ table.data a:hover { color: var(--copper); }
   animation: pulse 1.4s ease-in-out infinite;
 }
 .call-pop__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.call-pop .btn--ghost {
+  color: #f4e4d6;
+  box-shadow: inset 0 0 0 1px rgba(244, 228, 214, 0.4);
+}
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
