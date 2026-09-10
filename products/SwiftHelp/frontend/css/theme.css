@@ -1,0 +1,81 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;600;700&display=swap");
+
+:root {
+  --ink: #12141a;
+  --ink-deep: #0b0c10;
+  --amber: #d97706;
+  --amber-dark: #b45309;
+  --amber-soft: #fde8c8;
+  --paper: #f4f2ee;
+  --paper-dark: #e7e3db;
+  --stone: #5b5854;
+  --line: #ddd8ce;
+  --white: #fffcf8;
+  --ok: #0f766e;
+  --warn: #b45309;
+  --bad: #b42318;
+  --page: var(--paper);
+  --accent: var(--amber);
+  --radius: 16px;
+  --font-body: "Figtree", "Segoe UI", sans-serif;
+  --font-display: "IBM Plex Sans", "Figtree", sans-serif;
+  --shadow: 0 18px 40px rgba(18, 20, 26, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--page);
+  line-height: 1.55;
+  font-size: 16px;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+a { color: inherit; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 20px;
+  font-family: var(--font-body);
+  font-weight: 650;
+  font-size: 0.92rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn--amber { background: var(--amber); color: #fff8f3; }
+.btn--amber:hover { background: var(--amber-dark); }
+.btn--ink { background: var(--ink); color: var(--paper); }
+.btn--ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.btn--sm { padding: 7px 12px; font-size: 0.8rem; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.chip--p1, .chip--breached, .chip--open { background: #fee4e2; color: var(--bad); }
+.chip--p2, .chip--due_soon, .chip--waiting { background: #fef3c7; color: var(--warn); }
+.chip--p3, .chip--ok, .chip--resolved, .chip--closed { background: #ccfbf1; color: var(--ok); }
+.chip--in_progress { background: var(--amber-soft); color: var(--amber-dark); }
+.chip--laptop, .chip--phone { background: #e8eef6; color: #1e3a5f; }
+.chip--printer, .chip--repair { background: #fde8c8; color: var(--amber-dark); }
+.chip--spare { background: #ccfbf1; color: var(--ok); }
+.chip--in_use { background: #e8eef6; color: #1e3a5f; }
+.chip--requester { background: var(--amber-soft); color: var(--amber-dark); }
+.chip--agent { background: #e8eef6; color: #1e3a5f; }
+.hidden { display: none !important; }
+.error { color: var(--bad); font-size: 0.85rem; }
+.muted { color: var(--stone); font-size: 0.85rem; }
