@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My tickets · SwiftHelp</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="app" style="grid-template-columns:1fr">
+    <div class="main">
+      <header class="topbar">
+        <div>
+          <h1>My tickets</h1>
+          <p class="muted" id="who">Staff portal</p>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn btn--amber btn--sm" id="raise">Raise ticket</button>
+          <button type="button" class="btn btn--ghost btn--sm" id="sign-out">Sign out</button>
+        </div>
+      </header>
+      <div class="workspace" id="workspace"></div>
+    </div>
+    <dialog class="sheet" id="ticket-dialog">
+      <form class="sheet-body" id="ticket-form">
+        <h3>Raise a ticket</h3>
+        <label>What's wrong <input name="title" required /></label>
+        <label>Detail <textarea name="detail" rows="3" required></textarea></label>
+        <label>Priority
+          <select name="priority">
+            <option value="p2">Can't work properly</option>
+            <option value="p1">Can't work at all</option>
+            <option value="p3">Annoyance</option>
+          </select>
+        </label>
+        <p class="error hidden" id="ticket-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="ticket-cancel">Cancel</button>
+          <button type="submit" class="btn btn--amber">Send to IT</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="./js/api.js"></script>
+    <script src="./js/portal.js"></script>
+  </body>
+</html>

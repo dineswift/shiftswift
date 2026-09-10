@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwiftHelp · IT desk</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="app">
+    <aside class="sidebar">
+      <a class="brand" href="#today"><img src="./assets/mark.svg" alt="" /> SwiftHelp</a>
+      <a class="nav-link is-active" data-section="today" href="#today">Today</a>
+      <a class="nav-link" data-section="tickets" href="#tickets">Tickets</a>
+      <a class="nav-link" data-section="assets" href="#assets">Assets</a>
+      <a class="nav-link" data-section="inbox" href="#inbox">Inbox</a>
+      <a class="nav-link" data-section="settings" href="#settings">Settings</a>
+      <div class="org">
+        <b>Northgate Office IT</b>
+        <span>Jordan Hale</span>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Today</h1>
+          <p id="page-sub">P1s, SLA due, waiting on the user.</p>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm" id="sign-out">Sign out</button>
+      </header>
+      <div class="workspace" id="workspace"></div>
+    </div>
+
+    <dialog class="sheet" id="ticket-dialog">
+      <form class="sheet-body" id="ticket-form">
+        <h3>Raise ticket</h3>
+        <label>Title <input name="title" required placeholder="VPN down" /></label>
+        <label>Detail <textarea name="detail" rows="3"></textarea></label>
+        <label>Priority
+          <select name="priority">
+            <option value="p1">P1 — 4 hours</option>
+            <option value="p2">P2 — 1 day</option>
+            <option value="p3" selected>P3 — 3 days</option>
+          </select>
+        </label>
+        <label>Requester <select name="requester_id" id="ticket-requester" required></select></label>
+        <label>Asset <select name="asset_id" id="ticket-asset"></select></label>
+        <p class="error hidden" id="ticket-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="ticket-cancel">Cancel</button>
+          <button type="submit" class="btn btn--amber">Save ticket</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="asset-dialog">
+      <form class="sheet-body" id="asset-form">
+        <h3>Add asset</h3>
+        <label>Name <input name="name" required placeholder="MacBook Pro 14" /></label>
+        <label>Type
+          <select name="kind">
+            <option value="laptop">Laptop</option>
+            <option value="phone">Phone</option>
+            <option value="printer">Printer</option>
+            <option value="monitor">Monitor</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Status
+          <select name="status">
+            <option value="in_use">In use</option>
+            <option value="spare">Spare</option>
+            <option value="repair">Repair</option>
+            <option value="retired">Retired</option>
+          </select>
+        </label>
+        <label>Serial <input name="serial" /></label>
+        <label>Owner <select name="owner_id" id="asset-owner"></select></label>
+        <label>Notes <textarea name="notes" rows="2"></textarea></label>
+        <p class="error hidden" id="asset-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="asset-cancel">Cancel</button>
+          <button type="submit" class="btn btn--amber">Save asset</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="sheet" id="person-dialog">
+      <form class="sheet-body" id="person-form">
+        <h3>Add person</h3>
+        <label>Name <input name="name" required /></label>
+        <label>Email <input name="email" type="email" /></label>
+        <label>Phone <input name="phone" /></label>
+        <label>Department <input name="department" /></label>
+        <input type="hidden" name="role" value="requester" />
+        <p class="error hidden" id="person-error"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn--ghost" id="person-cancel">Cancel</button>
+          <button type="submit" class="btn btn--amber">Save person</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./js/api.js"></script>
+    <script src="./js/app.js"></script>
+  </body>
+</html>

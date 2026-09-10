@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in · SwiftHelp</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/mark.svg" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+  <body class="login-page">
+    <div class="login-card">
+      <img src="./assets/mark.svg" width="40" height="40" alt="SwiftHelp" />
+      <h1>IT sign in</h1>
+      <p class="muted">Northgate Office IT demo desk.</p>
+      <form id="login-form">
+        <label>Work email <input name="email" type="email" required value="it@swifthelp.local" /></label>
+        <label>Password <input name="password" type="password" required value="Helpdesk-Demo-2026" /></label>
+        <p id="login-error" class="error hidden"></p>
+        <button class="btn btn--amber" type="submit">Open the desk</button>
+      </form>
+      <p class="muted">Agent: it@swifthelp.local · Helpdesk-Demo-2026</p>
+      <p class="muted">Requester: amira.khan@northgate.example · Request-Demo-2026 · <a href="./request.html">staff portal</a></p>
+    </div>
+    <script src="./js/api.js"></script>
+    <script src="./js/login.js"></script>
+  </body>
+</html>
