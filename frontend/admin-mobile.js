@@ -45,6 +45,19 @@
       "there";
     localStorage.setItem("adminDisplayName", displayName);
     localStorage.setItem("adminFirstName", firstName);
+    const userLabel = document.getElementById("topbar-user-label");
+    const avatar = document.querySelector(".topbar-user-menu__avatar");
+    if (userLabel) userLabel.textContent = displayName;
+    if (avatar) {
+      const initials = String(displayName)
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+      avatar.textContent = initials || "HR";
+    }
   }
 
   function displayFirstName() {

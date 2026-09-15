@@ -47,6 +47,44 @@ SPONSOR_LICENCE_ACK_TEXT = (
 )
 
 
+def signup_sponsor_licence_confirmed(*, tenant_id: int, conn: Any) -> bool:
+    """True when self-service signup already recorded both sponsor-duty boxes."""
+    row = None
+    try:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SAVEPOINT sponsor_signup_ack_lookup")
+            except Exception:
+                pass
+            try:
+                cur.execute(
+                    """
+                    SELECT holds_sponsor_licence, sponsor_licence_acknowledged
+                    FROM tenant_signup_acceptances
+                    WHERE tenant_id = %s
+                    ORDER BY accepted_at DESC
+                    LIMIT 1
+                    """,
+                    (tenant_id,),
+                )
+                row = cur.fetchone()
+                try:
+                    cur.execute("RELEASE SAVEPOINT sponsor_signup_ack_lookup")
+                except Exception:
+                    pass
+            except Exception:
+                try:
+                    cur.execute("ROLLBACK TO SAVEPOINT sponsor_signup_ack_lookup")
+                except Exception:
+                    pass
+                return False
+    except Exception:
+        return False
+    if not row:
+        return False
+    return bool(row[0]) and bool(row[1])
+
+
 def get_sponsor_licence_ack_status(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -64,16 +102,26 @@ def get_sponsor_licence_ack_status(*, tenant_id: int, conn: Any) -> dict[str, An
         if not row:
             raise LookupError("tenant not found")
     acknowledged_at = row[1]
+    acknowledged = acknowledged_at is not None
+    acknowledged_by = row[2]
+    holds = bool(row[0])
+    ack_version = row[3]
+    if not acknowledged and signup_sponsor_licence_confirmed(tenant_id=tenant_id, conn=conn):
+        acknowledged = True
+        holds = True
+        acknowledged_by = acknowledged_by or "signup"
+        ack_version = ack_version or SPONSOR_LICENCE_ACK_VERSION
     return {
-        "holds_sponsor_licence": bool(row[0]),
-        "acknowledged": acknowledged_at is not None,
+        "holds_sponsor_licence": holds,
+        "acknowledged": acknowledged,
         "acknowledged_at": acknowledged_at.isoformat() if acknowledged_at else None,
-        "acknowledged_by": row[2],
-        "ack_version": row[3],
+        "acknowledged_by": acknowledged_by,
+        "ack_version": ack_version,
         "current_ack_version": SPONSOR_LICENCE_ACK_VERSION,
         "ack_text": SPONSOR_LICENCE_ACK_TEXT,
         "tools_notice": SPONSOR_LICENCE_TOOLS_NOTICE,
         "duties": SPONSOR_LICENCE_DUTIES,
+        "source": "tenant" if acknowledged_at is not None else ("signup" if acknowledged else None),
     }
 
 
@@ -120,4 +168,8 @@ def acknowledge_sponsor_licence(
         )
         if cur.rowcount == 0:
             raise LookupError("tenant not found")
+    # Persist here so callers cannot lose the confirmation: a `return` inside
+    # try/except/else skips the else clause, and closing the connection rolls back.
+    if hasattr(conn, "commit"):
+        conn.commit()
     return get_sponsor_licence_ack_status(tenant_id=tenant_id, conn=conn)

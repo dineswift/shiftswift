@@ -238,6 +238,15 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "registered_latitude": float(row[30]) if row[30] is not None else None,
             "registered_longitude": float(row[31]) if row[31] is not None else None,
         }
+        if not profile["sponsor_licence_acknowledged"]:
+            from sponsor_licence_ack import signup_sponsor_licence_confirmed
+
+            if signup_sponsor_licence_confirmed(tenant_id=tenant_id, conn=conn):
+                profile["holds_sponsor_licence"] = True
+                profile["sponsor_licence_acknowledged"] = True
+                profile["sponsor_licence_acknowledged_by"] = (
+                    profile["sponsor_licence_acknowledged_by"] or "signup"
+                )
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
 

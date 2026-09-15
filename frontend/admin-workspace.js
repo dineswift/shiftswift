@@ -176,14 +176,30 @@
 
   function applyAdminIdentityFromOverview(data) {
     const signatoryName = (data.signatory_name || "").trim();
-    if (!signatoryName) return;
     const username = (localStorage.getItem("adminUsername") || "").trim().toLowerCase();
     const contactEmails = [data.signatory_email, data.billing_email]
       .map((value) => String(value || "").trim().toLowerCase())
       .filter(Boolean);
-    if (contactEmails.length && username && !contactEmails.includes(username)) return;
-    localStorage.setItem("adminDisplayName", signatoryName);
-    localStorage.setItem("adminFirstName", signatoryName.split(/\s+/)[0] || signatoryName);
+    const signatoryBelongsToUser =
+      Boolean(signatoryName) &&
+      (!contactEmails.length || !username || contactEmails.includes(username));
+    if (signatoryBelongsToUser) {
+      localStorage.setItem("adminDisplayName", signatoryName);
+      localStorage.setItem("adminFirstName", signatoryName.split(/\s+/)[0] || signatoryName);
+      return;
+    }
+    // Drop leftover names from another workspace (e.g. demo "Dining" on Himalayan Inn).
+    const stored = (localStorage.getItem("adminDisplayName") || "").trim();
+    if (!stored || !username) return;
+    const localPart = username.split("@")[0] || "";
+    const storedLower = stored.toLowerCase().replace(/\s+/g, "");
+    const looksLikeThisUser = Boolean(localPart) && storedLower.includes(localPart.toLowerCase());
+    if (!looksLikeThisUser) {
+      localStorage.removeItem("adminDisplayName");
+      const cleaned = localPart.replace(/\d+$/, "") || localPart;
+      const pretty = cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : "Admin";
+      localStorage.setItem("adminFirstName", pretty);
+    }
   }
 
   function updateTopbarMeta(data) {
@@ -367,7 +383,7 @@
       const mobileBusiness = document.getElementById("mobile-business-name");
       if (mobileBusiness) mobileBusiness.textContent = businessName;
       applyAdminIdentityFromOverview(data);
-      window.AdminMobile?.refreshGreeting?.();
+      await window.AdminMobile?.refreshGreeting?.();
       updateTopbarMeta(data);
 
       const openActions = data.open_actions || [];
