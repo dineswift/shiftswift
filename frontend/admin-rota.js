@@ -2320,21 +2320,10 @@
 
   async function downloadPrintPdf(fromDate, toDate) {
     const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
-    const res = await apiFetch(`/admin/rota/print.pdf?${params.toString()}`);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(parseRotaApiDetail(data, "Could not download printable rota."));
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `shiftswift-rota-${fromDate}-to-${toDate}.pdf`;
-    const disposition = res.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="([^"]+)"/);
-    if (match) link.download = match[1];
-    link.click();
-    URL.revokeObjectURL(url);
+    await downloadAuthenticated(
+      `/admin/rota/print.pdf?${params.toString()}`,
+      `shiftswift-rota-${fromDate}-to-${toDate}.pdf`
+    );
   }
 
   async function submitPrintDialog(event) {

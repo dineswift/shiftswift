@@ -1005,26 +1005,47 @@
     return data;
   }
 
-  function storePunchCardPayload(payload) {
-    sessionStorage.setItem("punchCardPayload", JSON.stringify(payload));
+  function storeLocalPayload(key, payload) {
+    try {
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(payload));
+      } catch {
+        /* ignore quota */
+      }
+    }
+  }
+
+  function openPrintableTab(href) {
+    const link = document.createElement("a");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function openPunchCardPage(layout = "pocket", qrData) {
-    if (qrData) {
-      storePunchCardPayload({
-        clock_url: qrData.clock_url,
-        site_name: qrData.site_name || "Work site",
-        qr_image_data_uri: qrImageSrc(qrData),
-        layout,
-      });
+    const clockUrl = String(qrData?.clock_url || "").trim();
+    const siteName = String(qrData?.site_name || "Work site").trim() || "Work site";
+    if (!clockUrl) {
+      showPunchNote("This site has no premises QR yet. Sync the site and try again.", "error");
+      return null;
     }
+    storeLocalPayload("punchCardPayload", {
+      clock_url: clockUrl,
+      site_name: siteName,
+      qr_image_data_uri: qrImageSrc(qrData),
+      layout,
+    });
     const cardUrl = new URL("./punch-site-card.html", window.location.href);
     cardUrl.searchParams.set("layout", layout);
-    const win = window.open(cardUrl.toString(), "_blank", "noopener");
-    if (!win) {
-      showPunchNote("Allow pop-ups to open the QR print page.", "warn");
-    }
-    return win;
+    cardUrl.searchParams.set("url", clockUrl);
+    cardUrl.searchParams.set("site", siteName);
+    openPrintableTab(cardUrl.toString());
+    return true;
   }
 
   function scrollToQrGallery(options = {}) {
@@ -1958,18 +1979,16 @@
       );
       const businessName =
         tenantProfile?.trading_name || tenantProfile?.name || tenantProfile?.business_name || "Your business";
-      sessionStorage.setItem(
-        "punchPosterPayload",
-        JSON.stringify({
-          businessName,
-          sites: qrItems,
-        })
-      );
-      const posterUrl = new URL("./punch-site-poster.html", window.location.href).toString();
-      if (posterWindow) {
-        posterWindow.location.replace(posterUrl);
+      storeLocalPayload("punchPosterPayload", {
+        businessName,
+        sites: qrItems,
+      });
+      const posterUrl = new URL("./punch-site-poster.html", window.location.href);
+      posterUrl.searchParams.set("t", String(Date.now()));
+      if (posterWindow && !posterWindow.closed) {
+        posterWindow.location.replace(posterUrl.toString());
       } else {
-        window.open(posterUrl, "_blank", "noopener");
+        openPrintableTab(posterUrl.toString());
       }
       showPunchNote("Poster opened in a new tab — click Print poster.", "ok");
     } catch (error) {
@@ -2317,10 +2336,19 @@
   }
 
   function openPosterWindow() {
-    const posterWindow = window.open("about:blank", "_blank", "noopener");
+    const posterWindow = window.open("about:blank", "_blank");
     if (!posterWindow) {
       showPunchNote("Allow pop-ups to print the QR poster.", "warn");
       return null;
+    }
+    try {
+      posterWindow.document.open();
+      posterWindow.document.write(
+        "<!doctype html><title>Preparing poster</title><p style='font-family:system-ui,sans-serif;padding:2rem;color:#334155'>Preparing QR poster…</p>"
+      );
+      posterWindow.document.close();
+    } catch {
+      /* ignore */
     }
     void openAllSitesPoster(posterWindow);
     return posterWindow;

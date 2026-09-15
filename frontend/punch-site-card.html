@@ -14,6 +14,10 @@
         --card-h: 55mm;
       }
 
+      [hidden] {
+        display: none !important;
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -389,20 +393,23 @@
           );
         }
 
-        function readCardPayload() {
-          const raw = sessionStorage.getItem("punchCardPayload");
-          if (!raw) return null;
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return null;
+        function readStoredPayload() {
+          for (const storage of [localStorage, sessionStorage]) {
+            try {
+              const raw = storage.getItem("punchCardPayload");
+              if (!raw) continue;
+              return JSON.parse(raw);
+            } catch {
+              /* ignore */
+            }
           }
+          return null;
         }
 
-        const stored = readCardPayload();
+        const stored = readStoredPayload();
         const params = new URLSearchParams(window.location.search);
-        const clockUrl = stored?.clock_url || params.get("url") || "";
-        const siteName = stored?.site_name || params.get("site") || "Work site";
+        const clockUrl = params.get("url") || stored?.clock_url || "";
+        const siteName = params.get("site") || stored?.site_name || "Work site";
         const embeddedQr = stored?.qr_image_data_uri || "";
         const preview = document.getElementById("card-preview");
         const empty = document.getElementById("card-empty");
@@ -444,6 +451,7 @@
 
         if (!clockUrl) {
           empty.hidden = false;
+          if (preview) preview.hidden = true;
           return;
         }
 
