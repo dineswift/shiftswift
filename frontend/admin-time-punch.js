@@ -1,6 +1,6 @@
 /** Admin — geofenced time punch sites and punch log. */
 (function () {
-  const { apiFetch, escapeHtml, parseHashBaseSection, downloadAuthenticated } = window.Admin;
+  const { apiFetch, escapeHtml, parseHashBaseSection, downloadAuthenticated, triggerBlobDownload } = window.Admin;
 
   const ROLE_LABELS = {
     all: "All staff",
@@ -30,6 +30,7 @@
   let punchHistoryDate = todayIso();
   let punchRefreshTimer = null;
   let exportPreset = "week";
+  let clockQrBySiteId = new Map();
 
   function formatDayLabel(iso) {
     if (!iso) return "";
@@ -997,11 +998,47 @@
     return data.qr_image_data_uri || data.qr_image_url || "";
   }
 
+  function qrDownloadFilename(siteName) {
+    const slug = String(siteName || "site")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    return `premises-clock-qr-${slug || "site"}.png`;
+  }
+
+  function dataUriToBlob(dataUri) {
+    const comma = dataUri.indexOf(",");
+    const header = comma >= 0 ? dataUri.slice(0, comma) : "data:image/png;base64";
+    const data = comma >= 0 ? dataUri.slice(comma + 1) : dataUri;
+    const mime = /data:([^;]+)/.exec(header)?.[1] || "image/png";
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function saveQrBlob(blob, filename) {
+    if (typeof triggerBlobDownload === "function") {
+      triggerBlobDownload(blob, filename);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  }
+
   async function fetchSiteClockQr(siteId) {
     const res = await apiFetch(`/admin/time-punch/sites/${siteId}/clock-qr`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(parseApiDetail(data, "Could not load QR"));
-    if (!qrImageSrc(data)) throw new Error("QR image was empty — try syncing the site again.");
+    if (!qrImageSrc(data) && !data.clock_url) throw new Error("QR image was empty — try syncing the site again.");
+    clockQrBySiteId.set(Number(siteId), data);
     return data;
   }
 
@@ -1027,10 +1064,20 @@
     link.remove();
   }
 
-  function openPunchCardPage(layout = "pocket", qrData) {
+  function punchCardHref(layout, qrData) {
     const clockUrl = String(qrData?.clock_url || "").trim();
     const siteName = String(qrData?.site_name || "Work site").trim() || "Work site";
+    const cardUrl = new URL("./punch-site-card.html", window.location.href);
+    cardUrl.searchParams.set("layout", layout);
+    cardUrl.searchParams.set("url", clockUrl);
+    cardUrl.searchParams.set("site", siteName);
+    return { href: cardUrl.toString(), clockUrl, siteName };
+  }
+
+  function openPunchCardPage(layout = "pocket", qrData, existingWindow) {
+    const { href, clockUrl, siteName } = punchCardHref(layout, qrData);
     if (!clockUrl) {
+      existingWindow?.close();
       showPunchNote("This site has no premises QR yet. Sync the site and try again.", "error");
       return null;
     }
@@ -1040,11 +1087,11 @@
       qr_image_data_uri: qrImageSrc(qrData),
       layout,
     });
-    const cardUrl = new URL("./punch-site-card.html", window.location.href);
-    cardUrl.searchParams.set("layout", layout);
-    cardUrl.searchParams.set("url", clockUrl);
-    cardUrl.searchParams.set("site", siteName);
-    openPrintableTab(cardUrl.toString());
+    if (existingWindow && !existingWindow.closed) {
+      existingWindow.location.replace(href);
+      return existingWindow;
+    }
+    openPrintableTab(href);
     return true;
   }
 
@@ -1080,7 +1127,7 @@
 
   function bindQrGalleryTile(siteId, data) {
     document.querySelector(`[data-gallery-download="${siteId}"]`)?.addEventListener("click", () => {
-      void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
+      void downloadSiteClockQr(siteId, data.site_name, data).catch((error) => {
         showPunchNote(error.message || "Could not download QR.", "error");
       });
     });
@@ -1170,16 +1217,23 @@
     }
   }
 
-  async function downloadSiteClockQr(siteId, siteName) {
-    const safeName = String(siteName || "work-site")
-      .trim()
-      .replace(/[^\w\s-]+/g, "")
-      .replace(/\s+/g, "-")
-      .toLowerCase();
-    await downloadAuthenticated(
-      `/admin/time-punch/sites/${siteId}/clock-qr.png`,
-      `premises-clock-qr-${safeName || "site"}.png`,
-    );
+  async function downloadSiteClockQr(siteId, siteName, qrData) {
+    const filename = qrDownloadFilename(siteName);
+    const payload = qrData || clockQrBySiteId.get(Number(siteId));
+    const src = payload ? qrImageSrc(payload) : "";
+    if (src.startsWith("data:image")) {
+      saveQrBlob(dataUriToBlob(src), filename);
+      showPunchNote("Premises QR downloaded.", "ok");
+      return;
+    }
+    const loaded = payload?.clock_url ? payload : await fetchSiteClockQr(siteId);
+    const loadedSrc = qrImageSrc(loaded);
+    if (loadedSrc.startsWith("data:image")) {
+      saveQrBlob(dataUriToBlob(loadedSrc), filename);
+      showPunchNote("Premises QR downloaded.", "ok");
+      return;
+    }
+    await downloadAuthenticated(`/admin/time-punch/sites/${siteId}/clock-qr/download`, filename);
     showPunchNote("Premises QR downloaded.", "ok");
   }
 
@@ -1231,7 +1285,7 @@
         }
       });
       host.querySelector("#punch-download-clock-qr")?.addEventListener("click", () => {
-        void downloadSiteClockQr(siteId, data.site_name).catch((error) => {
+        void downloadSiteClockQr(siteId, data.site_name, data).catch((error) => {
           showPunchNote(error.message || "Could not download QR.", "error");
         });
       });
@@ -1408,9 +1462,31 @@
       btn.addEventListener("click", (event) => {
         event.stopPropagation();
         const siteId = Number(btn.dataset.siteQrPrint);
+        const cached = clockQrBySiteId.get(siteId);
+        if (cached) {
+          openPunchCardPage("pocket", cached);
+          return;
+        }
+        const cardWindow = window.open("about:blank", "_blank");
+        if (!cardWindow) {
+          showPunchNote("Allow pop-ups to open the QR print page.", "warn");
+          return;
+        }
+        try {
+          cardWindow.document.open();
+          cardWindow.document.write(
+            "<!doctype html><title>Preparing card</title><p style='font-family:system-ui,sans-serif;padding:2rem;color:#334155'>Preparing QR card…</p>"
+          );
+          cardWindow.document.close();
+        } catch {
+          /* ignore */
+        }
         void fetchSiteClockQr(siteId)
-          .then((data) => openPunchCardPage("pocket", data))
-          .catch((error) => showPunchNote(error.message || "Could not load QR.", "error"));
+          .then((data) => openPunchCardPage("pocket", data, cardWindow))
+          .catch((error) => {
+            cardWindow.close();
+            showPunchNote(error.message || "Could not load QR.", "error");
+          });
       });
     });
   }
