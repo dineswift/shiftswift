@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from core.email_templates import (
     EmailContent,
+    login_email_mfa_code,
     password_reset_email,
     render_email,
+    signup_ops_notify_email,
     signup_platform_guide_email,
     welcome_trial_email,
 )
@@ -31,7 +33,7 @@ def test_signup_platform_guide_email_covers_disclaimer_and_support() -> None:
     )
     assert "not an outsourced HR" in content.text
     assert "hr@acme.co.uk" in content.text
-    assert "punch.html" in content.text
+    assert "employee.html" in content.text
     assert "support@" in content.text
     assert "Getting started" in content.html
 
@@ -57,3 +59,32 @@ def test_render_email_includes_brand_header() -> None:
     assert "#0f6e56" in html
     assert "Sign in" in html
     assert "display:none" in html
+
+
+def test_login_email_mfa_code_renders_plain_digits() -> None:
+    content = login_email_mfa_code(code="008811", minutes=10)
+    assert isinstance(content, EmailContent)
+    assert "sign-in code" in content.subject
+    assert "008811" in content.text
+    assert "008811" in content.html
+    assert "&lt;strong" not in content.html
+
+
+def test_signup_ops_notify_email_includes_contact_and_ops_inbox_copy() -> None:
+    content = signup_ops_notify_email(
+        business_name="Himalayan Inn",
+        billing_email="info@himalayaninn.com",
+        plan_name="Compliance",
+        tenant_id=42,
+        trial_days=14,
+        source="self-serve signup",
+    )
+    assert isinstance(content, EmailContent)
+    assert "new workspace registered" in content.subject
+    assert "Himalayan Inn" in content.subject
+    assert "info@himalayaninn.com" in content.text
+    assert "Contact / subscription email: info@himalayaninn.com" in content.text
+    assert "Tenant ID: 42" in content.text
+    assert "info@himalayaninn.com" in content.html
+    assert "Open master console" in content.html
+    assert "<html" in content.html
