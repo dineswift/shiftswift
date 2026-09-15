@@ -15113,6 +15113,12 @@ body.rota-week-readonly .rota-builder-hint {
   border-top: 1px solid var(--card-border);
 }
 
+.rota-print-dialog__error {
+  margin: 0 0 4px;
+  color: #b42318;
+  font-size: 0.82rem;
+}
+
 .rota-attendance-legend {
   display: flex;
   flex-wrap: wrap;

@@ -347,6 +347,32 @@ def list_shifts_for_week(*, tenant_id: int, week_start: date, conn: Any) -> tupl
         return week, shifts
 
 
+def list_shifts_for_date_range(
+    *,
+    tenant_id: int,
+    from_date: date,
+    to_date: date,
+    conn: Any,
+) -> list[dict[str, Any]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time,
+                   s.role_label, s.notes,
+                   trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')) AS employee_name,
+                   e.status
+            FROM rota_shifts s
+            JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
+            WHERE s.tenant_id = %s
+              AND s.shift_date >= %s
+              AND s.shift_date <= %s
+            ORDER BY s.shift_date, s.start_time, employee_name
+            """,
+            (tenant_id, from_date, to_date),
+        )
+        return [_shift_row(row) for row in cur.fetchall()]
+
+
 def get_week_rota(
     *,
     tenant_id: int,

@@ -2241,28 +2241,148 @@
   }
 
   async function exportRotaFile(ext) {
+    if (ext === "pdf") {
+      openPrintDialog();
+      return;
+    }
     if (dirty) {
       const proceed = window.confirm(
         "You have unsaved changes on screen. The export uses the last saved rota in ShiftSwift. Continue?"
       );
       if (!proceed) return;
     }
-    const label = ext === "csv" ? "CSV" : "printable PDF";
-    setMessage(ext === "csv" ? "Preparing grid CSV…" : "Preparing printable rota PDF…", "info");
+    setMessage("Preparing grid CSV…", "info");
     try {
       await downloadAuthenticated(
-        `/admin/rota/weeks/${currentWeekStart}/export.${ext}`,
-        `shiftswift-rota-${currentWeekStart}.${ext}`
+        `/admin/rota/weeks/${currentWeekStart}/export.csv`,
+        `shiftswift-rota-${currentWeekStart}.csv`
       );
-      setMessage(
-        ext === "csv"
-          ? "Grid CSV downloaded."
-          : "Printable rota PDF downloaded — open it and print for the noticeboard.",
-        "success"
-      );
+      setMessage("Grid CSV downloaded.", "success");
     } catch (error) {
-      setMessage(error?.message || `Could not export rota ${label}.`, "error");
+      setMessage(error?.message || "Could not export rota CSV.", "error");
     }
+  }
+
+  const ROTA_PRINT_MAX_DAYS = 42;
+
+  function highlightPrintPreset(preset) {
+    document.querySelectorAll("[data-rota-print-preset]").forEach((btn) => {
+      btn.classList.toggle("is-active", btn.getAttribute("data-rota-print-preset") === preset);
+    });
+  }
+
+  function setPrintDialogError(message) {
+    const el = document.getElementById("rota-print-error");
+    if (!el) return;
+    if (!message) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    el.hidden = false;
+    el.textContent = message;
+  }
+
+  function fillPrintDialog(preset) {
+    const fromEl = document.getElementById("rota-print-from");
+    const toEl = document.getElementById("rota-print-to");
+    if (!fromEl || !toEl) return;
+    if (preset === "this-week") {
+      const start = rotaWeekStartIso(new Date());
+      fromEl.value = start;
+      toEl.value = weekEndIso(start);
+    } else if (preset === "last-week") {
+      const start = addDays(rotaWeekStartIso(new Date()), -7);
+      fromEl.value = start;
+      toEl.value = weekEndIso(start);
+    } else if (preset === "last-4-weeks") {
+      const thisWeek = rotaWeekStartIso(new Date());
+      fromEl.value = addDays(thisWeek, -21);
+      toEl.value = weekEndIso(thisWeek);
+    } else {
+      fromEl.value = currentWeekStart;
+      toEl.value = weekEndIso(currentWeekStart);
+      preset = "this-view";
+    }
+    highlightPrintPreset(preset);
+    setPrintDialogError("");
+  }
+
+  function openPrintDialog() {
+    const dialog = document.getElementById("rota-print-dialog");
+    fillPrintDialog("this-view");
+    if (dialog && typeof dialog.showModal === "function") {
+      dialog.showModal();
+      return;
+    }
+    void downloadPrintPdf(currentWeekStart, weekEndIso(currentWeekStart));
+  }
+
+  async function downloadPrintPdf(fromDate, toDate) {
+    const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
+    const res = await apiFetch(`/admin/rota/print.pdf?${params.toString()}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(parseRotaApiDetail(data, "Could not download printable rota."));
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `shiftswift-rota-${fromDate}-to-${toDate}.pdf`;
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    if (match) link.download = match[1];
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function submitPrintDialog(event) {
+    event?.preventDefault();
+    const fromDate = document.getElementById("rota-print-from")?.value || "";
+    const toDate = document.getElementById("rota-print-to")?.value || "";
+    if (!fromDate || !toDate) {
+      setPrintDialogError("Choose a from and to date.");
+      return;
+    }
+    if (fromDate > toDate) {
+      setPrintDialogError("From date must be on or before the to date.");
+      return;
+    }
+    const dayCount =
+      Math.round((new Date(`${toDate}T12:00:00`) - new Date(`${fromDate}T12:00:00`)) / 86400000) + 1;
+    if (dayCount > ROTA_PRINT_MAX_DAYS) {
+      setPrintDialogError("Choose a range of 6 weeks or less.");
+      return;
+    }
+    if (dirty) {
+      const proceed = window.confirm(
+        "You have unsaved changes on screen. The print uses the last saved rota in ShiftSwift. Continue?"
+      );
+      if (!proceed) return;
+    }
+    setPrintDialogError("");
+    document.getElementById("rota-print-dialog")?.close();
+    setMessage("Preparing printable rota PDF…", "info");
+    try {
+      await downloadPrintPdf(fromDate, toDate);
+      setMessage(`Printable rota PDF downloaded (${fromDate} to ${toDate}).`, "success");
+    } catch (error) {
+      setMessage(error?.message || "Could not export printable PDF.", "error");
+    }
+  }
+
+  function bindPrintDialogOnce() {
+    const dialog = document.getElementById("rota-print-dialog");
+    if (!dialog || dialog.dataset.bound === "1") return;
+    dialog.dataset.bound = "1";
+    dialog.querySelectorAll("[data-rota-print-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => fillPrintDialog(btn.getAttribute("data-rota-print-preset")));
+    });
+    document.getElementById("rota-print-from")?.addEventListener("change", () => highlightPrintPreset(""));
+    document.getElementById("rota-print-to")?.addEventListener("change", () => highlightPrintPreset(""));
+    document.getElementById("rota-print-cancel")?.addEventListener("click", () => dialog.close());
+    document.getElementById("rota-print-form")?.addEventListener("submit", submitPrintDialog);
   }
 
   async function exportRotaPdf() {
@@ -2521,6 +2641,7 @@
     document.getElementById("rota-save-btn")?.addEventListener("click", saveRota);
     document.getElementById("rota-export-csv-btn")?.addEventListener("click", exportRotaCsv);
     document.getElementById("rota-export-pdf-btn")?.addEventListener("click", exportRotaPdf);
+    bindPrintDialogOnce();
     document.getElementById("rota-shifts-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv", "Shift list"));
     document.getElementById("rota-shifts-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf", "Shift list"));
     document.getElementById("rota-attendance-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv", "Flags"));
