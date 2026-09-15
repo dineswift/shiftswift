@@ -90,3 +90,76 @@ def test_dev_fallback_auth() -> None:
     assert user is not None
     assert user.username == TENANT_HR_USERNAME
     assert user.role == "hr"
+
+
+def _https_settings(**overrides) -> Settings:
+    values = dict(
+        app_env="production",
+        jwt_secret="test-secret-key-with-enough-length-123456",
+        jwt_access_minutes=60,
+        jwt_refresh_days=7,
+        master_customer_id="999",
+        cors_allow_origins=["https://app.example.com"],
+        trusted_hosts=["api.example.com", "localhost", "127.0.0.1"],
+        force_https=True,
+        login_rate_limit=10,
+        login_rate_window_seconds=900,
+        max_upload_bytes=10485760,
+        database_url="postgresql://localhost/test",
+        use_db=True,
+    )
+    values.update(overrides)
+    return Settings(**values)
+
+
+def _force_https_client(base_url: str):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from security_middleware import SecurityHeadersMiddleware
+
+    app = FastAPI()
+    app.add_middleware(SecurityHeadersMiddleware, settings=_https_settings())
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/setup/status")
+    def setup_status() -> dict[str, str]:
+        return {"complete": "yes"}
+
+    @app.get("/setup/brand")
+    def setup_brand() -> dict[str, str]:
+        return {"name": "ShiftSwift HR"}
+
+    return TestClient(app, base_url=base_url)
+
+
+def test_health_on_loopback_with_force_https_is_200_not_307() -> None:
+    client = _force_https_client("http://127.0.0.1:8000")
+    response = client.get("/health", follow_redirects=False)
+    assert response.status_code == 200, response.headers.get("location")
+    assert response.json()["status"] == "ok"
+
+
+def test_setup_status_on_localhost_with_force_https_is_200() -> None:
+    client = _force_https_client("http://localhost:8000")
+    response = client.get("/setup/status", follow_redirects=False)
+    assert response.status_code == 200, response.headers.get("location")
+
+
+def test_health_on_public_host_with_force_https_still_307() -> None:
+    client = _force_https_client("http://api.shiftswifthr.co.uk")
+    response = client.get("/health", follow_redirects=False)
+    assert response.status_code == 307
+    location = response.headers.get("location") or ""
+    assert location.startswith("https://")
+    assert "/health" in location
+
+
+def test_other_loopback_paths_still_redirect_when_force_https() -> None:
+    client = _force_https_client("http://127.0.0.1:8000")
+    response = client.get("/setup/brand", follow_redirects=False)
+    assert response.status_code == 307
+    assert (response.headers.get("location") or "").startswith("https://")
