@@ -62,6 +62,7 @@ cd "$API_ROOT"
 set -a && source backend_stub/.env && set +a
 bash scripts/run_migrations.sh
 sudo systemctl restart shiftswifthr-api
+bash deploy/cloudpanel/wait-api-health.sh
 curl -s https://api.shiftswifthr.co.uk/health
 ```
 
@@ -96,15 +97,22 @@ Or manually:
 
 ```bash
 cd /home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk
-git pull
+git fetch origin
+git checkout cursor/persist-sponsor-duties-ack-39e0
+git pull --ff-only origin cursor/persist-sponsor-duties-ack-39e0
 source backend_stub/.venv/bin/activate
 pip install -r backend_stub/requirements.txt
 set -a && source backend_stub/.env && set +a
 bash scripts/run_migrations.sh
 sudo systemctl restart shiftswifthr-api
+bash deploy/cloudpanel/wait-api-health.sh
 rsync -a --delete frontend/ /home/shiftswifthr-app/htdocs/app.shiftswifthr.co.uk/
-rsync -a --delete frontend/ /home/shiftswifthr/htdocs/www.shiftswifthr.co.uk/
+if [ -f frontend/app-root-index.html ]; then
+  cp frontend/app-root-index.html /home/shiftswifthr-app/htdocs/app.shiftswifthr.co.uk/index.html
+fi
 ```
+
+`wait-api-health.sh` blocks until `http://127.0.0.1:8000/health` is **HTTP 200**. If it is not, the script prints `journalctl` and **does not rsync**. Do not rsync while the API is down.
 
 **Legal pages:** Canonical URLs are `/payment-terms.html`, `/privacy-policy.html`, `/cookies.html`, `/eula.html`, `/dpa.html`. Deploy with `pull-production.sh` (rsyncs `frontend/`).
 
@@ -114,33 +122,56 @@ If the site shows an nginx error after editing vhost config, remove the bad cust
 
 ---
 
-## If `/health` returns 502 after checkout
+## If `/health` is 502 or `curl :8000` is connection refused
 
-**502 means nginx could not reach uvicorn.** Git checkout only updates files on disk. Frontend `rsync` does not start the API.
+**502 means nginx could not reach uvicorn.** **Connection refused on `127.0.0.1:8000` means uvicorn is not listening at all.** Git checkout only updates files on disk. `systemctl restart` returns when the process is spawned, not when `/health` is 200. Frontend `rsync` does not start the API — run it **only after** local health is 200.
 
-The public URL can also return 502 for a few seconds while workers come back. Check the local origin first:
+This stack (`cursor/fix-qr-print-cards-39e0`, and earlier `cursor/rota-printable-pdf-39e0`) imports `qrcode` and `reportlab` while loading `main:app`. A checkout without `pip install`, or an ImportError in those modules, crashes the workers immediately so nothing binds `:8000`.
+
+One-shot recover (installs deps, preflight import, restart, wait for HTTP 200, **then** rsync):
+
+```bash
+bash /home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk/deploy/cloudpanel/recover-api-502.sh
+```
+
+### Pasteable recovery (run as root or with sudo)
 
 ```bash
 API_ROOT=/home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk
+APP_ROOT=/home/shiftswifthr-app/htdocs/app.shiftswifthr.co.uk
+WWW_ROOT=/home/shiftswifthr/htdocs/www.shiftswifthr.co.uk
 cd "$API_ROOT"
 
-# Confirm the restored template is on disk
-grep -n "def login_email_mfa_code" backend_stub/core/email_templates.py
+git rev-parse --abbrev-ref HEAD
+git log -1 --oneline
 
-sudo systemctl restart shiftswifthr-api
-sleep 3
-sudo systemctl is-active shiftswifthr-api
-sudo journalctl -u shiftswifthr-api -n 50 --no-pager
+# Why uvicorn is not on :8000
+sudo systemctl status shiftswifthr-api --no-pager -l
+sudo journalctl -u shiftswifthr-api -n 80 --no-pager
 
-# Local origin (bypasses Cloudflare)
-curl -sS http://127.0.0.1:8000/health; echo
-curl -sS https://api.shiftswifthr.co.uk/health; echo
-
+# Same imports uvicorn runs at start (ImportError here = connection refused after restart)
+source backend_stub/.venv/bin/activate
+pip install -r backend_stub/requirements.txt
 cd "$API_ROOT/backend_stub"
-.venv/bin/python -c "from core.email_templates import login_email_mfa_code; print(login_email_mfa_code(code='123456', minutes=10).subject)"
+python -c "import qrcode, reportlab; import main; print('ok', main.app.title)"
+cd "$API_ROOT"
+
+# Start / restart and wait until health is HTTP 200
+sudo systemctl reset-failed shiftswifthr-api
+sudo systemctl restart shiftswifthr-api
+sudo systemctl is-active shiftswifthr-api
+bash deploy/cloudpanel/wait-api-health.sh
+
+# Only after local health is 200
+rsync -a --delete "$API_ROOT/frontend/" "$APP_ROOT/"
+if [ -f "$API_ROOT/frontend/app-root-index.html" ]; then
+  cp "$API_ROOT/frontend/app-root-index.html" "$APP_ROOT/index.html"
+fi
+
+curl -sS https://api.shiftswifthr.co.uk/health; echo
 ```
 
-- `is-active` is not `active`, or journal shows `ImportError` / traceback → fix that error, then restart again.
+- `is-active` is not `active`, or journal / preflight shows `ImportError` / traceback → fix that error (`pip install` or restore the missing module), then restart and wait again.
 - Local `:8000` is `{"status":"ok"...}` but the public URL is still 502 → `sudo nginx -t && sudo systemctl reload nginx`.
 - Then retry sign-in at `https://app.shiftswifthr.co.uk/business-login.html`. A wrong password should return **invalid credentials**, not **Cannot reach the API**.
 
