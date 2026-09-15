@@ -132,11 +132,22 @@
   }
 
   function applyImpersonationSession(data) {
+    try {
+      window.ShiftSwiftSession?.clearIdentityKeys?.();
+    } catch {
+      /* ignore */
+    }
     localStorage.setItem("token", data.access_token);
     localStorage.removeItem("refreshToken");
     localStorage.setItem("userRole", data.role || "hr");
     localStorage.setItem("tenantId", String(data.tenant_id));
-    if (data.tenant_name) localStorage.setItem("businessName", data.tenant_name);
+    const applied = window.ShiftSwiftSession?.applyWorkspaceBrand?.({
+      tenant_name: data.tenant_name,
+      trading_name: data.trading_name,
+    });
+    if (!applied && data.tenant_name) {
+      localStorage.setItem("businessName", data.tenant_name);
+    }
     sessionStorage.setItem(
       "impersonationActive",
       JSON.stringify({

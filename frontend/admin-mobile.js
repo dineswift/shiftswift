@@ -114,7 +114,9 @@
       if (token && window.Admin?.apiFetch) {
         const res = await window.Admin.apiFetch("/auth/verify");
         if (res.ok) {
-          applyAdminIdentity(await res.json());
+          const user = await res.json();
+          applyAdminIdentity(user);
+          window.ShiftSwiftSession?.applyWorkspaceBrand?.(user);
         }
       }
     } catch {

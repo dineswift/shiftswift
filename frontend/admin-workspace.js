@@ -203,7 +203,11 @@
   }
 
   function updateTopbarMeta(data) {
-    const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
+    const businessName =
+      window.ShiftSwiftSession?.applyWorkspaceBrand?.(data) ||
+      data.trading_name ||
+      data.tenant_name ||
+      "ShiftSwift HR";
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
     const avatar = document.querySelector(".topbar-user-menu__avatar");
@@ -376,7 +380,11 @@
       applyFeatureGates();
       applyNavBadges(data.nav_badges);
 
-      const businessName = data.trading_name || data.tenant_name || "your business";
+      const businessName =
+        window.ShiftSwiftSession?.applyWorkspaceBrand?.(data) ||
+        data.trading_name ||
+        data.tenant_name ||
+        "your business";
       if (subtitle) {
         subtitle.textContent = `Welcome back — ${businessName} at a glance.`;
       }

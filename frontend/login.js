@@ -199,9 +199,18 @@ async function postJson(path, body) {
 
 function storeSession(data) {
   if (window.ShiftSwiftSession?.storeSession) {
-    window.ShiftSwiftSession.storeSession(data);
+    window.ShiftSwiftSession.storeSession(data, { replaceIdentity: true });
     return;
   }
+  ["adminUsername", "adminFirstName", "adminDisplayName", "businessName", "subscriptionPlan"].forEach(
+    (key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    },
+  );
   if (data.access_token) localStorage.setItem("token", data.access_token);
   if (data.refresh_token) localStorage.setItem("refreshToken", data.refresh_token);
   if (data.role) localStorage.setItem("userRole", data.role);

@@ -859,6 +859,7 @@ def verify_auth(current_user: Annotated[AuthUser, Depends(get_current_user)]) ->
             result["time_clock_enabled"] = tenant_time_clock_enabled(tenant_id=tenant_id, conn=conn)
         result["display_name"] = display_name
         result["first_name"] = first_name
+        result["tenant_name"] = tenant_display_name(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
     return result

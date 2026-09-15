@@ -340,6 +340,7 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
       "employeeMobileTab",
       "employeeTimeClockEnabled",
       "businessName",
+      "subscriptionPlan",
       "sshrNativeApp",
     ];
 
