@@ -114,6 +114,38 @@ If the site shows an nginx error after editing vhost config, remove the bad cust
 
 ---
 
+## If `/health` returns 502 after checkout
+
+**502 means nginx could not reach uvicorn.** Git checkout only updates files on disk. Frontend `rsync` does not start the API.
+
+The public URL can also return 502 for a few seconds while workers come back. Check the local origin first:
+
+```bash
+API_ROOT=/home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk
+cd "$API_ROOT"
+
+# Confirm the restored template is on disk
+grep -n "def login_email_mfa_code" backend_stub/core/email_templates.py
+
+sudo systemctl restart shiftswifthr-api
+sleep 3
+sudo systemctl is-active shiftswifthr-api
+sudo journalctl -u shiftswifthr-api -n 50 --no-pager
+
+# Local origin (bypasses Cloudflare)
+curl -sS http://127.0.0.1:8000/health; echo
+curl -sS https://api.shiftswifthr.co.uk/health; echo
+
+cd "$API_ROOT/backend_stub"
+.venv/bin/python -c "from core.email_templates import login_email_mfa_code; print(login_email_mfa_code(code='123456', minutes=10).subject)"
+```
+
+- `is-active` is not `active`, or journal shows `ImportError` / traceback → fix that error, then restart again.
+- Local `:8000` is `{"status":"ok"...}` but the public URL is still 502 → `sudo nginx -t && sudo systemctl reload nginx`.
+- Then retry sign-in at `https://app.shiftswifthr.co.uk/business-login.html`. A wrong password should return **invalid credentials**, not **Cannot reach the API**.
+
+---
+
 ## SSH deploy key (recommended)
 
 On the server as `shiftswifthr-api`:
