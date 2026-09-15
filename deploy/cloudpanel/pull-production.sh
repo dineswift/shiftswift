@@ -60,12 +60,18 @@ fi
 
 if command -v systemctl >/dev/null 2>&1; then
   echo "==> restart ${SERVICE}"
+  sudo systemctl reset-failed "${SERVICE}" 2>/dev/null || true
   sudo systemctl restart "${SERVICE}"
+  sudo systemctl is-active "${SERVICE}" || true
 else
   echo "WARNING: systemctl not found — restart API manually"
 fi
 
-echo "==> sync frontend"
+# shellcheck disable=SC1091
+source "${API_ROOT}/deploy/cloudpanel/wait-api-health.sh"
+wait_api_health
+
+echo "==> sync frontend (API is up)"
 rsync -a --delete "${API_ROOT}/frontend/" "${APP_ROOT}/"
 echo "==> app root portal picker (index.html → login.html on app only)"
 cp "${API_ROOT}/frontend/app-root-index.html" "${APP_ROOT}/index.html"
@@ -236,24 +242,10 @@ if command -v curl >/dev/null 2>&1; then
   fi
 fi
 
-echo "==> health check"
+echo "==> public health"
 if command -v curl >/dev/null 2>&1; then
-  health_ok=0
-  for _ in 1 2 3 4 5; do
-    if curl -sf "http://127.0.0.1:8000/health" >/dev/null; then
-      health_ok=1
-      break
-    fi
-    sleep 2
-  done
-  if [ "${health_ok}" -eq 1 ]; then
-    curl -s "http://127.0.0.1:8000/health"
-    echo ""
-  else
-    echo "Local API not responding on :8000 after restart — check logs:"
-    echo "  sudo journalctl -u ${SERVICE} -n 40 --no-pager"
-    sudo systemctl status "${SERVICE}" --no-pager -l 2>/dev/null | tail -20 || true
-  fi
+  curl -sS "https://api.shiftswifthr.co.uk/health" || true
+  echo ""
 fi
 
 echo "Done."
