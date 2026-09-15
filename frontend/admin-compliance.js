@@ -695,13 +695,39 @@
     host.dataset.mounted = "true";
   }
 
-  function mountRtwUploadForm() {
+  function rtwEmployeeOptionsHtml(employees, selectedId) {
+    const eligible = (employees || []).filter((emp) => {
+      const status = String(emp.status || "active").toLowerCase();
+      return status !== "terminated" && status !== "inactive";
+    });
+    if (!eligible.length) {
+      return `<option value="">No employees on file — add staff in Employees first</option>`;
+    }
+    const options = eligible
+      .map((emp) => {
+        const selected = String(selectedId || "") === String(emp.value) ? " selected" : "";
+        return `<option value="${escapeHtml(emp.value)}"${selected}>${escapeHtml(emp.label)}</option>`;
+      })
+      .join("");
+    return `<option value="">Select employee</option>${options}`;
+  }
+
+  async function mountRtwUploadForm() {
     const host = document.getElementById("rtw-upload-form");
     if (!host || host.dataset.mounted === "true") return;
+    let employees = [];
+    try {
+      employees = await loadEmployees();
+    } catch {
+      employees = [];
+    }
+    const today = new Date().toISOString().slice(0, 10);
     host.innerHTML = `
       <form class="edit-form edit-form--cols-2" id="rtw-upload">
-        <label class="edit-field"><span class="edit-label">Employee ID</span><input name="employee_id" type="number" required /></label>
-        <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required /></label>
+        <label class="edit-field"><span class="edit-label">Employee</span>
+          <select name="employee_id" required>${rtwEmployeeOptionsHtml(employees)}</select>
+        </label>
+        <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required value="${today}" /></label>
         <label class="edit-field"><span class="edit-label">Method</span><input name="check_method" value="Manual PDF upload" required /></label>
         <label class="edit-field"><span class="edit-label">Outcome</span>
           <select name="outcome" required>
@@ -734,6 +760,8 @@
         if (!res.ok) throw new Error(data.detail || "Upload failed");
         if (status) status.textContent = `Stored check #${data.check_id} · SHA ${data.content_sha256?.slice(0, 12)}…`;
         form.reset();
+        const dateInput = form.querySelector('input[name="check_date"]');
+        if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
         window.dispatchEvent(new CustomEvent("admin:compliance-refresh"));
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       } catch (error) {
@@ -749,7 +777,7 @@
       const ready = await ensureSponsorLicenceAcknowledged();
       if (!ready) return;
     }
-    mountRtwUploadForm();
+    await mountRtwUploadForm();
     await Promise.all([
       mountShareCodeForm(),
       mountAbsenceDayForm(),
