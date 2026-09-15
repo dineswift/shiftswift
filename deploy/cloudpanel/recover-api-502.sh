@@ -11,7 +11,6 @@ set -euo pipefail
 
 API_ROOT="${SHIFTSWIFT_API_ROOT:-/home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk}"
 APP_ROOT="${SHIFTSWIFT_APP_ROOT:-/home/shiftswifthr-app/htdocs/app.shiftswifthr.co.uk}"
-WWW_ROOT="${SHIFTSWIFT_WWW_ROOT:-/home/shiftswifthr/htdocs/www.shiftswifthr.co.uk}"
 SERVICE="${SHIFTSWIFT_SERVICE:-shiftswifthr-api}"
 HEALTH_URL="${SHIFTSWIFT_HEALTH_URL:-http://127.0.0.1:8000/health}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,13 +63,10 @@ sudo systemctl is-active "${SERVICE}" || true
 
 wait_api_health
 
-echo "==> rsync frontend (API is up)"
+echo "==> rsync frontend to app (API is up)"
 rsync -a --delete "${API_ROOT}/frontend/" "${APP_ROOT}/"
 if [ -f "${API_ROOT}/frontend/app-root-index.html" ]; then
   cp "${API_ROOT}/frontend/app-root-index.html" "${APP_ROOT}/index.html"
-fi
-if [ -d "${WWW_ROOT}" ]; then
-  rsync -a --delete "${API_ROOT}/frontend/" "${WWW_ROOT}/"
 fi
 
 echo "==> public health"
