@@ -16,7 +16,7 @@ from deps import client_ip, get_employee_user, get_hr_user, require_tenant_subsc
 from modules.time_punch import service as punch_service
 from modules.time_punch import kiosk as kiosk_service
 from modules.time_punch import timesheet as timesheet_service
-from modules.time_punch.qr import punch_qr_data_uri, punch_qr_png_bytes
+from modules.time_punch.qr import punch_qr_data_uri, punch_qr_download_filename, punch_qr_png_bytes
 
 PunchAction = Literal["in", "out", "break_start", "break_end"]
 PunchReviewStatus = Literal["pending", "reviewed"]
@@ -456,6 +456,42 @@ def site_clock_qr(
         conn.close()
 
 
+def _site_clock_qr_png_response(*, tenant_id: int, site_id: int, conn: Any) -> Response:
+    token = punch_service.ensure_site_clock_token(tenant_id=tenant_id, site_id=site_id, conn=conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT name FROM punch_sites WHERE id = %s AND tenant_id = %s",
+            (site_id, tenant_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Punch site not found")
+    clock_url = punch_service.site_clock_url(clock_token=token)
+    png = punch_qr_png_bytes(clock_url, box_size=10, border=2)
+    filename = punch_qr_download_filename(str(row[0] or "site"))
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@admin_router.get("/sites/{site_id}/clock-qr/download")
+def site_clock_qr_download(
+    site_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> Response:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        return _site_clock_qr_png_response(tenant_id=tenant_id, site_id=site_id, conn=conn)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+
+
 @admin_router.get("/sites/{site_id}/clock-qr.png")
 def site_clock_qr_png(
     site_id: int,
@@ -465,24 +501,7 @@ def site_clock_qr_png(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
-        token = punch_service.ensure_site_clock_token(tenant_id=tenant_id, site_id=site_id, conn=conn)
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT name FROM punch_sites WHERE id = %s AND tenant_id = %s",
-                (site_id, tenant_id),
-            )
-            row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Punch site not found")
-        clock_url = punch_service.site_clock_url(clock_token=token)
-        png = punch_qr_png_bytes(clock_url, box_size=10, border=2)
-        safe_name = str(row[0] or "work-site").replace('"', "").replace("/", "-")
-        filename = f"premises-clock-qr-{safe_name}.png"
-        return Response(
-            content=png,
-            media_type="image/png",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
+        return _site_clock_qr_png_response(tenant_id=tenant_id, site_id=site_id, conn=conn)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:

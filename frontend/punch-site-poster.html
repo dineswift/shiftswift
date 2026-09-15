@@ -9,6 +9,10 @@
     <script src="./app-icons.js?v=brandkit-v5"></script>
     <link rel="stylesheet" href="./theme.css?v=brand-v1" />
     <style>
+      [hidden] {
+        display: none !important;
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -180,7 +184,12 @@
         const root = document.getElementById("poster-root");
         const empty = document.getElementById("poster-empty");
         const printBtn = document.getElementById("poster-print-btn");
-        const raw = sessionStorage.getItem("punchPosterPayload");
+        let raw = null;
+        try {
+          raw = localStorage.getItem("punchPosterPayload") || sessionStorage.getItem("punchPosterPayload");
+        } catch {
+          raw = null;
+        }
 
         function qrUrl(site) {
           if (site.qr_image_data_uri) return site.qr_image_data_uri;

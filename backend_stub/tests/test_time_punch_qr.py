@@ -8,7 +8,12 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
-from modules.time_punch.qr import punch_qr_data_uri, punch_qr_png_bytes
+from modules.time_punch.qr import punch_qr_data_uri, punch_qr_download_filename, punch_qr_png_bytes
+
+
+def test_punch_qr_download_filename_strips_punctuation() -> None:
+    assert punch_qr_download_filename("Himalayan Inn – main") == "premises-clock-qr-himalayan-inn-main.png"
+    assert punch_qr_download_filename(None) == "premises-clock-qr-site.png"
 
 
 def test_punch_qr_png_bytes_is_valid_png() -> None:

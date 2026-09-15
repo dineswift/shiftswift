@@ -4,9 +4,17 @@ from __future__ import annotations
 
 import base64
 import io
+import re
 
 import qrcode
 from qrcode.constants import ERROR_CORRECT_M
+
+_FILENAME_SAFE_RE = re.compile(r"[^a-z0-9]+")
+
+
+def punch_qr_download_filename(site_name: str | None) -> str:
+    slug = _FILENAME_SAFE_RE.sub("-", (site_name or "site").lower()).strip("-")
+    return f"premises-clock-qr-{slug or 'site'}.png"
 
 
 def punch_qr_png_bytes(content: str, *, box_size: int = 8, border: int = 2) -> bytes:
