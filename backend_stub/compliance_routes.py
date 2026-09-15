@@ -159,16 +159,16 @@ def sponsor_licence_acknowledge(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_plan(tenant_id=tenant_id, conn=conn)
-        return acknowledge_sponsor_licence(
+        result = acknowledge_sponsor_licence(
             tenant_id=tenant_id,
             acknowledged_by=current_user.username,
             holds_sponsor_licence=payload.holds_sponsor_licence,
             conn=conn,
         )
+        conn.commit()
+        return result
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    else:
-        conn.commit()
     finally:
         conn.close()
 

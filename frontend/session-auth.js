@@ -16,6 +16,7 @@
     "employeeDisplayName",
     "employeeMobileTab",
     "employeeTimeClockEnabled",
+    "businessName",
   ];
 
   let refreshInFlight = null;
@@ -211,6 +212,16 @@
     }
     if (data.tenant_id != null) {
       const tid = String(data.tenant_id);
+      const previous = localStorage.getItem("tenantId");
+      if (previous && previous !== tid) {
+        IDENTITY_KEYS.forEach((key) => {
+          try {
+            localStorage.removeItem(key);
+          } catch {
+            /* ignore */
+          }
+        });
+      }
       localStorage.setItem("tenantId", tid);
       void persistNativeKey("tenantId", tid);
       localStorage.setItem("masterTenantId", tid);

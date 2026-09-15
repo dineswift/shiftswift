@@ -226,8 +226,12 @@
       const dashboardData = dashRes.ok ? await dashRes.json() : lastDashboardData;
       if (dashboardData) lastDashboardData = dashboardData;
       if (ackData.acknowledged) {
+        markOverviewAcknowledged();
         applyAcknowledgedLayout(true);
         showEnabledOverview(ackData, dashboardData);
+      } else if (overviewAlreadyAcknowledged()) {
+        applyAcknowledgedLayout(true);
+        showEnabledOverview({ ...ackData, acknowledged: true }, dashboardData);
       } else {
         applyAcknowledgedLayout(false);
         hideEnabledOverview();
@@ -270,6 +274,33 @@
     updateAckCheckboxState();
   }
 
+  function overviewAlreadyAcknowledged() {
+    return Boolean(window.Admin?.tenantFeatures?.sponsor_licence_acknowledged);
+  }
+
+  function markOverviewAcknowledged() {
+    if (!window.Admin?.tenantFeatures) return;
+    window.Admin.tenantFeatures.sponsor_licence_acknowledged = true;
+    window.Admin.tenantFeatures.holds_sponsor_licence = true;
+  }
+
+  async function showAcknowledgedTools(data) {
+    lastAckData = data;
+    applyAcknowledgedLayout(true);
+    let dashboardData = lastDashboardData;
+    try {
+      const dashRes = await apiFetch("/compliance/sponsor-licence/dashboard");
+      if (dashRes.ok) {
+        dashboardData = await dashRes.json();
+        lastDashboardData = dashboardData;
+      }
+    } catch {
+      /* dashboard optional */
+    }
+    showEnabledOverview(data, dashboardData);
+    return true;
+  }
+
   async function ensureSponsorLicenceAcknowledged() {
     const panel = document.getElementById("sponsor-licence-ack-panel");
     const content = document.getElementById("compliance-tools-content");
@@ -283,24 +314,18 @@
         hideEnabledOverview();
         return true;
       }
-      if (!res.ok) return false;
+      if (!res.ok) {
+        if (overviewAlreadyAcknowledged()) return showAcknowledgedTools(lastAckData || { acknowledged: true });
+        return false;
+      }
       const data = await res.json();
       lastAckData = data;
       if (data.acknowledged) {
-        applyAcknowledgedLayout(true);
-        populateAckPanel(data);
-        let dashboardData = lastDashboardData;
-        try {
-          const dashRes = await apiFetch("/compliance/sponsor-licence/dashboard");
-          if (dashRes.ok) {
-            dashboardData = await dashRes.json();
-            lastDashboardData = dashboardData;
-          }
-        } catch {
-          /* dashboard optional */
-        }
-        showEnabledOverview(data, dashboardData);
-        return true;
+        markOverviewAcknowledged();
+        return showAcknowledgedTools(data);
+      }
+      if (overviewAlreadyAcknowledged()) {
+        return showAcknowledgedTools({ ...data, acknowledged: true });
       }
       hideEnabledOverview();
       applyAcknowledgedLayout(false);
@@ -308,6 +333,10 @@
       bindAckPanel();
       return false;
     } catch {
+      if (overviewAlreadyAcknowledged()) {
+        applyAcknowledgedLayout(true);
+        return true;
+      }
       return false;
     }
   }
@@ -372,6 +401,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Could not save confirmation");
         if (status) status.textContent = "Confirmed. Loading compliance tools…";
+        markOverviewAcknowledged();
         applyAcknowledgedLayout(true);
         lastAckData = data;
         showEnabledOverview(data, lastDashboardData);
