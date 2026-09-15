@@ -4757,6 +4757,12 @@ html.pwa-standalone .mobile-tab-bar {
     background: var(--gray-100);
   }
 
+  .rota-mobile-chip--primary {
+    border-color: var(--green-600);
+    background: var(--green-700);
+    color: #fff;
+  }
+
   .rota-mobile-chip--toggle.is-active {
     border-color: var(--green-500);
     background: rgba(225, 245, 238, 0.55);
@@ -15105,6 +15111,12 @@ body.rota-week-readonly .rota-builder-hint {
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--card-border);
+}
+
+.rota-print-dialog__error {
+  margin: 0 0 4px;
+  color: #b42318;
+  font-size: 0.82rem;
 }
 
 .rota-attendance-legend {

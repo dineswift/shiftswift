@@ -22,7 +22,7 @@ from modules.rota import requests as rota_requests
 from modules.rota import service as rota_service
 from modules.rota import templates as rota_templates
 from modules.rota.export_attendance import build_week_attendance_csv, rota_week_attendance_pdf_bytes
-from modules.rota.export_pdf import build_rota_week_pdf, rota_week_csv_bytes, rota_week_pdf_bytes
+from modules.rota.export_pdf import rota_range_pdf_bytes, rota_week_csv_bytes, rota_week_pdf_bytes
 from modules.rota.service import RotaConflictError, RotaValidationError
 from modules.time_punch import service as punch_service
 
@@ -179,6 +179,35 @@ def get_rota_readiness(
         return rota_readiness.build_rota_readiness(tenant_id=tenant_id, conn=conn)
     finally:
         conn.close()
+
+
+@admin_router.get("/print.pdf")
+def print_rota_pdf(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    from_date: str = Query(..., min_length=10, max_length=10),
+    to_date: str = Query(..., min_length=10, max_length=10),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+):
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        pdf_bytes = rota_range_pdf_bytes(
+            tenant_id=tenant_id,
+            from_date=from_date,
+            to_date=to_date,
+            conn=conn,
+        )
+    except (RotaValidationError, ValueError) as exc:
+        raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+    filename = f"shiftswift-rota-{from_date}-to-{to_date}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @admin_router.get("/weeks/{week_start}")

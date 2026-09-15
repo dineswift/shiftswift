@@ -2336,7 +2336,7 @@
                 <button type="button" class="btn ghost rota-this-week-btn" id="rota-this-week">This week</button>
               </div>
               <button type="button" class="btn ghost" id="rota-export-csv-btn">Grid CSV</button>
-              <button type="button" class="btn ghost" id="rota-export-pdf-btn">Grid PDF</button>
+              <button type="button" class="btn outline" id="rota-export-pdf-btn" title="Download a printable A4 rota for any date range, including past weeks">Print PDF</button>
               <button type="button" class="btn ghost" id="rota-copy-prev-btn">Copy prev week</button>
               <button type="button" class="btn ghost" id="rota-reload-btn">Reload</button>
               <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
@@ -2415,7 +2415,7 @@
             <div id="rota-mobile-staff-list" class="rota-mobile-staff-list" aria-label="Staff for selected day"></div>
             <div class="rota-mobile-secondary" aria-label="More rota actions">
               <button type="button" class="rota-mobile-chip" id="rota-mobile-export-csv">Grid CSV</button>
-              <button type="button" class="rota-mobile-chip" id="rota-mobile-export-pdf">Grid PDF</button>
+              <button type="button" class="rota-mobile-chip rota-mobile-chip--primary" id="rota-mobile-export-pdf">Print PDF</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-clear">Clear rota</button>
@@ -2610,6 +2610,30 @@
           </aside>
           </div>
         </section>
+
+        <dialog id="rota-print-dialog" class="punch-export-dialog">
+          <form method="dialog" class="punch-export-dialog__card" id="rota-print-form">
+            <header class="punch-export-dialog__head">
+              <h3>Print rota PDF</h3>
+              <p class="muted">Choose any dates — including past weeks. Shift cells show times only; job titles stay with staff names.</p>
+            </header>
+            <div class="punch-export-dialog__presets" role="group" aria-label="Quick ranges">
+              <button type="button" class="btn outline btn-sm" data-rota-print-preset="this-view">This view</button>
+              <button type="button" class="btn outline btn-sm" data-rota-print-preset="this-week">This week</button>
+              <button type="button" class="btn outline btn-sm" data-rota-print-preset="last-week">Last week</button>
+              <button type="button" class="btn outline btn-sm" data-rota-print-preset="last-4-weeks">Last 4 weeks</button>
+            </div>
+            <div class="punch-export-dialog__fields edit-form edit-form--cols-2">
+              <label class="edit-field"><span class="edit-label">From</span><input type="date" id="rota-print-from" required /></label>
+              <label class="edit-field"><span class="edit-label">To</span><input type="date" id="rota-print-to" required /></label>
+            </div>
+            <p id="rota-print-error" class="rota-print-dialog__error" hidden></p>
+            <footer class="punch-export-dialog__foot">
+              <button type="button" class="btn ghost" id="rota-print-cancel">Cancel</button>
+              <button type="submit" class="btn primary" id="rota-print-submit">Download PDF</button>
+            </footer>
+          </form>
+        </dialog>
 
         <section id="leave" class="admin-section" hidden>
           <header class="section-header">
