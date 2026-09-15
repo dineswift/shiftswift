@@ -12,10 +12,12 @@ from pydantic import BaseModel, Field
 from config import load_settings
 from deps import AuthUser, get_hr_user, resolve_tenant_id
 from sponsor_licence_compliance import (
+    UK_BANK_HOLIDAYS_URL,
     UK_RTW_CHECKLIST_URL,
     absence_monitoring_dashboard,
     absence_type_catalog,
     add_advertisement_link,
+    apply_england_wales_bank_holidays,
     compliance_dashboard,
     create_advertisement_record,
     delete_sponsored_absence_day,
@@ -574,6 +576,10 @@ class WorkingCalendarBulkRequest(BaseModel):
     entries: list[WorkingCalendarEntry] = Field(min_length=1)
 
 
+class UkBankHolidaysRequest(BaseModel):
+    years: list[int] | None = None
+
+
 class ReportTriggerUpdate(BaseModel):
     status: str = Field(pattern="^(acknowledged|reported|dismissed)$")
     report_reference: str | None = None
@@ -814,6 +820,26 @@ def update_working_calendar(
     finally:
         conn.close()
     return result
+
+
+@router.post("/working-calendar/uk-bank-holidays")
+def seed_uk_bank_holidays(
+    payload: UkBankHolidaysRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    today = date.today()
+    years = payload.years or [today.year, today.year + 1]
+    conn = _db_conn()
+    try:
+        _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
+        result = apply_england_wales_bank_holidays(tenant_id=tenant_id, conn=conn, years=years)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return {**result, "source_url": UK_BANK_HOLIDAYS_URL}
 
 
 @router.get("/audit-export")

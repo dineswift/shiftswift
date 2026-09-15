@@ -308,12 +308,14 @@
       rtwItems = [];
       rtwStats = { total: 0, verified: 0, expiring_soon: 0, needs_review: 0 };
       renderStats();
-      const message = "No RTW records yet — add your first check above.";
+      const message = "Could not load RTW records. Try Add RTW check, or refresh this page.";
       if (tbody) tbody.innerHTML = `<tr><td colspan="5">${emptyStateHtml(message)}</td></tr>`;
       if (cardsHost) {
-        cardsHost.hidden = false;
-        cardsHost.innerHTML = emptyStateHtml(message);
+        const showMobile = isMobileView();
+        cardsHost.hidden = !showMobile;
+        cardsHost.innerHTML = showMobile ? emptyStateHtml(message) : "";
       }
+      document.getElementById("rtw-detail-panel")?.setAttribute("hidden", "");
     }
   }
 
