@@ -2247,14 +2247,19 @@
       );
       if (!proceed) return;
     }
-    const label = ext === "csv" ? "CSV" : "PDF";
-    setMessage(`Preparing grid ${label}…`, "info");
+    const label = ext === "csv" ? "CSV" : "printable PDF";
+    setMessage(ext === "csv" ? "Preparing grid CSV…" : "Preparing printable rota PDF…", "info");
     try {
       await downloadAuthenticated(
         `/admin/rota/weeks/${currentWeekStart}/export.${ext}`,
         `shiftswift-rota-${currentWeekStart}.${ext}`
       );
-      setMessage(`Grid ${label} downloaded.`, "success");
+      setMessage(
+        ext === "csv"
+          ? "Grid CSV downloaded."
+          : "Printable rota PDF downloaded — open it and print for the noticeboard.",
+        "success"
+      );
     } catch (error) {
       setMessage(error?.message || `Could not export rota ${label}.`, "error");
     }

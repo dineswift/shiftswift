@@ -33,6 +33,11 @@ DAY_OFF_RE = (
 )
 
 
+def _employee_print_name(first_name: str | None, last_name: str | None) -> str:
+    combined = f"{(first_name or '').strip()} {(last_name or '').strip()}".strip()
+    return combined or "Staff"
+
+
 def _employee_short_name(first_name: str | None, last_name: str | None) -> str:
     first = (first_name or "").strip()
     last = (last_name or "").strip()
@@ -129,6 +134,7 @@ def _load_rota_staff(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
         staff.append(
             {
                 "id": int(row[0]),
+                "print_name": _employee_print_name(row[1], row[2]),
                 "short_name": _employee_short_name(row[1], row[2]),
                 "role_label": _employee_role_label(row[3], row[4]),
             }
@@ -164,49 +170,42 @@ def build_rota_week_pdf(
         "RotaTitle",
         parent=styles["Heading1"],
         textColor=colors.HexColor("#0F6E56"),
-        fontSize=15,
+        fontSize=18,
         spaceAfter=4,
     )
-    meta_style = ParagraphStyle("RotaMeta", parent=styles["Normal"], fontSize=9, leading=11)
+    meta_style = ParagraphStyle("RotaMeta", parent=styles["Normal"], fontSize=10, leading=13)
     header_style = ParagraphStyle(
         "RotaHeader",
         parent=styles["Normal"],
-        fontSize=8,
-        leading=9,
+        fontSize=9,
+        leading=11,
         textColor=colors.HexColor("#334155"),
         alignment=1,
     )
     staff_style = ParagraphStyle(
         "RotaStaff",
         parent=styles["Normal"],
-        fontSize=8,
-        leading=10,
+        fontSize=9,
+        leading=11,
         textColor=colors.HexColor("#0F172A"),
-    )
-    staff_role_style = ParagraphStyle(
-        "RotaStaffRole",
-        parent=styles["Normal"],
-        fontSize=7,
-        leading=8,
-        textColor=colors.HexColor("#64748B"),
     )
     cell_style = ParagraphStyle(
         "RotaCell",
         parent=styles["Normal"],
-        fontSize=7,
-        leading=8,
+        fontSize=8,
+        leading=10,
         alignment=1,
     )
 
     status_label = (week_status or "draft").replace("_", " ").title()
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     body: list[Any] = [
-        Paragraph("ShiftSwift HR — Weekly Rota", title_style),
+        Paragraph("Weekly rota — print this copy", title_style),
         Paragraph(
             f"<b>{tenant_name}</b><br/>"
             f"Week: {week_start.strftime('%d %b %Y')} – {week_end.strftime('%d %b %Y')} "
             f"({week_start_day_name} start) · Status: {status_label}<br/>"
-            f"Generated: {generated}",
+            f"Pin on the staff noticeboard · Times are 24-hour · Generated {generated}",
             meta_style,
         ),
         Spacer(1, 6),
@@ -234,9 +233,10 @@ def build_rota_week_pdf(
     cell_tone_map: dict[tuple[int, int], str] = {}
     for row_idx, employee in enumerate(staff, start=1):
         emp_id = int(employee["id"])
+        display_name = employee.get("print_name") or employee.get("short_name") or "Staff"
         role_label = employee["role_label"]
         staff_cell = Paragraph(
-            f"<b>{employee['short_name']}</b><br/><font size='6' color='#64748B'>{role_label}</font>",
+            f"<b>{display_name}</b><br/><font size='7' color='#64748B'>{role_label}</font>",
             staff_style,
         )
         row_cells: list[Any] = [staff_cell]
@@ -262,7 +262,7 @@ def build_rota_week_pdf(
         table_data.append(row_cells)
 
     page_width = page_size[0] - doc.leftMargin - doc.rightMargin
-    staff_col = 34 * mm
+    staff_col = 42 * mm
     day_col = (page_width - staff_col) / 7
     col_widths = [staff_col, *[day_col] * 7]
 

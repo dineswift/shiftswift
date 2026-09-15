@@ -4757,6 +4757,12 @@ html.pwa-standalone .mobile-tab-bar {
     background: var(--gray-100);
   }
 
+  .rota-mobile-chip--primary {
+    border-color: var(--green-600);
+    background: var(--green-700);
+    color: #fff;
+  }
+
   .rota-mobile-chip--toggle.is-active {
     border-color: var(--green-500);
     background: rgba(225, 245, 238, 0.55);

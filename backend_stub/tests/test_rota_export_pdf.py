@@ -22,8 +22,8 @@ def test_build_rota_week_pdf_starts_with_pdf_header() -> None:
         week_status="published",
         week_days=[week_start + timedelta(days=offset) for offset in range(7)],
         staff=[
-            {"id": 1, "short_name": "K. Acharya", "role_label": "Tandoori Chef"},
-            {"id": 2, "short_name": "A. Smith", "role_label": "Floor"},
+            {"id": 1, "print_name": "Karun Acharya", "short_name": "K. Acharya", "role_label": "Tandoori Chef"},
+            {"id": 2, "print_name": "Amina Smith", "short_name": "A. Smith", "role_label": "Floor"},
         ],
         shifts=[
             {
@@ -43,6 +43,7 @@ def test_build_rota_week_pdf_starts_with_pdf_header() -> None:
         ],
     )
     assert pdf.startswith(b"%PDF")
+    assert len(pdf) > 500
 
 
 def test_build_rota_week_csv_includes_shift_rows() -> None:
@@ -121,3 +122,10 @@ def test_build_rota_week_pdf_with_attendance_legend() -> None:
         attendance_by_shift_id={5: {"attendance_status": "no_show"}},
     )
     assert pdf.startswith(b"%PDF")
+
+
+def test_employee_print_name_uses_full_name() -> None:
+    from modules.rota.export_pdf import _employee_print_name
+
+    assert _employee_print_name("Karun", "Acharya") == "Karun Acharya"
+    assert _employee_print_name("Amina", None) == "Amina"
