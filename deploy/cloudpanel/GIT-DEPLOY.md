@@ -98,8 +98,8 @@ Or manually:
 ```bash
 cd /home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk
 git fetch origin
-git checkout cursor/persist-sponsor-duties-ack-39e0
-git pull --ff-only origin cursor/persist-sponsor-duties-ack-39e0
+git checkout cursor/fix-admin-tab-tenant-title-39e0
+git pull --ff-only origin cursor/fix-admin-tab-tenant-title-39e0
 source backend_stub/.venv/bin/activate
 pip install -r backend_stub/requirements.txt
 set -a && source backend_stub/.env && set +a

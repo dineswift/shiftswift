@@ -16,6 +16,8 @@
     "employeeDisplayName",
     "employeeMobileTab",
     "employeeTimeClockEnabled",
+    "businessName",
+    "subscriptionPlan",
   ];
 
   let refreshInFlight = null;
@@ -191,11 +193,62 @@
     return Boolean(getToken() || getRefreshToken());
   }
 
-  function storeSession(data) {
+  function clearIdentityKeys() {
+    IDENTITY_KEYS.forEach((key) => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  function workspaceDisplayName(data) {
+    if (!data || typeof data !== "object") return "";
+    return String(
+      data.trading_name ||
+        data.tenant_name ||
+        data.tenant_trading_name ||
+        data.employer_name ||
+        data.name ||
+        "",
+    ).trim();
+  }
+
+  function applyAdminConsoleTitle(name) {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) return "";
+    try {
+      if (typeof document !== "undefined") {
+        document.title = `${trimmed} | Admin Console`;
+      }
+    } catch {
+      /* ignore */
+    }
+    return trimmed;
+  }
+
+  function applyWorkspaceBrand(data) {
+    const name = workspaceDisplayName(data);
+    if (!name) return "";
+    try {
+      localStorage.setItem("businessName", name);
+    } catch {
+      /* ignore */
+    }
+    applyAdminConsoleTitle(name);
+    return name;
+  }
+
+  function storeSession(data, options = {}) {
+    const replaceIdentity = Boolean(options.replaceIdentity);
     try {
       sessionStorage.removeItem("sshrSignedOut");
     } catch {
       /* ignore */
+    }
+    if (replaceIdentity) {
+      clearIdentityKeys();
     }
     if (data.access_token) {
       localStorage.setItem("token", data.access_token);
@@ -211,10 +264,17 @@
     }
     if (data.tenant_id != null) {
       const tid = String(data.tenant_id);
+      const previous = localStorage.getItem("tenantId");
+      if (!replaceIdentity && previous !== tid) {
+        clearIdentityKeys();
+      }
       localStorage.setItem("tenantId", tid);
       void persistNativeKey("tenantId", tid);
       localStorage.setItem("masterTenantId", tid);
       void persistNativeKey("masterTenantId", tid);
+    }
+    if (replaceIdentity || data.tenant_name || data.trading_name) {
+      applyWorkspaceBrand(data);
     }
   }
 
@@ -433,6 +493,7 @@
     BUSINESS_LOGIN_URL,
     UNIFIED_LOGIN_URL,
     NATIVE_UNIFIED_LOGIN_URL,
+    IDENTITY_KEYS,
     unifiedNativeLoginUrl,
     resolveLoginUrl,
     portalUrl,
@@ -446,7 +507,11 @@
     hasSession,
     storeSession,
     persistNativeSession,
+    clearIdentityKeys,
     clearSession,
+    workspaceDisplayName,
+    applyWorkspaceBrand,
+    applyAdminConsoleTitle,
     signOut,
     hydrateNativeSession,
     redirectIfLoggedIn,

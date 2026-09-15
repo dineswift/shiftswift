@@ -257,15 +257,21 @@
         apiFetch("/billing/status"),
       ]);
       let planName = "Essentials";
+      let liveBusinessName = businessName;
       if (overviewRes.ok) {
         const overview = await overviewRes.json();
         planName = overview.plan_display_name || overview.subscription_plan || "Essentials";
+        liveBusinessName =
+          window.ShiftSwiftSession?.applyWorkspaceBrand?.(overview) ||
+          overview.trading_name ||
+          overview.tenant_name ||
+          businessName;
       } else if (billingRes.ok) {
         const billing = await billingRes.json();
         planName = (billing.subscription_plan || "site_starter_monthly").replace(/_/g, " ");
       }
       label.classList.remove("settings-plan-label--loading");
-      label.textContent = `${planName} plan · ${businessName}`;
+      label.textContent = `${planName} plan · ${liveBusinessName}`;
     } catch {
       label.classList.remove("settings-plan-label--loading");
       label.innerHTML = `${escapeHtml(businessName)} · <button type="button" class="btn ghost btn-sm" id="settings-plan-retry">Retry</button>`;

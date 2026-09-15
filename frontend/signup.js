@@ -216,10 +216,23 @@ document.getElementById("signup-form")?.addEventListener("submit", async (event)
       return;
     }
 
-    localStorage.setItem("token", data.access_token);
-    localStorage.setItem("refreshToken", data.refresh_token);
-    localStorage.setItem("tenantId", String(data.tenant_id));
-    localStorage.setItem("businessName", payload.business_name);
+    if (window.ShiftSwiftSession?.storeSession) {
+      window.ShiftSwiftSession.storeSession(
+        {
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          tenant_id: data.tenant_id,
+          role: data.role || "hr",
+          tenant_name: payload.business_name,
+        },
+        { replaceIdentity: true },
+      );
+    } else {
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("refreshToken", data.refresh_token);
+      localStorage.setItem("tenantId", String(data.tenant_id));
+      localStorage.setItem("businessName", payload.business_name);
+    }
     localStorage.setItem("subscriptionPlan", data.plan_id);
 
     if (data.checkout_url) {

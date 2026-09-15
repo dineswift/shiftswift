@@ -44,7 +44,18 @@ window.Admin = (() => {
 
   const TENANT_ID = resolveWorkspaceTenantId();
   const API_BASE = getApiBase();
-  const businessName = localStorage.getItem("businessName") || window.ShiftSwiftBrand?.appName || "ShiftSwift HR";
+
+  function currentBusinessName() {
+    return localStorage.getItem("businessName") || "ShiftSwift HR";
+  }
+
+  try {
+    // Never keep a leftover workspace (e.g. Avatar Dining) in the tab until the
+    // signed-in tenant name arrives from /auth/verify or /admin/overview.
+    document.title = "ShiftSwift HR | Admin Console";
+  } catch {
+    /* ignore */
+  }
 
   async function resolveTenantId() {
     await window.ShiftSwiftSession?.hydrateNativeSession?.();
@@ -58,6 +69,7 @@ window.Admin = (() => {
       const response = await window.ShiftSwiftSession.fetchWithAuth("/auth/verify", {}, { apiBase: getApiBase() });
       if (!response.ok) return;
       const user = await response.json();
+      window.ShiftSwiftSession?.applyWorkspaceBrand?.(user);
       if (user.role === "employee") {
         window.location.replace("./employee.html");
       }
@@ -339,6 +351,7 @@ window.Admin = (() => {
         tenantProfileSnapshot?.registered_latitude,
         tenantProfileSnapshot?.registered_longitude,
       );
+      window.ShiftSwiftSession?.applyWorkspaceBrand?.(tenantProfileSnapshot);
       return tenantProfileSnapshot;
     } catch {
       return tenantProfileSnapshot;
@@ -356,6 +369,7 @@ window.Admin = (() => {
       tenantProfileSnapshot.registered_latitude,
       tenantProfileSnapshot.registered_longitude,
     );
+    window.ShiftSwiftSession?.applyWorkspaceBrand?.(tenantProfileSnapshot);
   });
 
   async function loadTenantFeatures() {
@@ -1224,8 +1238,6 @@ window.Admin = (() => {
     },
   };
 
-  document.title = `${businessName} | Admin Console`;
-
   return {
     API_BASE,
     getApiBase,
@@ -1233,7 +1245,9 @@ window.Admin = (() => {
       return window.ShiftSwiftSession?.getToken?.() || localStorage.getItem("token") || "";
     },
     TENANT_ID,
-    businessName,
+    get businessName() {
+      return currentBusinessName();
+    },
     get formOptions() {
       return formOptions;
     },
