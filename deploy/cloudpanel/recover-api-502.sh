@@ -6,7 +6,7 @@
 #   - Python ImportError (qrcode / reportlab / missing template) crashes workers
 #   - systemd unit is failed / inactive
 #   - restart returned before workers bound the port
-# Do not rsync the frontend until local /health is HTTP 200.
+# Do not rsync the frontend until local /health is HTTP 200 (or 307 to /health).
 set -euo pipefail
 
 API_ROOT="${SHIFTSWIFT_API_ROOT:-/home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk}"
@@ -73,6 +73,6 @@ echo "==> public health"
 curl -sS "https://api.shiftswifthr.co.uk/health" || true
 echo ""
 
-echo "Done. Local ${HEALTH_URL} is HTTP 200."
+echo "Done. Local ${HEALTH_URL} is up (HTTP 200, or 307 HTTPS redirect to /health)."
 echo "Retry https://app.shiftswifthr.co.uk/business-login.html"
 echo "A wrong password should say invalid credentials, not Cannot reach the API."

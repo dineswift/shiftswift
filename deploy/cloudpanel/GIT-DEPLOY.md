@@ -98,8 +98,8 @@ Or manually:
 ```bash
 cd /home/shiftswifthr-api/htdocs/api.shiftswifthr.co.uk
 git fetch origin
-git checkout cursor/harden-qr-print-card-link-39e0
-git pull --ff-only origin cursor/harden-qr-print-card-link-39e0
+git checkout cursor/fix-local-health-https-39e0
+git pull --ff-only origin cursor/fix-local-health-https-39e0
 source backend_stub/.venv/bin/activate
 pip install -r backend_stub/requirements.txt
 set -a && source backend_stub/.env && set +a
@@ -112,7 +112,7 @@ if [ -f frontend/app-root-index.html ]; then
 fi
 ```
 
-`wait-api-health.sh` blocks until `http://127.0.0.1:8000/health` is **HTTP 200**. If it is not, the script prints `journalctl` and **does not rsync**. Do not rsync while the API is down.
+`wait-api-health.sh` blocks until `http://127.0.0.1:8000/health` is **HTTP 200**, or a **307** whose Location still points at `/health` (`FORCE_HTTPS` on loopback). If uvicorn is not serving, the script prints `journalctl` and **does not rsync**. Do not rsync while the API is down. A 307 is *not* connection refused — rsync is safe. After this stack, loopback `/health` returns 200 on plain HTTP so curl does not need `-L`.
 
 **Legal pages:** Canonical URLs are `/payment-terms.html`, `/privacy-policy.html`, `/cookies.html`, `/eula.html`, `/dpa.html`. Deploy with `pull-production.sh` (rsyncs `frontend/`).
 
@@ -124,7 +124,7 @@ If the site shows an nginx error after editing vhost config, remove the bad cust
 
 ## If `/health` is 502 or `curl :8000` is connection refused
 
-**502 means nginx could not reach uvicorn.** **Connection refused on `127.0.0.1:8000` means uvicorn is not listening at all.** Git checkout only updates files on disk. `systemctl restart` returns when the process is spawned, not when `/health` is 200. Frontend `rsync` does not start the API — run it **only after** local health is 200.
+**502 means nginx could not reach uvicorn.** **Connection refused on `127.0.0.1:8000` means uvicorn is not listening at all.** Git checkout only updates files on disk. `systemctl restart` returns when the process is spawned, not when `/health` is 200. Frontend `rsync` does not start the API — run it **only after** local health is 200 (or 307 to `/health`). A 307 is uvicorn answering with `FORCE_HTTPS`; it is not down.
 
 This stack (`cursor/fix-qr-print-cards-39e0`, and earlier `cursor/rota-printable-pdf-39e0`) imports `qrcode` and `reportlab` while loading `main:app`. A checkout without `pip install`, or an ImportError in those modules, crashes the workers immediately so nothing binds `:8000`.
 
