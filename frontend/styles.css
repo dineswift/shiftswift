@@ -12907,6 +12907,10 @@ body.rota-week-readonly .rota-builder-hint {
   margin: 0;
 }
 
+.rtw-add-panel__lead {
+  margin: 0 0 12px;
+}
+
 .rtw-add-panel__close {
   border: none;
   background: transparent;
