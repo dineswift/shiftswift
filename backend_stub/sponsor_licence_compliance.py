@@ -15,6 +15,26 @@ UK_RTW_CHECKLIST_URL = os.getenv(
     "UK_RTW_CHECKLIST_URL",
     "https://www.gov.uk/government/publications/right-to-work-checklist",
 )
+UK_BANK_HOLIDAYS_URL = "https://www.gov.uk/bank-holidays"
+# England and Wales observed dates (GOV.UK), including substitute weekdays.
+ENGLAND_WALES_BANK_HOLIDAYS: tuple[tuple[date, str], ...] = (
+    (date(2026, 1, 1), "New Year's Day"),
+    (date(2026, 4, 3), "Good Friday"),
+    (date(2026, 4, 6), "Easter Monday"),
+    (date(2026, 5, 4), "Early May bank holiday"),
+    (date(2026, 5, 25), "Spring bank holiday"),
+    (date(2026, 8, 31), "Summer bank holiday"),
+    (date(2026, 12, 25), "Christmas Day"),
+    (date(2026, 12, 28), "Boxing Day (substitute)"),
+    (date(2027, 1, 1), "New Year's Day"),
+    (date(2027, 3, 26), "Good Friday"),
+    (date(2027, 3, 29), "Easter Monday"),
+    (date(2027, 5, 3), "Early May bank holiday"),
+    (date(2027, 5, 31), "Spring bank holiday"),
+    (date(2027, 8, 30), "Summer bank holiday"),
+    (date(2027, 12, 27), "Christmas Day (substitute)"),
+    (date(2027, 12, 28), "Boxing Day (substitute)"),
+)
 UK_FIND_A_JOB_URL = os.getenv(
     "UK_FIND_A_JOB_URL",
     "https://www.gov.uk/find-a-job",
@@ -1199,6 +1219,55 @@ def mark_absence_returned(
     return {"message": "Marked returned to work and cleared active absence days.", "cleared_days": len(episode_dates)}
 
 
+def england_wales_bank_holidays(*, years: list[int] | None = None) -> list[dict[str, Any]]:
+    wanted = set(years) if years else None
+    return [
+        {"calendar_date": day.isoformat(), "name": name, "is_working_day": False}
+        for day, name in ENGLAND_WALES_BANK_HOLIDAYS
+        if wanted is None or day.year in wanted
+    ]
+
+
+def england_wales_bank_holiday_name(calendar_date: date) -> str | None:
+    for day, name in ENGLAND_WALES_BANK_HOLIDAYS:
+        if day == calendar_date:
+            return name
+    return None
+
+
+def working_calendar_label(*, calendar_date: date, is_working_day: bool) -> str:
+    name = england_wales_bank_holiday_name(calendar_date)
+    if name:
+        return name
+    return "Working day" if is_working_day else "Non-working / site closed"
+
+
+def apply_england_wales_bank_holidays(
+    *,
+    tenant_id: int,
+    conn: Any,
+    years: list[int] | None = None,
+) -> dict[str, Any]:
+    holidays = england_wales_bank_holidays(years=years)
+    if not holidays:
+        raise ValueError("No England & Wales bank holidays are listed for the requested years")
+    entries = [
+        {"calendar_date": item["calendar_date"], "is_working_day": False}
+        for item in holidays
+    ]
+    result = upsert_working_calendar(
+        tenant_id=tenant_id,
+        entries=entries,
+        conn=conn,
+        overwrite_existing=False,
+    )
+    return {
+        **result,
+        "years": sorted({date.fromisoformat(item["calendar_date"]).year for item in holidays}),
+        "holidays": holidays,
+    }
+
+
 def list_working_calendar(
     *,
     tenant_id: int,
@@ -1231,7 +1300,7 @@ def list_working_calendar(
         {
             "calendar_date": row[0].isoformat(),
             "is_working_day": row[1],
-            "label": "Working day" if row[1] else "Non-working / bank holiday",
+            "label": working_calendar_label(calendar_date=row[0], is_working_day=row[1]),
         }
         for row in rows
     ]
@@ -1242,26 +1311,42 @@ def upsert_working_calendar(
     tenant_id: int,
     entries: list[dict[str, Any]],
     conn: Any,
+    overwrite_existing: bool = True,
 ) -> dict[str, int]:
     if not entries:
         raise ValueError("at least one calendar entry is required")
     applied = 0
+    skipped = 0
     with conn.cursor() as cur:
         for entry in entries:
             calendar_date = entry["calendar_date"]
             if isinstance(calendar_date, str):
                 calendar_date = date.fromisoformat(calendar_date)
             is_working_day = bool(entry.get("is_working_day", True))
-            cur.execute(
-                """
-                INSERT INTO sponsor_working_calendar (tenant_id, calendar_date, is_working_day)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (tenant_id, calendar_date) DO UPDATE SET
-                  is_working_day = EXCLUDED.is_working_day
-                """,
-                (tenant_id, calendar_date, is_working_day),
-            )
-            applied += 1
+            if overwrite_existing:
+                cur.execute(
+                    """
+                    INSERT INTO sponsor_working_calendar (tenant_id, calendar_date, is_working_day)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (tenant_id, calendar_date) DO UPDATE SET
+                      is_working_day = EXCLUDED.is_working_day
+                    """,
+                    (tenant_id, calendar_date, is_working_day),
+                )
+                applied += 1
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO sponsor_working_calendar (tenant_id, calendar_date, is_working_day)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (tenant_id, calendar_date) DO NOTHING
+                    """,
+                    (tenant_id, calendar_date, is_working_day),
+                )
+                if cur.rowcount:
+                    applied += 1
+                else:
+                    skipped += 1
         cur.execute(
             """
             INSERT INTO compliance_audit_events (tenant_id, event_type, entity_type, entity_id, payload)
@@ -1270,11 +1355,11 @@ def upsert_working_calendar(
             (
                 tenant_id,
                 tenant_id,
-                {"entries_applied": applied},
+                {"entries_applied": applied, "entries_skipped": skipped},
             ),
         )
     conn.commit()
-    return {"applied": applied}
+    return {"applied": applied, "skipped": skipped}
 
 
 def log_sms_reportable_change(

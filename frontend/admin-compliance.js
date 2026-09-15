@@ -477,20 +477,33 @@
     }
   }
 
+  function formatCalendarDate(iso) {
+    if (!iso) return "";
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
   async function loadWorkingCalendar() {
     const tbody = document.getElementById("working-calendar-body");
     if (!tbody) return;
     const year = new Date().getFullYear();
     try {
       const res = await apiFetch(
-        `/compliance/sponsor-licence/working-calendar?from_date=${year}-01-01&to_date=${year}-12-31&non_working_only=true`
+        `/compliance/sponsor-licence/working-calendar?from_date=${year}-01-01&to_date=${year + 1}-12-31&non_working_only=true`
       );
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : "Could not load working calendar.";
+        throw new Error(detail);
+      }
       renderTableBody(tbody, {
-        emptyMessage: "No custom calendar entries. All weekdays count as working days.",
+        emptyMessage: "No bank holidays on file yet. Add England & Wales dates above, or save a site closure.",
         columns: [
-          { key: "calendar_date", render: (r) => escapeHtml(r.calendar_date) },
+          { key: "calendar_date", render: (r) => escapeHtml(formatCalendarDate(r.calendar_date)) },
           { key: "label", render: (r) => escapeHtml(r.label) },
           {
             key: "actions",
@@ -512,13 +525,44 @@
           loadWorkingCalendar();
         });
       });
-    } catch {
+    } catch (error) {
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }],
         rows: [],
-        emptyMessage: "No custom calendar entries. All weekdays count as working days.",
+        emptyMessage: error?.message || "Could not load working calendar.",
       });
     }
+  }
+
+  async function addEnglandWalesBankHolidays() {
+    const btn = document.getElementById("working-calendar-uk-btn");
+    const run = window.ShiftSwiftAction?.runButtonActionAuto;
+    const action = async () => {
+      const res = await apiFetch("/compliance/sponsor-licence/working-calendar/uk-bank-holidays", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = typeof data.detail === "string" ? data.detail : "Could not add bank holidays.";
+        throw new Error(detail);
+      }
+      await loadWorkingCalendar();
+      const applied = Number(data.applied) || 0;
+      const skipped = Number(data.skipped) || 0;
+      if (applied === 0 && skipped > 0) return "Bank holidays already on the calendar.";
+      if (skipped) return `Added ${applied} bank holidays (${skipped} already present).`;
+      return `Added ${applied} England & Wales bank holidays.`;
+    };
+    if (run && btn) {
+      await run(btn, action, {
+        loadingLabel: "Adding…",
+        successMessage: "Bank holidays added.",
+        successLabel: "Added",
+      });
+      return;
+    }
+    await action();
   }
 
   async function mountAbsenceDayForm() {
@@ -713,6 +757,9 @@
       loadWorkingCalendar(),
       loadReportingTriggers(),
     ]);
+    document.getElementById("working-calendar-uk-btn")?.addEventListener("click", () => {
+      addEnglandWalesBankHolidays();
+    });
 
     document.getElementById("audit-export-json")?.addEventListener("click", async () => {
       const employeeId = document.getElementById("audit-export-employee")?.value;

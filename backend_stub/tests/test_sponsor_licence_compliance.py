@@ -57,6 +57,7 @@ class _FakeCursor:
 
     def execute(self, sql, params=None):
         self.commands.append((sql.strip(), params))
+        self.rowcount = 1
         return self
 
     def fetchone(self):
@@ -166,3 +167,48 @@ def test_absence_risk_level_thresholds() -> None:
     assert module._absence_risk_level(0) == "clear"
     assert module._absence_risk_level(7) == "warning"
     assert module._absence_risk_level(9) == "alert"
+
+
+def test_england_wales_2026_includes_boxing_day_substitute() -> None:
+    days = {item["calendar_date"]: item["name"] for item in module.england_wales_bank_holidays(years=[2026])}
+    assert len(days) == 8
+    assert days["2026-01-01"] == "New Year's Day"
+    assert days["2026-12-28"] == "Boxing Day (substitute)"
+    assert "2026-12-26" not in days
+
+
+def test_england_wales_2027_christmas_substitute() -> None:
+    days = {item["calendar_date"]: item["name"] for item in module.england_wales_bank_holidays(years=[2027])}
+    assert days["2027-12-27"] == "Christmas Day (substitute)"
+    assert days["2027-12-28"] == "Boxing Day (substitute)"
+
+
+def test_working_calendar_label_uses_holiday_name() -> None:
+    assert module.working_calendar_label(calendar_date=date(2026, 12, 25), is_working_day=False) == "Christmas Day"
+    assert (
+        module.working_calendar_label(calendar_date=date(2026, 9, 15), is_working_day=False)
+        == "Non-working / site closed"
+    )
+
+
+def test_apply_england_wales_bank_holidays_skips_unknown_year() -> None:
+    conn = _FakeConn()
+    try:
+        module.apply_england_wales_bank_holidays(tenant_id=1, conn=conn, years=[1999])
+        raised = False
+    except ValueError:
+        raised = True
+    assert raised
+
+
+def test_apply_england_wales_bank_holidays_inserts_dates() -> None:
+    conn = _FakeConn()
+    result = module.apply_england_wales_bank_holidays(tenant_id=1, conn=conn, years=[2026])
+    assert result["applied"] == 8
+    assert result["skipped"] == 0
+    assert result["years"] == [2026]
+    holiday_inserts = [
+        params for sql, params in conn.cursor_obj.commands if "INSERT INTO sponsor_working_calendar" in sql
+    ]
+    assert len(holiday_inserts) == 8
+    assert holiday_inserts[0][1] == date(2026, 1, 1)
