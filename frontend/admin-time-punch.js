@@ -1065,13 +1065,75 @@
   }
 
   function punchCardHref(layout, qrData) {
+    const helpers = window.ShiftSwiftPunchCards;
+    if (helpers?.buildPunchCardHref) {
+      return helpers.buildPunchCardHref(layout, qrData, window.location);
+    }
     const clockUrl = String(qrData?.clock_url || "").trim();
     const siteName = String(qrData?.site_name || "Work site").trim() || "Work site";
-    const cardUrl = new URL("./punch-site-card.html", window.location.href);
+    const cardUrl = new URL("punch-site-card.html", window.location.origin + window.location.pathname);
     cardUrl.searchParams.set("layout", layout);
     cardUrl.searchParams.set("url", clockUrl);
     cardUrl.searchParams.set("site", siteName);
+    const hashParams = new URLSearchParams();
+    hashParams.set("url", clockUrl);
+    hashParams.set("site", siteName);
+    hashParams.set("layout", layout);
+    cardUrl.hash = hashParams.toString();
     return { href: cardUrl.toString(), clockUrl, siteName };
+  }
+
+  function isBlankPrintWindow(win) {
+    if (!win || win.closed) return false;
+    try {
+      const href = String(win.location?.href || "");
+      return !href || href === "about:blank" || href.startsWith("about:blank");
+    } catch {
+      return false;
+    }
+  }
+
+  function navigatePrintWindow(win, href) {
+    try {
+      win.location.replace(href);
+      win.focus?.();
+      return true;
+    } catch {
+      try {
+        win.location.href = href;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  function openCardInAdminTab(href) {
+    const existing = document.getElementById("punch-card-print-shell");
+    existing?.remove();
+    const shell = document.createElement("div");
+    shell.id = "punch-card-print-shell";
+    shell.setAttribute("role", "dialog");
+    shell.setAttribute("aria-label", "Premises QR print card");
+    shell.style.cssText =
+      "position:fixed;inset:0;z-index:99999;background:#e8ecef;display:flex;flex-direction:column";
+    const bar = document.createElement("div");
+    bar.style.cssText =
+      "display:flex;justify-content:flex-end;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid #d5dde5";
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "btn ghost";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", () => shell.remove());
+    bar.appendChild(closeBtn);
+    const frame = document.createElement("iframe");
+    frame.title = "Premises QR print card";
+    frame.src = href;
+    frame.style.cssText = "flex:1;width:100%;border:0;background:#e8ecef";
+    shell.appendChild(bar);
+    shell.appendChild(frame);
+    document.body.appendChild(shell);
+    return shell;
   }
 
   function openPunchCardPage(layout = "pocket", qrData, existingWindow) {
@@ -1088,10 +1150,34 @@
       layout,
     });
     if (existingWindow && !existingWindow.closed) {
-      existingWindow.location.replace(href);
-      return existingWindow;
+      if (navigatePrintWindow(existingWindow, href)) return existingWindow;
+      try {
+        existingWindow.close();
+      } catch {
+        /* ignore */
+      }
     }
-    openPrintableTab(href);
+    let opened = null;
+    try {
+      opened = window.open(href, "_blank");
+    } catch {
+      opened = null;
+    }
+    if (opened && !opened.closed) {
+      if (isBlankPrintWindow(opened)) navigatePrintWindow(opened, href);
+      try {
+        opened.opener = null;
+      } catch {
+        /* ignore */
+      }
+      return opened;
+    }
+    try {
+      openCardInAdminTab(href);
+      showPunchNote("QR card opened here so you can print it. Close the card to return.", "ok");
+    } catch {
+      window.location.assign(href);
+    }
     return true;
   }
 
@@ -1469,7 +1555,12 @@
         }
         const cardWindow = window.open("about:blank", "_blank");
         if (!cardWindow) {
-          showPunchNote("Allow pop-ups to open the QR print page.", "warn");
+          showPunchNote("Preparing QR card…");
+          void fetchSiteClockQr(siteId)
+            .then((data) => openPunchCardPage("pocket", data))
+            .catch((error) => {
+              showPunchNote(error.message || "Could not load QR.", "error");
+            });
           return;
         }
         try {
