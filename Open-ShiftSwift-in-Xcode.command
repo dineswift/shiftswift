@@ -38,6 +38,15 @@ echo "Repo: $ROOT"
 git fetch origin
 # Discard local ios:sync dirt and point this folder at the iPad branch.
 git checkout -f -B cursor/ios-ipad-updates-b650 origin/cursor/ios-ipad-updates-b650
+git status -sb
+if [[ "$(git rev-parse --abbrev-ref HEAD)" != "cursor/ios-ipad-updates-b650" ]]; then
+  osascript -e 'display alert "ShiftSwift HR" message "Git did not switch to cursor/ios-ipad-updates-b650. Stop and paste the Terminal output." as critical'
+  exit 1
+fi
+if [[ ! -f "$ROOT/mobile/scripts/export-ipa-for-transporter.sh" ]]; then
+  osascript -e 'display alert "ShiftSwift HR" message "Still on the old project (ios:ipa is missing). Git checkout did not work." as critical'
+  exit 1
+fi
 
 cd "$ROOT/mobile"
 npm install

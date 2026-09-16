@@ -33,12 +33,14 @@ npm run ios:setup
 
 ## Open in Xcode (Mac only)
 
-Quit **Xcode** first (Cmd+Q). Easiest: double-click `Open-ShiftSwift-in-Xcode.command` in the repo folder. Or run these commands **inside the git repo**, not from `~`. On this Mac that is usually `/Users/gskharel/Desktop/shiftswifthr`.
+Quit **Xcode** (Cmd+Q). Signing in Xcode can look fine while the build is still the **old branch**. Paste this **one block** — do not skip `checkout -f -B`:
 
 ```bash
 cd /Users/gskharel/Desktop/shiftswifthr
 git fetch origin
 git checkout -f -B cursor/ios-ipad-updates-b650 origin/cursor/ios-ipad-updates-b650
+git status -sb
+git rev-parse --abbrev-ref HEAD
 cd mobile
 npm install
 npm run ios:sync
@@ -47,7 +49,7 @@ pod install
 open App.xcworkspace
 ```
 
-`checkout -f -B` throws away local `ios:sync` / Podfile.lock edits and switches onto the iPad branch. A normal `checkout` fails while those files are dirty, and `pull --ff-only` then runs on the **old** branch.
+`git rev-parse --abbrev-ref HEAD` **must** print `cursor/ios-ipad-updates-b650`. If it prints anything else, stop — Xcode is still the old app. `checkout -f -B` discards local `ios:sync` / Podfile.lock edits that blocked a normal checkout.
 
 In Xcode:
 

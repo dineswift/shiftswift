@@ -98,7 +98,8 @@ def test_native_ios_app_is_universal_ipad() -> None:
     assert "SUPPORTS_MACCATALYST" in podfile
     assert "NSCameraUsageDescription" in plist
     assert "NSPhotoLibraryUsageDescription" in plist
-    assert "NSLocationWhenInUseUsageDescription" in plist
+    assert "<string>arm64</string>" in plist
+    assert "IPHONEOS_DEPLOYMENT_TARGET = 15.0" in pbx
     assert 'TARGETED_DEVICE_FAMILY = "1,2"' in pbx
     assert "CURRENT_PROJECT_VERSION = 12" in pbx
     assert "SUPPORTED_PLATFORMS" in podfile
