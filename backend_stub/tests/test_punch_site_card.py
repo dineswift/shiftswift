@@ -33,9 +33,13 @@ def _run_node(script: str) -> None:
 
 def test_admin_html_cache_busts_punch_card_scripts() -> None:
     source = ADMIN_HTML.read_text(encoding="utf-8")
-    assert 'src="./punch-card-link.js?v=37"' in source
-    assert 'src="./admin-time-punch.js?v=37"' in source
-    assert 'src="./admin-time-punch.js?v=36"' not in source
+    assert 'src="./punch-card-link.js?v=38"' in source
+    assert 'src="./admin-time-punch.js?v=38"' in source
+    assert 'src="./admin-time-punch.js?v=37"' not in source
+    assert 'src="./file-open.js?v=1"' in source
+    assert 'src="./admin-shared.js?v=admin-v47"' in source
+    assert 'src="./admin-rota.js?v=37"' in source
+    assert 'id="rota-print-submit">Open PDF' in source
 
 
 def test_print_card_entry_points_all_call_open_punch_card_page() -> None:
@@ -50,17 +54,23 @@ def test_print_card_entry_points_all_call_open_punch_card_page() -> None:
     assert "window.location.assign(href)" in source
     assert "isBlankPrintWindow" in source
     assert "navigatePrintWindow" in source
+    assert "shouldOpenPrintInPlace" in source
+    assert "pngBlobFromOnScreenQr" in source
+    assert "data-gallery-qr" in source
+    assert "shiftswift-punch-card" in source
     assert 'window.open(href, "_blank")' in source
     assert 'window.open(href, "_blank", "noopener")' not in source
     assert "punch-site-card.html" in source
     assert "window.location.origin + window.location.pathname" in source
     assert 'new URL("./punch-site-card.html", window.location.href)' not in source
+    assert "QR card opened in the app. Use Print, then Close to return." in source
 
 
 def test_card_html_reads_shared_helper_not_session_storage_only() -> None:
     source = PUNCH_SITE_CARD.read_text(encoding="utf-8")
-    assert 'src="./punch-card-link.js?v=37"' in source
+    assert 'src="./punch-card-link.js?v=38"' in source
     assert "bootPunchSiteCard" in source
+    assert "listenForParentPayload" in source
     assert "localStorage, sessionStorage" in source
     assert "#url=" in source or "#url=…" in source
 
@@ -272,5 +282,92 @@ const params = cards.readPunchCardParams(afterServerRedirect, []);
 assert.strictEqual(params.clockUrl, "https://app.shiftswifthr.co.uk/punch.html?clock=abc");
 assert.strictEqual(params.siteName, "Main site");
 assert.strictEqual(params.layout, "tent");
+"""
+    _run_node(script)
+
+
+def test_parent_post_message_boots_card_without_query_or_storage() -> None:
+    script = f"""
+const fs = require("fs");
+const vm = require("vm");
+const assert = require("assert");
+const helperPath = {str(PUNCH_CARD_LINK)!r};
+function memoryStorage() {{
+  const data = new Map();
+  return {{
+    getItem(key) {{ return data.has(String(key)) ? data.get(String(key)) : null; }},
+    setItem(key, value) {{ data.set(String(key), String(value)); }},
+    removeItem(key) {{ data.delete(String(key)); }},
+  }};
+}}
+function mockNode(id, extras = {{}}) {{
+  return Object.assign({{
+    id, hidden: true, textContent: "", src: "", alt: "",
+    classList: {{ remove() {{}}, add() {{}} }},
+    style: {{ setProperty() {{}} }},
+    querySelector() {{ return null; }},
+  }}, extras);
+}}
+function mockDocument() {{
+  const empty = mockNode("card-empty");
+  const preview = mockNode("card-preview");
+  const site = mockNode("card-site-name");
+  const tentSite = mockNode("tent-site-name");
+  const qr = mockNode("card-qr-image");
+  const tentQr = mockNode("tent-qr-image");
+  const cardWrap = mockNode("wrap", {{ hidden: false }});
+  const tentWrap = mockNode("tent", {{ hidden: true }});
+  const body = {{
+    classList: {{
+      tokens: new Set(),
+      remove(...names) {{ names.forEach((n) => this.tokens.delete(n)); }},
+      add(...names) {{ names.forEach((n) => this.tokens.add(n)); }},
+    }},
+  }};
+  const nodes = {{
+    "card-empty": empty, "card-preview": preview, "card-site-name": site,
+    "tent-site-name": tentSite, "card-qr-image": qr, "tent-qr-image": tentQr,
+  }};
+  return {{
+    body,
+    documentElement: {{ style: {{ setProperty() {{}} }} }},
+    getElementById(id) {{ return nodes[id] || null; }},
+    querySelector(sel) {{
+      if (sel === ".punch-card-wrap") return cardWrap;
+      if (sel === ".tent-wrap") return tentWrap;
+      return null;
+    }},
+    empty, preview, site, qr,
+  }};
+}}
+const context = {{ console, URL, URLSearchParams, String, Boolean, JSON }};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync(helperPath, "utf8"), context);
+const cards = context.ShiftSwiftPunchCards;
+const loc = {{
+  href: "https://app.shiftswifthr.co.uk/punch-site-card.html",
+  origin: "https://app.shiftswifthr.co.uk",
+  pathname: "/punch-site-card.html",
+  search: "",
+  hash: "",
+}};
+const doc = mockDocument();
+const storage = memoryStorage();
+const missing = cards.bootPunchSiteCard(doc, loc, [storage]);
+assert.strictEqual(missing.ok, false);
+assert.strictEqual(doc.empty.hidden, false);
+const booted = cards.applyExternalPayload(doc, {{
+  type: "shiftswift-punch-card",
+  clock_url: "https://app.shiftswifthr.co.uk/punch.html?clock=site-token",
+  site_name: "Himalayan Inn",
+  layout: "pocket",
+  qr_image_data_uri: "data:image/png;base64,AAA",
+}}, loc, [storage]);
+assert.strictEqual(booted.ok, true);
+assert.strictEqual(doc.empty.hidden, true);
+assert.strictEqual(doc.preview.hidden, false);
+assert.strictEqual(doc.site.textContent, "Himalayan Inn");
+assert.ok(doc.qr.src.startsWith("data:image/png"));
+assert.strictEqual(cards.MESSAGE_TYPE, "shiftswift-punch-card");
 """
     _run_node(script)

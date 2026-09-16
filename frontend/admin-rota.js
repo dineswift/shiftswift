@@ -1,6 +1,6 @@
 /** Admin — weekly rota: grid, attendance, copy week, shift requests. */
 (async function initAdminRota() {
-  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated, emptyStateHtml } = window.Admin;
+  const { apiFetch, renderTableBody, escapeHtml, parseHashBaseSection, statusPill, downloadAuthenticated, emptyStateHtml, isCompactIosShell } = window.Admin;
 
   let sectionReady = false;
   let rotaDataLoadPromise = null;
@@ -2355,7 +2355,11 @@
     setMessage("Preparing printable rota PDF…", "info");
     try {
       await downloadPrintPdf(fromDate, toDate);
-      setMessage(`Printable rota PDF downloaded (${fromDate} to ${toDate}).`, "success");
+      const ready =
+        typeof isCompactIosShell === "function" && isCompactIosShell()
+          ? `Printable rota PDF ready (${fromDate} to ${toDate}). Use Print or Share in the preview.`
+          : `Printable rota PDF downloaded (${fromDate} to ${toDate}).`;
+      setMessage(ready, "success");
     } catch (error) {
       setMessage(error?.message || "Could not export printable PDF.", "error");
     }
@@ -2397,7 +2401,11 @@
         `/admin/rota/weeks/${currentWeekStart}/attendance/export.${ext}`,
         `shiftswift-shifts-attendance-${currentWeekStart}.${ext}`
       );
-      setMessage(`${exportLabel} downloaded.`, "success");
+      const onIpad = typeof isCompactIosShell === "function" && isCompactIosShell();
+      setMessage(
+        onIpad ? `${exportLabel} ready. Use Print or Share in the preview.` : `${exportLabel} downloaded.`,
+        "success"
+      );
     } catch (error) {
       setMessage(error?.message || `Could not export ${ext.toUpperCase()}.`, "error");
     }

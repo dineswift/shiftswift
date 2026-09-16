@@ -2,7 +2,8 @@
 (function (root) {
   const PAYLOAD_KEY = "punchCardPayload";
   const CARD_FILE = "punch-site-card.html";
-  const CACHE_BUST = "37";
+  const CACHE_BUST = "38";
+  const MESSAGE_TYPE = "shiftswift-punch-card";
 
   function locationParts(locationLike) {
     const loc = locationLike || root.location || {};
@@ -117,6 +118,63 @@
     }
   }
 
+  function payloadFromMessage(data) {
+    if (!data || data.type !== MESSAGE_TYPE) return null;
+    return {
+      clock_url: String(data.clock_url || data.clockUrl || "").trim(),
+      site_name: String(data.site_name || data.siteName || "Work site").trim() || "Work site",
+      layout: data.layout === "tent" || data.layout === "desk" ? data.layout : "pocket",
+      qr_image_data_uri: data.qr_image_data_uri || data.qrImageDataUri || "",
+    };
+  }
+
+  function applyExternalPayload(document, data, locationLike, storages) {
+    const payload = payloadFromMessage(data) || data;
+    const clockUrl = String(payload?.clock_url || payload?.clockUrl || "").trim();
+    if (!clockUrl) return bootPunchSiteCard(document, locationLike, storages);
+    const siteName = String(payload?.site_name || payload?.siteName || "Work site").trim() || "Work site";
+    const layout = payload?.layout === "tent" || payload?.layout === "desk" ? payload.layout : "pocket";
+    const list = storages || defaultStorages();
+    const stored = {
+      clock_url: clockUrl,
+      site_name: siteName,
+      layout,
+      qr_image_data_uri: payload?.qr_image_data_uri || payload?.qrImageDataUri || "",
+    };
+    list.forEach((storage) => {
+      try {
+        storage.setItem(PAYLOAD_KEY, JSON.stringify(stored));
+      } catch {
+        /* ignore quota */
+      }
+    });
+    const loc = locationLike || root.location || {};
+    const synthetic = {
+      href: loc.href || "",
+      origin: loc.origin || "",
+      pathname: loc.pathname || "",
+      search: "",
+      hash: "",
+    };
+    return bootPunchSiteCard(document, synthetic, list);
+  }
+
+  function listenForParentPayload(target, document, locationLike, storages, onBoot) {
+    const host = target || root;
+    if (!host?.addEventListener) return () => {};
+    const handler = (event) => {
+      const payload = payloadFromMessage(event?.data);
+      if (!payload?.clock_url) return;
+      const origin = String(event.origin || "");
+      const expected = String((locationLike || root.location || {}).origin || "");
+      if (origin && expected && origin !== expected && origin !== "null") return;
+      const result = applyExternalPayload(document, payload, locationLike, storages);
+      if (typeof onBoot === "function") onBoot(result);
+    };
+    host.addEventListener("message", handler);
+    return () => host.removeEventListener("message", handler);
+  }
+
   function bootPunchSiteCard(document, locationLike, storages) {
     const params = readPunchCardParams(locationLike, storages);
     const empty = document.getElementById("card-empty");
@@ -150,11 +208,15 @@
   root.ShiftSwiftPunchCards = {
     PAYLOAD_KEY,
     CACHE_BUST,
+    MESSAGE_TYPE,
     punchCardPageUrl,
     buildPunchCardHref,
     readPunchCardParams,
     readStoredPayload,
     bootPunchSiteCard,
+    applyExternalPayload,
+    payloadFromMessage,
+    listenForParentPayload,
     applyLayout,
     qrSrc,
   };
