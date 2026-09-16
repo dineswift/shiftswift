@@ -25,6 +25,199 @@
     ...RTW_CHECK_CATEGORIES,
   ]);
 
+  const DBS_CATEGORIES = new Set(["dbs"]);
+  const TRAINING_CATEGORIES = new Set(["qualification", "training"]);
+  const CONTRACT_CATEGORIES = new Set(["contract"]);
+  const POLICY_CATEGORIES = new Set(["policy"]);
+  const DISCIPLINARY_CATEGORIES = new Set(["disciplinary"]);
+  const PAYSLIP_CATEGORIES = new Set(["payslip", "payroll"]);
+
+  function documentKindFromCategory(value) {
+    const category = String(value || "").toLowerCase();
+    if (ID_PASSPORT_CATEGORIES.has(category)) return "passport";
+    if (VISA_CATEGORIES.has(category)) return "visa";
+    if (RTW_CHECK_CATEGORIES.has(category)) return "rtw";
+    if (DBS_CATEGORIES.has(category)) return "dbs";
+    if (TRAINING_CATEGORIES.has(category)) return "training";
+    if (CONTRACT_CATEGORIES.has(category)) return "contract";
+    if (POLICY_CATEGORIES.has(category)) return "policy";
+    if (DISCIPLINARY_CATEGORIES.has(category)) return "disciplinary";
+    if (PAYSLIP_CATEGORIES.has(category)) return "payslip";
+    return "other";
+  }
+
+  function isoDateValue(value) {
+    return String(value || "").slice(0, 10);
+  }
+
+  function todayIsoDate() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
+
+  function documentTypeDateConfig(category) {
+    const kind = documentKindFromCategory(category);
+    if (kind === "passport") {
+      return {
+        kind,
+        issued: { show: true, label: "Issue date", hint: "Date the passport or ID was issued." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Expiry date", hint: "Date the passport or ID expires." },
+      };
+    }
+    if (kind === "visa") {
+      return {
+        kind,
+        issued: { show: true, label: "Visa start date", hint: "Date leave to remain / the visa starts." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Visa end date", hint: "Date the visa or BRP ends." },
+      };
+    }
+    if (kind === "rtw") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: true, label: "Date taken", hint: "Date this right to work check was carried out." },
+        expires: { show: true, label: "RTW expiry date", hint: "Leave blank if this check has no end date." },
+      };
+    }
+    if (kind === "dbs") {
+      return {
+        kind,
+        issued: { show: true, label: "Issue date", hint: "Date the DBS certificate was issued." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Valid until", hint: "Leave blank if you use the DBS Update Service with no end date." },
+      };
+    }
+    if (kind === "training") {
+      return {
+        kind,
+        issued: { show: true, label: "Award date", hint: "Date the certificate was awarded." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Expiry date", hint: "Leave blank if this certificate does not expire." },
+      };
+    }
+    if (kind === "contract") {
+      return {
+        kind,
+        issued: { show: true, label: "Start / signed date", hint: "Date the contract starts or was signed." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "End date", hint: "Leave blank for a permanent contract." },
+      };
+    }
+    if (kind === "policy") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: true, label: "Date signed", hint: "Date the employee acknowledged this policy." },
+        expires: { show: false, label: "Expiry date", hint: "" },
+      };
+    }
+    if (kind === "disciplinary") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: true, label: "Date of letter", hint: "Date on the disciplinary letter." },
+        expires: { show: false, label: "Expiry date", hint: "" },
+      };
+    }
+    if (kind === "payslip") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: false, label: "Expiry date", hint: "" },
+      };
+    }
+    return {
+      kind,
+      issued: { show: false, label: "Issue date", hint: "" },
+      recorded: { show: false, label: "Date taken", hint: "" },
+      expires: { show: true, label: "Expiry date", hint: "Leave blank if this document does not expire." },
+    };
+  }
+
+  function pruneEmptyDocumentDates(formData) {
+    const config = documentTypeDateConfig(formData.get("category"));
+    ["expires_at", "issued_at", "recorded_at"].forEach((name) => {
+      if (!String(formData.get(name) || "").trim()) formData.delete(name);
+    });
+    if (!config.issued.show) formData.delete("issued_at");
+    if (!config.recorded.show) formData.delete("recorded_at");
+    if (!config.expires.show) formData.delete("expires_at");
+    return formData;
+  }
+
+  function syncDocumentTypeDateFields(form, { defaultRecorded = false } = {}) {
+    if (!form) return;
+    const category = form.querySelector('[name="category"]')?.value || "";
+    const config = documentTypeDateConfig(category);
+    const issuedInput = form.querySelector('[name="issued_at"]');
+    const recordedInput = form.querySelector('[name="recorded_at"]');
+    const expiresInput = form.querySelector('[name="expires_at"]');
+    const issuedField =
+      form.querySelector("[data-issued-field]") || issuedInput?.closest(".edit-field, .employee-record-field, label");
+    const recordedField =
+      form.querySelector("[data-recorded-field]") || recordedInput?.closest(".edit-field, .employee-record-field, label");
+    const expiresField =
+      form.querySelector("[data-expires-field]") || expiresInput?.closest(".edit-field, .employee-record-field, label");
+    const issuedLabel =
+      form.querySelector("[data-issued-label]") || issuedField?.querySelector(".edit-label, .employee-record-field__label");
+    const recordedLabel =
+      form.querySelector("[data-recorded-label]") || recordedField?.querySelector(".edit-label, .employee-record-field__label");
+    const expiresLabel =
+      form.querySelector("[data-expires-label]") || expiresField?.querySelector(".edit-label, .employee-record-field__label");
+    const issuedHint = issuedField?.querySelector(".edit-hint, .employee-record-field__hint");
+    const recordedHint = recordedField?.querySelector(".edit-hint, .employee-record-field__hint");
+    const expiresHint = form.querySelector("[data-expires-hint]");
+    if (issuedField) issuedField.hidden = !config.issued.show;
+    if (recordedField) recordedField.hidden = !config.recorded.show;
+    if (expiresField) expiresField.hidden = !config.expires.show;
+    if (issuedLabel) issuedLabel.textContent = config.issued.label;
+    if (recordedLabel) recordedLabel.textContent = config.recorded.label;
+    if (expiresLabel) expiresLabel.textContent = config.expires.label;
+    if (issuedHint) issuedHint.textContent = config.issued.hint;
+    if (recordedHint) recordedHint.textContent = config.recorded.hint;
+    if (expiresHint) {
+      expiresHint.hidden = !config.expires.hint;
+      expiresHint.textContent = config.expires.hint;
+    }
+    if (!config.issued.show && issuedInput) issuedInput.value = "";
+    if (!config.recorded.show && recordedInput) recordedInput.value = "";
+    if (!config.expires.show && expiresInput) expiresInput.value = "";
+    if (config.recorded.show && defaultRecorded && recordedInput && !recordedInput.value) {
+      recordedInput.value = todayIsoDate();
+    }
+    const alertField =
+      form.querySelector("[data-alert-field]") ||
+      form.querySelector("#employee-document-upload-alert-field") ||
+      form.querySelector("#employee-document-edit-alert-field") ||
+      form.querySelector("#employees-side-doc-alert-field");
+    if (alertField) alertField.hidden = !(config.expires.show && expiresInput?.value);
+    if (!config.expires.show && alertField) alertField.hidden = true;
+    syncIdentityExpiryFields({
+      categoryValue: category,
+      expiryInput: expiresInput,
+      alertField,
+      hintEl: null,
+    });
+    window.Admin?.bindDateInputs?.(form);
+  }
+
+  function collectDocumentTypeDates(form, category) {
+    const config = documentTypeDateConfig(category);
+    const issued = isoDateValue(form?.querySelector('[name="issued_at"]')?.value);
+    const recorded = isoDateValue(form?.querySelector('[name="recorded_at"]')?.value);
+    const expires = isoDateValue(form?.querySelector('[name="expires_at"]')?.value);
+    return {
+      issued_at: config.issued.show ? issued || null : null,
+      recorded_at: config.recorded.show ? recorded || null : null,
+      expires_at: config.expires.show ? expires || null : null,
+    };
+  }
+
   function documentUploadPolicy() {
     return window.Admin.formOptions?.document_upload || DEFAULT_DOCUMENT_UPLOAD;
   }
@@ -893,10 +1086,29 @@
   }
 
   function employeeApiError(res, data, fallback = "Request failed") {
+    if (window.Admin?.parseApiDetail) return window.Admin.parseApiDetail(data, fallback);
     const detail = data?.detail;
-    if (typeof detail === "string") return detail;
+    if (typeof detail === "string" && detail.trim() && !/^\[object /i.test(detail)) return detail.trim();
+    if (Array.isArray(detail)) {
+      const parts = detail.map((item) => item?.msg || item?.message || "").filter(Boolean);
+      if (parts.length) return parts.join("; ");
+    }
+    if (detail && typeof detail.msg === "string") return detail.msg;
     if (detail && typeof detail.message === "string") return detail.message;
     return fallback;
+  }
+
+  function employeeErrorText(error, fallback = "Request failed") {
+    if (window.Admin?.formatErrorMessage) return window.Admin.formatErrorMessage(error, fallback);
+    const message = typeof error?.message === "string" ? error.message.trim() : "";
+    if (message && !/^\[object /i.test(message)) return message;
+    return fallback;
+  }
+
+  async function resolveUploadFile(fileInput, form) {
+    const raw = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput?.files?.[0] || form?.querySelector?.('input[name="file"]')?.files?.[0] || null;
+    if (window.AdminDocuments?.prepareUploadFile) return window.AdminDocuments.prepareUploadFile(raw);
+    return raw;
   }
 
   function duplicateEmployeeId(res, data) {
@@ -1188,7 +1400,9 @@
       back.hidden = false;
       back.textContent = "← Employees";
     }
-    document.getElementById("sidebar-toggle") && (document.getElementById("sidebar-toggle").hidden = true);
+    document.getElementById("sidebar-toggle") &&
+      !document.documentElement.classList.contains("native-tablet") &&
+      (document.getElementById("sidebar-toggle").hidden = true);
 
     const brandName = document.getElementById("topbar-business-name");
     if (brandName) {
@@ -2048,52 +2262,71 @@
   }
 
   function documentExpiryMeta(doc) {
-    const raw = String(doc?.expires_at || "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { text: "No expiry date", tone: "none" };
+    const kind = documentKindFromCategory(doc?.category);
+    const raw = isoDateValue(doc?.expires_at);
+    const endWord = kind === "visa" ? "Ended" : "Expired";
+    const dueWord = kind === "visa" ? "Ends" : "Expires";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      if (kind === "rtw") return { text: "No RTW expiry date", tone: "none" };
+      if (kind === "visa") return { text: "No visa end date", tone: "none" };
+      if (kind === "contract") return { text: "No end date", tone: "none" };
+      if (kind === "policy" || kind === "disciplinary" || kind === "payslip") return { text: "", tone: "none" };
+      return { text: "No expiry date", tone: "none" };
+    }
     const expires = new Date(`${raw}T00:00:00`);
     if (Number.isNaN(expires.getTime())) return { text: "No expiry date", tone: "none" };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const days = Math.round((expires.getTime() - today.getTime()) / 86400000);
     const alertDays = Number(doc.expiry_alert_days) || 30;
-    if (days < 0) return { text: `Expired ${raw}`, tone: "expired" };
-    if (days === 0) return { text: "Expires today", tone: "expired" };
-    if (days <= alertDays) return { text: `Expires ${raw}`, tone: "soon" };
-    return { text: `Expires ${raw}`, tone: "ok" };
+    const pretty = formatFriendlyDate(raw);
+    if (days < 0) return { text: `${endWord} ${pretty}`, tone: "expired" };
+    if (days === 0) return { text: `${dueWord} today`, tone: "expired" };
+    if (days <= alertDays) return { text: `${dueWord} ${pretty}`, tone: "soon" };
+    return { text: `${dueWord} ${pretty}`, tone: "ok" };
   }
 
   function isIdentityExpiryCategory(value) {
     return IDENTITY_EXPIRY_CATEGORIES.has(String(value || "").toLowerCase());
   }
 
-  function renderDocumentExpiryCell(row) {
-    const expiry = documentExpiryMeta(row);
-    return `<span class="employee-record-doc-item__expiry--${expiry.tone}">${escapeHtml(expiry.text)}</span>`;
+  function syncIdentityExpiryFields({ expiryInput, alertField }) {
+    const hasDate = Boolean(expiryInput?.value);
+    if (alertField) alertField.hidden = !hasDate;
   }
 
-  function syncIdentityExpiryFields({ categoryValue, expiryInput, alertField, hintEl }) {
-    const identityExpiry = isIdentityExpiryCategory(categoryValue);
-    const hasDate = Boolean(expiryInput?.value);
-    if (alertField) alertField.hidden = !(identityExpiry && hasDate);
-    if (hintEl) {
-      hintEl.hidden = !identityExpiry;
-      if (identityExpiry) {
-        hintEl.textContent = hasDate
-          ? "ShiftSwift will alert HR before this ID, passport, visa, or right to work check expires."
-          : "Add an expiry date so HR is alerted before this ID, passport, visa, or right to work check lapses.";
-      }
-    }
+  function documentDateSummary(doc) {
+    const kind = documentKindFromCategory(doc?.category);
+    const expiry = documentExpiryMeta(doc);
+    const issued = isoDateValue(doc?.issued_at);
+    const recorded = isoDateValue(doc?.recorded_at);
+    const dateParts = [];
+    if (kind === "passport" && issued) dateParts.push(`Issued ${formatFriendlyDate(issued)}`);
+    if (kind === "visa" && issued) dateParts.push(`Start ${formatFriendlyDate(issued)}`);
+    if (kind === "rtw" && recorded) dateParts.push(`Taken ${formatFriendlyDate(recorded)}`);
+    if (kind === "dbs" && issued) dateParts.push(`Issued ${formatFriendlyDate(issued)}`);
+    if (kind === "training" && issued) dateParts.push(`Awarded ${formatFriendlyDate(issued)}`);
+    if (kind === "contract" && issued) dateParts.push(`Start ${formatFriendlyDate(issued)}`);
+    if (kind === "policy" && recorded) dateParts.push(`Signed ${formatFriendlyDate(recorded)}`);
+    if (kind === "disciplinary" && recorded) dateParts.push(`Letter ${formatFriendlyDate(recorded)}`);
+    if (documentTypeDateConfig(doc?.category).expires.show && expiry.text) dateParts.push(expiry.text);
+    const meta = [categoryLabel(doc.category), ...dateParts];
+    if (doc.signing_status === "signed") meta.push("Signed");
+    else if (doc.signing_status === "sent") meta.push("Awaiting signature");
+    return {
+      text: meta.filter(Boolean).join(" · "),
+      dates: dateParts.filter(Boolean).join(" · "),
+      tone: expiry.tone,
+    };
+  }
+
+  function renderDocumentExpiryCell(row) {
+    const summary = documentDateSummary(row);
+    return `<span class="employee-record-doc-item__expiry--${summary.tone}">${escapeHtml(summary.dates || summary.text)}</span>`;
   }
 
   function renderEmployeeRecordDocItem(doc) {
-    const expiry = documentExpiryMeta(doc);
-    const meta = [
-      categoryLabel(doc.category),
-      expiry.text,
-      doc.signing_status === "signed" ? "Signed" : doc.signing_status === "sent" ? "Awaiting signature" : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const summary = documentDateSummary(doc);
     const actions = [];
     if (doc.has_file) {
       actions.push(`<button type="button" class="btn ghost btn-sm" data-record-download-doc="${doc.id}">Download</button>`);
@@ -2103,7 +2336,7 @@
     actions.push(`<button type="button" class="btn ghost btn-sm" data-record-delete-doc="${doc.id}">Remove</button>`);
     return `<li class="employee-record-doc-item">
       <span class="employee-record-doc-item__title">${escapeHtml(doc.title)}</span>
-      <span class="employee-record-doc-item__meta muted employee-record-doc-item__expiry--${expiry.tone}">${escapeHtml(meta || "—")}</span>
+      <span class="employee-record-doc-item__meta muted employee-record-doc-item__expiry--${summary.tone}">${escapeHtml(summary.text || "—")}</span>
       <div class="employee-record-doc-item__actions">${actions.join("")}</div>
     </li>`;
   }
@@ -2260,14 +2493,11 @@
         if (payPeriodField) payPeriodField.hidden = !isPayslip;
         if (payPeriodInput) payPeriodInput.required = isPayslip;
         if (shareCheckbox && isPayslip) shareCheckbox.checked = true;
-        syncIdentityExpiryFields({
-          categoryValue: categorySelect.value,
-          expiryInput: document.getElementById("employees-side-doc-expires"),
-          alertField: document.getElementById("employees-side-doc-alert-field"),
-          hintEl: document.getElementById("employees-side-doc-expiry-hint"),
-        });
+        syncDocumentTypeDateFields(form, { defaultRecorded: true });
       };
       categorySelect.addEventListener("change", syncCategory);
+      form.querySelector('[name="issued_at"]')?.addEventListener("change", syncCategory);
+      form.querySelector('[name="recorded_at"]')?.addEventListener("change", syncCategory);
       document.getElementById("employees-side-doc-expires")?.addEventListener("change", syncCategory);
       document.getElementById("employees-side-doc-expires")?.addEventListener("input", syncCategory);
       syncCategory();
@@ -2279,7 +2509,13 @@
         if (statusEl) statusEl.textContent = "Pay period is required for payslips.";
         return;
       }
-      const uploadFile = fileInput?.files?.[0];
+      let uploadFile;
+      try {
+        uploadFile = await resolveUploadFile(fileInput, form);
+      } catch (error) {
+        if (statusEl) statusEl.textContent = employeeErrorText(error, "Choose a JPEG or PNG photo.");
+        return;
+      }
       const fileError = validateDocumentUploadFile(uploadFile);
       if (fileError) {
         if (statusEl) statusEl.textContent = fileError;
@@ -2287,10 +2523,15 @@
       }
 
       const fd = new FormData(form);
+      if (uploadFile) fd.set("file", uploadFile);
       fd.set("employee_visible", shareCheckbox?.checked ? "true" : "false");
       fd.set("notify_employee", shareCheckbox?.checked ? "true" : "false");
       fd.set("send_email", "false");
       if (categorySelect?.value !== "payslip") fd.delete("pay_period");
+      pruneEmptyDocumentDates(fd);
+      if (!String(fd.get("title") || "").trim() && uploadFile?.name) {
+        fd.set("title", String(uploadFile.name).replace(/\.[^.]+$/, "") || "Document photo");
+      }
 
       if (statusEl) statusEl.textContent = "Uploading…";
       try {
@@ -2299,9 +2540,13 @@
           headers: authHeaders(false),
           body: fd,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Upload failed");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(employeeApiError(res, data, "Upload failed"));
         form.reset();
+        if (fileInput) {
+          fileInput.value = "";
+          fileInput._sshrPendingFile = null;
+        }
         const filenameEl = document.getElementById("employees-side-doc-filename");
         if (filenameEl) {
           filenameEl.hidden = true;
@@ -2311,7 +2556,7 @@
         await refreshEmployeeRecordDocuments(employeeId);
         if (statusEl) statusEl.textContent = "Document uploaded.";
       } catch (error) {
-        if (statusEl) statusEl.textContent = error.message || "Upload failed";
+        if (statusEl) statusEl.textContent = employeeErrorText(error, "Upload failed");
       }
     });
   }
@@ -2440,11 +2685,19 @@
               <span class="employee-record-field__label">Pay period</span>
               <input type="text" name="pay_period" id="employees-side-doc-pay-period" placeholder="e.g. 2026-04" />
             </label>
-            <label class="employee-record-field" id="employees-side-doc-expiry-field">
-              <span class="employee-record-field__label">Expiry date</span>
+            <label class="employee-record-field" data-issued-field hidden>
+              <span class="employee-record-field__label" data-issued-label>Issue date</span>
+              <input type="date" name="issued_at" id="employees-side-doc-issued" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-recorded-field hidden>
+              <span class="employee-record-field__label" data-recorded-label>Date taken</span>
+              <input type="date" name="recorded_at" id="employees-side-doc-recorded" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-expires-field id="employees-side-doc-expiry-field">
+              <span class="employee-record-field__label" data-expires-label>Expiry date</span>
               <input type="date" name="expires_at" id="employees-side-doc-expires" data-empty="true" />
             </label>
-            <label class="employee-record-field" id="employees-side-doc-alert-field" hidden>
+            <label class="employee-record-field" data-alert-field id="employees-side-doc-alert-field" hidden>
               <span class="employee-record-field__label">HR alert</span>
               <select name="expiry_alert_days" id="employees-side-doc-alert-days">
                 <option value="30">30 days before</option>
@@ -2452,7 +2705,7 @@
                 <option value="90">90 days before</option>
               </select>
             </label>
-            <p class="muted employee-record-field__hint employee-record-field--full" id="employees-side-doc-expiry-hint" hidden>ShiftSwift will alert HR before this ID, passport, visa, or right to work check expires.</p>
+            <p class="muted employee-record-field__hint employee-record-field--full" data-expires-hint id="employees-side-doc-expiry-hint" hidden></p>
             <label class="ss-check-row ss-check-row--compact employee-record-field--full">
               <input class="ss-check-row__input" type="checkbox" id="employees-side-doc-share" name="employee_visible" value="true" />
               <span class="ss-check-row__box" aria-hidden="true"></span>
@@ -2788,6 +3041,8 @@
       category: form.querySelector("#employee-document-upload-category")?.value || "",
       pay_period: form.querySelector("#employee-document-upload-pay-period")?.value || "",
       expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      issued_at: form.querySelector('[name="issued_at"]')?.value || "",
+      recorded_at: form.querySelector('[name="recorded_at"]')?.value || "",
       notify_employee: form.querySelector("#employee-document-upload-notify")?.checked ?? true,
       send_email: form.querySelector("#employee-document-upload-email")?.checked ?? true,
     };
@@ -2799,16 +3054,21 @@
     const payPeriod = form.querySelector("#employee-document-upload-pay-period");
     const payPeriodField = form.querySelector("#employee-document-upload-pay-period-field");
     const expiresAt = form.querySelector('[name="expires_at"]');
+    const issuedAt = form.querySelector('[name="issued_at"]');
+    const recordedAt = form.querySelector('[name="recorded_at"]');
     const notify = form.querySelector("#employee-document-upload-notify");
     const sendEmail = form.querySelector("#employee-document-upload-email");
     if (category && prefs.category) category.value = prefs.category;
     if (payPeriod) payPeriod.value = prefs.pay_period || "";
     if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (issuedAt) issuedAt.value = prefs.issued_at || "";
+    if (recordedAt) recordedAt.value = prefs.recorded_at || "";
     if (notify) notify.checked = prefs.notify_employee;
     if (sendEmail) sendEmail.checked = prefs.send_email;
     const isPayslip = category?.value === "payslip";
     if (payPeriodField) payPeriodField.hidden = !isPayslip;
     if (payPeriod) payPeriod.required = isPayslip;
+    syncDocumentTypeDateFields(form);
   }
 
   function resetEmployeeUploadFormKeepingPreferences(form) {
@@ -2819,7 +3079,10 @@
     const title = form.querySelector('[name="title"]');
     if (title) title.value = "";
     const fileInput = form.querySelector("#employee-document-upload-file");
-    if (fileInput) fileInput.value = "";
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput._sshrPendingFile = null;
+    }
     const filenameEl = form.querySelector("#employee-document-upload-filename");
     if (filenameEl) {
       filenameEl.hidden = true;
@@ -2849,11 +3112,7 @@
     const isPayslip = categorySelect?.value === "payslip";
     if (payPeriodField) payPeriodField.hidden = !isPayslip;
     if (payPeriodInput) payPeriodInput.required = isPayslip;
-    syncIdentityExpiryFields({
-      categoryValue: categorySelect?.value,
-      expiryInput: form?.querySelector('[name="expires_at"]'),
-      alertField: form?.querySelector("#employee-document-edit-alert-field"),
-    });
+    syncDocumentTypeDateFields(form);
   }
 
   function openEmployeeDocumentEditPanel(row, container) {
@@ -2871,7 +3130,11 @@
     const payPeriodInput = form.querySelector("#employee-document-edit-pay-period");
     if (payPeriodInput) payPeriodInput.value = row.pay_period || "";
     const expiresInput = form.querySelector('[name="expires_at"]');
-    if (expiresInput) expiresInput.value = (row.expires_at || "").slice(0, 10);
+    if (expiresInput) expiresInput.value = isoDateValue(row.expires_at);
+    const issuedInput = form.querySelector('[name="issued_at"]');
+    if (issuedInput) issuedInput.value = isoDateValue(row.issued_at);
+    const recordedInput = form.querySelector('[name="recorded_at"]');
+    if (recordedInput) recordedInput.value = isoDateValue(row.recorded_at);
     const alertSelect = form.querySelector('[name="expiry_alert_days"]');
     if (alertSelect) alertSelect.value = String(row.expiry_alert_days || 30);
     const visibleInput = form.querySelector("#employee-document-edit-visible");
@@ -2882,6 +3145,128 @@
     panel.hidden = false;
     panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
     titleInput?.focus();
+  }
+
+  async function bindEmployeeExtraDocumentForm(container) {
+    const form = container?.querySelector("#employee-document-extra-form");
+    if (!form) return;
+    const categorySelect = form.querySelector("#employee-document-extra-category");
+    const fileInput = form.querySelector("#employee-document-extra-file");
+    const hint = form.querySelector("#employee-document-extra-hint");
+    const uploadPolicy = documentUploadPolicy();
+    if (fileInput) fileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
+    if (hint) hint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    if (categorySelect && form.dataset.bound !== "true") {
+      categorySelect.innerHTML = renderEmployeeDocumentCategoryOptions("contract");
+    }
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: form.querySelector("#employee-document-extra-dropzone"),
+      fileInput,
+      filenameEl: form.querySelector("#employee-document-extra-filename"),
+      cameraInput: form.querySelector("#employee-document-extra-camera"),
+    });
+    const syncExtra = () => syncDocumentTypeDateFields(form, { defaultRecorded: true });
+    if (form.dataset.bound !== "true") {
+      form.dataset.bound = "true";
+      categorySelect?.addEventListener("change", syncExtra);
+      form.querySelector('[name="expires_at"]')?.addEventListener("change", syncExtra);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const status = form.querySelector("[data-extra-status]");
+        const raw = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput?.files?.[0] || null;
+        let uploadFile = raw;
+        if (raw) {
+          try {
+            uploadFile = await resolveUploadFile(fileInput, form);
+          } catch (error) {
+            if (status) status.textContent = employeeErrorText(error, "Choose a JPEG or PNG photo.");
+            return;
+          }
+        }
+        const url = String(form.querySelector('[name="document_url"]')?.value || "").trim();
+        if (!uploadFile && !url) {
+          if (status) status.textContent = "Choose a file, take a photo, or add a document link.";
+          return;
+        }
+        if (uploadFile) {
+          const fileError = validateDocumentUploadFile(uploadFile);
+          if (fileError) {
+            if (status) status.textContent = fileError;
+            return;
+          }
+        }
+        const performSave = async () => {
+          if (uploadFile) {
+            const fd = new FormData(form);
+            fd.set("file", uploadFile);
+            fd.set("notify_employee", "false");
+            fd.set("send_email", "false");
+            fd.set("employee_visible", "false");
+            pruneEmptyDocumentDates(fd);
+            if (!String(fd.get("title") || "").trim() && uploadFile.name) {
+              fd.set("title", String(uploadFile.name).replace(/\.[^.]+$/, "") || "Document photo");
+            }
+            const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
+              method: "POST",
+              headers: authHeaders(false),
+              body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(employeeApiError(res, data, "Upload failed"));
+            return "Document uploaded.";
+          }
+          const dates = collectDocumentTypeDates(form, categorySelect?.value || "");
+          const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents`, {
+            method: "POST",
+            body: JSON.stringify({
+              title: form.querySelector('[name="title"]')?.value?.trim(),
+              category: categorySelect?.value || "general",
+              lifecycle_stage: "document_store",
+              document_url: url,
+              issued_at: dates.issued_at,
+              recorded_at: dates.recorded_at,
+              expires_at: dates.expires_at,
+              expiry_alert_days: Number(form.querySelector('[name="expiry_alert_days"]')?.value || 30),
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Save failed");
+          return "Document saved.";
+        };
+        const run = window.ShiftSwiftAction?.runFormSubmit;
+        if (run) {
+          await run(form, status, {
+            loadingLabel: "Saving…",
+            successMessage: "Document saved.",
+            errorMessage: "Save failed.",
+            successLabel: "Saved",
+            onAction: performSave,
+          });
+        } else {
+          if (status) status.textContent = "Saving…";
+          try {
+            const message = await performSave();
+            if (status) status.textContent = message;
+          } catch (error) {
+            if (status) status.textContent = error.message || "Save failed";
+            return;
+          }
+        }
+        form.reset();
+        if (fileInput) {
+          fileInput.value = "";
+          fileInput._sshrPendingFile = null;
+        }
+        const filenameEl = form.querySelector("#employee-document-extra-filename");
+        if (filenameEl) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        }
+        syncExtra();
+        await refreshEmployeeDocumentStoreList(container);
+      });
+    }
+    syncExtra();
   }
 
   function bindEmployeeDocumentEditForm(container) {
@@ -2909,10 +3294,13 @@
         if (status) status.textContent = "Pay period is required for payslips.";
         return;
       }
+      const dates = collectDocumentTypeDates(form, category);
       const payload = {
         title: form.querySelector('[name="title"]')?.value?.trim(),
         category,
-        expires_at: form.querySelector('[name="expires_at"]')?.value || null,
+        expires_at: dates.expires_at,
+        issued_at: dates.issued_at,
+        recorded_at: dates.recorded_at,
         expiry_alert_days: Number(form.querySelector('[name="expiry_alert_days"]')?.value || 30),
         employee_visible: form.querySelector("#employee-document-edit-visible")?.checked ?? false,
       };
@@ -3268,8 +3656,20 @@
             <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Skilled Worker visa" /></label>
             <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
             <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-            <label class="edit-field" id="employee-document-upload-expiry-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" data-empty="true" /><span class="muted edit-hint" id="employee-document-upload-expiry-hint">Required for ID, passport, visa / BRP, and right to work checks.</span></label>
-            <label class="edit-field" id="employee-document-upload-alert-field" hidden>
+            <label class="edit-field" data-issued-field hidden>
+              <span class="edit-label" data-issued-label>Issue date</span>
+              <input name="issued_at" type="date" data-empty="true" />
+            </label>
+            <label class="edit-field" data-recorded-field hidden>
+              <span class="edit-label" data-recorded-label>Date taken</span>
+              <input name="recorded_at" type="date" data-empty="true" />
+            </label>
+            <label class="edit-field" data-expires-field id="employee-document-upload-expiry-field">
+              <span class="edit-label" data-expires-label>Expiry date</span>
+              <input name="expires_at" type="date" data-empty="true" />
+              <span class="muted edit-hint" data-expires-hint id="employee-document-upload-expiry-hint"></span>
+            </label>
+            <label class="edit-field" data-alert-field id="employee-document-upload-alert-field" hidden>
               <span class="edit-label">HR alert window</span>
               <select name="expiry_alert_days" id="employee-document-upload-alert-days">
                 <option value="30">30 days before</option>
@@ -3307,8 +3707,49 @@
         </form>
       </article>
       <details class="employee-doc-link-add">
-        <summary>Add external link (no file)</summary>
-        <div id="employee-document-link-form"></div>
+        <summary>Add another file, photo or link</summary>
+        <form id="employee-document-extra-form" class="edit-form edit-form--cols-2 employee-doc-upload-form" enctype="multipart/form-data">
+          <div class="edit-field" data-span="2">
+            <span class="edit-label">File or photo</span>
+            <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="employee-document-extra-dropzone">
+              <input name="file" type="file" id="employee-document-extra-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden />
+              <input type="file" id="employee-document-extra-camera" accept="image/*" capture="environment" hidden />
+              <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+              <p class="doc-upload-dropzone__hint muted" id="employee-document-extra-hint">PDF, JPEG or PNG · max 10 MB per file</p>
+              <p class="doc-upload-filename" id="employee-document-extra-filename" hidden></p>
+            </div>
+          </div>
+          <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. DBS certificate" /></label>
+          <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-extra-category"></select></label>
+          <label class="edit-field" data-issued-field hidden>
+            <span class="edit-label" data-issued-label>Issue date</span>
+            <input name="issued_at" type="date" data-empty="true" />
+            <span class="muted edit-hint"></span>
+          </label>
+          <label class="edit-field" data-recorded-field hidden>
+            <span class="edit-label" data-recorded-label>Date taken</span>
+            <input name="recorded_at" type="date" data-empty="true" />
+            <span class="muted edit-hint"></span>
+          </label>
+          <label class="edit-field" data-expires-field>
+            <span class="edit-label" data-expires-label>Expiry date</span>
+            <input name="expires_at" type="date" data-empty="true" />
+            <span class="muted edit-hint" data-expires-hint></span>
+          </label>
+          <label class="edit-field" data-alert-field hidden>
+            <span class="edit-label">HR alert window</span>
+            <select name="expiry_alert_days">
+              <option value="30">30 days before</option>
+              <option value="60">60 days before</option>
+              <option value="90">90 days before</option>
+            </select>
+          </label>
+          <label class="edit-field" data-span="2"><span class="edit-label">External link <span class="muted">(optional)</span></span><input name="document_url" type="url" placeholder="https://…" /></label>
+          <div class="edit-form-actions" data-span="2">
+            <button class="btn" type="submit">Save document</button>
+            <p class="edit-form-status muted" data-extra-status></p>
+          </div>
+        </form>
       </details>
       <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
       <div id="employee-document-edit-panel" class="employee-doc-edit-panel" hidden>
@@ -3320,8 +3761,20 @@
           <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
           <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-edit-category"></select></label>
           <label class="edit-field" id="employee-document-edit-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-edit-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-          <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" data-empty="true" /></label>
-          <label class="edit-field" id="employee-document-edit-alert-field" hidden>
+          <label class="edit-field" data-issued-field hidden>
+            <span class="edit-label" data-issued-label>Issue date</span>
+            <input name="issued_at" type="date" data-empty="true" />
+          </label>
+          <label class="edit-field" data-recorded-field hidden>
+            <span class="edit-label" data-recorded-label>Date taken</span>
+            <input name="recorded_at" type="date" data-empty="true" />
+          </label>
+          <label class="edit-field" data-expires-field>
+            <span class="edit-label" data-expires-label>Expiry date</span>
+            <input name="expires_at" type="date" data-empty="true" />
+            <span class="muted edit-hint" data-expires-hint></span>
+          </label>
+          <label class="edit-field" data-alert-field id="employee-document-edit-alert-field" hidden>
             <span class="edit-label">HR alert window</span>
             <select name="expiry_alert_days">
               <option value="30">30 days before</option>
@@ -3348,62 +3801,12 @@
       <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Title</th><th>Category</th><th>Dates</th><th>Added</th><th>Signature</th><th>Actions</th></tr></thead>
           <tbody id="employee-documents-body"></tbody>
         </table>
       </div>`;
 
-    mountEditForm(container.querySelector("#employee-document-link-form"), {
-      id: "employee-document",
-      columns: 2,
-      submitLabel: "Add document",
-      successMessage: "Document added.",
-      fields: [
-        { name: "title", label: "Title", type: "text", required: true },
-        {
-          name: "category",
-          label: "Category",
-          type: "select",
-          optionsKey: "employee_document_categories",
-          defaultValue: "contract",
-        },
-        { name: "document_url", label: "Document URL", type: "url", placeholder: "https://..." },
-        { name: "expires_at", label: "Expiry date", type: "date" },
-        {
-          name: "expiry_alert_days",
-          label: "HR alert window",
-          type: "select",
-          optionsKey: "document_expiry_alert_days",
-          defaultValue: 30,
-        },
-        { name: "notes", label: "Notes", type: "textarea", span: 2 },
-      ],
-    }, {
-      onSubmit: async (payload) => {
-        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            lifecycle_stage: "document_store",
-            document_url: payload.document_url || null,
-            notes: payload.notes || null,
-            expires_at: payload.expires_at || null,
-            expiry_alert_days: Number(payload.expiry_alert_days || 30),
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Save failed");
-        await refreshEmployeeDocumentStoreList(container);
-        if (workspaceCache?.document_requirements?.complete && workspaceCache.next_section) {
-          const next = workspaceCache.next_section;
-          if (next !== "document_store") {
-            activeSection = next;
-            window.location.hash = `employees/${activeEmployeeId}/${next}`;
-            renderLifecycleAccordion(workspaceCache);
-          }
-        }
-      },
-    });
+    bindEmployeeExtraDocumentForm(container);
 
     renderTableBody(container.querySelector("#employee-documents-body"), {
       emptyMessage: "No documents recorded yet.",
@@ -3459,14 +3862,11 @@
           const isPayslip = uploadCategory.value === "payslip";
           if (payPeriodField) payPeriodField.hidden = !isPayslip;
           if (payPeriodInput) payPeriodInput.required = isPayslip;
-          syncIdentityExpiryFields({
-            categoryValue: uploadCategory.value,
-            expiryInput: uploadForm?.querySelector('[name="expires_at"]'),
-            alertField: container.querySelector("#employee-document-upload-alert-field"),
-            hintEl: container.querySelector("#employee-document-upload-expiry-hint"),
-          });
+          syncDocumentTypeDateFields(uploadForm, { defaultRecorded: true });
         };
         uploadCategory.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="issued_at"]')?.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="recorded_at"]')?.addEventListener("change", syncUploadCategory);
         uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("change", syncUploadCategory);
         uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("input", syncUploadCategory);
         syncUploadCategory();
@@ -3484,7 +3884,18 @@
         }
         return;
       }
-      const uploadFile = uploadForm.querySelector('input[name="file"]')?.files?.[0];
+      let uploadFile;
+      try {
+        uploadFile = await resolveUploadFile(uploadFileInput, uploadForm);
+      } catch (error) {
+        const message = employeeErrorText(error, "Choose a JPEG or PNG photo.");
+        if (window.ShiftSwiftAction?.setActionStatus) {
+          window.ShiftSwiftAction.setActionStatus(status, message, "error");
+        } else if (status) {
+          status.textContent = message;
+        }
+        return;
+      }
       const fileError = validateDocumentUploadFile(uploadFile);
       if (fileError) {
         if (window.ShiftSwiftAction?.setActionStatus) {
@@ -3497,19 +3908,24 @@
 
       const performUpload = async () => {
         const fd = new FormData(uploadForm);
+        if (uploadFile) fd.set("file", uploadFile);
         const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
         const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
         fd.set("notify_employee", notify ? "true" : "false");
         fd.set("send_email", sendEmail ? "true" : "false");
         fd.set("employee_visible", notify ? "true" : "false");
         if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
+        pruneEmptyDocumentDates(fd);
+        if (!String(fd.get("title") || "").trim() && uploadFile?.name) {
+          fd.set("title", String(uploadFile.name).replace(/\.[^.]+$/, "") || "Document photo");
+        }
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",
           headers: authHeaders(false),
           body: fd,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Upload failed");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(employeeApiError(res, data, "Upload failed"));
         resetEmployeeUploadFormKeepingPreferences(uploadForm);
         await refreshEmployeeDocumentStoreList(container);
         const summary = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
@@ -3538,7 +3954,7 @@
         const message = await performUpload();
         if (status) status.textContent = message;
       } catch (error) {
-        if (status) status.textContent = error.message;
+        if (status) status.textContent = employeeErrorText(error, "Upload failed");
       }
     });
 
@@ -4204,6 +4620,12 @@
     document.getElementById("employees")?.classList.contains("admin-section--active")
   ) {
     void initEmployeesSection();
+  }
+
+  if (window.AdminDocuments) {
+    window.AdminDocuments.documentTypeDateConfig = documentTypeDateConfig;
+    window.AdminDocuments.syncDocumentTypeDateFields = syncDocumentTypeDateFields;
+    window.AdminDocuments.pruneEmptyDocumentDates = pruneEmptyDocumentDates;
   }
 
   window.ShiftSwiftAdminEmployees = {

@@ -251,14 +251,18 @@ async def create_rtw_check(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, Any]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    pdf_bytes = await _read_validated_pdf(evidence_pdf)
+    from modules.documents.storage import read_validated_upload
+
+    file_bytes, _content_type, _ext = await read_validated_upload(
+        evidence_pdf, max_bytes=settings.max_upload_bytes
+    )
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
         stored = store_immutable_rtw_pdf(
             tenant_id=tenant_id,
             employee_id=employee_id,
-            pdf_bytes=pdf_bytes,
+            pdf_bytes=file_bytes,
             check_date=check_date,
             check_method=check_method,
             outcome=outcome,

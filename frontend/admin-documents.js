@@ -66,7 +66,11 @@
   }
 
   function friendlyError(error, fallback) {
-    const message = error?.message || "";
+    const message = window.Admin?.formatErrorMessage
+      ? window.Admin.formatErrorMessage(error, "")
+      : typeof error?.message === "string" && !/^\[object /i.test(error.message)
+        ? error.message
+        : "";
     if (message === "Load failed" || message === "Failed to fetch") {
       const apiBase = window.Admin?.getApiBase?.() || window.ShiftSwiftBrand?.resolveApiBase?.() || "";
       console.warn("ShiftSwift document API request failed", { apiBase, error });
@@ -102,6 +106,8 @@
       employee_id: form.querySelector("#document-upload-employee-id")?.value || "",
       employee_search: form.querySelector("#document-upload-employee-search")?.value || "",
       expires_at: form.querySelector("#document-upload-expires-at")?.value || "",
+      issued_at: form.querySelector("#document-upload-issued-at")?.value || "",
+      recorded_at: form.querySelector("#document-upload-recorded-at")?.value || "",
       expiry_alert_days: form.querySelector("#document-upload-alert-days")?.value || "30",
       employee_visible: form.querySelector("#document-upload-visible")?.checked ?? true,
       notify: form.querySelector("#document-upload-notify")?.checked ?? true,
@@ -125,6 +131,10 @@
     if (employeeSearch) employeeSearch.value = prefs.employee_search || "";
     const expiresAt = form.querySelector("#document-upload-expires-at");
     if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    const issuedAt = form.querySelector("#document-upload-issued-at");
+    if (issuedAt) issuedAt.value = prefs.issued_at || "";
+    const recordedAt = form.querySelector("#document-upload-recorded-at");
+    if (recordedAt) recordedAt.value = prefs.recorded_at || "";
     const alertDays = form.querySelector("#document-upload-alert-days");
     if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
     const visible = form.querySelector("#document-upload-visible");
@@ -150,7 +160,10 @@
     const title = form.querySelector('[name="title"]');
     if (title) title.value = "";
     const fileInput = form.querySelector("#document-upload-file");
-    if (fileInput) fileInput.value = "";
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput._sshrPendingFile = null;
+    }
     const cameraInput = form.querySelector("#document-upload-camera");
     if (cameraInput) cameraInput.value = "";
     const filenameEl = document.getElementById("document-upload-filename");
@@ -200,7 +213,10 @@
     const title = form.querySelector('[name="title"]');
     if (title) title.value = "";
     const fileInput = form.querySelector("#document-distribute-file");
-    if (fileInput) fileInput.value = "";
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput._sshrPendingFile = null;
+    }
     const cameraInput = form.querySelector("#document-distribute-camera");
     if (cameraInput) cameraInput.value = "";
     const filenameEl = document.getElementById("document-distribute-filename");
@@ -216,6 +232,8 @@
       employee_id: form.querySelector('[name="employee_id"]')?.value || "",
       category: form.querySelector('[name="category"]')?.value || "",
       lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      issued_at: form.querySelector('[name="issued_at"]')?.value || "",
+      recorded_at: form.querySelector('[name="recorded_at"]')?.value || "",
       expires_at: form.querySelector('[name="expires_at"]')?.value || "",
       expiry_alert_days: form.querySelector('[name="expiry_alert_days"]')?.value || "30",
       employee_visible: form.querySelector('[name="employee_visible"]')?.checked ?? false,
@@ -228,6 +246,8 @@
     const employee = form.querySelector('[name="employee_id"]');
     const category = form.querySelector('[name="category"]');
     const stage = form.querySelector('[name="lifecycle_stage"]');
+    const issuedAt = form.querySelector('[name="issued_at"]');
+    const recordedAt = form.querySelector('[name="recorded_at"]');
     const expiresAt = form.querySelector('[name="expires_at"]');
     const alertDays = form.querySelector('[name="expiry_alert_days"]');
     const visible = form.querySelector('[name="employee_visible"]');
@@ -235,6 +255,8 @@
     if (employee) employee.value = prefs.employee_id || "";
     if (category && prefs.category) category.value = prefs.category;
     if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    if (issuedAt) issuedAt.value = prefs.issued_at || "";
+    if (recordedAt) recordedAt.value = prefs.recorded_at || "";
     if (expiresAt) expiresAt.value = prefs.expires_at || "";
     if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
     if (visible) visible.checked = prefs.employee_visible;
@@ -403,6 +425,8 @@
         category: row.category,
         lifecycle_stage: row.lifecycle_stage || "active",
         document_url: row.document_url || "",
+        issued_at: (row.issued_at || "").slice(0, 10),
+        recorded_at: (row.recorded_at || "").slice(0, 10),
         expires_at: (row.expires_at || "").slice(0, 10),
         expiry_alert_days: row.expiry_alert_days || 30,
         employee_visible: row.employee_visible,
@@ -415,6 +439,8 @@
           ...payload,
           document_url: payload.document_url || null,
           notes: payload.notes || null,
+          issued_at: payload.issued_at || null,
+          recorded_at: payload.recorded_at || null,
           expires_at: payload.expires_at || null,
           original_filename: payload.original_filename || null,
           pay_period: payload.pay_period || null,
@@ -435,6 +461,7 @@
         await refreshExpiringDocuments();
       },
     });
+    bindMountedDocumentDateFields(host.querySelector("form"));
   }
 
   async function resendDocumentNotification(row, button, statusEl) {
@@ -563,12 +590,14 @@
   }
 
   function parseApiDetail(data, fallback) {
+    if (window.Admin?.parseApiDetail) return window.Admin.parseApiDetail(data, fallback);
     if (!data || typeof data !== "object") return fallback;
     const detail = data.detail;
-    if (typeof detail === "string") return detail;
+    if (typeof detail === "string" && detail.trim() && !/^\[object /i.test(detail)) return detail.trim();
+    if (detail && typeof detail.msg === "string") return detail.msg;
     if (detail && typeof detail.message === "string") return detail.message;
     if (Array.isArray(detail)) {
-      return detail.map((item) => item.msg || item.message || String(item)).join("; ");
+      return detail.map((item) => item.msg || item.message || "").filter(Boolean).join("; ") || fallback;
     }
     return fallback;
   }
@@ -880,6 +909,11 @@
   }
 
   function syncExpiryFieldsInner() {
+    const form = document.getElementById("document-upload-form");
+    if (form && typeof window.AdminDocuments?.syncDocumentTypeDateFields === "function") {
+      window.AdminDocuments.syncDocumentTypeDateFields(form, { defaultRecorded: true });
+      return;
+    }
     const expiryEl = document.getElementById("document-upload-expires-at");
     const alertField = document.getElementById("document-upload-alert-field");
     const alertHint = document.getElementById("document-upload-alert-hint");
@@ -1041,6 +1075,8 @@
           defaultValue: "active",
         },
         { name: "document_url", label: "Document URL", type: "url", placeholder: "https://...", required: true },
+        { name: "issued_at", label: "Issue / start date", type: "date" },
+        { name: "recorded_at", label: "Date taken", type: "date" },
         { name: "expires_at", label: "Expiry date", type: "date" },
         {
           name: "expiry_alert_days",
@@ -1095,6 +1131,8 @@
         type: "url",
         placeholder: row.has_file ? "Optional external link" : "https://...",
       },
+      { name: "issued_at", label: "Issue / start date", type: "date" },
+      { name: "recorded_at", label: "Date taken", type: "date" },
       { name: "expires_at", label: "Expiry date", type: "date" },
       {
         name: "expiry_alert_days",
@@ -1171,13 +1209,162 @@
 
   function assignFileToInput(fileInput, file) {
     if (!fileInput || !file) return;
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
+    fileInput._sshrPendingFile = file;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+    } catch {
+      /* WKWebView often rejects DataTransfer assignment on iOS. */
+    }
+  }
+
+  function readSelectedFile(fileInput) {
+    return fileInput?._sshrPendingFile || fileInput?.files?.[0] || null;
+  }
+
+  function looksLikeHeic(file) {
+    const name = String(file?.name || "").toLowerCase();
+    const type = String(file?.type || "").toLowerCase();
+    return type.includes("heic") || type.includes("heif") || /\.hei[cf]$/.test(name);
+  }
+
+  function needsJpegRewrite(file) {
+    if (!file) return false;
+    const name = String(file.name || "").toLowerCase();
+    const type = String(file.type || "").toLowerCase();
+    if (type.includes("pdf") || /\.pdf$/.test(name)) return false;
+    const nativeIos = String(window.Capacitor?.getPlatform?.() || "").toLowerCase() === "ios";
+    if (looksLikeHeic(file)) return true;
+    if (nativeIos && (type.startsWith("image/") || !type || name === "image" || name === "blob")) return true;
+    if (type === "image/jpeg" || type === "image/jpg" || type === "image/png") return file.size > 2.5 * 1024 * 1024;
+    if (/\.(jpe?g|png)$/.test(name)) return file.size > 2.5 * 1024 * 1024;
+    if (type.startsWith("image/")) return true;
+    return !name || name === "image" || name === "blob";
+  }
+
+  function canvasToJpegFile(source, width, height, filename) {
+    const maxDim = 2000;
+    const scale = Math.min(1, maxDim / Math.max(width, height, 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.getContext("2d").drawImage(source, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(null);
+            return;
+          }
+          resolve(new File([blob], filename, { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.86
+      );
+    });
+  }
+
+  async function rewriteImageAsJpeg(file) {
+    const base = String(file.name || "photo").replace(/\.[^.]+$/, "").trim() || "photo";
+    const filename = `${base}.jpg`;
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const converted = await canvasToJpegFile(bitmap, bitmap.width, bitmap.height, filename);
+        bitmap.close?.();
+        if (converted) return converted;
+      } catch {
+        /* fall through to <img> decode */
+      }
+    }
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Could not read this photo"));
+        image.src = objectUrl;
+      });
+      return await canvasToJpegFile(img, img.naturalWidth || img.width, img.naturalHeight || img.height, filename);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function prepareUploadFile(file) {
+    if (!file) return file;
+    if (!needsJpegRewrite(file)) return file;
+    try {
+      const converted = await rewriteImageAsJpeg(file);
+      if (converted) return converted;
+    } catch {
+      /* keep original unless HEIC, which the API rejects */
+    }
+    if (looksLikeHeic(file)) {
+      throw new Error("This iPhone photo is HEIC. Choose JPEG or PNG, or retake the photo.");
+    }
+    return file;
   }
 
   function stopPhotoCaptureStream(stream) {
     stream?.getTracks?.().forEach((track) => track.stop());
+  }
+
+  const A4_ASPECT = 210 / 297;
+
+  function cropVideoFrameToA4(video) {
+    const srcW = video.videoWidth;
+    const srcH = video.videoHeight;
+    const srcAspect = srcW / Math.max(srcH, 1);
+    let sx = 0;
+    let sy = 0;
+    let sw = srcW;
+    let sh = srcH;
+    if (srcAspect > A4_ASPECT) {
+      sw = srcH * A4_ASPECT;
+      sx = (srcW - sw) / 2;
+    } else if (srcAspect < A4_ASPECT) {
+      sh = srcW / A4_ASPECT;
+      sy = (srcH - sh) / 2;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+    canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  async function openDocumentCamera() {
+    const attempts = [
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          aspectRatio: { ideal: A4_ASPECT },
+          width: { ideal: 1654 },
+          height: { ideal: 2339 },
+        },
+        audio: false,
+      },
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1080 },
+          height: { ideal: 1920 },
+        },
+        audio: false,
+      },
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+    ];
+    let lastError;
+    for (const constraints of attempts) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("camera unavailable");
   }
 
   function captureLiveDocumentPhoto() {
@@ -1198,13 +1385,24 @@
       overlay.innerHTML = `
         <div class="doc-photo-capture__panel">
           <div class="doc-photo-capture__head">
-            <h2 id="doc-photo-capture-title">Take photo</h2>
+            <div>
+              <h2 id="doc-photo-capture-title">Scan A4 document</h2>
+              <p class="doc-photo-capture__sub">Portrait A4 · 210 × 297 mm</p>
+            </div>
             <button type="button" class="btn btn--ghost btn--sm" data-photo-cancel>Cancel</button>
           </div>
-          <video class="doc-photo-capture__video" autoplay muted playsinline></video>
+          <div class="doc-photo-capture__stage">
+            <video class="doc-photo-capture__video" autoplay muted playsinline></video>
+            <div class="doc-photo-capture__guide" aria-hidden="true">
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--tl"></span>
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--tr"></span>
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--bl"></span>
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--br"></span>
+            </div>
+          </div>
           <p class="doc-photo-capture__status muted" data-photo-status>Starting camera…</p>
           <div class="doc-photo-capture__actions">
-            <button type="button" class="btn" data-photo-shutter disabled>Capture photo</button>
+            <button type="button" class="btn" data-photo-shutter disabled>Capture A4 photo</button>
           </div>
         </div>
       `;
@@ -1233,21 +1431,17 @@
 
       shutter?.addEventListener("click", () => {
         if (!video?.videoWidth) {
-          if (status) status.textContent = "Wait for the camera preview, then tap Capture photo.";
+          if (status) status.textContent = "Wait for the A4 preview, then tap Capture A4 photo.";
           return;
         }
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext("2d").drawImage(video, 0, 0);
-        canvas.toBlob(
+        cropVideoFrameToA4(video).toBlob(
           (blob) => {
             if (!blob) {
               finish({ unavailable: true });
               return;
             }
             finish({
-              file: new File([blob], `document-photo-${Date.now()}.jpg`, { type: "image/jpeg" }),
+              file: new File([blob], `a4-document-${Date.now()}.jpg`, { type: "image/jpeg" }),
             });
           },
           "image/jpeg",
@@ -1255,11 +1449,7 @@
         );
       });
 
-      navigator.mediaDevices
-        .getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        })
+      openDocumentCamera()
         .then(async (media) => {
           if (settled) {
             stopPhotoCaptureStream(media);
@@ -1270,7 +1460,7 @@
           video.muted = true;
           video.setAttribute("playsinline", "");
           await video.play();
-          if (status) status.textContent = "Frame the document, then tap Capture photo.";
+          if (status) status.textContent = "Line up the A4 page inside the frame, then tap Capture.";
           if (shutter) shutter.disabled = false;
         })
         .catch(() => {
@@ -1296,18 +1486,26 @@
     filenameEl,
     browseSelector = ".doc-upload-browse",
     cameraInput,
+    onFile,
   }) {
     if (!dropzone || !fileInput || dropzone.dataset.ready === "true") return;
 
     const showFile = (file) => {
-      if (!filenameEl) return;
-      if (!file) {
-        filenameEl.hidden = true;
-        filenameEl.textContent = "";
-        return;
+      if (filenameEl) {
+        if (!file) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        } else {
+          filenameEl.hidden = false;
+          filenameEl.textContent = file.name || "Photo capture";
+        }
       }
-      filenameEl.hidden = false;
-      filenameEl.textContent = file.name || "Photo capture";
+      const titleInput = fileInput.form?.querySelector('[name="title"]');
+      if (file && titleInput && !String(titleInput.value || "").trim()) {
+        const fromName = String(file.name || "").replace(/\.[^.]+$/, "").trim();
+        titleInput.value = /^a4-document-\d+$/i.test(fromName) ? "A4 document photo" : fromName || "Document photo";
+      }
+      if (file) onFile?.(file);
     };
 
     dropzone.querySelector(browseSelector)?.addEventListener("click", (event) => {
@@ -1315,7 +1513,11 @@
       event.stopPropagation();
       fileInput.click();
     });
-    fileInput.addEventListener("change", () => showFile(fileInput.files?.[0]));
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0] || null;
+      fileInput._sshrPendingFile = file;
+      showFile(file);
+    });
 
     if (cameraInput) {
       dropzone.querySelector(".doc-upload-camera")?.addEventListener("click", (event) => {
@@ -1367,7 +1569,10 @@
     const form = document.getElementById("document-upload-form");
     if (!form) return;
     const categories = window.Admin.formOptions?.document_categories || [];
-    if (form.dataset.ready === "true" && categories.length) return;
+    if (form.dataset.ready === "true" && categories.length) {
+      window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
+      return;
+    }
     if (form.dataset.ready === "true") form.dataset.ready = "false";
     if (form.dataset.ready === "true") return;
     const stages = formLifecycleStages();
@@ -1393,6 +1598,7 @@
 
     document.getElementById("document-upload-category")?.addEventListener("change", (event) => {
       event.target.dataset.userPicked = "true";
+      window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
     });
 
     form.querySelectorAll('input[name="doc_audience"]').forEach((input) => {
@@ -1415,6 +1621,7 @@
       syncExpiryFields();
     });
     syncExpiryFields();
+    window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
 
     bindUploadDropzone();
 
@@ -1429,13 +1636,23 @@
         }
         return;
       }
+      const fileInput = form.querySelector("#document-upload-file");
       const fd = new FormData(form);
-      const file = fd.get("file");
-      if (!file || (file instanceof File && !file.size)) {
+      let file = readSelectedFile(fileInput) || fd.get("file");
+      try {
+        file = await prepareUploadFile(file);
+      } catch (error) {
+        if (status) setFormStatus(status, friendlyError(error, "Choose a JPEG or PNG photo."), "error");
+        return;
+      }
+      if (file) fd.set("file", file);
+      if (!file || ((file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)) && !file.size)) {
         if (status) setFormStatus(status, "Choose a file to upload.", "error");
         return;
       }
-      const fileError = file instanceof File ? validateDocumentUploadFile(file) : null;
+      const fileError = file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)
+        ? validateDocumentUploadFile(file)
+        : null;
       if (fileError) {
         if (status) setFormStatus(status, fileError, "error");
         return;
@@ -1444,10 +1661,8 @@
       const visible = audience === "hr" ? false : form.querySelector("#document-upload-visible")?.checked ?? false;
       fd.set("employee_visible", visible ? "true" : "false");
       if (audience !== "employee" || !fd.get("employee_id")) fd.delete("employee_id");
-      if (!fd.get("expires_at")) {
-        fd.delete("expires_at");
-        fd.delete("expiry_alert_days");
-      }
+      window.AdminDocuments?.pruneEmptyDocumentDates?.(fd);
+      if (!fd.get("expires_at")) fd.delete("expiry_alert_days");
 
       const notify = visible && (form.querySelector("#document-upload-notify")?.checked ?? false);
       fd.set("notify_employees", notify ? "true" : "false");
@@ -1534,13 +1749,23 @@
 
     guardFormSubmit(form, async () => {
       const status = form.querySelector("[data-status]");
+      const fileInput = form.querySelector("#document-distribute-file");
       const fd = new FormData(form);
-      const file = fd.get("file");
-      if (!file || (file instanceof File && !file.size)) {
+      let file = readSelectedFile(fileInput) || fd.get("file");
+      try {
+        file = await prepareUploadFile(file);
+      } catch (error) {
+        if (status) setFormStatus(status, friendlyError(error, "Choose a JPEG or PNG photo."), "error");
+        return;
+      }
+      if (file) fd.set("file", file);
+      if (!file || ((file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)) && !file.size)) {
         if (status) setFormStatus(status, "Choose a file to upload.", "error");
         return;
       }
-      const fileError = file instanceof File ? validateDocumentUploadFile(file) : null;
+      const fileError = file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)
+        ? validateDocumentUploadFile(file)
+        : null;
       if (fileError) {
         if (status) setFormStatus(status, fileError, "error");
         return;
@@ -1810,6 +2035,8 @@
             ...payload,
             document_url: payload.document_url || null,
             notes: payload.notes || null,
+            issued_at: payload.issued_at || null,
+            recorded_at: payload.recorded_at || null,
             expires_at: payload.expires_at || null,
             employee_id: payload.employee_id || null,
             employee_visible: Boolean(payload.employee_visible),
@@ -1826,8 +2053,18 @@
         await refreshExpiringDocuments();
       },
     });
+    bindMountedDocumentDateFields(formHost.querySelector("form"));
     formHost.dataset.ready = "1";
   }
 
-  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm, bindFileDropzone };
+  function bindMountedDocumentDateFields(form) {
+    if (!form || form.dataset.dateFieldsBound === "true") return;
+    form.dataset.dateFieldsBound = "true";
+    const sync = () => window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
+    form.querySelector('[name="category"]')?.addEventListener("change", sync);
+    form.querySelector('[name="expires_at"]')?.addEventListener("change", sync);
+    sync();
+  }
+
+  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm, bindFileDropzone, readSelectedFile, prepareUploadFile };
 })();

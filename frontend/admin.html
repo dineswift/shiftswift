@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v168" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v169" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
   </head>
@@ -1254,10 +1254,16 @@
             <div id="crm-entity-activity-list" class="crm-activity-list"></div>
             <div class="crm-documents-block">
               <h4>Documents</h4>
-              <label class="crm-upload-label btn btn--ghost btn--sm">
-                Upload file
-                <input type="file" id="crm-entity-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
-              </label>
+              <div class="crm-upload-actions">
+                <label class="crm-upload-label btn btn--ghost btn--sm">
+                  Upload file
+                  <input type="file" id="crm-entity-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
+                </label>
+                <label class="crm-upload-label btn btn--ghost btn--sm">
+                  Take photo
+                  <input type="file" id="crm-entity-document-camera" accept="image/*" capture="environment" hidden />
+                </label>
+              </div>
               <div id="crm-entity-documents" class="crm-documents-list"></div>
             </div>
           </aside>
@@ -1320,10 +1326,16 @@
             <div id="crm-activity-list" class="crm-activity-list"></div>
             <div class="crm-documents-block">
               <h4>Documents</h4>
-              <label class="crm-upload-label btn btn--ghost btn--sm">
-                Upload file
-                <input type="file" id="crm-deal-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
-              </label>
+              <div class="crm-upload-actions">
+                <label class="crm-upload-label btn btn--ghost btn--sm">
+                  Upload file
+                  <input type="file" id="crm-deal-document-input" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.txt" hidden />
+                </label>
+                <label class="crm-upload-label btn btn--ghost btn--sm">
+                  Take photo
+                  <input type="file" id="crm-deal-document-camera" accept="image/*" capture="environment" hidden />
+                </label>
+              </div>
               <div id="crm-deal-documents" class="crm-documents-list"></div>
             </div>
           </aside>
@@ -1768,7 +1780,7 @@
                     <tr>
                       <th>Employee</th>
                       <th>Document</th>
-                      <th>Recorded</th>
+                      <th>Date</th>
                       <th>Expiry</th>
                       <th>Status</th>
                     </tr>
@@ -3380,13 +3392,23 @@
                       </section>
 
                       <section class="settings-doc-upload-section" aria-labelledby="document-upload-expiry-title">
-                        <h5 class="settings-doc-upload-section__title" id="document-upload-expiry-title">Expiry &amp; HR alerts</h5>
-                        <label class="edit-field" data-span="2">
-                          <span class="edit-label">Expiry date <span class="muted">(optional)</span></span>
-                          <input name="expires_at" id="document-upload-expires-at" type="date" value="" autocomplete="off" data-empty="true" />
-                          <span class="muted edit-hint" id="document-upload-expiry-hint">Leave blank if this document doesn&rsquo;t expire.</span>
+                        <h5 class="settings-doc-upload-section__title" id="document-upload-expiry-title">Dates &amp; HR alerts</h5>
+                        <label class="edit-field" data-issued-field hidden>
+                          <span class="edit-label" data-issued-label>Issue date</span>
+                          <input name="issued_at" id="document-upload-issued-at" type="date" value="" autocomplete="off" data-empty="true" />
+                          <span class="muted edit-hint"></span>
                         </label>
-                        <label class="edit-field" data-span="2" id="document-upload-alert-field" hidden>
+                        <label class="edit-field" data-recorded-field hidden>
+                          <span class="edit-label" data-recorded-label>Date taken</span>
+                          <input name="recorded_at" id="document-upload-recorded-at" type="date" value="" autocomplete="off" data-empty="true" />
+                          <span class="muted edit-hint"></span>
+                        </label>
+                        <label class="edit-field" data-expires-field>
+                          <span class="edit-label" data-expires-label>Expiry date</span>
+                          <input name="expires_at" id="document-upload-expires-at" type="date" value="" autocomplete="off" data-empty="true" />
+                          <span class="muted edit-hint" data-expires-hint id="document-upload-expiry-hint">Leave blank if this document doesn&rsquo;t expire.</span>
+                        </label>
+                        <label class="edit-field" data-alert-field id="document-upload-alert-field" hidden>
                           <span class="edit-label">HR alert window</span>
                           <select name="expiry_alert_days" id="document-upload-alert-days">
                             <option value="30">30 days before</option>
@@ -3622,7 +3644,7 @@
       </button>
     </nav>
 
-    <script src="./native-api-fetch.js?v=37"></script>
+    <script src="./native-api-fetch.js?v=38"></script>
     <script src="./session-auth.js?v=12"></script>
     <script src="./auth-guard.js?v=security-v5"></script>
     <script src="./portal-pwa-stability.js?v=3"></script>
@@ -3652,20 +3674,20 @@
     <script src="./admin-icons.js?v=8"></script>
     <script src="./admin-mobile.js?v=24"></script>
     <script src="./admin-compliance-mobile.js?v=6"></script>
-    <script src="./action-feedback.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v49"></script>
+    <script src="./action-feedback.js?v=4"></script>
+    <script src="./admin-shared.js?v=admin-v50"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v33"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-documents.js?v=33"></script>
-    <script src="./admin-employees.js?v=45"></script>
+    <script src="./admin-documents.js?v=35"></script>
+    <script src="./admin-employees.js?v=48"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
-    <script src="./admin-crm.js?v=5"></script>
-    <script src="./admin-compliance.js?v=admin-v18"></script>
+    <script src="./admin-crm.js?v=6"></script>
+    <script src="./admin-compliance.js?v=admin-v20"></script>
     <script src="./admin-absence.js?v=4"></script>
-    <script src="./admin-rtw.js?v=11"></script>
+    <script src="./admin-rtw.js?v=13"></script>
     <script src="./admin-grievance.js?v=7"></script>
     <script src="./admin-disciplinary.js?v=4"></script>
     <script src="./admin-offboarding.js?v=admin-v8"></script>

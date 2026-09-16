@@ -14698,6 +14698,19 @@ body.rota-week-readonly .rota-builder-hint {
   box-shadow: inset 3px 0 0 var(--green-700);
 }
 
+.rtw-date-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.rtw-date-cell__label {
+  font-size: 0.68rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .rtw-employee-cell {
   display: flex;
   align-items: center;
@@ -19255,9 +19268,16 @@ input[type="datetime-local"] {
   align-items: center;
 }
 
+.crm-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
 .crm-upload-label {
   cursor: pointer;
-  margin: 0 0 0.5rem;
+  margin: 0;
 }
 
 .crm-summary-strip {

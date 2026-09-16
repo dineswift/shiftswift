@@ -11,6 +11,15 @@
     );
   }
 
+  function readableError(error, fallback) {
+    if (window.Admin?.formatErrorMessage) return window.Admin.formatErrorMessage(error, fallback);
+    const message = typeof error?.message === "string" ? error.message.trim() : "";
+    if (message && !/^\[object /i.test(message)) return message;
+    const alt = typeof error?.errorMessage === "string" ? error.errorMessage.trim() : "";
+    if (alt && !/^\[object /i.test(alt)) return alt;
+    return fallback;
+  }
+
   function toneClasses(tone) {
     if (tone === "ok" || tone === "success") {
       return ["action-status--success", "edit-form-status--success"];
@@ -208,7 +217,7 @@
 
       return { ok: true, message };
     } catch (error) {
-      const message = error?.message || errorMessage;
+      const message = readableError(error, errorMessage);
       notifyAction(message, "error", statusEl, { toast: true });
       endButtonAction(state);
       return { ok: false, error: message };

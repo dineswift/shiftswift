@@ -74,6 +74,92 @@
     return Object.assign({}, headers);
   }
 
+  function isFormDataBody(body) {
+    return typeof FormData !== "undefined" && body instanceof FormData;
+  }
+
+  function isFileLike(value) {
+    if (value == null || typeof value === "string") return false;
+    if (typeof Blob !== "undefined" && value instanceof Blob) return true;
+    return typeof value.arrayBuffer === "function" && (typeof value.size === "number" || typeof value.name === "string");
+  }
+
+  function nativeErrorText(err) {
+    if (err == null) return "";
+    if (typeof err === "string") {
+      const text = err.trim();
+      return !text || /^\[object /i.test(text) ? "" : text;
+    }
+    const candidates = [err.message, err.errorMessage, err.error?.message, err.code];
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (typeof candidates[i] !== "string") continue;
+      const text = candidates[i].trim();
+      if (text && !/^\[object /i.test(text)) return text;
+    }
+    return "";
+  }
+
+  function uint8ToBase64(bytes) {
+    let binary = "";
+    const slice = 0x8000;
+    for (let i = 0; i < bytes.length; i += slice) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + slice));
+    }
+    return btoa(binary);
+  }
+
+  async function encodeMultipartFormData(formData) {
+    const boundary = "----ShiftSwiftBoundary" + Math.random().toString(16).slice(2);
+    const encoder = new TextEncoder();
+    const chunks = [];
+    const pushText = function (text) {
+      chunks.push(encoder.encode(text));
+    };
+    for (const entry of formData.entries()) {
+      const key = entry[0];
+      const value = entry[1];
+      pushText("--" + boundary + "\r\n");
+      if (typeof value === "string" && /^\[object /i.test(value.trim())) {
+        throw new Error("Could not attach the photo. Choose the file again, then upload.");
+      }
+      if (isFileLike(value)) {
+        const filename = String(value.name || "upload.jpg").replace(/[\r\n"]/g, "_");
+        const type = String(value.type || "application/octet-stream");
+        pushText(
+          'Content-Disposition: form-data; name="' +
+            String(key).replace(/"/g, "") +
+            '"; filename="' +
+            filename +
+            '"\r\n',
+        );
+        pushText("Content-Type: " + type + "\r\n\r\n");
+        chunks.push(new Uint8Array(await value.arrayBuffer()));
+        pushText("\r\n");
+      } else {
+        pushText(
+          'Content-Disposition: form-data; name="' + String(key).replace(/"/g, "") + '"\r\n\r\n',
+        );
+        pushText(String(value ?? ""));
+        pushText("\r\n");
+      }
+    }
+    pushText("--" + boundary + "--\r\n");
+    let total = 0;
+    chunks.forEach(function (chunk) {
+      total += chunk.length;
+    });
+    const out = new Uint8Array(total);
+    let offset = 0;
+    chunks.forEach(function (chunk) {
+      out.set(chunk, offset);
+      offset += chunk.length;
+    });
+    return {
+      dataBase64: uint8ToBase64(out),
+      contentType: "multipart/form-data; boundary=" + boundary,
+    };
+  }
+
   async function readBody(body, contentType) {
     if (body == null) return { data: undefined, dataType: undefined };
     if (typeof body === "string") {
@@ -81,12 +167,8 @@
       return { data: body, dataType: "text" };
     }
     if (body instanceof URLSearchParams) return { data: body.toString(), dataType: "text" };
-    if (body instanceof FormData) {
-      const data = {};
-      body.forEach(function (value, key) {
-        data[key] = value;
-      });
-      return { data: data, dataType: "formData" };
+    if (isFormDataBody(body)) {
+      return encodeMultipartFormData(body);
     }
     try {
       return { data: JSON.stringify(body), dataType: "json" };
@@ -256,9 +338,15 @@
       readTimeout: Number(extra?.readTimeout) || 120000,
     };
     if (extra?.responseType) requestPayload.responseType = extra.responseType;
-    if (method !== "GET" && method !== "HEAD" && bodyInfo.data != null) {
-      requestPayload.data = bodyInfo.data;
-      requestPayload.dataType = bodyInfo.dataType;
+    if (method !== "GET" && method !== "HEAD") {
+      if (bodyInfo.dataBase64) {
+        requestPayload.dataBase64 = bodyInfo.dataBase64;
+        headers["Content-Type"] = bodyInfo.contentType || "multipart/form-data";
+        requestPayload.headers = headers;
+      } else if (bodyInfo.data != null) {
+        requestPayload.data = bodyInfo.data;
+        requestPayload.dataType = bodyInfo.dataType;
+      }
     }
     return requestPayload;
   }
@@ -276,6 +364,10 @@
 
     const method = String(options?.method || "GET").toUpperCase();
     const headers = sanitizeHeaders(headersToObject(options?.headers), method);
+    if (isFormDataBody(options?.body)) {
+      delete headers["Content-Type"];
+      delete headers["content-type"];
+    }
     const contentType = headers["Content-Type"] || headers["content-type"] || "";
     const bodyInfo = await readBody(options?.body, contentType);
     noteTransport(extra?.transportLabel || "ShiftSwiftHttp");
@@ -283,11 +375,17 @@
       url: rewriteNativeApiUrl(url),
       method: method,
       headers: headers,
-      connectTimeout: Number(extra?.connectTimeout) || 15000,
-      readTimeout: Number(extra?.readTimeout) || 30000,
+      connectTimeout: Number(extra?.connectTimeout) || (bodyInfo.dataBase64 ? 45000 : 15000),
+      readTimeout: Number(extra?.readTimeout) || (bodyInfo.dataBase64 ? 120000 : 30000),
     };
-    if (method !== "GET" && method !== "HEAD" && bodyInfo.data != null) {
-      payload.data = typeof bodyInfo.data === "string" ? bodyInfo.data : JSON.stringify(bodyInfo.data);
+    if (method !== "GET" && method !== "HEAD") {
+      if (bodyInfo.dataBase64) {
+        payload.dataBase64 = bodyInfo.dataBase64;
+        headers["Content-Type"] = bodyInfo.contentType || "multipart/form-data";
+        payload.headers = headers;
+      } else if (bodyInfo.data != null) {
+        payload.data = typeof bodyInfo.data === "string" ? bodyInfo.data : JSON.stringify(bodyInfo.data);
+      }
     }
 
     let nativeResponse;
@@ -431,7 +529,7 @@
         Object.keys(headers).forEach(function (key) {
           xhr.setRequestHeader(key, headers[key]);
         });
-        xhr.timeout = Number(options?.sshrTimeoutMs) || 20000;
+        xhr.timeout = Number(options?.sshrTimeoutMs) || (isFormDataBody(options?.body) ? 120000 : 20000);
         xhr.onload = function () {
           resolve(
             new Response(xhr.responseText, {
@@ -484,24 +582,44 @@
     }
     let body;
     if (!isGet) {
-      if (init?.body != null) body = typeof init.body === "string" ? init.body : String(init.body);
-      else if (input instanceof Request) body = await input.clone().text();
+      if (init?.body != null) {
+        if (typeof init.body === "string" || isFormDataBody(init.body) || (typeof Blob !== "undefined" && init.body instanceof Blob)) {
+          body = init.body;
+        } else {
+          body = String(init.body);
+        }
+      } else if (input instanceof Request) {
+        try {
+          body = await input.clone().formData();
+        } catch {
+          body = await input.clone().text();
+        }
+      }
+    }
+    if (isFormDataBody(body)) {
+      delete headers["Content-Type"];
+      delete headers["content-type"];
     }
     const opts = { method, headers, body: body || undefined };
     const errors = [];
 
     const nativePlatform = String(window.Capacitor?.getPlatform?.() || "").toLowerCase();
+    const isMultipart = isFormDataBody(body);
 
     // iOS disables CapHttp and uses the app's URLSession plugin. Android keeps
     // CapacitorHttp enabled, because ShiftSwiftHttp is not registered there.
+    const connectMs = isMultipart ? 45000 : 20000;
+    const readMs = isMultipart ? 120000 : 45000;
+    const outerMs = isMultipart ? 130000 : 50000;
+
     function ssHttpOnce() {
       return withRequestTimeout(
         shiftSwiftHttpRequest(url, opts, {
-          connectTimeout: 20000,
-          readTimeout: 45000,
+          connectTimeout: connectMs,
+          readTimeout: readMs,
           transportLabel: "ShiftSwiftHttp",
         }),
-        50000,
+        outerMs,
         "ShiftSwiftHttp",
       );
     }
@@ -509,27 +627,41 @@
     function capacitorHttpOnce() {
       return withRequestTimeout(
         nativeBridgeHttpRequestWithRetries(url, opts, 2, {
-          connectTimeout: 20000,
-          readTimeout: 45000,
+          connectTimeout: connectMs,
+          readTimeout: readMs,
         }),
-        50000,
+        outerMs,
         "CapacitorHttp",
       );
     }
 
-    const attempts =
-      nativePlatform === "ios"
+    function capacitorFetchOnce() {
+      return withRequestTimeout(
+        capacitorHttpFetch(url, opts),
+        outerMs,
+        "CapacitorHttp fetch",
+      );
+    }
+
+    function xhrOnce() {
+      return withRequestTimeout(
+        xhrBridgeFetch(url, Object.assign({}, opts, { sshrTimeoutMs: outerMs })),
+        outerMs,
+        "XHR",
+      );
+    }
+
+    function proxyOnce() {
+      return withRequestTimeout(capacitorProxyFetch(url, opts), outerMs, "CapacitorHttp.proxy");
+    }
+
+    const attempts = isMultipart
+      ? nativePlatform === "ios"
+        ? [ssHttpOnce, xhrOnce, proxyOnce]
+        : [capacitorFetchOnce, capacitorHttpOnce, xhrOnce]
+      : nativePlatform === "ios"
         ? [ssHttpOnce]
-        : [
-            capacitorHttpOnce,
-            function capacitorFetchOnce() {
-              return withRequestTimeout(
-                capacitorHttpFetch(url, opts),
-                50000,
-                "CapacitorHttp fetch",
-              );
-            },
-          ];
+        : [capacitorHttpOnce, capacitorFetchOnce];
 
     for (const attempt of attempts) {
       try {
@@ -538,7 +670,7 @@
         errors.push(error);
         try {
           window.__SSHR_LAST_TRANSPORT_ERRORS = errors.map(function (err) {
-            return humanizeNonJsonBody(String(err?.message || err || "failed"));
+            return humanizeNonJsonBody(nativeErrorText(err) || "failed");
           }).slice(0, 6);
         } catch {
           /* ignore */
@@ -548,38 +680,50 @@
 
     // Do not fall back to App:// CORS fetch — it always fails and hides the real error.
     const detail = errors
-      .map(function (err) {
-        return String(err?.message || err || "failed");
-      })
+      .map(nativeErrorText)
       .filter(Boolean)
       .slice(0, 4)
       .join(" | ");
     try {
       window.__SSHR_LAST_TRANSPORT_ERRORS = errors.map(function (err) {
-        return String(err?.message || err || "failed");
+        return nativeErrorText(err) || "failed";
       }).slice(0, 6);
     } catch {
       /* ignore */
     }
     const failedTransport = nativePlatform === "ios" ? "ShiftSwiftHttp" : "CapacitorHttp";
     noteTransport(`${failedTransport}-failed`);
-    throw new Error(detail || `${failedTransport} failed`);
+    throw new Error(
+      detail ||
+        (isMultipart ? "Could not upload the photo. Check the connection and try again." : `${failedTransport} failed`),
+    );
   }
 
   async function nativeAwareFetch(input, init) {
     if (!isNative()) {
       return nativeAwareFetchInner(input, init);
     }
-    const request = input instanceof Request ? input : new Request(input, init);
-    if (!isApiUrl(request.url)) {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof Request
+          ? input.url
+          : String(input || "");
+    if (!isApiUrl(url)) {
       return nativeAwareFetchInner(input, init);
     }
+    // Do not wrap FormData in `new Request()` — that can lock/consume the file body.
+    const method = String(init?.method || (input instanceof Request ? input.method : "GET") || "GET").toUpperCase();
     // Rota must not wait behind the shared queue — keep a tight outer budget.
-    if (isPriorityApiUrl(request.url) || init?.sshrPriority) {
+    if (isPriorityApiUrl(url) || init?.sshrPriority) {
       return withRequestTimeout(nativeAwareFetchInner(input, init), 35000, "Rota request");
     }
-    const method = String(init?.method || request.method || "GET").toUpperCase();
-    const queueTimeout = method === "GET" || method === "HEAD" ? 90000 : 45000;
+    const queueTimeout =
+      isFormDataBody(init?.body) || method === "POST" || method === "PUT" || method === "PATCH"
+        ? 120000
+        : method === "GET" || method === "HEAD"
+          ? 90000
+          : 45000;
     return runQueuedApi(function () {
       return nativeAwareFetchInner(input, init);
     }, queueTimeout);

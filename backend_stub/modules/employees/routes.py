@@ -23,6 +23,7 @@ from modules.documents.service import (
     list_employee_documents,
     requirements_status,
     update_employee_document,
+    _parse_optional_date,
 )
 from modules.employees.workspace import build_workspace, patch_section
 
@@ -83,6 +84,8 @@ class EmployeeDocumentCreate(BaseModel):
     document_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
+    issued_at: date | None = None
+    recorded_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
     employee_visible: bool | None = None
     expiry_alert_days: int | None = Field(default=30)
@@ -95,6 +98,8 @@ class EmployeeDocumentUpdate(BaseModel):
     document_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
+    issued_at: date | None = None
+    recorded_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
     pay_period: str | None = Field(default=None, max_length=64)
     employee_visible: bool | None = None
@@ -324,7 +329,9 @@ async def upload_employee_document(
     category: str = Form(default="general"),
     lifecycle_stage: str = Form(default="document_store"),
     notes: str | None = Form(default=None),
-    expires_at: date | None = Form(default=None),
+    expires_at: str | None = Form(default=None),
+    issued_at: str | None = Form(default=None),
+    recorded_at: str | None = Form(default=None),
     expiry_alert_days: int | None = Form(default=30),
     pay_period: str | None = Form(default=None),
     employee_visible: bool = Form(default=False),
@@ -360,7 +367,9 @@ async def upload_employee_document(
                 "category": category,
                 "lifecycle_stage": lifecycle_stage,
                 "notes": notes or "File stored on ShiftSwift HR",
-                "expires_at": expires_at,
+                "expires_at": _parse_optional_date(expires_at),
+                "issued_at": _parse_optional_date(issued_at),
+                "recorded_at": _parse_optional_date(recorded_at),
                 "expiry_alert_days": expiry_alert_days,
                 "original_filename": file.filename,
                 "pay_period": normalized_pay_period,
@@ -426,7 +435,7 @@ async def upload_employee_document(
             tenant_id=tenant_id,
             employee_id=employee_id,
             category=category,
-            expires_at=expires_at,
+            expires_at=_parse_optional_date(expires_at),
             conn=conn,
         )
         if notify_employee:

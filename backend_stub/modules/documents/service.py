@@ -236,6 +236,9 @@ def validate_employee_document_data(data: dict[str, Any]) -> dict[str, Any]:
     pay_period = data.get("pay_period")
     if pay_period is not None:
         pay_period = str(pay_period).strip() or None
+    recorded = _parse_optional_date(data.get("recorded_at"))
+    if category in {"rtw", "right_to_work", "policy", "disciplinary"} and recorded is None:
+        recorded = date.today()
     employee_visible = _normalize_employee_visible(data.get("employee_visible"), default=True)
     return {
         "title": title,
@@ -243,7 +246,9 @@ def validate_employee_document_data(data: dict[str, Any]) -> dict[str, Any]:
         "lifecycle_stage": lifecycle_stage,
         "document_url": document_url,
         "notes": data.get("notes"),
-        "expires_at": data.get("expires_at"),
+        "expires_at": _parse_optional_date(data.get("expires_at")),
+        "issued_at": _parse_optional_date(data.get("issued_at")),
+        "recorded_at": recorded,
         "expiry_alert_days": _normalize_expiry_alert_days(data.get("expiry_alert_days")),
         "employee_visible": employee_visible if employee_visible is not None else True,
         "pay_period": pay_period,
@@ -271,13 +276,18 @@ def validate_tenant_document_data(data: dict[str, Any]) -> dict[str, Any]:
     if not document_url and not data.get("notes") and not data.get("storage_path"):
         raise ValueError("Provide a document URL, upload a file, or notes describing where the file is stored")
     employee_visible = _normalize_employee_visible(data.get("employee_visible"), default=False)
+    recorded = _parse_optional_date(data.get("recorded_at"))
+    if category in {"rtw", "right_to_work", "policy", "disciplinary"} and recorded is None:
+        recorded = date.today()
     return {
         "title": title,
         "category": category,
         "lifecycle_stage": lifecycle_stage,
         "document_url": document_url,
         "notes": data.get("notes"),
-        "expires_at": data.get("expires_at"),
+        "expires_at": _parse_optional_date(data.get("expires_at")),
+        "issued_at": _parse_optional_date(data.get("issued_at")),
+        "recorded_at": recorded,
         "expiry_alert_days": _normalize_expiry_alert_days(data.get("expiry_alert_days")),
         "employee_visible": employee_visible if employee_visible is not None else False,
         "original_filename": data.get("original_filename"),
@@ -297,6 +307,19 @@ def _iso(value: Any) -> str | None:
     return str(value)
 
 
+def _parse_optional_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    return date.fromisoformat(text[:10])
+
+
 def _minimal_employee_document(
     *,
     document_id: int,
@@ -313,6 +336,8 @@ def _minimal_employee_document(
         "notes": payload.get("notes"),
         "uploaded_by": payload.get("uploaded_by"),
         "expires_at": _iso(payload.get("expires_at")),
+        "issued_at": _iso(payload.get("issued_at")),
+        "recorded_at": _iso(payload.get("recorded_at")),
         "original_filename": payload.get("original_filename"),
         "created_at": None,
         "updated_at": None,
@@ -339,6 +364,8 @@ def _minimal_tenant_document(*, document_id: int, payload: dict[str, Any]) -> di
         "notes": payload.get("notes"),
         "uploaded_by": payload.get("uploaded_by"),
         "expires_at": _iso(payload.get("expires_at")),
+        "issued_at": _iso(payload.get("issued_at")),
+        "recorded_at": _iso(payload.get("recorded_at")),
         "original_filename": payload.get("original_filename"),
         "created_at": None,
         "updated_at": None,
@@ -409,6 +436,8 @@ def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None
             "notes": data.get("notes"),
             "uploaded_by": data.get("uploaded_by"),
             "expires_at": _iso(data.get("expires_at")),
+            "issued_at": _iso(data.get("issued_at")),
+            "recorded_at": _iso(data.get("recorded_at")),
             "original_filename": data.get("original_filename"),
             "created_at": _iso(data.get("created_at")),
             "updated_at": _iso(data.get("updated_at")),
@@ -431,24 +460,26 @@ def _row_to_employee_document(row: tuple[Any, ...], *, columns: list[str] | None
         "notes": row[5],
         "uploaded_by": row[6],
         "expires_at": _iso(row[7]),
-        "original_filename": row[8],
-        "created_at": _iso(row[9]),
-        "updated_at": _iso(row[10]),
-        "employee_id": row[11],
-        "storage_path": row[12],
-        "content_sha256": row[13],
-        "content_type": row[14],
-        "file_size_bytes": row[15],
-        "pay_period": row[16],
-        "expiry_alert_days": row[17],
-        "employee_visible": row[18],
-        "has_file": _non_empty_text(row[12]),
+        "issued_at": _iso(row[8]) if len(row) > 20 else None,
+        "recorded_at": _iso(row[9]) if len(row) > 20 else None,
+        "original_filename": row[10] if len(row) > 20 else row[8],
+        "created_at": _iso(row[11] if len(row) > 20 else row[9]),
+        "updated_at": _iso(row[12] if len(row) > 20 else row[10]),
+        "employee_id": row[13] if len(row) > 20 else row[11],
+        "storage_path": row[14] if len(row) > 20 else row[12],
+        "content_sha256": row[15] if len(row) > 20 else row[13],
+        "content_type": row[16] if len(row) > 20 else row[14],
+        "file_size_bytes": row[17] if len(row) > 20 else row[15],
+        "pay_period": row[18] if len(row) > 20 else row[16],
+        "expiry_alert_days": row[19] if len(row) > 20 else row[17],
+        "employee_visible": row[20] if len(row) > 20 else row[18],
+        "has_file": _non_empty_text(row[14] if len(row) > 20 else row[12]),
     }
 
 
 EMPLOYEE_DOCUMENT_SELECT = """
     id, title, category, lifecycle_stage, document_url, notes, uploaded_by,
-    expires_at, original_filename, created_at, updated_at, employee_id,
+    expires_at, issued_at, recorded_at, original_filename, created_at, updated_at, employee_id,
     storage_path, content_sha256, content_type, file_size_bytes, pay_period,
     expiry_alert_days, employee_visible
 """
@@ -500,17 +531,20 @@ def list_employee_documents(
         clauses.append("lifecycle_stage = %s")
         params.append(lifecycle_stage)
     where = " AND ".join(clauses)
+    select_cols = _employee_document_select_columns(conn)
+    if not select_cols:
+        return []
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT {EMPLOYEE_DOCUMENT_SELECT}
+            SELECT {", ".join(select_cols)}
             FROM employee_documents
             WHERE {where}
             ORDER BY created_at DESC
             """,
             params,
         )
-        return [_row_to_employee_document(row) for row in cur.fetchall()]
+        return [_row_to_employee_document(row, columns=select_cols) for row in cur.fetchall()]
 
 
 def get_employee_document(
@@ -548,6 +582,8 @@ def create_employee_document(
         "notes": payload["notes"],
         "uploaded_by": uploaded_by,
         "expires_at": payload.get("expires_at"),
+        "issued_at": payload.get("issued_at"),
+        "recorded_at": payload.get("recorded_at"),
         "original_filename": payload.get("original_filename"),
         "storage_path": payload.get("storage_path"),
         "content_sha256": payload.get("content_sha256"),
@@ -610,6 +646,8 @@ def update_employee_document(
             "document_url",
             "notes",
             "expires_at",
+            "issued_at",
+            "recorded_at",
             "original_filename",
             "storage_path",
             "content_sha256",
@@ -631,8 +669,17 @@ def update_employee_document(
         raise ValueError("Invalid document category")
     if "lifecycle_stage" in merged and merged["lifecycle_stage"] not in VALID_LIFECYCLE_STAGES - {"policy"}:
         raise ValueError("Invalid lifecycle stage")
+    for date_key in ("expires_at", "issued_at", "recorded_at"):
+        if date_key in merged:
+            merged[date_key] = _parse_optional_date(merged[date_key])
     if "expiry_alert_days" in merged:
         merged["expiry_alert_days"] = _normalize_expiry_alert_days(merged["expiry_alert_days"])
+    if "expires_at" in merged:
+        merged["expires_at"] = _parse_optional_date(merged.get("expires_at"))
+    if "issued_at" in merged:
+        merged["issued_at"] = _parse_optional_date(merged.get("issued_at"))
+    if "recorded_at" in merged:
+        merged["recorded_at"] = _parse_optional_date(merged.get("recorded_at"))
     if "employee_visible" in merged:
         visible = _normalize_employee_visible(merged["employee_visible"])
         if visible is None:
@@ -714,6 +761,8 @@ def _row_to_tenant_document(row: tuple[Any, ...], *, columns: list[str] | None =
             "notes": data.get("notes"),
             "uploaded_by": data.get("uploaded_by"),
             "expires_at": _iso(data.get("expires_at")),
+            "issued_at": _iso(data.get("issued_at")),
+            "recorded_at": _iso(data.get("recorded_at")),
             "original_filename": data.get("original_filename"),
             "created_at": _iso(data.get("created_at")),
             "updated_at": _iso(data.get("updated_at")),
@@ -751,7 +800,7 @@ def _row_to_tenant_document(row: tuple[Any, ...], *, columns: list[str] | None =
 
 TENANT_DOCUMENT_SELECT = """
     id, title, category, lifecycle_stage, document_url, notes, uploaded_by,
-    expires_at, original_filename, created_at, updated_at, employee_id,
+    expires_at, issued_at, recorded_at, original_filename, created_at, updated_at, employee_id,
     storage_path, content_sha256, content_type, file_size_bytes,
     expiry_alert_days, employee_visible
 """
@@ -891,6 +940,8 @@ def create_tenant_document(
         "notes": payload["notes"],
         "uploaded_by": uploaded_by,
         "expires_at": payload.get("expires_at"),
+        "issued_at": payload.get("issued_at"),
+        "recorded_at": payload.get("recorded_at"),
         "original_filename": payload.get("original_filename"),
         "employee_id": payload.get("employee_id"),
         "storage_path": payload.get("storage_path"),
@@ -946,6 +997,8 @@ def update_tenant_document(
             "document_url",
             "notes",
             "expires_at",
+            "issued_at",
+            "recorded_at",
             "original_filename",
             "employee_id",
             "storage_path",
@@ -970,6 +1023,9 @@ def update_tenant_document(
         raise ValueError("Invalid document category")
     if "lifecycle_stage" in allowed and allowed["lifecycle_stage"] not in VALID_LIFECYCLE_STAGES:
         raise ValueError("Invalid lifecycle stage")
+    for date_key in ("expires_at", "issued_at", "recorded_at"):
+        if date_key in allowed:
+            allowed[date_key] = _parse_optional_date(allowed[date_key])
     available = _table_columns(conn, "tenant_documents")
     allowed = {key: value for key, value in allowed.items() if key in available}
     if "updated_at" in available:

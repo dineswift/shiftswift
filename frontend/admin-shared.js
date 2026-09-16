@@ -1028,16 +1028,54 @@ window.Admin = (() => {
     throw lastError || new Error("Could not load form options");
   }
 
+  function isJunkErrorText(text) {
+    const value = String(text || "").trim();
+    return !value || /^\[object /i.test(value) || value === "undefined" || value === "null";
+  }
+
   function parseApiDetail(data, fallback = "Request failed") {
     const detail = data?.detail ?? data?.message;
-    if (typeof detail === "string" && detail.trim()) return detail.trim();
+    if (typeof detail === "string") {
+      const text = detail.trim();
+      if (!isJunkErrorText(text)) return text;
+    }
+    if (Array.isArray(detail)) {
+      const parts = detail
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item.msg === "string") return item.msg;
+          if (item && typeof item.message === "string") return item.message;
+          return "";
+        })
+        .map((item) => item.trim())
+        .filter((item) => item && !isJunkErrorText(item));
+      if (parts.length) return parts.join("; ");
+    }
     if (detail && typeof detail === "object") {
-      if (typeof detail.message === "string" && detail.message.trim()) return detail.message.trim();
+      if (typeof detail.message === "string" && !isJunkErrorText(detail.message)) return detail.message.trim();
+      if (typeof detail.msg === "string" && !isJunkErrorText(detail.msg)) return detail.msg.trim();
     }
-    if (Array.isArray(data?.detail)) {
-      const first = data.detail.find((item) => item?.msg)?.msg;
-      if (first) return String(first);
+    return fallback;
+  }
+
+  function formatErrorMessage(error, fallback = "Request failed") {
+    if (error == null || error === "") return fallback;
+    if (typeof error === "string") {
+      const text = error.trim();
+      return isJunkErrorText(text) ? fallback : text;
     }
+    const candidates = [error.message, error.errorMessage, error.error?.message, error.detail];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string") {
+        const text = candidate.trim();
+        if (!isJunkErrorText(text)) return text;
+      } else if (candidate && typeof candidate === "object") {
+        const nested = parseApiDetail({ detail: candidate }, "");
+        if (nested) return nested;
+      }
+    }
+    const fromDetail = parseApiDetail(error, "");
+    if (fromDetail) return fromDetail;
     return fallback;
   }
 
@@ -1078,7 +1116,7 @@ window.Admin = (() => {
   }
 
   function friendlyNativeError(error, fallback = "Request failed") {
-    const message = String(error?.message || error || "").trim();
+    const message = formatErrorMessage(error, fallback);
     const lastPath = window.__SSHR_LAST_API?.path;
     const pathHint = lastPath ? ` (${lastPath})` : "";
     if (/^</.test(message) || /<\s*html[\s>]/i.test(message) || /cloudflare/i.test(message)) {
@@ -1840,6 +1878,7 @@ window.Admin = (() => {
     isPlatformAdmin,
     escapeHtml,
     parseApiDetail,
+    formatErrorMessage,
     parseApiJson,
     readApiError,
     friendlyNativeError,

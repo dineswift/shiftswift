@@ -830,7 +830,7 @@
       <form class="edit-form edit-form--cols-2" id="rtw-upload">
         <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" required>${employeeOptions}</select></label>
         <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required data-empty="true" /></label>
-        <label class="edit-field"><span class="edit-label">Method</span><input name="check_method" value="Manual PDF upload" required /></label>
+        <label class="edit-field"><span class="edit-label">Method</span><input name="check_method" value="Manual evidence upload" required /></label>
         <label class="edit-field"><span class="edit-label">Outcome</span>
           <select name="outcome" required>
             <option value="pass">Pass</option>
@@ -840,18 +840,48 @@
         </label>
         <label class="edit-field"><span class="edit-label">Visa expiry</span><input name="visa_expiry_date" type="date" data-empty="true" /></label>
         <label class="edit-field"><span class="edit-label">RTW check expiry</span><input name="rtw_check_expiry_date" type="date" data-empty="true" /></label>
-        <label class="edit-field" data-span="2"><span class="edit-label">RTW evidence PDF</span><input name="evidence_pdf" type="file" accept="application/pdf" required /></label>
+        <div class="edit-field" data-span="2">
+          <span class="edit-label">Evidence</span>
+          <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="rtw-upload-dropzone">
+            <input name="evidence_pdf" type="file" id="rtw-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+            <input type="file" id="rtw-upload-camera" accept="image/*" capture="environment" hidden />
+            <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+            <p class="doc-upload-dropzone__hint muted">PDF, JPEG or PNG · max 10 MB</p>
+            <p class="doc-upload-filename" id="rtw-upload-filename" hidden></p>
+          </div>
+        </div>
         <div class="edit-form-actions" data-span="2">
-          <button class="btn" type="submit">Store immutable RTW PDF</button>
+          <button class="btn" type="submit">Store RTW evidence</button>
           <p class="edit-form-status muted" data-status></p>
         </div>
       </form>`;
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: document.getElementById("rtw-upload-dropzone"),
+      fileInput: document.getElementById("rtw-upload-file"),
+      filenameEl: document.getElementById("rtw-upload-filename"),
+      cameraInput: document.getElementById("rtw-upload-camera"),
+    });
     host.querySelector("form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const status = form.querySelector("[data-status]");
+      const fileInput = form.querySelector("#rtw-upload-file");
+      let file = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput?.files?.[0];
+      try {
+        if (file && window.AdminDocuments?.prepareUploadFile) {
+          file = await window.AdminDocuments.prepareUploadFile(file);
+        }
+      } catch (error) {
+        if (status) status.textContent = error.message || "Choose a JPEG or PNG photo.";
+        return;
+      }
+      if (!file) {
+        if (status) status.textContent = "Choose a file or take a photo.";
+        return;
+      }
       if (status) status.textContent = "Uploading…";
       const fd = new FormData(form);
+      fd.set("evidence_pdf", file);
       fd.set("checker_user_id", localStorage.getItem("username") || "hr");
       try {
         const res = await apiFetch("/compliance/sponsor-licence/rtw-checks", {
@@ -863,11 +893,20 @@
         if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
         if (status) status.textContent = `Stored check #${data.check_id} · SHA ${String(data.content_sha256 || "").slice(0, 12)}…`;
         form.reset();
+        if (fileInput) {
+          fileInput.value = "";
+          fileInput._sshrPendingFile = null;
+        }
+        const filenameEl = document.getElementById("rtw-upload-filename");
+        if (filenameEl) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        }
         window.Admin?.bindDateInputs?.(form);
         window.dispatchEvent(new CustomEvent("admin:compliance-refresh"));
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       } catch (error) {
-        if (status) status.textContent = error.message || "Upload failed";
+        if (status) status.textContent = window.Admin?.formatErrorMessage?.(error, "Upload failed") || error.message || "Upload failed";
       }
     });
     host.dataset.mounted = "true";

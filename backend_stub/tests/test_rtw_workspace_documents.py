@@ -81,6 +81,8 @@ def _doc_row(**overrides):
         row["is_sponsored"],
         row["visa_expiry_date"],
         row["rtw_check_expiry_date"],
+        row.get("issued_at"),
+        row.get("recorded_at"),
     )
 
 
@@ -92,7 +94,7 @@ def test_serialize_passport_document() -> None:
     assert item["document_type"] == "Passport / ID"
     assert item["status"] == "verified"
     assert item["expiry_date"] == "2030-01-15"
-    assert item["expiry_label"] == "Passport expiry"
+    assert item["expiry_label"] == "Expiry date"
     assert item["employee_name"] == "Karun Acharya"
 
 
@@ -104,7 +106,7 @@ def test_serialize_expired_visa_needs_review() -> None:
     assert item["document_kind"] == "visa"
     assert item["document_type"] == "Visa / BRP"
     assert item["status"] == "needs_review"
-    assert item["expiry_label"] == "Visa expiry"
+    assert item["expiry_label"] == "Visa end date"
 
 
 def test_serialize_rtw_document_without_expiry_needs_review() -> None:
@@ -115,3 +117,53 @@ def test_serialize_rtw_document_without_expiry_needs_review() -> None:
     assert item["document_kind"] == "rtw_check"
     assert item["status"] == "needs_review"
     assert item["expiry_date"] is None
+    assert item["date_label"] == "Date taken"
+
+
+def test_serialize_passport_issue_and_expiry_dates() -> None:
+    item = _serialize_identity_document_row(
+        _doc_row(issued_at=date(2020, 5, 1), expires_at=date(2030, 1, 15)),
+        as_of=date(2026, 9, 16),
+    )
+    assert item["check_date"] == "2020-05-01"
+    assert item["document_issue_date"] == "2020-05-01"
+    assert item["issued_at"] == "2020-05-01"
+    assert item["date_label"] == "Issue date"
+    assert item["expiry_label"] == "Expiry date"
+    assert item["expiry_date"] == "2030-01-15"
+
+
+def test_serialize_visa_start_and_end_dates() -> None:
+    item = _serialize_identity_document_row(
+        _doc_row(
+            title="Skilled Worker visa",
+            category="visa_brp",
+            issued_at=date(2025, 4, 6),
+            expires_at=date(2028, 4, 5),
+        ),
+        as_of=date(2026, 9, 16),
+    )
+    assert item["document_kind"] == "visa"
+    assert item["visa_start_date"] == "2025-04-06"
+    assert item["check_date"] == "2025-04-06"
+    assert item["expiry_date"] == "2028-04-05"
+    assert item["date_label"] == "Visa start date"
+    assert item["expiry_label"] == "Visa end date"
+
+
+def test_serialize_rtw_date_taken() -> None:
+    item = _serialize_identity_document_row(
+        _doc_row(
+            title="Share code check",
+            category="rtw",
+            recorded_at=date(2026, 8, 20),
+            expires_at=date(2026, 12, 1),
+        ),
+        as_of=date(2026, 9, 16),
+    )
+    assert item["document_kind"] == "rtw_check"
+    assert item["recorded_at"] == "2026-08-20"
+    assert item["check_date"] == "2026-08-20"
+    assert item["date_label"] == "Date taken"
+    assert item["expiry_label"] == "RTW expiry date"
+    assert item["expiry_date"] == "2026-12-01"

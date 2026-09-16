@@ -129,9 +129,15 @@ def rtw_document_type(check_method: str | None, outcome: str) -> str:
 
 
 DOCUMENT_KIND_EXPIRY_LABELS = {
-    "passport": "Passport expiry",
-    "visa": "Visa expiry",
-    "rtw_check": "RTW check expiry",
+    "passport": "Expiry date",
+    "visa": "Visa end date",
+    "rtw_check": "RTW expiry date",
+}
+
+DOCUMENT_KIND_DATE_LABELS = {
+    "passport": "Issue date",
+    "visa": "Visa start date",
+    "rtw_check": "Date taken",
 }
 
 
@@ -180,6 +186,9 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         "is_sponsored": bool(is_sponsored),
         "employee_email": email,
         "check_date": check_date.isoformat() if check_date else None,
+        "recorded_at": check_date.isoformat() if check_date else None,
+        "date_label": DOCUMENT_KIND_DATE_LABELS["rtw_check"],
+        "start_label": DOCUMENT_KIND_DATE_LABELS["rtw_check"],
         "check_method": check_method,
         "checker_user_id": checker_user_id,
         "outcome": outcome,
@@ -198,6 +207,7 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         "filename": filename,
         "created_at": created_at.isoformat() if created_at else None,
         "immutable_locked": True,
+        "file_available": bool(storage_path),
         "document_expiry_date": expiry_date.isoformat() if expiry_date else None,
         "download_path": f"/compliance/sponsor-licence/rtw-checks/check-{check_id}/file",
     }
@@ -321,7 +331,10 @@ def _serialize_identity_document_row(row: tuple, *, as_of: date | None = None) -
         is_sponsored,
         visa_expiry_date,
         rtw_check_expiry_date,
+        *extra,
     ) = row
+    issued_at = extra[0] if extra else None
+    recorded_at = extra[1] if len(extra) > 1 else None
     kind = identity_document_kind(category) or "rtw_check"
     today = as_of or date.today()
     document_expiry = _coerce_date(expires_at)
@@ -345,7 +358,12 @@ def _serialize_identity_document_row(row: tuple, *, as_of: date | None = None) -
     name = f"{first_name or ''} {last_name or ''}".strip() or f"Employee #{employee_id}"
     role = job_title or department or "Staff"
     created = created_at if isinstance(created_at, datetime) else None
-    check_date = _coerce_date(created_at)
+    issued = _coerce_date(issued_at)
+    recorded = _coerce_date(recorded_at)
+    if kind == "rtw_check":
+        check_date = recorded or _coerce_date(created_at)
+    else:
+        check_date = issued or _coerce_date(created_at)
     filename = (
         original_filename
         or (Path(storage_path).name if storage_path else None)
@@ -373,6 +391,12 @@ def _serialize_identity_document_row(row: tuple, *, as_of: date | None = None) -
         "is_sponsored": bool(is_sponsored),
         "employee_email": email,
         "check_date": check_date.isoformat() if check_date else None,
+        "issued_at": issued.isoformat() if issued else None,
+        "recorded_at": recorded.isoformat() if recorded else None,
+        "document_issue_date": issued.isoformat() if kind == "passport" and issued else None,
+        "visa_start_date": issued.isoformat() if kind == "visa" and issued else None,
+        "date_label": DOCUMENT_KIND_DATE_LABELS.get(kind, "Date on file"),
+        "start_label": DOCUMENT_KIND_DATE_LABELS.get(kind, "Date on file"),
         "check_method": "Employee document store",
         "checker_user_id": uploaded_by,
         "outcome": outcome,
@@ -394,6 +418,7 @@ def _serialize_identity_document_row(row: tuple, *, as_of: date | None = None) -
         "category": category,
         "created_at": created.isoformat() if created else (check_date.isoformat() if check_date else None),
         "immutable_locked": False,
+        "file_available": bool(storage_path),
         "download_path": f"/compliance/sponsor-licence/rtw-checks/{record_id}/file",
     }
 
@@ -434,6 +459,8 @@ def _list_identity_rtw_documents(
             "e.email",
             "COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored",
             _sponsor_profile_expiry_select(conn),
+            _nullable_sql("d", cols, "issued_at"),
+            _nullable_sql("d", cols, "recorded_at"),
         ]
     )
     where = [f"d.tenant_id = %s", f"LOWER(d.category) IN ({placeholders})"]
@@ -577,8 +604,10 @@ def rtw_record_file(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[
         raise LookupError("RTW check not found")
     employee_id, check_date, storage_path = row
     path = resolve_rtw_file(tenant_id=tenant_id, storage_path=storage_path)
-    filename = f"rtw-check-employee-{employee_id}-{_coerce_date(check_date) or date.today()}.pdf"
-    return {"path": path, "filename": filename, "media_type": "application/pdf"}
+    stored_name = Path(storage_path).name if storage_path else ""
+    suffix = Path(stored_name).suffix.lower() or ".pdf"
+    filename = stored_name or f"rtw-check-employee-{employee_id}-{_coerce_date(check_date) or date.today()}{suffix}"
+    return {"path": path, "filename": filename, "media_type": _guess_media_type(filename)}
 
 
 def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int | str, conn: Any) -> dict[str, Any]:
@@ -620,6 +649,16 @@ def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int | str, conn: Any) 
     return {"message": f"Reminder sent to {check['employee_name']}.", "delivered": True}
 
 
+def rtw_evidence_file_type(file_bytes: bytes) -> tuple[str, str]:
+    if file_bytes.startswith(b"%PDF"):
+        return "application/pdf", ".pdf"
+    if file_bytes.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg", ".jpg"
+    if file_bytes.startswith(b"\x89PNG"):
+        return "image/png", ".png"
+    raise ValueError("RTW evidence must be a PDF, JPEG, or PNG")
+
+
 def store_immutable_rtw_pdf(
     *,
     tenant_id: int,
@@ -634,16 +673,15 @@ def store_immutable_rtw_pdf(
     gov_checklist_version: str | None = None,
     conn: Any,
 ) -> RtwStoredDocument:
-    """Persist a dated RTW PDF; records are append-only at DB layer."""
+    """Persist dated RTW evidence (PDF, JPEG, or PNG); records are append-only at DB layer."""
     if outcome not in {"pass", "time_limited", "fail"}:
         raise ValueError("invalid RTW outcome")
-    if not pdf_bytes.startswith(b"%PDF"):
-        raise ValueError("RTW evidence must be a PDF document")
+    _content_type, ext = rtw_evidence_file_type(pdf_bytes)
 
     digest = _sha256_bytes(pdf_bytes)
     tenant_dir = RTW_STORAGE_DIR / str(tenant_id) / str(employee_id)
     tenant_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"{check_date.isoformat()}_{digest[:16]}.pdf"
+    filename = f"{check_date.isoformat()}_{digest[:16]}{ext}"
     path = tenant_dir / filename
     if not path.exists():
         path.write_bytes(pdf_bytes)

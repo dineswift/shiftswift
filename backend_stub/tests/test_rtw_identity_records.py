@@ -13,6 +13,7 @@ from sponsor_licence_compliance import (
     identity_document_kind,
     identity_document_type_label,
     parse_rtw_record_id,
+    rtw_evidence_file_type,
     _serialize_identity_document_row,
 )
 
@@ -73,7 +74,20 @@ def test_serialize_identity_passport_row() -> None:
     assert item["visa_expiry_date"] == "2027-04-01"
     assert item["download_path"] == "/compliance/sponsor-licence/rtw-checks/doc-44/file"
     assert item["immutable_locked"] is False
+    assert item["file_available"] is True
     assert item["status"] == "verified"
+
+
+def test_rtw_evidence_file_type_accepts_pdf_jpeg_and_png() -> None:
+    assert rtw_evidence_file_type(b"%PDF-1.4 rest") == ("application/pdf", ".pdf")
+    assert rtw_evidence_file_type(b"\xff\xd8\xff\xe0rest") == ("image/jpeg", ".jpg")
+    assert rtw_evidence_file_type(b"\x89PNG\r\n\x1a\nrest") == ("image/png", ".png")
+    try:
+        rtw_evidence_file_type(b"not-a-document")
+    except ValueError as exc:
+        assert "PDF, JPEG, or PNG" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 if __name__ == "__main__":
@@ -81,4 +95,5 @@ if __name__ == "__main__":
     test_identity_document_type_labels()
     test_parse_rtw_record_id_accepts_prefixed_and_numeric()
     test_serialize_identity_passport_row()
+    test_rtw_evidence_file_type_accepts_pdf_jpeg_and_png()
     print("ok")

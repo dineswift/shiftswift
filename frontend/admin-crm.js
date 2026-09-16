@@ -94,8 +94,10 @@
     entityActivityList: document.getElementById("crm-entity-activity-list"),
     entityDocuments: document.getElementById("crm-entity-documents"),
     entityDocumentInput: document.getElementById("crm-entity-document-input"),
+    entityDocumentCamera: document.getElementById("crm-entity-document-camera"),
     dealDocuments: document.getElementById("crm-deal-documents"),
     dealDocumentInput: document.getElementById("crm-deal-document-input"),
+    dealDocumentCamera: document.getElementById("crm-deal-document-camera"),
     dashboardStages: document.getElementById("crm-dashboard-stages"),
     summaryValue: document.getElementById("crm-summary-value"),
     summaryActivity: document.getElementById("crm-summary-activity"),
@@ -881,13 +883,38 @@
     }
   });
 
+  async function uploadCrmFile(file, args) {
+    let prepared = file;
+    if (window.AdminDocuments?.prepareUploadFile && file?.type?.startsWith("image/")) {
+      try {
+        prepared = await window.AdminDocuments.prepareUploadFile(file);
+      } catch {
+        prepared = file;
+      }
+    }
+    await uploadDocument({ ...args, file: prepared });
+  }
+
   els.dealDocumentInput?.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !selectedDealId) return;
     try {
-      await uploadDocument({
-        file,
+      await uploadCrmFile(file, {
+        dealId: selectedDealId,
+        onDone: () => openDealDrawer(selectedDealId),
+      });
+    } catch (error) {
+      crmToast(error.message || "Upload failed", "error");
+    }
+  });
+
+  els.dealDocumentCamera?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedDealId) return;
+    try {
+      await uploadCrmFile(file, {
         dealId: selectedDealId,
         onDone: () => openDealDrawer(selectedDealId),
       });
@@ -901,8 +928,22 @@
     event.target.value = "";
     if (!file || !selectedEntity) return;
     try {
-      await uploadDocument({
-        file,
+      await uploadCrmFile(file, {
+        accountId: selectedEntity.type === "account" ? selectedEntity.id : null,
+        contactId: selectedEntity.type === "contact" ? selectedEntity.id : null,
+        onDone: () => openEntityDrawer(selectedEntity.type, selectedEntity.id, true),
+      });
+    } catch (error) {
+      crmToast(error.message || "Upload failed", "error");
+    }
+  });
+
+  els.entityDocumentCamera?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedEntity) return;
+    try {
+      await uploadCrmFile(file, {
         accountId: selectedEntity.type === "account" ? selectedEntity.id : null,
         contactId: selectedEntity.type === "contact" ? selectedEntity.id : null,
         onDone: () => openEntityDrawer(selectedEntity.type, selectedEntity.id, true),

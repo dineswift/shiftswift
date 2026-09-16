@@ -1,6 +1,6 @@
 /** Right to Work workspace — stats, filters, table, detail panel. */
 (function initAdminRtwWorkspace() {
-  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, parseApiDetail, readApiError } = window.Admin;
+  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, parseApiDetail, readApiError, authHeaders, API_BASE } = window.Admin;
 
   let sectionReady = false;
   let rtwItems = [];
@@ -60,6 +60,13 @@
     return String(a ?? "") === String(b ?? "");
   }
 
+  function rowRecordedIso(item) {
+    if (!item) return null;
+    if (item.document_kind === "passport") return item.issued_at || item.document_issue_date || item.check_date;
+    if (item.document_kind === "visa") return item.visa_start_date || item.issued_at || item.check_date;
+    return item.recorded_at || item.check_date;
+  }
+
   function rowExpiryIso(item) {
     if (!item) return null;
     if (item.document_kind === "passport") return item.document_expiry_date || item.expiry_date;
@@ -67,6 +74,28 @@
       return item.visa_expiry_date || item.document_expiry_date || item.expiry_date;
     }
     return item.rtw_check_expiry_date || item.document_expiry_date || item.expiry_date;
+  }
+
+  function rowDatesSummary(item) {
+    const start = formatDate(rowRecordedIso(item));
+    const end = formatDate(rowExpiryIso(item));
+    if (item.document_kind === "passport") {
+      return start !== "—" ? `Issued ${start} · Expires ${end}` : `Expires ${end}`;
+    }
+    if (item.document_kind === "visa") {
+      if (start !== "—" && end !== "—") return `${start} – ${end}`;
+      if (end !== "—") return `Ends ${end}`;
+      return start !== "—" ? `Start ${start}` : "No visa dates";
+    }
+    return start !== "—" ? `Taken ${start}${end !== "—" ? ` · Expires ${end}` : ""}` : `Expires ${end}`;
+  }
+
+  function detailDateRows(item) {
+    const startLabel = dateOnFileLabel(item);
+    const expiryLabel = expiryOnFileLabel(item);
+    return `
+        <div><dt>${escapeHtml(startLabel)}</dt><dd>${escapeHtml(formatDate(rowRecordedIso(item)))}</dd></div>
+        <div><dt>${escapeHtml(expiryLabel)}</dt><dd class="${expiryClass(item)}">${escapeHtml(formatDate(rowExpiryIso(item)))}</dd></div>`;
   }
 
   function downloadPathFor(item) {
@@ -120,6 +149,20 @@
     if (kind === "passport") return "passport";
     if (kind === "visa") return "visa";
     return "rtw";
+  }
+
+  function dateOnFileLabel(item) {
+    if (item?.date_label) return item.date_label;
+    if (item?.document_kind === "passport") return "Issue date";
+    if (item?.document_kind === "visa") return "Visa start date";
+    return "Date taken";
+  }
+
+  function expiryOnFileLabel(item) {
+    if (item?.expiry_label) return item.expiry_label;
+    if (item?.document_kind === "passport") return "Expiry date";
+    if (item?.document_kind === "visa") return "End date";
+    return "RTW expiry date";
   }
 
   function documentCell(item) {
@@ -197,7 +240,7 @@
           <span class="rtw-record-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
           <span class="rtw-record-card__body">
             <span class="rtw-record-card__name">${escapeHtml(item.employee_short_name || item.employee_name)}</span>
-            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)} · Expires ${escapeHtml(formatDate(rowExpiryIso(item)))}</span>
+            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)} · ${escapeHtml(rowDatesSummary(item))}</span>
           </span>
           <span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span>
         </button>`;
@@ -238,8 +281,18 @@
             </div>
           </td>
           <td>${documentCell(item)}</td>
-          <td>${escapeHtml(formatDate(item.check_date))}</td>
-          <td><span class="${expiryClass(item)}">${escapeHtml(formatDate(rowExpiryIso(item)))}</span></td>
+          <td>
+            <span class="rtw-date-cell">
+              <span class="muted rtw-date-cell__label">${escapeHtml(dateOnFileLabel(item))}</span>
+              ${escapeHtml(formatDate(rowRecordedIso(item)))}
+            </span>
+          </td>
+          <td>
+            <span class="rtw-date-cell ${expiryClass(item)}">
+              <span class="muted rtw-date-cell__label">${escapeHtml(expiryOnFileLabel(item))}</span>
+              ${escapeHtml(formatDate(rowExpiryIso(item)))}
+            </span>
+          </td>
           <td><span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span></td>
         </tr>`;
           })
@@ -318,6 +371,68 @@
     return alerts.filter(Boolean).join("");
   }
 
+  function evidenceDropzoneHtml({ required = false, hint, name = "file" }) {
+    return `<div class="doc-upload-dropzone doc-upload-dropzone--compact rtw-evidence-dropzone">
+      <input name="${name}" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"${required ? " required" : ""} hidden />
+      <input type="file" data-rtw-camera accept="image/*" capture="environment" hidden />
+      <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+      <p class="doc-upload-dropzone__hint muted">${hint}</p>
+      <p class="doc-upload-filename" hidden></p>
+    </div>`;
+  }
+
+  function bindEvidenceDropzone(root, { onFile } = {}) {
+    const dropzone = root?.querySelector(".rtw-evidence-dropzone") || root;
+    const fileInput = dropzone?.querySelector('input[type="file"]:not([data-rtw-camera])');
+    if (!dropzone || !fileInput) return;
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone,
+      fileInput,
+      filenameEl: dropzone.querySelector(".doc-upload-filename"),
+      cameraInput: dropzone.querySelector("[data-rtw-camera]"),
+    });
+    const handle = async () => {
+      let file = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput.files?.[0];
+      if (!file) return;
+      try {
+        file = await window.AdminDocuments.prepareUploadFile(file);
+      } catch (error) {
+        window.Admin?.showAdminToast?.(error.message || "Choose a JPEG or PNG photo.", { variant: "error" });
+        return;
+      }
+      onFile?.(file, fileInput);
+    };
+    fileInput.addEventListener("change", () => {
+      void handle();
+    });
+  }
+
+  function categoryForRtwUpload(item) {
+    if (item?.category) return item.category;
+    if (item?.document_kind === "passport") return "id";
+    if (item?.document_kind === "visa") return "visa_brp";
+    return "rtw";
+  }
+
+  async function uploadIdentityEvidence(item, file) {
+    const fd = new FormData();
+    fd.set("file", file);
+    fd.set("title", item.document_title || item.document_type || file.name || "Identity document");
+    fd.set("category", categoryForRtwUpload(item));
+    fd.set("employee_visible", "false");
+    if (item.issued_at) fd.set("issued_at", String(item.issued_at).slice(0, 10));
+    if (item.recorded_at) fd.set("recorded_at", String(item.recorded_at).slice(0, 10));
+    if (item.expiry_date) fd.set("expires_at", String(item.expiry_date).slice(0, 10));
+    const res = await fetch(`${API_BASE}/admin/employees/${item.employee_id}/documents/upload`, {
+      method: "POST",
+      headers: authHeaders(false),
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
+    return data;
+  }
+
   function closeDetailPanel() {
     selectedCheckId = null;
     const panel = document.getElementById("rtw-detail-panel");
@@ -356,14 +471,17 @@
       .join("");
     const lockNote = item.immutable_locked
       ? `<p class="rtw-detail-lock muted"><strong>Immutable RTW check.</strong> Saved ${escapeHtml(formatDate(item.created_at?.slice(0, 10) || item.check_date))} by ${escapeHtml(item.checker_user_id || "admin")}. This file cannot be edited or deleted.</p>`
-      : `<p class="rtw-detail-lock muted">This file lives on the employee record. Open the employee file to replace it or add another document.</p>`;
+      : `<p class="rtw-detail-lock muted">You can add another scan or photo here — it is saved on the employee record.</p>`;
     const extraAction = identityRecord
-      ? `<a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`
-      : `<label class="rtw-upload-zone">
-        <span class="rtw-upload-zone__label">Drop PDF evidence here or click to upload</span>
-        <span class="muted rtw-upload-zone__hint">PDF only · max 10MB · creates a new immutable RTW check</span>
-        <input type="file" accept="application/pdf" data-rtw-supplement="${item.employee_id}" hidden />
-      </label>`;
+      ? `${evidenceDropzoneHtml({ hint: "PDF, JPEG or PNG · max 10 MB · saves to this employee’s file" })}
+         <a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`
+      : `<div class="doc-upload-dropzone doc-upload-dropzone--compact" id="rtw-supplement-dropzone">
+        <input type="file" id="rtw-supplement-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" data-rtw-supplement="${item.employee_id}" hidden />
+        <input type="file" id="rtw-supplement-camera" accept="image/*" capture="environment" hidden />
+        <p class="doc-upload-dropzone__lead">Drop evidence here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+        <p class="muted rtw-upload-zone__hint">PDF, JPEG or PNG · max 10 MB · creates a new immutable RTW check</p>
+        <p class="doc-upload-filename" id="rtw-supplement-filename" hidden></p>
+      </div>`;
 
     content.innerHTML = `
       ${renderDetailAlert(item)}
@@ -373,8 +491,7 @@
       </div>
       <dl class="rtw-detail-meta">
         <div><dt>Document</dt><dd>${escapeHtml(item.document_type)}</dd></div>
-        <div><dt>Date on file</dt><dd>${escapeHtml(formatDate(item.check_date))}</dd></div>
-        <div><dt>${escapeHtml(item.expiry_label || "Expiry")}</dt><dd class="${expiryClass(item)}">${escapeHtml(formatDate(rowExpiryIso(item)))}</dd></div>
+        ${detailDateRows(item)}
         <div><dt>Uploaded by</dt><dd>${escapeHtml(item.checker_user_id || "—")}</dd></div>
         <div class="rtw-detail-meta__wide"><dt>File name</dt><dd>${escapeHtml(item.document_title || fileName)}</dd></div>
       </dl>
@@ -389,11 +506,29 @@
       downloadAuthenticated(downloadPathFor(item), item.filename || `rtw-record-${item.id}`);
     });
 
-    const fileInput = content.querySelector("[data-rtw-supplement]");
-    fileInput?.addEventListener("change", (event) => {
-      const file = event.target.files?.[0];
-      if (file) openRecheckPanel(item.employee_id, file);
-    });
+    if (identityRecord) {
+      bindEvidenceDropzone(content, {
+        onFile: async (file) => {
+          try {
+            await uploadIdentityEvidence(item, file);
+            window.Admin?.showAdminToast?.("Document uploaded.", { variant: "ok" });
+            await loadRtwRecords();
+            if (selectedCheckId) await selectCheck(selectedCheckId);
+          } catch (error) {
+            window.Admin?.showAdminToast?.(error.message || "Upload failed.", { variant: "error" });
+          }
+        },
+      });
+    } else {
+      const fileInput = content.querySelector("[data-rtw-supplement]");
+      window.AdminDocuments?.bindFileDropzone?.({
+        dropzone: content.querySelector("#rtw-supplement-dropzone"),
+        fileInput,
+        filenameEl: content.querySelector("#rtw-supplement-filename"),
+        cameraInput: content.querySelector("#rtw-supplement-camera"),
+        onFile: (file) => openRecheckPanel(item.employee_id, file),
+      });
+    }
   }
 
   async function selectCheck(checkId) {
@@ -416,11 +551,21 @@
     panel?.scrollIntoView({ behavior: "smooth", block: "start" });
     const employeeInput = document.querySelector("#rtw-upload input[name='employee_id']");
     if (employeeInput && employeeId) employeeInput.value = String(employeeId);
-    const fileInput = document.querySelector("#rtw-upload input[name='evidence_pdf']");
+    const fileInput = document.querySelector("#rtw-upload-file") || document.querySelector("#rtw-upload input[name='evidence_pdf']");
     if (fileInput && file) {
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      fileInput.files = dt.files;
+      fileInput._sshrPendingFile = file;
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+      } catch {
+        /* iOS WKWebView often rejects DataTransfer assignment. */
+      }
+      const filenameEl = document.getElementById("rtw-upload-filename");
+      if (filenameEl) {
+        filenameEl.hidden = false;
+        filenameEl.textContent = file.name || "Photo capture";
+      }
     }
   }
 

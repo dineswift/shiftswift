@@ -182,6 +182,8 @@ class DocumentCreate(BaseModel):
     document_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
+    issued_at: date | None = None
+    recorded_at: date | None = None
     expiry_alert_days: int = Field(default=30, ge=30, le=90)
     original_filename: str | None = Field(default=None, max_length=255)
     employee_id: int | None = None
@@ -195,6 +197,8 @@ class DocumentUpdate(BaseModel):
     document_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=4000)
     expires_at: date | None = None
+    issued_at: date | None = None
+    recorded_at: date | None = None
     expiry_alert_days: int | None = Field(default=None, ge=30, le=90)
     original_filename: str | None = Field(default=None, max_length=255)
     employee_id: int | None = None
@@ -619,6 +623,8 @@ async def upload_tenant_document(
     lifecycle_stage: str = Form(default="general"),
     notes: str | None = Form(default=None),
     expires_at: date | None = Form(default=None),
+    issued_at: str | None = Form(default=None),
+    recorded_at: str | None = Form(default=None),
     expiry_alert_days: int = Form(default=30),
     employee_id: int | None = Form(default=None),
     employee_visible: bool = Form(default=False),
@@ -658,6 +664,8 @@ async def upload_tenant_document(
                 "lifecycle_stage": lifecycle_stage,
                 "notes": notes or "File stored on ShiftSwift HR",
                 "expires_at": expires_at,
+                "issued_at": issued_at,
+                "recorded_at": recorded_at,
                 "expiry_alert_days": expiry_alert_days,
                 "employee_visible": employee_visible,
                 "original_filename": file.filename,
