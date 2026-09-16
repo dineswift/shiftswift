@@ -14700,11 +14700,12 @@ body.rota-week-readonly .rota-builder-hint {
 
 .rtw-table-row.is-superseded,
 .rtw-record-card.is-superseded {
-  opacity: 0.58;
+  opacity: 0.78;
+  background: var(--gray-50, #f7f7f5);
 }
 
 .rtw-table-row.is-superseded td {
-  color: var(--ink-500);
+  color: var(--ink-600, #5c5c5c);
 }
 
 .rtw-doc-previous {

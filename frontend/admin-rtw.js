@@ -43,7 +43,7 @@
   function statusLabel(status) {
     if (status === "verified") return "Verified";
     if (status === "expiring_soon") return "Expiring soon";
-    if (status === "superseded") return "Previous";
+    if (status === "superseded") return "Kept on file";
     return "Needs review";
   }
 
@@ -117,22 +117,31 @@
     return "";
   }
 
-  function filteredItems() {
+  function matchesLiveFilter(item) {
+    if (item?.superseded) return false;
+    if (KIND_FILTERS.has(activeFilter) && item.document_kind !== activeFilter) return false;
+    if (activeFilter === "sponsored" && !item.is_sponsored) return false;
+    if (
+      !KIND_FILTERS.has(activeFilter) &&
+      activeFilter !== "all" &&
+      activeFilter !== "sponsored" &&
+      item.status !== activeFilter
+    ) {
+      return false;
+    }
     const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = `${item.employee_name} ${item.employee_short_name} ${item.document_type} ${item.document_title || ""} ${item.title || ""} ${item.filename || ""}`.toLowerCase();
+    return haystack.includes(q);
+  }
+
+  function filteredItems() {
+    const liveIds = new Set(
+      rtwItems.filter((item) => matchesLiveFilter(item)).map((item) => String(item.id))
+    );
     return rtwItems.filter((item) => {
-      if (KIND_FILTERS.has(activeFilter) && item.document_kind !== activeFilter) return false;
-      if (activeFilter === "sponsored" && !item.is_sponsored) return false;
-      if (
-        !KIND_FILTERS.has(activeFilter) &&
-        activeFilter !== "all" &&
-        activeFilter !== "sponsored" &&
-        item.status !== activeFilter
-      ) {
-        return false;
-      }
-      if (!q) return true;
-      const haystack = `${item.employee_name} ${item.employee_short_name} ${item.document_type} ${item.document_title || ""} ${item.title || ""} ${item.filename || ""}`.toLowerCase();
-      return haystack.includes(q);
+      if (!item.superseded) return liveIds.has(String(item.id));
+      return liveIds.has(String(item.superseded_by_id || ""));
     });
   }
 
@@ -173,9 +182,13 @@
     const extra = title && title.toLowerCase() !== type.toLowerCase()
       ? `<span class="rtw-doc-file">${escapeHtml(title)}</span>`
       : "";
+    const previous = item.superseded
+      ? `<span class="rtw-doc-previous muted">Earlier version · kept on file</span>`
+      : "";
     return `<div class="rtw-doc-cell">
       <span class="rtw-kind-tag rtw-kind-tag--${kindClass(item.document_kind)}">${escapeHtml(type)}</span>
       ${extra}
+      ${previous}
     </div>`;
   }
 
@@ -187,9 +200,9 @@
       el.textContent = "";
       return;
     }
-    const passports = rtwStats.passports ?? rtwItems.filter((item) => item.document_kind === "passport").length;
-    const visas = rtwStats.visa_brp ?? rtwItems.filter((item) => item.document_kind === "visa").length;
-    const checks = rtwStats.rtw_checks ?? rtwItems.filter((item) => item.document_kind === "rtw_check").length;
+    const passports = rtwStats.passports ?? rtwItems.filter((item) => !item.superseded && item.document_kind === "passport").length;
+    const visas = rtwStats.visa_brp ?? rtwItems.filter((item) => !item.superseded && item.document_kind === "visa").length;
+    const checks = rtwStats.rtw_checks ?? rtwItems.filter((item) => !item.superseded && item.document_kind === "rtw_check").length;
     el.hidden = false;
     el.textContent = `${passports} passport / ID · ${visas} visa / BRP · ${checks} right to work`;
   }
@@ -242,7 +255,7 @@
           <span class="rtw-record-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
           <span class="rtw-record-card__body">
             <span class="rtw-record-card__name">${escapeHtml(item.employee_short_name || item.employee_name)}</span>
-            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)} · ${escapeHtml(rowDatesSummary(item))}</span>
+            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)}${item.superseded ? " · earlier version" : ""} · ${escapeHtml(rowDatesSummary(item))}</span>
           </span>
           <span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span>
         </button>`;
@@ -331,6 +344,9 @@
   }
 
   function renderDetailAlert(item) {
+    if (item.superseded) {
+      return `<div class="rtw-detail-alert rtw-detail-alert--off">This earlier file is kept on record. The live review is the row above — update dates or the file there.</div>`;
+    }
     const alerts = [];
     const documentIso = item.document_expiry_date || (item.document_kind === "passport" ? item.expiry_date : null);
     if (item.document_kind === "passport" && documentIso) {
@@ -437,7 +453,7 @@
   function renderUpdateForm(item) {
     return `<form id="rtw-update-form" class="rtw-update-form">
       <h5>Update this document</h5>
-      <p class="muted">Change the dates on this record, or replace the file. The upload is saved on this document only.</p>
+      <p class="muted">Change the dates or replace the file. The earlier version stays on the list as kept on file.</p>
       <div class="rtw-update-form__dates">
         <label>${escapeHtml(dateOnFileLabel(item))}
           <input type="date" name="start_date" value="${isoDateValue(rowRecordedIso(item))}" />
@@ -538,25 +554,35 @@
     if (!panel || !content || !item) return;
     panel.hidden = false;
     document.querySelector(".rtw-workspace-layout")?.classList.add("is-detail-open");
-    if (title) title.textContent = item.document_type || "Record";
+    if (title) title.textContent = item.superseded
+      ? `${item.document_type || "Record"} · earlier version`
+      : item.document_type || "Record";
     if (statusEl) {
       statusEl.hidden = false;
       statusEl.className = statusClass(item.status);
       statusEl.textContent = statusLabel(item.status);
     }
+    const recheckBtn = document.getElementById("rtw-detail-recheck-btn");
+    if (recheckBtn) recheckBtn.hidden = Boolean(item.superseded);
     const workerType = item.is_sponsored ? "Sponsored worker" : "Standard worker";
     const fileName = item.filename || item.document_title || "document";
+    const currentFileLabel = item.superseded ? "Kept file" : "Current file";
     const docs = (item.documents || [{ filename: fileName, uploaded_at: item.check_date }])
       .map(
         (doc) => `<li class="rtw-doc-item">
           <div class="rtw-doc-item__text">
             <strong>${escapeHtml(doc.filename || fileName)}</strong>
-            <span class="muted">Current file · ${escapeHtml(formatDate(doc.uploaded_at || item.check_date))}</span>
+            <span class="muted">${currentFileLabel} · ${escapeHtml(formatDate(doc.uploaded_at || item.check_date))}</span>
           </div>
           <button type="button" class="btn outline btn-sm" data-rtw-download="${escapeHtml(String(item.id))}">Download file</button>
         </li>`
       )
       .join("");
+    const currentReviewId = item.current_review_id || item.superseded_by_id;
+    const previousNote = item.superseded
+      ? `<button type="button" class="btn primary" data-rtw-open-current="${escapeHtml(String(currentReviewId || ""))}">Open current review</button>`
+      : `${renderUpdateForm(item)}
+      ${renderDocumentHistory(item)}`;
 
     content.innerHTML = `
       ${renderDetailAlert(item)}
@@ -565,7 +591,7 @@
         <span class="muted">${escapeHtml(item.employee_role || "Staff")} · ${escapeHtml(workerType)}</span>
       </div>
       <dl class="rtw-detail-meta">
-        <div><dt>Document</dt><dd>${escapeHtml(item.document_type)}</dd></div>
+        <div><dt>Document</dt><dd>${escapeHtml(item.document_type)}${item.superseded ? " · earlier version" : ""}</dd></div>
         ${detailDateRows(item)}
         <div><dt>Uploaded by</dt><dd>${escapeHtml(item.checker_user_id || "—")}</dd></div>
         <div class="rtw-detail-meta__wide"><dt>File name</dt><dd>${escapeHtml(item.document_title || fileName)}</dd></div>
@@ -574,12 +600,14 @@
         <h5>Saved file</h5>
         <ul class="rtw-doc-list">${docs}</ul>
       </div>
-      ${renderUpdateForm(item)}
-      ${renderDocumentHistory(item)}
+      ${previousNote}
       <a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`;
 
     content.querySelector("[data-rtw-download]")?.addEventListener("click", () => {
       downloadAuthenticated(downloadPathFor(item), item.filename || `rtw-record-${item.id}`);
+    });
+    content.querySelector("[data-rtw-open-current]")?.addEventListener("click", () => {
+      if (currentReviewId) void selectCheck(currentReviewId);
     });
     content.querySelectorAll("[data-rtw-history-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -591,6 +619,8 @@
         );
       });
     });
+
+    if (item.superseded) return;
 
     const form = content.querySelector("#rtw-update-form");
     let pendingFile = null;
@@ -631,6 +661,13 @@
       const listed = rtwItems.find((row) => sameRecordId(row.id, checkId));
       if (listed?.previous_versions) {
         item.previous_versions = listed.previous_versions;
+      }
+      if (listed?.superseded) {
+        item.superseded = true;
+        item.is_current = false;
+        item.superseded_by_id = listed.superseded_by_id;
+        item.current_review_id = listed.superseded_by_id;
+        item.status = "superseded";
       }
       renderDetailPanel(item);
     } catch {
