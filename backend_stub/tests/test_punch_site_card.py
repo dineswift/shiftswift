@@ -284,3 +284,90 @@ assert.strictEqual(params.siteName, "Main site");
 assert.strictEqual(params.layout, "tent");
 """
     _run_node(script)
+
+
+def test_parent_post_message_boots_card_without_query_or_storage() -> None:
+    script = f"""
+const fs = require("fs");
+const vm = require("vm");
+const assert = require("assert");
+const helperPath = {str(PUNCH_CARD_LINK)!r};
+function memoryStorage() {{
+  const data = new Map();
+  return {{
+    getItem(key) {{ return data.has(String(key)) ? data.get(String(key)) : null; }},
+    setItem(key, value) {{ data.set(String(key), String(value)); }},
+    removeItem(key) {{ data.delete(String(key)); }},
+  }};
+}}
+function mockNode(id, extras = {{}}) {{
+  return Object.assign({{
+    id, hidden: true, textContent: "", src: "", alt: "",
+    classList: {{ remove() {{}}, add() {{}} }},
+    style: {{ setProperty() {{}} }},
+    querySelector() {{ return null; }},
+  }}, extras);
+}}
+function mockDocument() {{
+  const empty = mockNode("card-empty");
+  const preview = mockNode("card-preview");
+  const site = mockNode("card-site-name");
+  const tentSite = mockNode("tent-site-name");
+  const qr = mockNode("card-qr-image");
+  const tentQr = mockNode("tent-qr-image");
+  const cardWrap = mockNode("wrap", {{ hidden: false }});
+  const tentWrap = mockNode("tent", {{ hidden: true }});
+  const body = {{
+    classList: {{
+      tokens: new Set(),
+      remove(...names) {{ names.forEach((n) => this.tokens.delete(n)); }},
+      add(...names) {{ names.forEach((n) => this.tokens.add(n)); }},
+    }},
+  }};
+  const nodes = {{
+    "card-empty": empty, "card-preview": preview, "card-site-name": site,
+    "tent-site-name": tentSite, "card-qr-image": qr, "tent-qr-image": tentQr,
+  }};
+  return {{
+    body,
+    documentElement: {{ style: {{ setProperty() {{}} }} }},
+    getElementById(id) {{ return nodes[id] || null; }},
+    querySelector(sel) {{
+      if (sel === ".punch-card-wrap") return cardWrap;
+      if (sel === ".tent-wrap") return tentWrap;
+      return null;
+    }},
+    empty, preview, site, qr,
+  }};
+}}
+const context = {{ console, URL, URLSearchParams, String, Boolean, JSON }};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync(helperPath, "utf8"), context);
+const cards = context.ShiftSwiftPunchCards;
+const loc = {{
+  href: "https://app.shiftswifthr.co.uk/punch-site-card.html",
+  origin: "https://app.shiftswifthr.co.uk",
+  pathname: "/punch-site-card.html",
+  search: "",
+  hash: "",
+}};
+const doc = mockDocument();
+const storage = memoryStorage();
+const missing = cards.bootPunchSiteCard(doc, loc, [storage]);
+assert.strictEqual(missing.ok, false);
+assert.strictEqual(doc.empty.hidden, false);
+const booted = cards.applyExternalPayload(doc, {{
+  type: "shiftswift-punch-card",
+  clock_url: "https://app.shiftswifthr.co.uk/punch.html?clock=site-token",
+  site_name: "Himalayan Inn",
+  layout: "pocket",
+  qr_image_data_uri: "data:image/png;base64,AAA",
+}}, loc, [storage]);
+assert.strictEqual(booted.ok, true);
+assert.strictEqual(doc.empty.hidden, true);
+assert.strictEqual(doc.preview.hidden, false);
+assert.strictEqual(doc.site.textContent, "Himalayan Inn");
+assert.ok(doc.qr.src.startsWith("data:image/png"));
+assert.strictEqual(cards.MESSAGE_TYPE, "shiftswift-punch-card");
+"""
+    _run_node(script)
