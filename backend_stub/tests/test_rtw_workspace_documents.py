@@ -191,6 +191,9 @@ def test_followup_turns_previous_same_document_review_off() -> None:
     assert older["superseded_by_id"] == newer["id"]
     assert visa["superseded"] is False
     assert visa["status"] == "verified"
+    assert [version["id"] for version in newer["previous_versions"]] == [older["id"]]
+    current = [item for item in (older, newer, visa) if not item.get("superseded")]
+    assert {item["id"] for item in current} == {newer["id"], visa["id"]}
 
 
 def test_followup_does_not_replace_another_employee() -> None:

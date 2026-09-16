@@ -15024,6 +15024,54 @@ body.rota-week-readonly .rota-builder-hint {
   line-height: 1.45;
 }
 
+.rtw-update-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 4px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--gray-50, #fafafa);
+}
+
+.rtw-update-form h5 {
+  margin: 0;
+}
+
+.rtw-update-form__dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rtw-update-form__dates label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.rtw-update-form__dates input[type="date"] {
+  font-weight: 500;
+}
+
+.rtw-detail-history {
+  opacity: 0.82;
+}
+
+.rtw-update-status {
+  min-height: 1.2em;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .rtw-update-form__dates {
+    grid-template-columns: 1fr;
+  }
+}
+
 .rtw-add-panel {
   margin-top: 16px;
   padding: 16px;

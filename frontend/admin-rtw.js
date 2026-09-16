@@ -173,13 +173,9 @@
     const extra = title && title.toLowerCase() !== type.toLowerCase()
       ? `<span class="rtw-doc-file">${escapeHtml(title)}</span>`
       : "";
-    const previous = item.superseded
-      ? `<span class="rtw-doc-previous muted">Previous version</span>`
-      : "";
     return `<div class="rtw-doc-cell">
       <span class="rtw-kind-tag rtw-kind-tag--${kindClass(item.document_kind)}">${escapeHtml(type)}</span>
       ${extra}
-      ${previous}
     </div>`;
   }
 
@@ -335,9 +331,6 @@
   }
 
   function renderDetailAlert(item) {
-    if (item.superseded) {
-      return `<div class="rtw-detail-alert rtw-detail-alert--off">This is a previous version. A later follow-up for the same document is now the current review. The file stays on record.</div>`;
-    }
     const alerts = [];
     const documentIso = item.document_expiry_date || (item.document_kind === "passport" ? item.expiry_date : null);
     if (item.document_kind === "passport" && documentIso) {
@@ -416,30 +409,117 @@
     });
   }
 
-  function categoryForRtwUpload(item) {
-    if (item?.category) return item.category;
-    if (item?.document_kind === "passport") return "id";
-    if (item?.document_kind === "visa") return "visa_brp";
-    return "rtw";
+  function isoDateValue(value) {
+    const text = String(value || "").trim();
+    return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
   }
 
-  async function uploadIdentityEvidence(item, file) {
-    const fd = new FormData();
-    fd.set("file", file);
-    fd.set("title", item.document_title || item.document_type || file.name || "Identity document");
-    fd.set("category", categoryForRtwUpload(item));
-    fd.set("employee_visible", "false");
-    if (item.issued_at) fd.set("issued_at", String(item.issued_at).slice(0, 10));
-    if (item.recorded_at) fd.set("recorded_at", String(item.recorded_at).slice(0, 10));
-    if (item.expiry_date) fd.set("expires_at", String(item.expiry_date).slice(0, 10));
-    const res = await fetch(`${API_BASE}/admin/employees/${item.employee_id}/documents/upload`, {
-      method: "POST",
-      headers: authHeaders(false),
-      body: fd,
+  function renderDocumentHistory(item) {
+    const versions = item.previous_versions || [];
+    if (!versions.length) return "";
+    const rows = versions
+      .map(
+        (version) => `<li class="rtw-doc-item">
+          <div class="rtw-doc-item__text">
+            <strong>${escapeHtml(version.filename || version.document_type || "Earlier file")}</strong>
+            <span class="muted">${escapeHtml(formatDate(version.check_date))}${version.expiry_date ? ` · Expiry ${escapeHtml(formatDate(version.expiry_date))}` : ""}</span>
+          </div>
+          <button type="button" class="btn outline btn-sm" data-rtw-history-id="${escapeHtml(String(version.id))}">Download</button>
+        </li>`
+      )
+      .join("");
+    return `<div class="rtw-detail-docs rtw-detail-history">
+      <h5>Earlier files on this document</h5>
+      <ul class="rtw-doc-list">${rows}</ul>
+    </div>`;
+  }
+
+  function renderUpdateForm(item) {
+    return `<form id="rtw-update-form" class="rtw-update-form">
+      <h5>Update this document</h5>
+      <p class="muted">Change the dates on this record, or replace the file. The upload is saved on this document only.</p>
+      <div class="rtw-update-form__dates">
+        <label>${escapeHtml(dateOnFileLabel(item))}
+          <input type="date" name="start_date" value="${isoDateValue(rowRecordedIso(item))}" />
+        </label>
+        <label>${escapeHtml(expiryOnFileLabel(item))}
+          <input type="date" name="expiry_date" value="${isoDateValue(rowExpiryIso(item))}" />
+        </label>
+      </div>
+      ${evidenceDropzoneHtml({ hint: "Optional · PDF, JPEG or PNG · replaces the file on this document" })}
+      <p class="rtw-update-status muted" data-rtw-update-status></p>
+      <button type="submit" class="btn primary">Save update</button>
+    </form>`;
+  }
+
+  function rtwMultipartHeaders() {
+    const headers = { ...(authHeaders(false) || {}) };
+    delete headers["Content-Type"];
+    delete headers["content-type"];
+    return headers;
+  }
+
+  function isRtwNetworkError(error) {
+    const message = String(error?.message || error || "").toLowerCase();
+    return message.includes("load failed") || message.includes("failed to fetch") || message.includes("network");
+  }
+
+  async function xhrPatchRtwRecord(path, formData) {
+    const apiBase = window.Admin.getApiBase?.() || API_BASE;
+    if (!apiBase) throw new Error("API URL not configured. Hard refresh and sign in again.");
+    const headers = rtwMultipartHeaders();
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PATCH", `${apiBase}${path}`);
+      Object.entries(headers).forEach(([key, value]) => {
+        if (key && value && key.toLowerCase() !== "content-type") xhr.setRequestHeader(key, String(value));
+      });
+      xhr.timeout = 120000;
+      xhr.onload = () => {
+        let data = {};
+        try {
+          data = JSON.parse(xhr.responseText || "{}");
+        } catch {
+          /* ignore */
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+          return;
+        }
+        reject(new Error(parseApiDetail(data, `Could not update this document (HTTP ${xhr.status})`)));
+      };
+      xhr.onerror = () => reject(new Error("Load failed"));
+      xhr.ontimeout = () => reject(new Error("Upload timed out. Try a smaller PDF or photo."));
+      xhr.send(formData);
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
-    return data;
+  }
+
+  async function patchRtwRecord(recordId, formData) {
+    const path = `/compliance/sponsor-licence/rtw-checks/${encodeURIComponent(recordId)}`;
+    try {
+      const res = await apiFetch(path, {
+        method: "PATCH",
+        headers: rtwMultipartHeaders(),
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, `Could not update this document (HTTP ${res.status})`));
+      return data;
+    } catch (error) {
+      if (!isRtwNetworkError(error)) throw error;
+      return xhrPatchRtwRecord(path, formData);
+    }
+  }
+
+  async function updateThisDocument(item, { startDate, expiryDate, file }) {
+    if (!startDate && !expiryDate && !file) {
+      throw new Error("Choose a date to update or upload a replacement file.");
+    }
+    const fd = new FormData();
+    if (startDate) fd.set("start_date", startDate);
+    if (expiryDate) fd.set("expiry_date", expiryDate);
+    if (file) fd.set("evidence_pdf", file, file.name || "rtw-evidence.pdf");
+    return patchRtwRecord(item.id, fd);
   }
 
   function closeDetailPanel() {
@@ -466,31 +546,17 @@
     }
     const workerType = item.is_sponsored ? "Sponsored worker" : "Standard worker";
     const fileName = item.filename || item.document_title || "document";
-    const identityRecord = !item.immutable_locked && item.document_kind !== "rtw_check";
     const docs = (item.documents || [{ filename: fileName, uploaded_at: item.check_date }])
       .map(
         (doc) => `<li class="rtw-doc-item">
           <div class="rtw-doc-item__text">
             <strong>${escapeHtml(doc.filename || fileName)}</strong>
-            <span class="muted">Saved ${escapeHtml(formatDate(doc.uploaded_at || item.check_date))}</span>
+            <span class="muted">Current file · ${escapeHtml(formatDate(doc.uploaded_at || item.check_date))}</span>
           </div>
           <button type="button" class="btn outline btn-sm" data-rtw-download="${escapeHtml(String(item.id))}">Download file</button>
         </li>`
       )
       .join("");
-    const lockNote = item.immutable_locked
-      ? `<p class="rtw-detail-lock muted"><strong>Immutable RTW check.</strong> Saved ${escapeHtml(formatDate(item.created_at?.slice(0, 10) || item.check_date))} by ${escapeHtml(item.checker_user_id || "admin")}. This file cannot be edited or deleted.</p>`
-      : `<p class="rtw-detail-lock muted">You can add another scan or photo here — it is saved on the employee record.</p>`;
-    const extraAction = identityRecord
-      ? `${evidenceDropzoneHtml({ hint: "PDF, JPEG or PNG · max 10 MB · saves to this employee’s file" })}
-         <a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`
-      : `<div class="doc-upload-dropzone doc-upload-dropzone--compact" id="rtw-supplement-dropzone">
-        <input type="file" id="rtw-supplement-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" data-rtw-supplement="${item.employee_id}" hidden />
-        <input type="file" id="rtw-supplement-camera" accept="image/*" capture="environment" hidden />
-        <p class="doc-upload-dropzone__lead">Drop evidence here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
-        <p class="muted rtw-upload-zone__hint">PDF, JPEG or PNG · max 10 MB · creates a new immutable RTW check</p>
-        <p class="doc-upload-filename" id="rtw-supplement-filename" hidden></p>
-      </div>`;
 
     content.innerHTML = `
       ${renderDetailAlert(item)}
@@ -508,36 +574,51 @@
         <h5>Saved file</h5>
         <ul class="rtw-doc-list">${docs}</ul>
       </div>
-      ${extraAction}
-      ${lockNote}`;
+      ${renderUpdateForm(item)}
+      ${renderDocumentHistory(item)}
+      <a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`;
 
     content.querySelector("[data-rtw-download]")?.addEventListener("click", () => {
       downloadAuthenticated(downloadPathFor(item), item.filename || `rtw-record-${item.id}`);
     });
+    content.querySelectorAll("[data-rtw-history-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const historyId = btn.getAttribute("data-rtw-history-id");
+        const version = (item.previous_versions || []).find((row) => sameRecordId(row.id, historyId));
+        downloadAuthenticated(
+          version?.download_path || `/compliance/sponsor-licence/rtw-checks/${encodeURIComponent(historyId)}/file`,
+          version?.filename || `rtw-record-${historyId}`
+        );
+      });
+    });
 
-    if (identityRecord) {
-      bindEvidenceDropzone(content, {
-        onFile: async (file) => {
-          try {
-            await uploadIdentityEvidence(item, file);
-            window.Admin?.showAdminToast?.("Document uploaded.", { variant: "ok" });
-            await loadRtwRecords();
-            if (selectedCheckId) await selectCheck(selectedCheckId);
-          } catch (error) {
-            window.Admin?.showAdminToast?.(error.message || "Upload failed.", { variant: "error" });
-          }
-        },
-      });
-    } else {
-      const fileInput = content.querySelector("[data-rtw-supplement]");
-      window.AdminDocuments?.bindFileDropzone?.({
-        dropzone: content.querySelector("#rtw-supplement-dropzone"),
-        fileInput,
-        filenameEl: content.querySelector("#rtw-supplement-filename"),
-        cameraInput: content.querySelector("#rtw-supplement-camera"),
-        onFile: (file) => openRecheckPanel(item.employee_id, file),
-      });
-    }
+    const form = content.querySelector("#rtw-update-form");
+    let pendingFile = null;
+    bindEvidenceDropzone(form, {
+      onFile: (file) => {
+        pendingFile = file;
+      },
+    });
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const statusEl = form.querySelector("[data-rtw-update-status]");
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const startDate = form.elements.start_date?.value || "";
+      const expiryDate = form.elements.expiry_date?.value || "";
+      if (statusEl) statusEl.textContent = "Saving…";
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const updated = await updateThisDocument(item, { startDate, expiryDate, file: pendingFile });
+        window.Admin?.showAdminToast?.("This document was updated.", { variant: "ok" });
+        selectedCheckId = updated?.id || item.id;
+        await loadRtwRecords();
+      } catch (error) {
+        const message = error.message || "Could not update this document.";
+        if (statusEl) statusEl.textContent = message;
+        window.Admin?.showAdminToast?.(message, { variant: "error" });
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
   }
 
   async function selectCheck(checkId) {
@@ -548,11 +629,8 @@
       if (!res.ok) throw new Error("Could not load record");
       const item = await res.json();
       const listed = rtwItems.find((row) => sameRecordId(row.id, checkId));
-      if (listed?.superseded) {
-        item.superseded = true;
-        item.is_current = false;
-        item.superseded_by_id = listed.superseded_by_id;
-        item.status = "superseded";
+      if (listed?.previous_versions) {
+        item.previous_versions = listed.previous_versions;
       }
       renderDetailPanel(item);
     } catch {
@@ -638,6 +716,16 @@
       renderTable();
       if (selectedCheckId && rtwItems.some((item) => sameRecordId(item.id, selectedCheckId))) {
         await selectCheck(selectedCheckId);
+      } else if (selectedCheckId) {
+        const successor = rtwItems.find((item) =>
+          (item.previous_versions || []).some((version) => sameRecordId(version.id, selectedCheckId))
+        );
+        if (successor) {
+          await selectCheck(successor.id);
+        } else {
+          selectedCheckId = null;
+          closeDetailPanel();
+        }
       } else {
         selectedCheckId = null;
         closeDetailPanel();
@@ -730,8 +818,9 @@
 
     document.getElementById("rtw-send-reminder-btn")?.addEventListener("click", sendReminder);
     document.getElementById("rtw-detail-recheck-btn")?.addEventListener("click", () => {
-      const item = rtwItems.find((row) => sameRecordId(row.id, selectedCheckId));
-      openRecheckPanel(item?.employee_id);
+      const form = document.getElementById("rtw-update-form");
+      form?.scrollIntoView({ behavior: "smooth", block: "start" });
+      form?.querySelector("input[name='start_date']")?.focus();
     });
     document.getElementById("rtw-detail-close")?.addEventListener("click", closeDetailPanel);
 

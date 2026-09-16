@@ -176,7 +176,7 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         visa_expiry_date,
         rtw_check_expiry_date,
     ) = row
-    expiry_date = rtw_check_expiry_date or check_expiry_date
+    expiry_date = check_expiry_date or rtw_check_expiry_date
     status = rtw_check_status(outcome=outcome, expiry_date=expiry_date, as_of=as_of)
     name = f"{first_name or ''} {last_name or ''}".strip() or f"Employee #{employee_id}"
     role = job_title or department or "Staff"
@@ -203,9 +203,7 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         "outcome": outcome,
         "expiry_date": expiry_date.isoformat() if expiry_date else None,
         "visa_expiry_date": visa_expiry_date.isoformat() if visa_expiry_date else None,
-        "rtw_check_expiry_date": (rtw_check_expiry_date or check_expiry_date).isoformat()
-        if (rtw_check_expiry_date or check_expiry_date)
-        else None,
+        "rtw_check_expiry_date": expiry_date.isoformat() if expiry_date else None,
         "days_until_expiry": days_until_expiry,
         "status": status,
         "document_type": rtw_document_type(check_method, outcome),
@@ -214,6 +212,7 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         "document_number_masked": rtw_document_number_masked(content_sha256),
         "content_sha256": content_sha256,
         "filename": filename,
+        "storage_path": storage_path,
         "created_at": created_at.isoformat() if created_at else None,
         "immutable_locked": True,
         "file_available": bool(storage_path),
@@ -523,7 +522,7 @@ def _rtw_list_sort_key(item: dict[str, Any]) -> tuple:
 
 
 def apply_rtw_followup_state(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep older copies of the same document kind on file, but turn their review off."""
+    """One current review per employee and document kind; older files stay attached as history."""
     groups: dict[tuple[Any, str], list[dict[str, Any]]] = {}
     for item in items:
         key = (item.get("employee_id"), str(item.get("document_kind") or "rtw_check"))
@@ -534,11 +533,24 @@ def apply_rtw_followup_state(items: list[dict[str, Any]]) -> list[dict[str, Any]
         current["is_current"] = True
         current["superseded"] = False
         current.pop("superseded_by_id", None)
+        current["previous_versions"] = [
+            {
+                "id": older.get("id"),
+                "check_date": older.get("check_date"),
+                "expiry_date": older.get("expiry_date") or older.get("rtw_check_expiry_date"),
+                "filename": older.get("filename"),
+                "download_path": older.get("download_path"),
+                "document_type": older.get("document_type"),
+                "created_at": older.get("created_at"),
+            }
+            for older in group[1:]
+        ]
         for older in group[1:]:
             older["is_current"] = False
             older["superseded"] = True
             older["superseded_by_id"] = current.get("id")
             older["status"] = "superseded"
+            older["previous_versions"] = []
     return items
 
 
@@ -567,18 +579,18 @@ def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str,
     )
     apply_rtw_followup_state(items)
     items.sort(key=_rtw_list_sort_key)
-    items = items[:limit]
-    current = [item for item in items if not item.get("superseded")]
+    current_items = [item for item in items if not item.get("superseded")]
+    current_items = current_items[:limit]
     stats = {
-        "total": len(items),
-        "verified": sum(1 for item in current if item["status"] == "verified"),
-        "expiring_soon": sum(1 for item in current if item["status"] == "expiring_soon"),
-        "needs_review": sum(1 for item in current if item["status"] == "needs_review"),
-        "passports": sum(1 for item in items if item.get("document_kind") == "passport"),
-        "visa_brp": sum(1 for item in items if item.get("document_kind") == "visa"),
-        "rtw_checks": sum(1 for item in items if item.get("document_kind") == "rtw_check"),
+        "total": len(current_items),
+        "verified": sum(1 for item in current_items if item["status"] == "verified"),
+        "expiring_soon": sum(1 for item in current_items if item["status"] == "expiring_soon"),
+        "needs_review": sum(1 for item in current_items if item["status"] == "needs_review"),
+        "passports": sum(1 for item in current_items if item.get("document_kind") == "passport"),
+        "visa_brp": sum(1 for item in current_items if item.get("document_kind") == "visa"),
+        "rtw_checks": sum(1 for item in current_items if item.get("document_kind") == "rtw_check"),
     }
-    return {"items": items, "stats": stats}
+    return {"items": current_items, "stats": stats}
 
 
 def get_rtw_check(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]:
@@ -627,11 +639,127 @@ def get_identity_rtw_document(*, tenant_id: int, document_id: int, conn: Any) ->
     return item
 
 
-def get_rtw_record(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[str, Any]:
+def _load_rtw_record(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[str, Any]:
     source, numeric_id = parse_rtw_record_id(record_id)
     if source == "document":
         return get_identity_rtw_document(tenant_id=tenant_id, document_id=numeric_id, conn=conn)
     return get_rtw_check(tenant_id=tenant_id, check_id=numeric_id, conn=conn)
+
+
+def get_rtw_record(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[str, Any]:
+    item = _load_rtw_record(tenant_id=tenant_id, record_id=record_id, conn=conn)
+    pack = list_rtw_checks(tenant_id=tenant_id, conn=conn)
+    record_key = str(item.get("id"))
+    for listed in pack.get("items") or []:
+        if str(listed.get("id")) == record_key:
+            item["previous_versions"] = listed.get("previous_versions") or []
+            item["is_current"] = True
+            item["superseded"] = False
+            return item
+        for older in listed.get("previous_versions") or []:
+            if str(older.get("id")) == record_key:
+                return listed
+    item.setdefault("previous_versions", [])
+    return item
+
+
+def update_rtw_workspace_record(
+    *,
+    tenant_id: int,
+    record_id: int | str,
+    start_date: date | None,
+    expiry_date: date | None,
+    file_bytes: bytes | None,
+    filename: str | None,
+    checker_user_id: str,
+    conn: Any,
+) -> dict[str, Any]:
+    """Update this document's dates and/or file. Follow-ups stay attached to the same record."""
+    item = _load_rtw_record(tenant_id=tenant_id, record_id=record_id, conn=conn)
+    kind = str(item.get("document_kind") or "rtw_check")
+    employee_id = int(item["employee_id"])
+
+    if item.get("source") == "employee_document":
+        from modules.documents.service import update_employee_document
+        from modules.documents.storage import write_document_file
+        from modules.employees.service import apply_visa_document_expiry
+
+        updates: dict[str, Any] = {}
+        if kind == "rtw_check":
+            if start_date:
+                updates["recorded_at"] = start_date
+        else:
+            if start_date:
+                updates["issued_at"] = start_date
+        if expiry_date:
+            updates["expires_at"] = expiry_date
+        if file_bytes:
+            content_type, ext = rtw_evidence_file_type(file_bytes)
+            storage_path, digest, size = write_document_file(
+                tenant_id=tenant_id,
+                document_id=int(item["document_id"]),
+                title=str(item.get("document_title") or item.get("filename") or "document"),
+                original_filename=filename,
+                data=file_bytes,
+                content_type=content_type,
+                ext=ext,
+                scope="employee",
+                employee_id=employee_id,
+            )
+            updates.update(
+                {
+                    "storage_path": storage_path,
+                    "content_sha256": digest,
+                    "content_type": content_type,
+                    "file_size_bytes": size,
+                    "original_filename": filename or item.get("filename"),
+                }
+            )
+        if not updates:
+            raise ValueError("Choose a date to update or upload a replacement file.")
+        update_employee_document(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            document_id=int(item["document_id"]),
+            updates=updates,
+            conn=conn,
+        )
+        if kind in {"visa", "rtw_check"} and expiry_date:
+            apply_visa_document_expiry(
+                tenant_id=tenant_id,
+                employee_id=employee_id,
+                category=item.get("category") or ("rtw" if kind == "rtw_check" else "visa_brp"),
+                expires_at=expiry_date,
+                conn=conn,
+            )
+        return get_identity_rtw_document(tenant_id=tenant_id, document_id=int(item["document_id"]), conn=conn)
+
+    from modules.documents.storage import resolve_rtw_file
+
+    pdf_bytes = file_bytes
+    old_start = _coerce_date(item.get("check_date"))
+    old_expiry = _coerce_date(item.get("expiry_date") or item.get("rtw_check_expiry_date"))
+    dates_changed = (start_date is not None and start_date != old_start) or (
+        expiry_date is not None and expiry_date != old_expiry
+    )
+    if not pdf_bytes and not dates_changed:
+        return item
+    if not pdf_bytes:
+        path = resolve_rtw_file(tenant_id=tenant_id, storage_path=item.get("storage_path"))
+        pdf_bytes = path.read_bytes()
+    stored = store_immutable_rtw_pdf(
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        pdf_bytes=pdf_bytes,
+        check_date=start_date or _coerce_date(item.get("check_date")) or date.today(),
+        check_method="Follow-up check",
+        outcome=str(item.get("outcome") or "pass"),
+        checker_user_id=checker_user_id,
+        expiry_date=expiry_date or _coerce_date(item.get("expiry_date")),
+        visa_expiry_date=_coerce_date(item.get("visa_expiry_date")),
+        conn=conn,
+    )
+    return get_rtw_check(tenant_id=tenant_id, check_id=stored.check_id, conn=conn)
 
 
 def rtw_record_file(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[str, Any]:

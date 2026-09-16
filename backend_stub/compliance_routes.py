@@ -37,6 +37,7 @@ from sponsor_licence_compliance import (
     refresh_sms_change_alert_statuses,
     send_rtw_expiry_reminder,
     store_immutable_rtw_pdf,
+    update_rtw_workspace_record,
     store_advertisement_evidence,
     upsert_working_calendar,
 )
@@ -236,6 +237,55 @@ def get_rtw_check_record(
         return get_rtw_record(tenant_id=tenant_id, record_id=record_id, conn=conn)
     except (LookupError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
+    finally:
+        conn.close()
+
+
+@router.patch("/rtw-checks/{record_id}")
+async def patch_rtw_check_record(
+    record_id: str,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    start_date: str | None = Form(None),
+    expiry_date: str | None = Form(None),
+    evidence_pdf: UploadFile | None = File(None),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, Any]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    from modules.documents.storage import read_validated_upload
+
+    file_bytes = None
+    filename = None
+    if evidence_pdf is not None and str(evidence_pdf.filename or "").strip():
+        file_bytes, _content_type, _ext = await read_validated_upload(
+            evidence_pdf, max_bytes=settings.max_upload_bytes
+        )
+        filename = evidence_pdf.filename
+    conn = _db_conn()
+    try:
+        _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
+        return update_rtw_workspace_record(
+            tenant_id=tenant_id,
+            record_id=record_id,
+            start_date=_optional_form_date(start_date),
+            expiry_date=_optional_form_date(expiry_date),
+            file_bytes=file_bytes,
+            filename=filename,
+            checker_user_id=current_user.username,
+            conn=conn,
+        )
+    except HTTPException:
+        raise
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the file on the server. Check storage permissions.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not update this document: {exc}") from exc
     finally:
         conn.close()
 
