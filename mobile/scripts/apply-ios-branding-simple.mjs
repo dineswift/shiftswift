@@ -42,19 +42,20 @@ for (const [name, size] of splashFiles) {
   runSips(["-z", String(size), String(size), dest]);
 }
 
+const displayNames = {
+  app: "ShiftSwift HR",
+  employee: "Employee",
+  business: "HR Admin",
+};
+const displayName = displayNames[variant] || "ShiftSwift HR";
+
 const displayNamePlist = path.join(iosRoot, "Info.plist");
 if (fs.existsSync(displayNamePlist)) {
   let plist = fs.readFileSync(displayNamePlist, "utf8");
   plist = plist.replace(
-    /<string>App<\/string>/,
-    "<string>ShiftSwift HR</string>",
+    /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/,
+    `$1${displayName}$2`,
   );
-  if (!plist.includes("ShiftSwift HR")) {
-    plist = plist.replace(
-      /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/,
-      "$1ShiftSwift HR$2",
-    );
-  }
   fs.writeFileSync(displayNamePlist, plist);
 }
 
