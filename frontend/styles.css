@@ -5912,6 +5912,9 @@ a.sponsor-duty-card:focus-visible {
     flex: 1 1 0;
     min-height: 44px;
   }
+  body:has(#mobile-tab-bar) .rtw-detail-panel__foot .btn[hidden] {
+    display: none !important;
+  }
   body:has(#mobile-tab-bar) .mobile-editor-sheet__foot .btn.primary,
   body:has(#mobile-tab-bar) .rtw-detail-panel__foot .btn:not(.ghost),
   body:has(#mobile-tab-bar) .absence-detail-panel__foot .btn:not(.outline) {
@@ -14950,6 +14953,10 @@ body.rota-week-readonly .rota-builder-hint {
   min-height: 42px;
 }
 
+.rtw-detail-panel__foot .btn[hidden] {
+  display: none !important;
+}
+
 .rtw-detail-alert {
   margin-bottom: 12px;
   padding: 10px 12px;
@@ -18597,6 +18604,19 @@ body.rota-week-readonly .rota-builder-hint {
   padding: 0;
   display: grid;
   gap: 0.4rem;
+}
+
+.employee-record-doc-item.is-superseded {
+  opacity: 0.78;
+  background: var(--gray-50, #f7f7f5);
+}
+
+.employee-record-doc-item__kept {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-500, #6b7280);
 }
 
 .employee-record-doc-item {

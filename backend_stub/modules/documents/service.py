@@ -9,10 +9,13 @@ from typing import Any
 from modules.documents.constants import (
     EMPLOYEE_DOCUMENT_REQUIREMENTS,
     EMPLOYEE_SELF_SERVICE_CATEGORIES,
+    ID_PASSPORT_CATEGORIES,
+    RTW_CHECK_CATEGORIES,
     VALID_EMPLOYEE_CATEGORIES,
     VALID_EXPIRY_ALERT_DAYS,
     VALID_LIFECYCLE_STAGES,
     VALID_TENANT_CATEGORIES,
+    VISA_CATEGORIES,
 )
 
 NI_PATTERN = re.compile(r"^[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]?$", re.I)
@@ -544,7 +547,74 @@ def list_employee_documents(
             """,
             params,
         )
-        return [_row_to_employee_document(row, columns=select_cols) for row in cur.fetchall()]
+        docs = [_row_to_employee_document(row, columns=select_cols) for row in cur.fetchall()]
+    apply_employee_document_versions(docs)
+    return [doc for doc in docs if not doc.get("duplicate_file")]
+
+
+def employee_document_version_key(doc: dict[str, Any]) -> str:
+    cat = str(doc.get("category") or "").strip().lower()
+    if cat in ID_PASSPORT_CATEGORIES:
+        return "id"
+    if cat in VISA_CATEGORIES:
+        return "visa"
+    if cat in RTW_CHECK_CATEGORIES:
+        return "rtw"
+    if cat in {"dbs", "contract", "policy"}:
+        return cat
+    if cat in {"training", "qualification"}:
+        return f"training:{str(doc.get('title') or '').strip().lower()}"
+    if cat == "payslip":
+        return f"payslip:{str(doc.get('pay_period') or '').strip().lower()}"
+    return f"{cat}:{str(doc.get('title') or '').strip().lower()}"
+
+
+def apply_employee_document_versions(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep one live file per document kind; older distinct files stay as kept-on-file versions."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for doc in documents:
+        groups.setdefault(employee_document_version_key(doc), []).append(doc)
+    for group in groups.values():
+        group.sort(
+            key=lambda item: (str(item.get("created_at") or ""), int(item.get("id") or 0)),
+            reverse=True,
+        )
+        unique: list[dict[str, Any]] = []
+        seen_hashes: set[str] = set()
+        for doc in group:
+            digest = str(doc.get("content_sha256") or "").strip()
+            if digest and digest in seen_hashes:
+                doc["is_current"] = False
+                doc["superseded"] = True
+                doc["duplicate_file"] = True
+                continue
+            if digest:
+                seen_hashes.add(digest)
+            unique.append(doc)
+        if not unique:
+            continue
+        current = unique[0]
+        current["is_current"] = True
+        current["superseded"] = False
+        current.pop("superseded_by_id", None)
+        current["previous_versions"] = [
+            {"id": older.get("id"), "title": older.get("title"), "created_at": older.get("created_at")}
+            for older in unique[1:]
+        ]
+        for older in unique[1:]:
+            older["is_current"] = False
+            older["superseded"] = True
+            older["superseded_by_id"] = current.get("id")
+            older["previous_versions"] = []
+    documents.sort(
+        key=lambda item: (
+            0 if item.get("superseded") else 1,
+            str(item.get("created_at") or ""),
+            int(item.get("id") or 0),
+        ),
+        reverse=True,
+    )
+    return documents
 
 
 def get_employee_document(

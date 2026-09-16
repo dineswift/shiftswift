@@ -2333,9 +2333,12 @@
     } else if (doc.document_url) {
       actions.push(`<a class="btn ghost btn-sm" href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener">Open</a>`);
     }
-    actions.push(`<button type="button" class="btn ghost btn-sm" data-record-delete-doc="${doc.id}">Remove</button>`);
-    return `<li class="employee-record-doc-item">
-      <span class="employee-record-doc-item__title">${escapeHtml(doc.title)}</span>
+    if (!doc.superseded) {
+      actions.push(`<button type="button" class="btn ghost btn-sm" data-record-delete-doc="${doc.id}">Remove</button>`);
+    }
+    const kept = doc.superseded ? `<span class="employee-record-doc-item__kept">Kept on file</span>` : "";
+    return `<li class="employee-record-doc-item${doc.superseded ? " is-superseded" : ""}">
+      <span class="employee-record-doc-item__title">${escapeHtml(doc.title)}${kept}</span>
       <span class="employee-record-doc-item__meta muted employee-record-doc-item__expiry--${summary.tone}">${escapeHtml(summary.text || "—")}</span>
       <div class="employee-record-doc-item__actions">${actions.join("")}</div>
     </li>`;
@@ -2343,7 +2346,7 @@
 
   function renderEmployeeRecordDocGroup({ id, title, hint, docs, empty }) {
     return `<div class="employee-record-doc-group" data-doc-group="${id}">
-      <h5 class="employee-record-doc-group__title">${title}${hint ? ` <span class="muted">${hint}</span>` : ""} <span class="employee-record-block__count" id="employees-side-doc-${id}-count">${docs.length}</span></h5>
+      <h5 class="employee-record-doc-group__title">${title}${hint ? ` <span class="muted">${hint}</span>` : ""} <span class="employee-record-block__count" id="employees-side-doc-${id}-count">${docs.filter((doc) => !doc.superseded).length}</span></h5>
       <ul class="employee-record-doc-list" id="employees-side-doc-${id}-list">${
         docs.length
           ? docs.map(renderEmployeeRecordDocItem).join("")
@@ -2364,9 +2367,9 @@
     const sharedCount = document.getElementById("employees-side-doc-shared-count");
     const businessList = document.getElementById("employees-side-doc-business-list");
     const sharedList = document.getElementById("employees-side-doc-shared-list");
-    if (idCount) idCount.textContent = String(idDocs.length);
-    if (visaCount) visaCount.textContent = String(visaDocs.length);
-    if (rtwCount) rtwCount.textContent = String(rtwDocs.length);
+    if (idCount) idCount.textContent = String(idDocs.filter((doc) => !doc.superseded).length);
+    if (visaCount) visaCount.textContent = String(visaDocs.filter((doc) => !doc.superseded).length);
+    if (rtwCount) rtwCount.textContent = String(rtwDocs.filter((doc) => !doc.superseded).length);
     if (idList) {
       idList.innerHTML = idDocs.length
         ? idDocs.map(renderEmployeeRecordDocItem).join("")
@@ -2382,8 +2385,8 @@
         ? rtwDocs.map(renderEmployeeRecordDocItem).join("")
         : `<li><p class="employee-record-doc-empty muted">No right to work check on file yet.</p></li>`;
     }
-    if (businessCount) businessCount.textContent = String(businessOnly.length);
-    if (sharedCount) sharedCount.textContent = String(shared.length);
+    if (businessCount) businessCount.textContent = String(businessOnly.filter((doc) => !doc.superseded).length);
+    if (sharedCount) sharedCount.textContent = String(shared.filter((doc) => !doc.superseded).length);
     if (businessList) {
       businessList.innerHTML = businessOnly.length
         ? businessOnly.map(renderEmployeeRecordDocItem).join("")
@@ -3393,7 +3396,7 @@
     renderTableBody(tbody, {
       emptyMessage: "No documents recorded yet.",
       columns: [
-        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>${row.superseded ? ` <span class="muted">Kept on file</span>` : ""}` },
         { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
         { key: "expires_at", render: (row) => renderDocumentExpiryCell(row) },
         { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
@@ -3811,7 +3814,7 @@
     renderTableBody(container.querySelector("#employee-documents-body"), {
       emptyMessage: "No documents recorded yet.",
       columns: [
-        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>${row.superseded ? ` <span class="muted">Kept on file</span>` : ""}` },
         { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
         { key: "expires_at", render: (row) => renderDocumentExpiryCell(row) },
         { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },

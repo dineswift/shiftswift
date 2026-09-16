@@ -455,7 +455,7 @@
 
   function renderUpdateEditor(item) {
     return `<div class="rtw-file-editor">
-      <p class="muted">This is the current file. Change the dates or replace the document. The earlier version stays on the list as kept on file.</p>
+      <p class="muted">Change the dates on this file, or choose a new scan or photo to replace it. A replacement keeps the current file on the list as kept on file.</p>
       <div class="rtw-file-preview" data-rtw-file-preview>
         <p class="muted">Opening file…</p>
       </div>
@@ -631,6 +631,7 @@
     const recheckBtn = document.getElementById("rtw-detail-recheck-btn");
     if (recheckBtn) {
       recheckBtn.hidden = Boolean(item.superseded);
+      recheckBtn.toggleAttribute("hidden", Boolean(item.superseded));
       recheckBtn.textContent = editing ? "Back" : "Update file";
     }
     const workerType = item.is_sponsored ? "Sponsored worker" : "Standard worker";
@@ -942,7 +943,12 @@
 
     document.getElementById("rtw-send-reminder-btn")?.addEventListener("click", sendReminder);
     document.getElementById("rtw-detail-recheck-btn")?.addEventListener("click", () => {
-      if (!selectedItem || selectedItem.superseded) return;
+      if (!selectedItem) return;
+      if (selectedItem.superseded) {
+        const currentId = selectedItem.current_review_id || selectedItem.superseded_by_id;
+        if (currentId) void selectCheck(currentId);
+        return;
+      }
       editingRecord = !editingRecord;
       renderDetailPanel(selectedItem);
     });

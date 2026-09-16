@@ -62,6 +62,8 @@ def _doc_row(**overrides):
         "rtw_check_expiry_date": None,
     }
     row.update(overrides)
+    if "content_sha256" not in overrides:
+        row["content_sha256"] = f"sha-{row['document_id']}"
     return (
         row["document_id"],
         row["employee_id"],
@@ -196,6 +198,23 @@ def test_followup_turns_previous_same_document_review_off() -> None:
     assert {item["id"] for item in current} == {newer["id"], visa["id"]}
     kept = [item for item in (older, newer, visa) if item.get("superseded")]
     assert kept == [older]
+
+
+def test_same_file_hash_is_not_shown_twice() -> None:
+    first = _serialize_identity_document_row(
+        _doc_row(document_id=30, category="rtw", content_sha256="same-file", recorded_at=date(2026, 1, 1)),
+        as_of=date(2026, 9, 16),
+    )
+    clone = _serialize_identity_document_row(
+        _doc_row(document_id=31, category="rtw", content_sha256="same-file", recorded_at=date(2026, 9, 16)),
+        as_of=date(2026, 9, 16),
+    )
+    apply_rtw_followup_state([first, clone])
+    assert clone["is_current"] is True
+    assert clone.get("duplicate_file") is not True
+    assert first["duplicate_file"] is True
+    assert first["superseded"] is True
+    assert clone["previous_versions"] == []
 
 
 def test_followup_does_not_replace_another_employee() -> None:
