@@ -43,12 +43,14 @@
   function statusLabel(status) {
     if (status === "verified") return "Verified";
     if (status === "expiring_soon") return "Expiring soon";
+    if (status === "superseded") return "Previous";
     return "Needs review";
   }
 
   function statusClass(status) {
     if (status === "verified") return "rtw-status-pill rtw-status-pill--ok";
     if (status === "expiring_soon") return "rtw-status-pill rtw-status-pill--warn";
+    if (status === "superseded") return "rtw-status-pill rtw-status-pill--off";
     return "rtw-status-pill rtw-status-pill--danger";
   }
 
@@ -171,9 +173,13 @@
     const extra = title && title.toLowerCase() !== type.toLowerCase()
       ? `<span class="rtw-doc-file">${escapeHtml(title)}</span>`
       : "";
+    const previous = item.superseded
+      ? `<span class="rtw-doc-previous muted">Previous version</span>`
+      : "";
     return `<div class="rtw-doc-cell">
       <span class="rtw-kind-tag rtw-kind-tag--${kindClass(item.document_kind)}">${escapeHtml(type)}</span>
       ${extra}
+      ${previous}
     </div>`;
   }
 
@@ -236,7 +242,7 @@
       .map((item) => {
         const palette = avatarStyle(item.employee_id);
         const selected = sameRecordId(selectedCheckId, item.id) ? " is-selected" : "";
-        return `<button type="button" class="rtw-record-card${selected}" data-rtw-id="${escapeHtml(String(item.id))}">
+        return `<button type="button" class="rtw-record-card${selected}${item.superseded ? " is-superseded" : ""}" data-rtw-id="${escapeHtml(String(item.id))}">
           <span class="rtw-record-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
           <span class="rtw-record-card__body">
             <span class="rtw-record-card__name">${escapeHtml(item.employee_short_name || item.employee_name)}</span>
@@ -270,7 +276,7 @@
             const sponsoredTag = item.is_sponsored
               ? `<span class="rtw-sponsored-tag">Sponsored</span>`
               : `<span class="rtw-standard-tag">Standard</span>`;
-            return `<tr class="rtw-table-row${selected}" data-rtw-id="${escapeHtml(String(item.id))}" tabindex="0">
+            return `<tr class="rtw-table-row${selected}${item.superseded ? " is-superseded" : ""}" data-rtw-id="${escapeHtml(String(item.id))}" tabindex="0">
           <td>
             <div class="rtw-employee-cell">
               <span class="rtw-employee-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
@@ -329,6 +335,9 @@
   }
 
   function renderDetailAlert(item) {
+    if (item.superseded) {
+      return `<div class="rtw-detail-alert rtw-detail-alert--off">This is a previous version. A later follow-up for the same document is now the current review. The file stays on record.</div>`;
+    }
     const alerts = [];
     const documentIso = item.document_expiry_date || (item.document_kind === "passport" ? item.expiry_date : null);
     if (item.document_kind === "passport" && documentIso) {
@@ -538,6 +547,13 @@
       const res = await apiFetch(`/compliance/sponsor-licence/rtw-checks/${encodeURIComponent(checkId)}`);
       if (!res.ok) throw new Error("Could not load record");
       const item = await res.json();
+      const listed = rtwItems.find((row) => sameRecordId(row.id, checkId));
+      if (listed?.superseded) {
+        item.superseded = true;
+        item.is_current = false;
+        item.superseded_by_id = listed.superseded_by_id;
+        item.status = "superseded";
+      }
       renderDetailPanel(item);
     } catch {
       const fallback = rtwItems.find((row) => sameRecordId(row.id, checkId));

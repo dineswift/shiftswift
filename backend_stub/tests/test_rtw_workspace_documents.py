@@ -11,6 +11,7 @@ sys.path.insert(0, str(BACKEND))
 
 from sponsor_licence_compliance import (  # noqa: E402
     _serialize_identity_document_row,
+    apply_rtw_followup_state,
     identity_document_kind,
     identity_document_type_label,
     parse_rtw_record_id,
@@ -167,3 +168,49 @@ def test_serialize_rtw_date_taken() -> None:
     assert item["date_label"] == "Date taken"
     assert item["expiry_label"] == "RTW expiry date"
     assert item["expiry_date"] == "2026-12-01"
+
+
+def test_followup_turns_previous_same_document_review_off() -> None:
+    older = _serialize_identity_document_row(
+        _doc_row(document_id=10, category="rtw", recorded_at=date(2026, 1, 9), expires_at=date(2026, 6, 1)),
+        as_of=date(2026, 9, 16),
+    )
+    newer = _serialize_identity_document_row(
+        _doc_row(document_id=11, category="rtw", recorded_at=date(2026, 9, 16), expires_at=date(2027, 1, 1)),
+        as_of=date(2026, 9, 16),
+    )
+    visa = _serialize_identity_document_row(
+        _doc_row(document_id=12, category="visa_brp", expires_at=date(2028, 4, 5)),
+        as_of=date(2026, 9, 16),
+    )
+    apply_rtw_followup_state([older, newer, visa])
+    assert newer["is_current"] is True
+    assert newer["status"] == "verified"
+    assert older["superseded"] is True
+    assert older["status"] == "superseded"
+    assert older["superseded_by_id"] == newer["id"]
+    assert visa["superseded"] is False
+    assert visa["status"] == "verified"
+
+
+def test_followup_does_not_replace_another_employee() -> None:
+    first = _serialize_identity_document_row(
+        _doc_row(document_id=20, employee_id=1, category="rtw", recorded_at=date(2026, 1, 1)),
+        as_of=date(2026, 9, 16),
+    )
+    second = _serialize_identity_document_row(
+        _doc_row(
+            document_id=21,
+            employee_id=2,
+            first_name="Mina",
+            last_name="Rai",
+            category="rtw",
+            recorded_at=date(2026, 9, 1),
+        ),
+        as_of=date(2026, 9, 16),
+    )
+    apply_rtw_followup_state([first, second])
+    assert first["superseded"] is False
+    assert second["superseded"] is False
+    assert first["is_current"] is True
+    assert second["is_current"] is True

@@ -810,10 +810,94 @@
       window.Admin?.formatErrorMessage?.(error, fallback) ||
       error?.message ||
       fallback;
-    if (message === "Load failed" || message === "Failed to fetch") {
+    if (/^(Load failed|Failed to fetch)$/i.test(message) || /XHR network error/i.test(message)) {
       return `${fallback}. Check your connection and try again.`;
     }
     return message;
+  }
+
+  function isRtwNetworkError(error) {
+    const message = String(error?.message || error || "");
+    return /^(Load failed|Failed to fetch|XHR network error)$/i.test(message) || /failed to fetch|load failed|network error/i.test(message);
+  }
+
+  function rtwMultipartHeaders() {
+    const headers = authHeaders(false);
+    delete headers["Content-Type"];
+    delete headers["content-type"];
+    return headers;
+  }
+
+  async function materializeUploadFile(file) {
+    if (!file) return file;
+    try {
+      const buffer = await file.arrayBuffer();
+      return new File([buffer], file.name || "rtw-evidence.pdf", {
+        type: file.type || "application/octet-stream",
+      });
+    } catch {
+      return file;
+    }
+  }
+
+  function buildRtwEvidenceFormData({ employeeId, checkDate, checkMethod, outcome, visaExpiry, rtwExpiry, file }) {
+    const fd = new FormData();
+    fd.set("employee_id", String(employeeId));
+    fd.set("check_date", checkDate);
+    fd.set("check_method", checkMethod);
+    fd.set("outcome", outcome);
+    fd.set("checker_user_id", localStorage.getItem("username") || "hr");
+    if (visaExpiry) fd.set("visa_expiry_date", visaExpiry);
+    if (rtwExpiry) fd.set("rtw_check_expiry_date", rtwExpiry);
+    fd.set("evidence_pdf", file, file.name || "rtw-evidence.pdf");
+    return fd;
+  }
+
+  async function xhrPostRtwEvidence(path, formData) {
+    const apiBase = window.Admin.getApiBase?.() || API_BASE;
+    if (!apiBase) throw new Error("API URL not configured. Hard refresh and sign in again.");
+    const headers = rtwMultipartHeaders();
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${apiBase}${path}`);
+      Object.entries(headers).forEach(([key, value]) => {
+        if (key && value && key.toLowerCase() !== "content-type") xhr.setRequestHeader(key, String(value));
+      });
+      xhr.timeout = 120000;
+      xhr.onload = () => {
+        let data = {};
+        try {
+          data = JSON.parse(xhr.responseText || "{}");
+        } catch {
+          /* ignore */
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+          return;
+        }
+        reject(new Error(parseApiDetail(data, `Could not store RTW evidence (HTTP ${xhr.status})`)));
+      };
+      xhr.onerror = () => reject(new Error("Load failed"));
+      xhr.ontimeout = () => reject(new Error("Upload timed out. Try a smaller PDF or photo."));
+      xhr.send(formData);
+    });
+  }
+
+  async function postRtwEvidence(fields) {
+    const path = "/compliance/sponsor-licence/rtw-checks";
+    try {
+      const res = await apiFetch(path, {
+        method: "POST",
+        headers: rtwMultipartHeaders(),
+        body: buildRtwEvidenceFormData(fields),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, `Could not store RTW evidence (HTTP ${res.status})`));
+      return data;
+    } catch (error) {
+      if (!isRtwNetworkError(error)) throw error;
+      return xhrPostRtwEvidence(path, buildRtwEvidenceFormData(fields));
+    }
   }
 
   function isoDateOnly(value) {
@@ -969,19 +1053,6 @@
       void applyShareCodeEmployee(employeeId);
     });
     setRtwAddMethod("upload");
-  }
-
-  async function postRtwEvidence(formData) {
-    const tenantId = window.Admin.TENANT_ID;
-    const apiBase = window.Admin.getApiBase?.() || API_BASE;
-    const res = await window.ShiftSwiftSession.fetchWithAuth(
-      "/compliance/sponsor-licence/rtw-checks",
-      { method: "POST", body: formData },
-      { apiBase, tenantId }
-    );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(parseApiDetail(data, "Could not store RTW evidence"));
-    return data;
   }
 
   async function mountShareCodeForm() {
@@ -1150,20 +1221,23 @@
         if (status) status.textContent = "Choose a file or take a photo.";
         return;
       }
-      if (status) status.textContent = "Uploading…";
-      const fd = new FormData();
-      fd.set("employee_id", employeeId);
-      fd.set("check_date", checkDate);
-      fd.set("check_method", form.querySelector("[name='check_method']")?.value || "Manual evidence upload");
-      fd.set("outcome", form.querySelector("[name='outcome']")?.value || "pass");
-      fd.set("checker_user_id", localStorage.getItem("username") || "hr");
-      const visaExpiry = isoDateField(form, "visa_expiry_date");
-      const rtwExpiry = isoDateField(form, "rtw_check_expiry_date");
-      if (visaExpiry) fd.set("visa_expiry_date", visaExpiry);
-      if (rtwExpiry) fd.set("rtw_check_expiry_date", rtwExpiry);
-      fd.set("evidence_pdf", file, file.name || "rtw-evidence.pdf");
       try {
-        const data = await postRtwEvidence(fd);
+        file = await materializeUploadFile(file);
+      } catch {
+        /* keep the original file */
+      }
+      if (status) status.textContent = "Uploading…";
+      const fields = {
+        employeeId,
+        checkDate,
+        checkMethod: form.querySelector("[name='check_method']")?.value || "Manual evidence upload",
+        outcome: form.querySelector("[name='outcome']")?.value || "pass",
+        visaExpiry: isoDateField(form, "visa_expiry_date"),
+        rtwExpiry: isoDateField(form, "rtw_check_expiry_date"),
+        file,
+      };
+      try {
+        const data = await postRtwEvidence(fields);
         if (status) {
           status.textContent = `Stored check #${data.check_id}. You can add another RTW check for the same employee.`;
         }

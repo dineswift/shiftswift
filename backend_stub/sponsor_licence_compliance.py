@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -25,8 +26,16 @@ SPONSOR_ABSENCE_ALERT_DAY = int(os.getenv("SPONSOR_ABSENCE_ALERT_DAY", "9"))
 SPONSOR_ABSENCE_REPORT_LIMIT_DAYS = int(os.getenv("SPONSOR_ABSENCE_REPORT_LIMIT_DAYS", "10"))
 SMS_REPORTING_WINDOW_DAYS = int(os.getenv("SMS_REPORTING_WINDOW_DAYS", "10"))
 SMS_DUE_SOON_DAYS = int(os.getenv("SMS_DUE_SOON_DAYS", "3"))
-RTW_STORAGE_DIR = Path(os.getenv("RTW_STORAGE_DIR", "uploads/rtw_immutable"))
-ADVERT_EVIDENCE_DIR = Path(os.getenv("ADVERT_EVIDENCE_DIR", "uploads/recruitment_adverts"))
+def _resolve_storage_dir(env_name: str, default: str) -> Path:
+    raw = (os.getenv(env_name) or default).strip()
+    path = Path(raw)
+    if not path.is_absolute():
+        path = Path(__file__).resolve().parent / path
+    return path.resolve()
+
+
+RTW_STORAGE_DIR = _resolve_storage_dir("RTW_STORAGE_DIR", "uploads/rtw_immutable")
+ADVERT_EVIDENCE_DIR = _resolve_storage_dir("ADVERT_EVIDENCE_DIR", "uploads/recruitment_adverts")
 
 SMS_REPORTABLE_FIELDS = frozenset({"job_title", "salary", "work_location"})
 
@@ -487,6 +496,52 @@ def _list_identity_rtw_documents(
     return [_serialize_identity_document_row(row, as_of=today) for row in rows]
 
 
+def _record_recency_key(item: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(item.get("check_date") or ""),
+        str(item.get("created_at") or ""),
+        str(item.get("id") or ""),
+    )
+
+
+def _rtw_list_sort_key(item: dict[str, Any]) -> tuple:
+    name = str(item.get("employee_name") or "").lower()
+    kind = {"passport": 0, "visa": 1, "rtw_check": 2}.get(str(item.get("document_kind") or ""), 9)
+    date_text = str(item.get("check_date") or "0000-00-00")[:10]
+    parts = date_text.split("-")
+    nums = []
+    for part in parts[:3]:
+        try:
+            nums.append(-int(part))
+        except ValueError:
+            nums.append(0)
+    while len(nums) < 3:
+        nums.append(0)
+    created = str(item.get("created_at") or "")
+    ident = str(item.get("id") or "")
+    return (name, kind, tuple(nums), tuple(-ord(ch) for ch in created), ident)
+
+
+def apply_rtw_followup_state(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep older copies of the same document kind on file, but turn their review off."""
+    groups: dict[tuple[Any, str], list[dict[str, Any]]] = {}
+    for item in items:
+        key = (item.get("employee_id"), str(item.get("document_kind") or "rtw_check"))
+        groups.setdefault(key, []).append(item)
+    for group in groups.values():
+        group.sort(key=_record_recency_key, reverse=True)
+        current = group[0]
+        current["is_current"] = True
+        current["superseded"] = False
+        current.pop("superseded_by_id", None)
+        for older in group[1:]:
+            older["is_current"] = False
+            older["superseded"] = True
+            older["superseded_by_id"] = current.get("id")
+            older["status"] = "superseded"
+    return items
+
+
 def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str, Any]:
     today = date.today()
     query = f"""
@@ -510,13 +565,15 @@ def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str,
     items.extend(
         _list_identity_rtw_documents(tenant_id=tenant_id, conn=conn, limit=limit, as_of=today)
     )
-    items.sort(key=lambda item: (item.get("check_date") or "", str(item.get("id") or "")), reverse=True)
+    apply_rtw_followup_state(items)
+    items.sort(key=_rtw_list_sort_key)
     items = items[:limit]
+    current = [item for item in items if not item.get("superseded")]
     stats = {
         "total": len(items),
-        "verified": sum(1 for item in items if item["status"] == "verified"),
-        "expiring_soon": sum(1 for item in items if item["status"] == "expiring_soon"),
-        "needs_review": sum(1 for item in items if item["status"] == "needs_review"),
+        "verified": sum(1 for item in current if item["status"] == "verified"),
+        "expiring_soon": sum(1 for item in current if item["status"] == "expiring_soon"),
+        "needs_review": sum(1 for item in current if item["status"] == "needs_review"),
         "passports": sum(1 for item in items if item.get("document_kind") == "passport"),
         "visa_brp": sum(1 for item in items if item.get("document_kind") == "visa"),
         "rtw_checks": sum(1 for item in items if item.get("document_kind") == "rtw_check"),
@@ -680,11 +737,14 @@ def store_immutable_rtw_pdf(
 
     digest = _sha256_bytes(pdf_bytes)
     tenant_dir = RTW_STORAGE_DIR / str(tenant_id) / str(employee_id)
-    tenant_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{check_date.isoformat()}_{digest[:16]}{ext}"
     path = tenant_dir / filename
-    if not path.exists():
-        path.write_bytes(pdf_bytes)
+    try:
+        tenant_dir.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_bytes(pdf_bytes)
+    except OSError as exc:
+        raise PermissionError(f"Cannot save RTW evidence at {path}: {exc}") from exc
 
     with conn.cursor() as cur:
         cur.execute(
@@ -736,12 +796,14 @@ def store_immutable_rtw_pdf(
             (
                 tenant_id,
                 check_id,
-                {
-                    "employee_id": employee_id,
-                    "check_date": check_date.isoformat(),
-                    "content_sha256": digest,
-                    "gov_checklist_url": UK_RTW_CHECKLIST_URL,
-                },
+                json.dumps(
+                    {
+                        "employee_id": employee_id,
+                        "check_date": check_date.isoformat(),
+                        "content_sha256": digest,
+                        "gov_checklist_url": UK_RTW_CHECKLIST_URL,
+                    }
+                ),
             ),
         )
     conn.commit()

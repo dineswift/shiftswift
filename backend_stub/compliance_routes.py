@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -118,15 +118,28 @@ def _db_conn() -> Any:
 def _optional_form_date(value: date | str | None) -> date | None:
     if value is None:
         return None
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
     text = str(value).strip()
     if not text:
         return None
-    try:
-        return date.fromisoformat(text[:10])
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid date: {text}") from exc
+    iso = text[:10]
+    if len(iso) == 10 and iso[4] == "-" and iso[7] == "-":
+        try:
+            return date.fromisoformat(iso)
+        except ValueError:
+            pass
+    slash = text.replace(" ", "")
+    parts = slash.split("/")
+    if len(parts) == 3 and all(parts):
+        try:
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+            return date(year, month, day)
+        except ValueError:
+            pass
+    raise HTTPException(status_code=400, detail=f"Invalid date: {text}")
 
 
 async def _read_validated_pdf(upload: UploadFile) -> bytes:
@@ -253,7 +266,7 @@ def send_rtw_check_reminder(
 async def create_rtw_check(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     employee_id: int = Form(...),
-    check_date: date = Form(...),
+    check_date: str = Form(...),
     check_method: str = Form(...),
     outcome: str = Form(...),
     checker_user_id: str = Form(...),
@@ -267,6 +280,9 @@ async def create_rtw_check(
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     from modules.documents.storage import read_validated_upload
 
+    parsed_check = _optional_form_date(check_date)
+    if parsed_check is None:
+        raise HTTPException(status_code=400, detail="Choose a valid check date")
     file_bytes, _content_type, _ext = await read_validated_upload(
         evidence_pdf, max_bytes=settings.max_upload_bytes
     )
@@ -279,7 +295,7 @@ async def create_rtw_check(
             tenant_id=tenant_id,
             employee_id=employee_id,
             pdf_bytes=file_bytes,
-            check_date=check_date,
+            check_date=parsed_check,
             check_method=check_method,
             outcome=outcome,
             checker_user_id=checker_user_id or current_user.username,
@@ -288,6 +304,17 @@ async def create_rtw_check(
             gov_checklist_version=gov_checklist_version,
             conn=conn,
         )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the RTW file on the server. Check storage permissions.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not store RTW evidence: {exc}") from exc
     finally:
         conn.close()
     return {

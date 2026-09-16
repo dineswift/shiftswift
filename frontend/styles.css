@@ -14698,6 +14698,21 @@ body.rota-week-readonly .rota-builder-hint {
   box-shadow: inset 3px 0 0 var(--green-700);
 }
 
+.rtw-table-row.is-superseded,
+.rtw-record-card.is-superseded {
+  opacity: 0.58;
+}
+
+.rtw-table-row.is-superseded td {
+  color: var(--ink-500);
+}
+
+.rtw-doc-previous {
+  display: block;
+  font-size: 0.72rem;
+  margin-top: 2px;
+}
+
 .rtw-date-cell {
   display: flex;
   flex-direction: column;
@@ -14780,6 +14795,11 @@ body.rota-week-readonly .rota-builder-hint {
 .rtw-status-pill--danger {
   background: #fdecea;
   color: #b42318;
+}
+
+.rtw-status-pill--off {
+  background: var(--gray-100, #f3f4f6);
+  color: var(--ink-600, #4b5563);
 }
 
 .rtw-detail-panel {
@@ -14887,6 +14907,12 @@ body.rota-week-readonly .rota-builder-hint {
   border: 1px solid #f5a8a0;
   background: #fdecea;
   color: #b42318;
+}
+
+.rtw-detail-alert--off {
+  border: 1px solid var(--card-border);
+  background: var(--gray-50, #fafafa);
+  color: var(--ink-600);
 }
 
 .rtw-detail-employee {
