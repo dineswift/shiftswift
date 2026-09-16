@@ -1880,6 +1880,7 @@
               row.category !== "payslip" &&
               row.signing_status !== "signed";
             return `<div class="table-actions">
+              ${row.has_file ? `<button type="button" class="btn ghost" data-preview-doc="${row.id}">Preview</button>` : ""}
               ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
               ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
               ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
@@ -1922,6 +1923,50 @@
             if (actionStatus) actionStatus.textContent = message;
           } catch (error) {
             window.ShiftSwiftAction?.showActionToast?.(error.message || "Delete failed", "error");
+          }
+        }
+      });
+    });
+
+    container.querySelectorAll("[data-preview-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const actionStatus = container.querySelector("#employee-document-action-status");
+        const row = docs.find((item) => String(item.id) === btn.dataset.previewDoc);
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performPreview = async () => {
+          const res = await apiFetch(
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.previewDoc}/file`
+          );
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Preview failed");
+          }
+          const blob = await res.blob();
+          if (!window.ShiftSwiftDocumentPreview?.open) {
+            throw new Error("Preview is not available.");
+          }
+          window.ShiftSwiftDocumentPreview.open({
+            blob,
+            title: row?.title,
+            filename: row?.original_filename || `${row?.title || "document"}`,
+            contentType: blob.type || row?.content_type,
+          });
+          return "Opened preview.";
+        };
+        if (run) {
+          await run(btn, actionStatus, {
+            loadingLabel: "Opening…",
+            successMessage: "Preview opened.",
+            errorMessage: "Preview failed.",
+            successLabel: "Opened",
+            clearStatusAfterMs: 2000,
+            onAction: performPreview,
+          });
+        } else {
+          try {
+            await performPreview();
+          } catch (error) {
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Preview failed", "error");
           }
         }
       });

@@ -46,29 +46,64 @@
     }
   }
 
-  async function downloadDocument(documentId, filename, scope = "employee") {
+  async function fetchDocumentBlob(documentId, scope = "employee") {
     const scopeQuery = scope && scope !== "employee" ? `?scope=${encodeURIComponent(scope)}` : "";
     const res = await apiFetch(`/employee/me/documents/${documentId}/file${scopeQuery}`, {
       headers: session.authHeaders({ json: false, tenantId }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.detail || "Download failed");
+      throw new Error(data.detail || "Could not open document");
     }
-    let name = filename || "document";
+    let name = "document";
     const disposition = res.headers.get("Content-Disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
     if (match) name = match[1];
     const blob = await res.blob();
+    return { blob, name, contentType: blob.type || res.headers.get("Content-Type") };
+  }
+
+  async function downloadDocument(documentId, filename, scope = "employee") {
+    const { blob, name } = await fetchDocumentBlob(documentId, scope);
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = name;
+    link.download = filename || name;
     link.click();
     URL.revokeObjectURL(url);
   }
 
+  async function previewDocument(documentId, row, scope = "employee") {
+    if (!window.ShiftSwiftDocumentPreview?.open) {
+      await downloadDocument(documentId, row?.original_filename, scope);
+      return;
+    }
+    const { blob, name, contentType } = await fetchDocumentBlob(documentId, scope);
+    window.ShiftSwiftDocumentPreview.open({
+      blob,
+      title: row?.title,
+      filename: row?.original_filename || name,
+      contentType: contentType || row?.content_type,
+    });
+  }
+
   function bindDownloadButtons(container, items) {
+    container.querySelectorAll("[data-preview-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (messageEl) messageEl.textContent = "Opening preview…";
+        try {
+          const row = items.find(
+            (item) =>
+              String(item.id) === btn.dataset.previewDoc &&
+              (item.scope || "employee") === (btn.dataset.previewScope || "employee")
+          );
+          await previewDocument(Number(btn.dataset.previewDoc), row, row?.scope || btn.dataset.previewScope);
+          if (messageEl) messageEl.textContent = "";
+        } catch (error) {
+          if (messageEl) messageEl.textContent = error.message || "Preview failed";
+        }
+      });
+    });
     container.querySelectorAll("[data-download-doc]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (messageEl) messageEl.textContent = "Downloading…";
@@ -108,6 +143,9 @@
   function documentActions(row) {
     const actions = [];
     if (row.has_file) {
+      actions.push(
+        `<button type="button" class="btn ghost" data-preview-doc="${escapeHtml(row.id)}" data-preview-scope="${escapeHtml(row.scope || "employee")}">Preview</button>`
+      );
       actions.push(
         `<button type="button" class="btn ghost" data-download-doc="${escapeHtml(row.id)}" data-download-scope="${escapeHtml(row.scope || "employee")}">Download</button>`
       );
