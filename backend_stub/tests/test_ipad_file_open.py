@@ -36,7 +36,7 @@ def test_admin_loads_file_open_before_shared() -> None:
     file_open_at = source.find("file-open.js")
     shared_at = source.find("admin-shared.js?v=admin-v47")
     assert 0 < file_open_at < shared_at
-    assert 'id="rota-print-submit">Open PDF' in source
+    assert "rota-export-pdf-btn" in source or "Grid PDF" in source
 
 
 def test_download_authenticated_uses_file_open_helper() -> None:
@@ -46,7 +46,7 @@ def test_download_authenticated_uses_file_open_helper() -> None:
     assert "prefersInAppViewer" in shared
     rota = ADMIN_ROTA.read_text(encoding="utf-8")
     assert "downloadAuthenticated" in rota
-    assert "/admin/rota/print.pdf" in rota
+    assert "/admin/rota/weeks/" in rota
     assert "Use Print or Share in the preview." in rota
 
 

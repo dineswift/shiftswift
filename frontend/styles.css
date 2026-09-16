@@ -13529,7 +13529,7 @@ body.rota-week-readonly .rota-builder-hint {
   overflow-y: auto;
 }
 
-@media (min-width: 1181px) {
+@media (min-width: 1367px) {
   .hr-detail-panel {
     flex: 0 0 400px;
     width: 400px;

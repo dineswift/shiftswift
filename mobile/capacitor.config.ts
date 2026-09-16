@@ -36,11 +36,15 @@ const pluginConfig = {
 const cameraPlist = "Scan premises QR codes to clock in at your work site.";
 const locationPlist = "Verify you are at your work site when clocking in.";
 
+const photoPlist = "Read a photo of the premises QR code if the live camera scanner cannot start.";
+
 const sharedPlist = {
   NSCameraUsageDescription: cameraPlist,
   NSLocationWhenInUseUsageDescription: locationPlist,
   NSLocationAlwaysAndWhenInUseUsageDescription: locationPlist,
+  NSPhotoLibraryUsageDescription: photoPlist,
   UIBackgroundModes: ["remote-notification"],
+  UIRequiresFullScreen: true,
 };
 
 const apps: Record<AppVariant, CapacitorConfig> = {
@@ -55,6 +59,7 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       path: "ios-app",
       contentInset: "automatic",
       scheme: "App",
+      preferredContentMode: "mobile",
       infoPlist: sharedPlist,
     },
     plugins: pluginConfig,
@@ -74,6 +79,7 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       path: "ios-employee",
       contentInset: "automatic",
       scheme: "App",
+      preferredContentMode: "mobile",
       infoPlist: sharedPlist,
     },
     plugins: pluginConfig,
@@ -93,6 +99,7 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       path: "ios-business",
       contentInset: "automatic",
       scheme: "App",
+      preferredContentMode: "mobile",
       infoPlist: sharedPlist,
     },
     plugins: pluginConfig,

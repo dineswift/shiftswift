@@ -47,8 +47,10 @@ npm run ios:business:open
 In Xcode:
 
 1. Select your **Team** (Signing & Capabilities).
-2. Choose a simulator or connected iPhone.
+2. Choose a simulator or connected **iPhone or 13-inch iPad**.
 3. Press **Run** (⌘R).
+
+The ShiftSwift HR app is a universal iPhone + iPad build (`TARGETED_DEVICE_FAMILY = 1,2`). On iPad it uses the full screen (no Split View) so the HR admin layout, rota PDFs, and premises QR scanner stay usable.
 
 ## Local development (optional)
 
@@ -88,7 +90,7 @@ SSHR_APP=business npx @capacitor/assets generate --ios
 1. **Apple Developer Program** — enroll at [developer.apple.com](https://developer.apple.com).
 2. **App Store Connect** — create two apps (Employee + HR Admin).
 3. **Privacy** — declare location and camera use (clock-in / QR); link to [privacy policy](https://app.shiftswifthr.co.uk/privacy-policy.html).
-4. **Screenshots** — capture from iPhone simulator (6.7" and 6.1" required).
+4. **Screenshots** — iPhone 6.7" and 6.1", plus iPad 13" (landscape) and 12.9" for the universal ShiftSwift HR app.
 5. **Archive** — Xcode → Product → Archive → Distribute to App Store.
 6. **Push notifications (optional v2)** — add APNs key in Apple Developer, enable Push capability in Xcode, extend API for native push tokens.
 
@@ -98,16 +100,19 @@ SSHR_APP=business npx @capacitor/assets generate --ios
 - Same bottom tabs, clock-in, rotas, documents
 - `native-app.js` hides “Add to Home Screen” prompts in the native shell
 - Green splash + status bar (`#0f6e56`) like the PWA
-- Camera + location permission strings for geofenced punch and QR scan
+- Camera + location + photo-library permission strings for geofenced punch and QR scan
+- Universal iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`), full-screen on iPad
 
 ## Project layout
 
 ```
 mobile/
-  capacitor.config.ts    # employee | business via SSHR_APP
-  www/employee/          # offline fallback shell
+  capacitor.config.ts    # app | employee | business via SSHR_APP
+  www/app/               # unified ShiftSwift HR login (iPad)
+  www/employee/
   www/business/
-  ios-employee/          # Xcode project (generated)
+  ios-app/               # Xcode project — ShiftSwift HR (iPhone + iPad)
+  ios-employee/
   ios-business/
   assets/                # icons for Capacitor assets tool
   scripts/

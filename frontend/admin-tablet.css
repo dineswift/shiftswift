@@ -1,6 +1,6 @@
-/* 13-inch iPad / compact laptop — HR admin app (Safari + PWA).
-   Desktop sidebar stays visible from 861px, so the content column is
-   ~600–920px at 1024–1180px CSS. Stack register + detail workspaces so
+/* 13-inch iPad / compact laptop — HR admin app (Safari + PWA + native).
+   Desktop sidebar stays visible from 861px. Portrait 13-inch is 1024px CSS;
+   landscape is 1366px. Stack register + detail workspaces through 1366px so
    the page never needs horizontal scrolling. Phone layout (≤860px) is
    unchanged. Do not hide data. */
 
@@ -51,7 +51,7 @@
   }
 }
 
-@media (min-width: 861px) and (max-width: 1180px) {
+@media (min-width: 861px) and (max-width: 1366px) {
   body.admin-portal {
     overflow-x: hidden;
   }

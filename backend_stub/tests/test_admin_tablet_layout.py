@@ -21,7 +21,7 @@ def test_admin_html_loads_tablet_stylesheet_after_core_styles() -> None:
 
 def test_tablet_css_stacks_shared_workspaces_for_ipad_portrait() -> None:
     css = TABLET_CSS.read_text(encoding="utf-8")
-    assert "@media (min-width: 861px) and (max-width: 1180px)" in css
+    assert "@media (min-width: 861px) and (max-width: 1366px)" in css
     for selector in (
         ".hr-workspace-layout",
         ".employees-desktop-layout",
@@ -40,11 +40,11 @@ def test_tablet_css_stacks_shared_workspaces_for_ipad_portrait() -> None:
     assert "width: 100%" in css
 
 
-def test_wide_detail_panel_only_applies_past_ipad_portrait() -> None:
+def test_wide_detail_panel_only_applies_past_ipad() -> None:
     css = STYLES_CSS.read_text(encoding="utf-8")
-    assert "@media (min-width: 1181px)" in css
+    assert "@media (min-width: 1367px)" in css
     start = css.index(".hr-main-pane {\n  flex: 1;\n  min-width: 0;\n}\n\n.hr-detail-panel {")
-    media = css.index("@media (min-width: 1181px)", start)
+    media = css.index("@media (min-width: 1367px)", start)
     unscoped = css[start:media]
     assert "400px" not in unscoped
     desktop = css[media : media + 180]
@@ -74,8 +74,29 @@ def test_admin_shared_opens_files_in_place_on_ipad() -> None:
     html = ADMIN_HTML.read_text(encoding="utf-8")
     assert 'src="./file-open.js?v=1"' in html
     assert 'src="./admin-shared.js?v=admin-v47"' in html
-    assert 'href="./admin-tablet.css?v=3"' in html
+    assert 'href="./admin-tablet.css?v=4"' in html
     rota = (FRONTEND / "admin-rota.js").read_text(encoding="utf-8")
     assert "Use Print or Share in the preview." in rota
     assert "/admin/rota/weeks/" in rota
     assert "export.pdf" in rota or "export.${ext}" in rota
+
+
+def test_native_ios_app_is_universal_ipad() -> None:
+    plist = (ROOT / "mobile" / "ios-app" / "App" / "App" / "Info.plist").read_text(encoding="utf-8")
+    pbx = (ROOT / "mobile" / "ios-app" / "App" / "App.xcodeproj" / "project.pbxproj").read_text(
+        encoding="utf-8"
+    )
+    cap = (ROOT / "mobile" / "capacitor.config.ts").read_text(encoding="utf-8")
+    assert "UISupportedInterfaceOrientations~ipad" in plist
+    assert "UIRequiresFullScreen" in plist
+    assert "NSCameraUsageDescription" in plist
+    assert "NSPhotoLibraryUsageDescription" in plist
+    assert "NSLocationWhenInUseUsageDescription" in plist
+    assert 'TARGETED_DEVICE_FAMILY = "1,2"' in pbx
+    assert "CURRENT_PROJECT_VERSION = 11" in pbx
+    assert "MARKETING_VERSION = 1.0.3" in pbx
+    assert 'preferredContentMode: "mobile"' in cap
+    assert "UIRequiresFullScreen: true" in cap
+    native_app = (FRONTEND / "native-app.js").read_text(encoding="utf-8")
+    assert 'BUNDLED_ASSET_VERSION = "28"' in native_app
+
