@@ -54,7 +54,7 @@
             window.Capacitor?.config?.ios?.scheme ||
             (window.Capacitor?.isNativePlatform?.() ? "App" : "capacitor"));
       if (window.Capacitor?.isNativePlatform?.()) {
-        return `${scheme}://localhost/index.html?build=27&v=39`;
+        return `${scheme}://localhost/index.html?build=28&v=40`;
       }
     } catch {
       /* ignore */

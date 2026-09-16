@@ -28,8 +28,10 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -53,6 +55,8 @@
 	<string>Verify you are at your work site when clocking in.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Verify you are at your work site when clocking in.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Read a photo of the premises QR code if the live camera scanner cannot start.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -48,7 +48,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "54";
+    var version = "56";
 
     if (
       /admin\.html$/i.test(path) &&
@@ -446,10 +446,12 @@
         var useProductionAdminShell = onProductionAdmin && unifiedIphone;
         var stillParsing = document.readyState === "loading";
         appendStylesheet(assetUrl("iphone-app-ui.css"), "data-sshr-portal-ui");
+        appendStylesheet(assetUrl("iphone-app-ipad.css"), "data-sshr-portal-ipad");
         if (isAdmin) {
           appendStylesheet(assetUrl("admin-mobile-polish.css"), "data-sshr-portal-admin-polish");
         }
         if (stillParsing) {
+          injectSyncScript(assetUrl("native-ipad-layout.js"), "data-sshr-portal-ipad-layout");
           injectSyncScript(assetUrl("native-bundled-url.js"), "data-sshr-portal-bundled-url");
           injectSyncScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
           injectSyncScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");
@@ -459,6 +461,7 @@
             injectSyncScript(assetUrl("admin-portal-boot.js"), "data-sshr-portal-admin-boot");
           }
         }
+        appendScript(assetUrl("native-ipad-layout.js"), "data-sshr-portal-ipad-layout");
         appendScript(assetUrl("native-bundled-url.js"), "data-sshr-portal-bundled-url");
         appendScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
         appendScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");

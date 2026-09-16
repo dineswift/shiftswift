@@ -30,11 +30,11 @@ Contact: support@shiftswifthr.co.uk · legal@shiftswifthr.co.uk
 
 ## Native apps (App Store / Play Store)
 
-Separate Capacitor projects — same UI as the PWAs:
+One iOS app (iPhone + iPad) and one Android app — same UI as the PWAs:
 
 | Folder | Platform | Docs |
 |--------|----------|------|
-| [`iphone-app/`](iphone-app/) | iOS | [iphone-app/README.md](iphone-app/README.md), [App Store](iphone-app/docs/APP_STORE_RELEASE.md) |
+| [`iphone-app/`](iphone-app/) | iOS (iPhone and iPad) | [iphone-app/README.md](iphone-app/README.md), [native iOS](docs/native_ios_apps.md) |
 | [`android-app/`](android-app/) | Android | [android-app/README.md](android-app/README.md), [Play Store](android-app/docs/PLAY_STORE_RELEASE.md) |
 
 ```bash
@@ -44,8 +44,6 @@ cd iphone-app && npm install && npm run sync:ios && npm run ios:open
 # Android phone / tablet
 cd android-app && npm install && npm run sync:android && npm run android:device
 ```
-
-Older multi-variant shells: [mobile/README.md](mobile/README.md).
 
 ## Production
 

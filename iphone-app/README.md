@@ -1,9 +1,11 @@
-# ShiftSwift HR — iPhone / iPad app
+# ShiftSwift HR — iPhone + iPad app
 
-Standalone Capacitor **iOS** app. Android lives in the sibling folder `../android-app/`.
+One universal Capacitor **iOS** app (iPhone and iPad). Android lives in `../android-app/`.
 
-**Version:** 1.5 (build 16)  
+**Version:** 1.5 (build 17)  
 **Bundle ID:** `co.uk.shiftswifthr.app`
+
+There is no separate iPad app. This build is `TARGETED_DEVICE_FAMILY = 1,2`: iPhone uses bottom tabs; iPad uses a full-screen sidebar layout.
 
 Push entitlements use `aps-environment=production` (App Store / TestFlight). Associated Domains are set for Universal Links (`applinks:app.shiftswifthr.co.uk`, `applinks:www.shiftswifthr.co.uk`); AASA lives at `frontend/.well-known/apple-app-site-association`.
 
@@ -28,8 +30,8 @@ npm run appstore:archive
 
 | Device | UI |
 |--------|----|
-| iPhone | Bottom tabs |
-| iPad | Sidebar + content |
+| iPhone | Bottom tabs, portrait + landscape |
+| iPad | Sidebar + content, full screen (not Split View) |
 
 ## After frontend changes
 

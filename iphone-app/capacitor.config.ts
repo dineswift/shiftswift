@@ -25,12 +25,16 @@ const config: CapacitorConfig = {
     path: "ios",
     contentInset: "automatic",
     scheme: "App",
+    preferredContentMode: "mobile",
     infoPlist: {
       NSFaceIDUsageDescription: "Unlock ShiftSwift HR quickly with Face ID after you sign in.",
       NSCameraUsageDescription: "Scan premises QR codes to clock in at your work site.",
       NSLocationWhenInUseUsageDescription: "Verify you are at your work site when clocking in.",
       NSLocationAlwaysAndWhenInUseUsageDescription: "Verify you are at your work site when clocking in.",
+      NSPhotoLibraryUsageDescription:
+        "Read a photo of the premises QR code if the live camera scanner cannot start.",
       UIBackgroundModes: ["remote-notification"],
+      UIRequiresFullScreen: true,
     },
   },
   plugins: {

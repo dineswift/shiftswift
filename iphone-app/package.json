@@ -2,7 +2,7 @@
   "name": "shiftswifthr-iphone-app",
   "private": true,
   "version": "1.5.0",
-  "description": "ShiftSwift HR — iOS Capacitor app (bundled login + employee/admin portals)",
+  "description": "ShiftSwift HR — one iOS app for iPhone and iPad",
   "scripts": {
     "sync:www": "node scripts/sync-www.mjs",
     "sync:ios": "npm run sync:www && npx cap sync ios",

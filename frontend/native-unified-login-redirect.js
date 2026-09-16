@@ -1,7 +1,7 @@
 /** Force unified Capacitor app back to bundled login — runs on production legacy login URLs. */
 (function enforceUnifiedNativeLogin() {
-  var BUILD = "27";
-  var VERSION = "39";
+  var BUILD = "28";
+  var VERSION = "40";
 
   function getCapacitorScheme() {
     try {
