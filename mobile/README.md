@@ -33,7 +33,7 @@ npm run ios:setup
 
 ## Open in Xcode (Mac only)
 
-Quit **Xcode** first (Cmd+Q). These commands must run **inside the git repo**, not from `~`. On this Mac that is usually `/Users/gskharel/Desktop/shiftswifthr`.
+Quit **Xcode** first (Cmd+Q). Easiest: double-click `Open-ShiftSwift-in-Xcode.command` in the repo folder. Or run these commands **inside the git repo**, not from `~`. On this Mac that is usually `/Users/gskharel/Desktop/shiftswifthr`.
 
 ```bash
 cd /Users/gskharel/Desktop/shiftswifthr
