@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v162" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v167" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
   </head>
@@ -1526,7 +1526,7 @@
               <h2>Sponsor compliance</h2>
               <p class="muted">Recording tools and alerts for UK sponsor licence duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.</p>
             </div>
-            <a class="btn secondary" id="rtw-checklist-link" href="#" target="_blank" rel="noopener">GOV.UK: Right to work checks guidance →</a>
+            <a class="btn secondary" id="rtw-checklist-link" href="https://www.gov.uk/government/publications/right-to-work-checks-employers-guide" target="_blank" rel="noopener">GOV.UK: Right to work checks guidance →</a>
           </header>
 
           <div id="sponsor-enabled-banner" class="sponsor-enabled-banner" hidden>
@@ -1585,7 +1585,7 @@
             </div>
           </article>
 
-          <div id="compliance-tools-content">
+          <div id="compliance-tools-content" hidden>
 
           <article class="card absence-workspace" id="compliance-absence">
             <header class="absence-workspace-header section-header section-header--compact">
@@ -1704,37 +1704,11 @@
             </div>
           </article>
 
-          <article class="card hr-workspace hr-workspace--compact" id="compliance-working-calendar">
-            <header class="hr-workspace-header section-header section-header--compact">
-              <div>
-                <h3>Working calendar (bank holidays)</h3>
-                <p class="muted">Mark non-working days so weekends and bank holidays do not break absence streaks incorrectly.</p>
-              </div>
-            </header>
-            <div class="hr-workspace-body">
-              <div id="working-calendar-form"></div>
-              <div class="hr-table-wrap">
-                <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="working-calendar-body">
-                  <tr><td colspan="3" class="muted">No custom calendar entries. All weekdays count as working days.</td></tr>
-                </tbody>
-              </table>
-              </div>
-            </div>
-          </article>
-
           <article class="card rtw-workspace" id="compliance-rtw">
             <header class="rtw-workspace-header section-header section-header--compact">
               <div>
                 <h3>Right to work</h3>
-                <p class="muted">Immutable RTW records, expiry tracking, and document audit trail for all staff.</p>
+                <p class="muted">Passports, visas, BRP, and right-to-work checks for all staff — with expiry and status in one place.</p>
               </div>
               <div class="section-actions rtw-workspace-actions">
                 <button type="button" class="btn outline" id="rtw-export-all-btn">Export all records</button>
@@ -1746,7 +1720,7 @@
               <div class="rtw-stat-card rtw-stat-card--neutral">
                 <span class="rtw-stat-card__icon" aria-hidden="true">📋</span>
                 <span class="rtw-stat-card__value" id="rtw-stat-total">0</span>
-                <span class="rtw-stat-card__label">Total checks</span>
+                <span class="rtw-stat-card__label">Total records</span>
               </div>
               <div class="rtw-stat-card rtw-stat-card--ok">
                 <span class="rtw-stat-card__icon" aria-hidden="true">✓</span>
@@ -1764,11 +1738,15 @@
                 <span class="rtw-stat-card__label">Needs review <span class="rtw-stat-card__hint">All clear</span></span>
               </div>
             </div>
+            <p class="rtw-kind-summary" id="rtw-kind-summary" hidden></p>
 
             <div class="rtw-toolbar">
               <div class="rtw-filter-scroll">
                 <div class="rtw-filter-tabs" role="tablist" aria-label="Filter RTW records">
                   <button type="button" class="rtw-filter-tab is-active" data-rtw-filter="all">All</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="passport">Passport / ID</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="visa">Visa / BRP</button>
+                  <button type="button" class="rtw-filter-tab" data-rtw-filter="rtw_check">RTW check</button>
                   <button type="button" class="rtw-filter-tab" data-rtw-filter="verified">Verified</button>
                   <button type="button" class="rtw-filter-tab" data-rtw-filter="expiring_soon">Expiring soon</button>
                   <button type="button" class="rtw-filter-tab" data-rtw-filter="needs_review">Needs review</button>
@@ -1777,7 +1755,7 @@
               </div>
               <label class="rtw-search">
                 <span class="sr-only">Search RTW records</span>
-                <input type="search" id="rtw-search-input" placeholder="Search records" autocomplete="off" />
+                <input type="search" id="rtw-search-input" placeholder="Search passport, visa, BRP or RTW" autocomplete="off" />
               </label>
             </div>
 
@@ -1787,15 +1765,14 @@
                   <thead>
                     <tr>
                       <th>Employee</th>
-                      <th>Document type</th>
-                      <th>Check date</th>
-                      <th>Visa expiry</th>
-                      <th>RTW check expiry</th>
+                      <th>Document</th>
+                      <th>Recorded</th>
+                      <th>Expiry</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody id="rtw-table-body">
-                    <tr><td colspan="6" class="muted">Loading RTW records…</td></tr>
+                    <tr><td colspan="5" class="muted">Loading identity and right-to-work records…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1824,8 +1801,60 @@
             </div>
 
             <p class="rtw-immutable-note">
-              <strong>Immutable records.</strong> Once saved, RTW checks cannot be edited or deleted — only new entries are added, with timestamp and user logged for audit trail integrity.
+              Passport, visa / BRP, and right-to-work files saved on an employee record appear here. Immutable RTW checks cannot be edited once stored.
             </p>
+          </article>
+
+          <article class="card hr-workspace compliance-split-card" id="compliance-holidays">
+            <header class="hr-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Bank holidays &amp; closed days</h3>
+                <p class="muted">Days the site is shut. These dates do not count toward sponsored absence streaks.</p>
+              </div>
+            </header>
+            <div class="hr-workspace-body">
+              <div id="bank-holiday-form"></div>
+              <div class="hr-table-wrap mobile-table-cards">
+                <table class="data-table" aria-label="Bank holidays and closed days">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="holidays-body">
+                    <tr><td colspan="3" class="muted">No holidays added yet. Weekdays still count as working days.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+
+          <article class="card hr-workspace compliance-split-card" id="compliance-working-calendar">
+            <header class="hr-workspace-header section-header section-header--compact">
+              <div>
+                <h3>Working calendar</h3>
+                <p class="muted">Monday–Friday already count as working days. Add a date only if the business is open on a weekend or public holiday.</p>
+              </div>
+            </header>
+            <div class="hr-workspace-body">
+              <div id="working-calendar-form"></div>
+              <div class="hr-table-wrap mobile-table-cards">
+                <table class="data-table" aria-label="Extra working days">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="working-calendar-body">
+                    <tr><td colspan="3" class="muted">No extra working days. Weekdays are working days by default.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </article>
 
           <article class="card hr-workspace hr-workspace--compact feature-gated-panel" id="compliance-audit-export" data-feature="audit-export">
@@ -1848,7 +1877,7 @@
             </header>
           </article>
 
-          <article class="card hr-workspace hr-workspace--compact">
+          <article class="card hr-workspace compliance-split-card" id="compliance-reporting">
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
                 <h3>Open reporting triggers</h3>
@@ -1856,8 +1885,8 @@
               </div>
             </header>
             <div class="hr-workspace-body">
-              <div class="hr-table-wrap">
-                <table class="data-table">
+              <div class="hr-table-wrap mobile-table-cards">
+                <table class="data-table" aria-label="Open reporting triggers">
                 <thead>
                   <tr>
                     <th>Type</th>
@@ -1875,18 +1904,18 @@
             </div>
           </article>
 
-          <article class="card hr-workspace hr-workspace--compact">
+          <article class="card hr-workspace compliance-split-card" id="compliance-adverts">
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
-                <h3>Advertisement records &amp; links</h3>
-                <p class="muted">Log where each vacancy was advertised with live URLs and related archive links.</p>
+                <h3>Advertisement records</h3>
+                <p class="muted">Log where each vacancy was advertised, with the live URL and any archive links for sponsor audit.</p>
               </div>
-              <div class="link-row" id="gov-recruitment-links"></div>
             </header>
             <div class="hr-workspace-body">
+              <div class="compliance-gov-links" id="gov-recruitment-links"></div>
               <div id="advert-form"></div>
-              <div class="hr-table-wrap">
-                <table class="data-table" id="advert-records-table">
+              <div class="hr-table-wrap mobile-table-cards">
+                <table class="data-table" id="advert-records-table" aria-label="Advertisement records">
                 <thead>
                   <tr>
                     <th>Job title</th>
@@ -1897,7 +1926,7 @@
                   </tr>
                 </thead>
                 <tbody id="advert-records-body">
-                  <tr><td colspan="5" class="muted">Loading advertisement records…</td></tr>
+                  <tr><td colspan="5" class="muted">No advertisement records yet.</td></tr>
                 </tbody>
               </table>
               </div>
@@ -3004,11 +3033,11 @@
                   <div class="leave-mobile-add-dates">
                     <label class="edit-field">
                       <span class="edit-label">From</span>
-                      <input type="date" id="leave-mobile-add-start" required />
+                      <input type="date" id="leave-mobile-add-start" required data-empty="true" />
                     </label>
                     <label class="edit-field">
                       <span class="edit-label">To</span>
-                      <input type="date" id="leave-mobile-add-end" required />
+                      <input type="date" id="leave-mobile-add-end" required data-empty="true" />
                     </label>
                   </div>
                   <label class="edit-field">
@@ -3349,7 +3378,7 @@
                         <h5 class="settings-doc-upload-section__title" id="document-upload-expiry-title">Expiry &amp; HR alerts</h5>
                         <label class="edit-field" data-span="2">
                           <span class="edit-label">Expiry date <span class="muted">(optional)</span></span>
-                          <input name="expires_at" id="document-upload-expires-at" type="date" value="" autocomplete="off" />
+                          <input name="expires_at" id="document-upload-expires-at" type="date" value="" autocomplete="off" data-empty="true" />
                           <span class="muted edit-hint" id="document-upload-expiry-hint">Leave blank if this document doesn&rsquo;t expire.</span>
                         </label>
                         <label class="edit-field" data-span="2" id="document-upload-alert-field" hidden>
@@ -3616,22 +3645,22 @@
     <script src="./mobile-shell.js?v=9"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=8"></script>
-    <script src="./admin-mobile.js?v=23"></script>
-    <script src="./admin-compliance-mobile.js?v=4"></script>
+    <script src="./admin-mobile.js?v=24"></script>
+    <script src="./admin-compliance-mobile.js?v=6"></script>
     <script src="./action-feedback.js?v=3"></script>
-    <script src="./admin-shared.js?v=admin-v48"></script>
+    <script src="./admin-shared.js?v=admin-v49"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v33"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=33"></script>
-    <script src="./admin-employees.js?v=44"></script>
+    <script src="./admin-employees.js?v=45"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>
-    <script src="./admin-compliance.js?v=admin-v14"></script>
-    <script src="./admin-absence.js?v=3"></script>
-    <script src="./admin-rtw.js?v=5"></script>
+    <script src="./admin-compliance.js?v=admin-v18"></script>
+    <script src="./admin-absence.js?v=4"></script>
+    <script src="./admin-rtw.js?v=10"></script>
     <script src="./admin-grievance.js?v=7"></script>
     <script src="./admin-disciplinary.js?v=4"></script>
     <script src="./admin-offboarding.js?v=admin-v8"></script>
@@ -3640,9 +3669,9 @@
     <script src="./native-geolocation.js?v=2"></script>
     <script src="./admin-time-punch.js?v=39"></script>
     <script src="./admin-rota.js?v=47"></script>
-    <script src="./admin-leave.js?v=admin-v13"></script>
+    <script src="./admin-leave.js?v=admin-v14"></script>
     <script src="./admin-profile-changes.js?v=4"></script>
-    <script src="./app.js?v=admin-v6"></script>
+    <script src="./app.js?v=admin-v8"></script>
     <script src="./contracts.js?v=8"></script>
     <script src="./employment-contracts.js?v=8"></script>
       <script src="./cookie-consent.js?v=1"></script>

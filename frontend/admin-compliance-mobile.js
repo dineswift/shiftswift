@@ -2,10 +2,13 @@
 (function initAdminComplianceMobile() {
   "use strict";
 
-  const SECTIONS = [
+    const SECTIONS = [
     { id: "compliance-rtw", title: "Right to Work records", icon: "passport", openDefault: true },
     { id: "compliance-absence", title: "Absence monitoring", icon: "medical", badgeId: "compliance-mobile-absence-badge" },
+    { id: "compliance-holidays", title: "Bank holidays", icon: "calendar-off" },
     { id: "compliance-working-calendar", title: "Working calendar", icon: "calendar" },
+    { id: "compliance-adverts", title: "Advertisements", icon: "sparkles" },
+    { id: "compliance-reporting", title: "Reporting triggers", icon: "mail" },
     { id: "compliance-audit-export", title: "Home Office audit export", icon: "folder" },
   ];
 
@@ -213,8 +216,10 @@
   }
 
   function openSectionFromHash() {
-    const hash = window.location.hash.replace("#", "").split("/")[0];
-    const match = SECTIONS.find((s) => s.id === hash);
+    const raw = window.location.hash.replace("#", "");
+    const parts = raw.split("/").filter(Boolean);
+    const candidates = [raw, parts.join("-"), parts[parts.length - 1]].filter(Boolean);
+    const match = SECTIONS.find((s) => candidates.includes(s.id));
     if (match) setOpenSection(match.id, { scroll: true, toggle: false });
   }
 

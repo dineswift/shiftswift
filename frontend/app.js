@@ -70,17 +70,20 @@ function renderAdvertRecords(items) {
     columns: [
       {
         key: "job_title",
+        label: "Job title",
         render: (item) =>
           `<strong>${escapeHtml(item.job_title)}</strong>${item.job_reference ? `<div class="muted">${escapeHtml(item.job_reference)}</div>` : ""}`,
       },
-      { key: "platform", render: (item) => escapeHtml(item.platform) },
-      { key: "posted_date", render: (item) => escapeHtml(item.posted_date || "Not set") },
+      { key: "platform", label: "Platform", render: (item) => escapeHtml(item.platform) },
+      { key: "posted_date", label: "Posted", render: (item) => escapeHtml(window.Admin?.formatDisplayDate?.(item.posted_date) || item.posted_date || "—") },
       {
         key: "advert_url",
+        label: "Primary link",
         render: (item) => `<a href="${escapeHtml(item.advert_url)}" target="_blank" rel="noopener">Open advert</a>`,
       },
       {
         key: "links",
+        label: "Other links",
         render: (item) => {
           const extra = [...(item.links || []), ...(item.additional_links || [])];
           if (!extra.length) return "<span class='muted'>None</span>";
@@ -118,7 +121,14 @@ async function loadAdvertRecords() {
     const data = await res.json();
     renderAdvertRecords(data.items || []);
   } catch {
-    renderAdvertRecords([]);
+    const body = document.getElementById("advert-records-body");
+    if (body) {
+      renderTableBody(body, {
+        emptyMessage: "Could not load advertisement records. Try again.",
+        columns: [{ key: "a" }, { key: "b" }, { key: "c" }, { key: "d" }, { key: "e" }],
+        rows: [],
+      });
+    }
   }
 }
 
@@ -141,7 +151,9 @@ async function loadComplianceDashboard() {
       if (checklistLink && checklist.url) checklistLink.href = checklist.url;
     }
   } catch {
-    if (checklistLink) checklistLink.removeAttribute("href");
+    if (checklistLink && (!checklistLink.getAttribute("href") || checklistLink.getAttribute("href") === "#")) {
+      checklistLink.href = "https://www.gov.uk/government/publications/right-to-work-checks-employers-guide";
+    }
   }
 
   try {
@@ -221,6 +233,9 @@ async function mountAdvertForm() {
   }
   mountEditForm(host, FORM_SCHEMAS.advert, {
     onSubmit: async (payload, form) => {
+      if (payload.closing_date && payload.posted_date && payload.closing_date < payload.posted_date) {
+        throw new Error("Closing date cannot be before the posted date");
+      }
       const body = {
         job_title: payload.job_title,
         platform: payload.platform,
@@ -240,6 +255,7 @@ async function mountAdvertForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Save failed");
       form.reset();
+      window.Admin?.bindDateInputs?.(form);
       const sponsored = form.querySelector('[name="is_sponsored_vacancy"]');
       if (sponsored) sponsored.checked = true;
       await loadComplianceDashboard();

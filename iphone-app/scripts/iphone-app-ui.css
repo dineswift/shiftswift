@@ -86,6 +86,23 @@ html.native-app.iphone-app .portal-login-forgot {
   -webkit-tap-highlight-color: transparent;
 }
 
+html.native-app.iphone-app .portal-login-form input:not([type="checkbox"]):not([type="radio"]),
+html.native-app.iphone-app .portal-login-field input:not([type="checkbox"]):not([type="radio"]) {
+  font-size: 16px !important;
+  min-height: 52px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html.native-app.iphone-app .portal-login-input-wrap input {
+  padding-right: 72px;
+}
+
+html.native-app.iphone-app .portal-login-reveal {
+  min-height: 44px;
+  min-width: 52px;
+}
+
 html.native-app.iphone-app .portal-login-card.login-steps-host > .portal-login-card-body {
   padding-bottom: 8px;
 }
@@ -715,4 +732,47 @@ html.native-app.iphone-app .mobile-tab:active {
 
 html.native-app.iphone-app body:has(#mobile-tab-bar) main.content.mobile-shell-enter {
   animation: none !important;
+}
+
+html.native-app .sshr-urgent-alert {
+  z-index: 12000;
+}
+
+html.native-app .sshr-urgent-alert__title {
+  font-size: 1.62rem;
+}
+
+html.native-app.native-tablet .sshr-urgent-alert {
+  align-items: center;
+}
+
+html.native-app.native-tablet .sshr-urgent-alert__card {
+  width: min(100%, 520px);
+  margin-top: 0;
+  padding: 28px 26px 22px;
+}
+
+html.native-app.native-tablet .sshr-urgent-alert__title {
+  font-size: 1.85rem;
+}
+
+html.native-app input[type="date"],
+html.native-app input[type="datetime-local"] {
+  font-size: 16px;
+  min-height: 44px;
+  width: 100%;
+}
+
+html.native-app.native-phone .compliance-split-card .hr-workspace-body {
+  padding: 12px 14px 18px;
+}
+
+html.native-app.native-phone .compliance-split-card .edit-form {
+  padding: 12px;
+}
+
+html.native-app.native-phone #compliance-adverts .data-table,
+html.native-app.native-phone #compliance-holidays .data-table,
+html.native-app.native-phone #compliance-working-calendar .data-table {
+  min-width: 0;
 }

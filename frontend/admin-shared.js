@@ -1172,6 +1172,13 @@ window.Admin = (() => {
     }
 
     const inputType = field.type || "text";
+    if (inputType === "date") {
+      const emptyAttr = value ? "" : ' data-empty="true"';
+      return `<label class="edit-field" data-span="${field.span || 1}">
+      ${label}
+      <input id="${id}" name="${name}" type="date" value="${escapeHtml(value)}"${required}${emptyAttr} />
+    </label>`;
+    }
     return `<label class="edit-field" data-span="${field.span || 1}">
       ${label}
       <input id="${id}" name="${name}" type="${inputType}" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || "")}"${required} />
@@ -1272,8 +1279,71 @@ window.Admin = (() => {
       secondary.addEventListener("click", () => schema.secondaryAction.onClick(form));
     }
 
+    bindDateInputs(form);
     return form;
   }
+
+  function formatDisplayDate(value, { weekday = false } = {}) {
+    if (value == null || value === "") return "—";
+    const raw = String(value).trim();
+    if (!raw) return "—";
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+      ? new Date(`${raw}T12:00:00`)
+      : /^\d{4}-\d{2}-\d{2}T/.test(raw)
+        ? new Date(raw)
+        : /^\d{4}-\d{2}-\d{2}/.test(raw)
+          ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+          : new Date(raw);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString(
+      "en-GB",
+      weekday
+        ? { weekday: "short", day: "numeric", month: "short", year: "numeric" }
+        : { day: "numeric", month: "short", year: "numeric" }
+    );
+  }
+
+  function syncDateInputEmptyState(input) {
+    if (!input || input.type !== "date") return;
+    input.toggleAttribute("data-empty", !String(input.value || "").trim());
+  }
+
+  function bindDateInputs(root = document) {
+    const scope = root?.nodeType === 1 ? root : document;
+    const inputs = [];
+    if (scope.matches?.('input[type="date"]')) inputs.push(scope);
+    scope.querySelectorAll?.('input[type="date"]').forEach((input) => inputs.push(input));
+    inputs.forEach(syncDateInputEmptyState);
+  }
+
+  function observeDateInputs() {
+    if (typeof document === "undefined" || document.documentElement?.dataset.dateEmptyObserver === "true") return;
+    document.documentElement.dataset.dateEmptyObserver = "true";
+    document.addEventListener("input", (event) => {
+      if (event.target?.matches?.('input[type="date"]')) syncDateInputEmptyState(event.target);
+    });
+    document.addEventListener("change", (event) => {
+      if (event.target?.matches?.('input[type="date"]')) syncDateInputEmptyState(event.target);
+    });
+    const start = () => {
+      bindDateInputs(document);
+      if (!document.body) return;
+      new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) bindDateInputs(node);
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", start, { once: true });
+    } else {
+      start();
+    }
+  }
+
+  observeDateInputs();
 
   function readFormPayload(form) {
     const data = Object.fromEntries(new FormData(form).entries());
@@ -1323,7 +1393,8 @@ window.Admin = (() => {
         const cells = columns
           .map((col) => {
             const content = typeof col.render === "function" ? col.render(row) : escapeHtml(row[col.key]);
-            return `<td>${content ?? "Not set"}</td>`;
+            const label = col.label ? ` data-label="${escapeHtml(col.label)}"` : "";
+            return `<td${label}>${content ?? "Not set"}</td>`;
           })
           .join("");
         return `<tr>${cells}</tr>`;
@@ -1546,16 +1617,19 @@ window.Admin = (() => {
     workingCalendar: {
       id: "working-calendar",
       columns: 2,
-      submitLabel: "Save calendar day",
-      successMessage: "Calendar updated.",
+      submitLabel: "Mark as working day",
+      successMessage: "Working day saved.",
       fields: [
-        { name: "calendar_date", label: "Date", type: "date", required: true },
-        {
-          name: "is_non_working",
-          label: "Non-working day (bank holiday / site closed)",
-          type: "checkbox",
-          defaultChecked: true,
-        },
+        { name: "calendar_date", label: "Date the site is open", type: "date", required: true },
+      ],
+    },
+    bankHoliday: {
+      id: "bank-holiday",
+      columns: 2,
+      submitLabel: "Add closed day",
+      successMessage: "Holiday saved.",
+      fields: [
+        { name: "calendar_date", label: "Holiday or closed date", type: "date", required: true },
       ],
     },
     grievanceCase: {
@@ -1772,6 +1846,8 @@ window.Admin = (() => {
     statusClass,
     statusPill,
     mountEditForm,
+    formatDisplayDate,
+    bindDateInputs,
     readFormPayload,
     renderTableBody,
     emptyStateHtml,

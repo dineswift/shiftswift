@@ -128,4 +128,5 @@ def acknowledge_sponsor_licence(
         )
         if cur.rowcount == 0:
             raise LookupError("tenant not found")
+    conn.commit()
     return get_sponsor_licence_ack_status(tenant_id=tenant_id, conn=conn)

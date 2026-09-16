@@ -135,9 +135,12 @@ html.native-app.native-tablet .edit-form--cols-2 {
 html.native-app.native-tablet .edit-form > label input,
 html.native-app.native-tablet .edit-form > label select,
 html.native-app.native-tablet .edit-form > label textarea,
-html.native-app.native-tablet .portal-login-form input {
-  min-height: 48px !important;
-  font-size: 1rem !important;
+html.native-app.native-tablet .portal-login-form input,
+html.native-app.native-tablet .portal-login-field input {
+  min-height: 52px !important;
+  font-size: 16px !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
 }
 
 html.native-app.native-tablet body:has(#mobile-tab-bar) main.content {
@@ -262,16 +265,23 @@ html.native-app.native-tablet body[data-mobile-tab="rota"] .rota-mobile-footer {
   display: none !important;
 }
 
-/* —— Compliance: full section —— */
+/* —— Compliance: full section (never un-hide completed declaration) —— */
 html.native-app.native-tablet #compliance > .section-header,
-html.native-app.native-tablet #compliance > #sponsor-enabled-banner,
 html.native-app.native-tablet #compliance > #sponsor-duties-section,
-html.native-app.native-tablet #compliance > #sponsor-licence-ack-panel,
+html.native-app.native-tablet #compliance > #sponsor-enabled-banner:not([hidden]),
+html.native-app.native-tablet #compliance > #sponsor-licence-ack-panel:not([hidden]),
 html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > .section-header,
-html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-enabled-banner,
 html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-duties-section,
-html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-licence-ack-panel {
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-enabled-banner:not([hidden]),
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-licence-ack-panel:not([hidden]) {
   display: block !important;
+}
+
+html.native-app.native-tablet #compliance > #sponsor-licence-ack-panel[hidden],
+html.native-app.native-tablet #compliance > #sponsor-enabled-banner[hidden],
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-licence-ack-panel[hidden],
+html.native-app.native-tablet body[data-mobile-tab="compliance"] #compliance > #sponsor-enabled-banner[hidden] {
+  display: none !important;
 }
 
 html.native-app.native-tablet body.compliance-mobile-drill .admin-section.admin-section--active {
@@ -886,4 +896,32 @@ html.native-app.native-tablet:not(.native-tablet-large) .sidebar .nav-link {
 
 html.native-app.native-tablet:not(.native-tablet-large) main.content {
   padding: max(10px, env(safe-area-inset-top)) var(--tablet-content-pad-x) var(--tablet-content-pad-y) !important;
+}
+
+html.native-app.native-tablet #compliance-tools-content:not([hidden]) {
+  display: grid;
+  gap: var(--tablet-stat-gap, 16px);
+}
+
+html.native-app.native-tablet-large #compliance-tools-content:not([hidden]) {
+  grid-template-columns: 1fr 1fr;
+}
+
+html.native-app.native-tablet-large #compliance-tools-content > #compliance-rtw,
+html.native-app.native-tablet-large #compliance-tools-content > #compliance-absence,
+html.native-app.native-tablet-large #compliance-tools-content > #compliance-adverts,
+html.native-app.native-tablet-large #compliance-tools-content > #compliance-reporting,
+html.native-app.native-tablet-large #compliance-tools-content > #compliance-audit-export,
+html.native-app.native-tablet-large #compliance-tools-content > .legal-note {
+  grid-column: 1 / -1;
+}
+
+html.native-app.native-tablet .compliance-split-card .hr-workspace-body {
+  gap: 14px;
+}
+
+html.native-app.native-tablet input[type="date"],
+html.native-app.native-tablet input[type="datetime-local"] {
+  font-size: 16px;
+  min-height: 42px;
 }

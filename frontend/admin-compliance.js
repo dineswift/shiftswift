@@ -1,6 +1,6 @@
 /** Compliance admin tools — RTW, absence, calendar, audit export, reporting triggers. */
 (async function initAdminComplianceTools() {
-  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, statusPill, downloadAuthenticated, authHeaders, API_BASE, parseHashBaseSection } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, statusPill, downloadAuthenticated, authHeaders, API_BASE, parseHashBaseSection, readApiError, parseApiDetail, formatDisplayDate } = window.Admin;
 
   let complianceReady = false;
   let ackPanelBound = false;
@@ -23,31 +23,39 @@
     {
       id: "rtw_upload",
       label: "Upload right-to-work documents",
-      href: "#compliance-rtw",
+      href: "#compliance/rtw",
     },
     {
       id: "absence_monitoring",
       label: "Enable absence monitoring for sponsored workers",
-      href: "#compliance-absence",
+      href: "#compliance/absence",
     },
     {
       id: "audit_export",
       label: "Test audit pack export",
-      href: "#compliance-audit-export",
+      href: "#compliance/audit-export",
     },
   ];
 
+  const DUTY_CARD_LINKS = {
+    "Right to Work checks": "#compliance/rtw",
+    "Worker absences": "#compliance/absence",
+    "SMS change reporting": "#compliance/reporting",
+    "Recruitment & adverts": "#compliance/adverts",
+    "Record keeping & inspections": "#compliance/audit-export",
+  };
+
   const DUTY_CARD_ICONS = {
-    "Right to Work checks": "id",
+    "Right to Work checks": "passport",
     "Worker absences": "calendar-off",
-    "SMS change reporting": "message",
-    "Recruitment & adverts": "speakerphone",
+    "SMS change reporting": "mail",
+    "Recruitment & adverts": "sparkles",
     "Record keeping & inspections": "folder",
   };
 
   function formatAckDate(iso) {
-    if (!iso) return "";
-    return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    const text = formatDisplayDate ? formatDisplayDate(iso) : "";
+    return !text || text === "—" ? "" : text;
   }
 
   function fillAuditExportEmployees(employees) {
@@ -61,6 +69,8 @@
       select.value = current;
     }
   }
+
+  function auditExportTested() {
     return localStorage.getItem(AUDIT_EXPORT_FLAG_KEY) === "1";
   }
 
@@ -165,10 +175,15 @@
       }
 
       const fullWidth = duty.title === "Record keeping & inspections" ? " sponsor-duty-card--wide" : "";
-      const icon = DUTY_CARD_ICONS[duty.title] || "shield-check";
+      const icon = DUTY_CARD_ICONS[duty.title] || "shield";
+      const href = DUTY_CARD_LINKS[duty.title] || "";
+      const hrefAttr = href
+        ? ` data-href="${escapeHtml(href)}" role="link" tabindex="0"`
+        : "";
 
-      return `<article class="${cardClass}${fullWidth}">
+      return `<article class="${cardClass}${fullWidth}${href ? " sponsor-duty-card--link" : ""}"${hrefAttr}>
         <div class="sponsor-duty-card__head">
+          <span class="sponsor-duty-card__icon" aria-hidden="true">${window.AdminIcons?.svg?.(icon) || ""}</span>
           <h4 class="sponsor-duty-card__title">${escapeHtml(duty.title)}</h4>
           ${dutyStatusBadge(statusLabel, statusTone)}
         </div>
@@ -178,8 +193,32 @@
       </article>`;
     });
     grid.innerHTML = cards.join("");
-    document.getElementById("sponsor-duty-export-now")?.addEventListener("click", () => {
+    document.getElementById("sponsor-duty-export-now")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       document.getElementById("audit-export-pdf")?.click();
+    });
+    grid.querySelectorAll("[data-href]").forEach((card) => {
+      const go = () => {
+        const href = card.getAttribute("data-href") || "";
+        const hash = href.replace(/^#/, "");
+        const sectionId = hash.includes("/") ? hash.replace("/", "-") : hash;
+        if (hash) window.location.hash = hash;
+        window.AdminComplianceMobile?.setOpenSection?.(sectionId, { scroll: true, toggle: false });
+        window.setTimeout(() => {
+          document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 60);
+      };
+      card.addEventListener("click", (event) => {
+        if (event.target.closest("button, a")) return;
+        go();
+      });
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        if (event.target.closest("button, a")) return;
+        event.preventDefault();
+        go();
+      });
     });
   }
 
@@ -197,15 +236,32 @@
     if (meta) meta.textContent = when ? `Enabled ${when} by ${who}` : `Enabled by ${who}`;
   }
 
+  function tenantAlreadyAcknowledged() {
+    return Boolean(window.Admin?.tenantFeatures?.sponsor_licence_acknowledged);
+  }
+
+  function markTenantAcknowledged() {
+    if (window.Admin?.tenantFeatures) {
+      window.Admin.tenantFeatures.sponsor_licence_acknowledged = true;
+      window.Admin.tenantFeatures.holds_sponsor_licence = true;
+    }
+  }
+
   function applyAcknowledgedLayout(acknowledged) {
     const panel = document.getElementById("sponsor-licence-ack-panel");
     const content = document.getElementById("compliance-tools-content");
     if (acknowledged) {
-      if (panel) panel.hidden = true;
+      if (panel) {
+        panel.hidden = true;
+        panel.setAttribute("hidden", "");
+      }
       content?.removeAttribute("hidden");
       window.dispatchEvent(new CustomEvent("admin:compliance-tools-ready"));
     } else {
-      if (panel) panel.hidden = false;
+      if (panel) {
+        panel.hidden = false;
+        panel.removeAttribute("hidden");
+      }
       content?.setAttribute("hidden", "");
     }
   }
@@ -235,7 +291,8 @@
       lastAckData = ackData;
       const dashboardData = dashRes.ok ? await dashRes.json() : lastDashboardData;
       if (dashboardData) lastDashboardData = dashboardData;
-      if (ackData.acknowledged) {
+      if (ackData.acknowledged || tenantAlreadyAcknowledged()) {
+        markTenantAcknowledged();
         applyAcknowledgedLayout(true);
         showEnabledOverview(ackData, dashboardData);
       } else {
@@ -270,8 +327,9 @@
   function populateAckPanel(data) {
     const disclaimer = document.getElementById("sponsor-licence-ack-disclaimer");
     if (disclaimer) {
-      const parts = [data.tools_notice, data.ack_text].filter(Boolean);
-      disclaimer.textContent = parts.join(" ");
+      const notice = data.tools_notice ? `<p>${escapeHtml(data.tools_notice)}</p>` : "";
+      const ack = data.ack_text ? `<p>${escapeHtml(data.ack_text)}</p>` : "";
+      disclaimer.innerHTML = notice + ack;
     }
     ["sponsor-licence-holds", "sponsor-licence-understand", "sponsor-licence-accept"].forEach((id) => {
       const el = document.getElementById(id);
@@ -293,12 +351,27 @@
         hideEnabledOverview();
         return true;
       }
-      if (!res.ok) return false;
+      if (!res.ok) {
+        if (tenantAlreadyAcknowledged()) {
+          applyAcknowledgedLayout(true);
+          return true;
+        }
+        hideEnabledOverview();
+        applyAcknowledgedLayout(false);
+        bindAckPanel();
+        const status = document.getElementById("sponsor-licence-ack-status");
+        if (status) status.textContent = "Could not load sponsor confirmation. Refresh and try again.";
+        const disclaimer = document.getElementById("sponsor-licence-ack-disclaimer");
+        if (disclaimer && !disclaimer.innerHTML.trim()) {
+          disclaimer.innerHTML = "<p>We could not load the sponsor duty notice. Refresh the page, or confirm the three statements below if you already know your duties.</p>";
+        }
+        return false;
+      }
       const data = await res.json();
       lastAckData = data;
-      if (data.acknowledged) {
+      if (data.acknowledged || tenantAlreadyAcknowledged()) {
+        markTenantAcknowledged();
         applyAcknowledgedLayout(true);
-        populateAckPanel(data);
         let dashboardData = lastDashboardData;
         try {
           const dashRes = await apiFetch("/compliance/sponsor-licence/dashboard");
@@ -318,6 +391,19 @@
       bindAckPanel();
       return false;
     } catch {
+      if (tenantAlreadyAcknowledged()) {
+        applyAcknowledgedLayout(true);
+        return true;
+      }
+      hideEnabledOverview();
+      applyAcknowledgedLayout(false);
+      bindAckPanel();
+      const status = document.getElementById("sponsor-licence-ack-status");
+      if (status) status.textContent = "Could not load sponsor confirmation. Check your connection and try again.";
+      const disclaimer = document.getElementById("sponsor-licence-ack-disclaimer");
+      if (disclaimer && !disclaimer.innerHTML.trim()) {
+        disclaimer.innerHTML = "<p>We could not load the sponsor duty notice. Check your connection and try again.</p>";
+      }
       return false;
     }
   }
@@ -379,9 +465,10 @@
           method: "POST",
           body: JSON.stringify({ holds_sponsor_licence: true, accept_terms: true }),
         });
+        if (!res.ok) throw new Error(await readApiError(res, "Could not save confirmation"));
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Could not save confirmation");
         if (status) status.textContent = "Confirmed. Loading compliance tools…";
+        markTenantAcknowledged();
         applyAcknowledgedLayout(true);
         lastAckData = data;
         showEnabledOverview(data, lastDashboardData);
@@ -487,46 +574,109 @@
     }
   }
 
-  async function loadWorkingCalendar() {
-    const tbody = document.getElementById("working-calendar-body");
-    if (!tbody) return;
+  function calendarRangeQuery() {
     const year = new Date().getFullYear();
+    return `from_date=${year - 1}-01-01&to_date=${year + 1}-12-31`;
+  }
+
+  function isWeekendIso(iso) {
+    const date = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return false;
+    const day = date.getDay();
+    return day === 0 || day === 6;
+  }
+
+  async function saveCalendarDay(calendarDate, isWorkingDay) {
+    const res = await apiFetch("/compliance/sponsor-licence/working-calendar", {
+      method: "PUT",
+      body: JSON.stringify({
+        entries: [{ calendar_date: calendarDate, is_working_day: isWorkingDay }],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(parseApiDetail(data, "Could not save calendar date"));
+    await Promise.all([loadBankHolidays(), loadWorkingCalendar()]);
+  }
+
+  async function fetchCalendarItems(nonWorkingOnly = false) {
+    const extra = nonWorkingOnly ? "&non_working_only=true" : "";
+    const res = await apiFetch(`/compliance/sponsor-licence/working-calendar?${calendarRangeQuery()}${extra}`);
+    if (!res.ok) throw new Error("Could not load calendar dates");
+    const data = await res.json();
+    return data.items || [];
+  }
+
+  async function loadBankHolidays() {
+    const tbody = document.getElementById("holidays-body");
+    if (!tbody) return;
     try {
-      const res = await apiFetch(
-        `/compliance/sponsor-licence/working-calendar?from_date=${year}-01-01&to_date=${year}-12-31&non_working_only=true`
-      );
-      if (!res.ok) throw new Error("Load failed");
-      const data = await res.json();
+      const items = await fetchCalendarItems(true);
       renderTableBody(tbody, {
-        emptyMessage: "No custom calendar entries. All weekdays count as working days.",
+        emptyMessage: "No holidays added yet. Weekdays still count as working days.",
         columns: [
-          { key: "calendar_date", render: (r) => escapeHtml(r.calendar_date) },
-          { key: "label", render: (r) => escapeHtml(r.label) },
+          { key: "calendar_date", label: "Date", render: (r) => escapeHtml(formatDisplayDate(r.calendar_date, { weekday: true })) },
+          { key: "label", label: "Type", render: () => "Closed / bank holiday" },
           {
             key: "actions",
+            label: "Actions",
             render: (r) =>
-              `<button type="button" class="btn ghost" data-reset-cal="${escapeHtml(r.calendar_date)}">Mark working day</button>`,
+              `<button type="button" class="btn ghost" data-reset-holiday="${escapeHtml(r.calendar_date)}">Remove holiday</button>`,
           },
         ],
-        rows: data.items || [],
+        rows: items,
       });
-
-      tbody.querySelectorAll("[data-reset-cal]").forEach((btn) => {
+      tbody.querySelectorAll("[data-reset-holiday]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-          await apiFetch("/compliance/sponsor-licence/working-calendar", {
-            method: "PUT",
-            body: JSON.stringify({
-              entries: [{ calendar_date: btn.dataset.resetCal, is_working_day: true }],
-            }),
-          });
-          loadWorkingCalendar();
+          try {
+            await saveCalendarDay(btn.dataset.resetHoliday, true);
+          } catch (error) {
+            window.Admin?.showAdminToast?.(error.message || "Could not update holiday");
+          }
         });
       });
     } catch {
       renderTableBody(tbody, {
         columns: [{ key: "a" }, { key: "b" }, { key: "c" }],
         rows: [],
-        emptyMessage: "No custom calendar entries. All weekdays count as working days.",
+        emptyMessage: "Could not load holidays. Try again.",
+      });
+    }
+  }
+
+  async function loadWorkingCalendar() {
+    const tbody = document.getElementById("working-calendar-body");
+    if (!tbody) return;
+    try {
+      const items = (await fetchCalendarItems(false)).filter((row) => row.is_working_day && isWeekendIso(row.calendar_date));
+      renderTableBody(tbody, {
+        emptyMessage: "No extra working days. Weekdays are working days by default.",
+        columns: [
+          { key: "calendar_date", label: "Date", render: (r) => escapeHtml(formatDisplayDate(r.calendar_date, { weekday: true })) },
+          { key: "label", label: "Status", render: () => "Site open" },
+          {
+            key: "actions",
+            label: "Actions",
+            render: (r) =>
+              `<button type="button" class="btn ghost" data-reset-cal="${escapeHtml(r.calendar_date)}">Remove</button>`,
+          },
+        ],
+        rows: items,
+      });
+
+      tbody.querySelectorAll("[data-reset-cal]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await saveCalendarDay(btn.dataset.resetCal, false);
+          } catch (error) {
+            window.Admin?.showAdminToast?.(error.message || "Could not update working day");
+          }
+        });
+      });
+    } catch {
+      renderTableBody(tbody, {
+        columns: [{ key: "a" }, { key: "b" }, { key: "c" }],
+        rows: [],
+        emptyMessage: "Could not load working calendar. Try again.",
       });
     }
   }
@@ -558,25 +708,29 @@
     host.dataset.mounted = "true";
   }
 
+  async function mountBankHolidayForm() {
+    const host = document.getElementById("bank-holiday-form");
+    if (!host || host.dataset.mounted === "true") return;
+    mountEditForm(host, FORM_SCHEMAS.bankHoliday, {
+      onSubmit: async (payload, form) => {
+        if (!payload.calendar_date) throw new Error("Choose a holiday date");
+        await saveCalendarDay(payload.calendar_date, false);
+        form.reset();
+        window.Admin?.bindDateInputs?.(form);
+      },
+    });
+    host.dataset.mounted = "true";
+  }
+
   async function mountWorkingCalendarForm() {
     const host = document.getElementById("working-calendar-form");
     if (!host || host.dataset.mounted === "true") return;
     mountEditForm(host, FORM_SCHEMAS.workingCalendar, {
-      onSubmit: async (payload) => {
-        const res = await apiFetch("/compliance/sponsor-licence/working-calendar", {
-          method: "PUT",
-          body: JSON.stringify({
-            entries: [
-              {
-                calendar_date: payload.calendar_date,
-                is_working_day: !payload.is_non_working,
-              },
-            ],
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Save failed");
-        await loadWorkingCalendar();
+      onSubmit: async (payload, form) => {
+        if (!payload.calendar_date) throw new Error("Choose a date");
+        await saveCalendarDay(payload.calendar_date, true);
+        form.reset();
+        window.Admin?.bindDateInputs?.(form);
       },
     });
     host.dataset.mounted = "true";
@@ -592,10 +746,10 @@
       renderTableBody(tbody, {
         emptyMessage: "No open Home Office reporting triggers.",
         columns: [
-          { key: "trigger_type", render: (r) => `<strong>${escapeHtml(r.trigger_type)}</strong>` },
-          { key: "employee_id", render: (r) => escapeHtml(r.employee_id) },
-          { key: "description", render: (r) => escapeHtml(r.description) },
-          { key: "deadline_date", render: (r) => escapeHtml(r.deadline_date || "Not set") },
+          { key: "trigger_type", label: "Type", render: (r) => `<strong>${escapeHtml(r.trigger_type)}</strong>` },
+          { key: "employee_id", label: "Employee", render: (r) => escapeHtml(r.employee_id) },
+          { key: "description", label: "Description", render: (r) => escapeHtml(r.description) },
+          { key: "deadline_date", label: "Deadline", render: (r) => escapeHtml(formatDisplayDate(r.deadline_date)) },
           {
             key: "actions",
             render: (r) =>
@@ -649,11 +803,11 @@
           body: JSON.stringify(payload),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Verification failed");
+        if (!res.ok) throw new Error(parseApiDetail(data, "Verification failed"));
         const panel = document.getElementById("share-code-result");
         if (panel) {
           panel.hidden = false;
-          panel.innerHTML = `<p class="promo-result-message promo-result-message--ok">${escapeHtml(data.message || "Verified")} · RTW: ${escapeHtml(data.rtw_status)} · Visa expiry: ${escapeHtml(data.visa_expiry_date || "Not set")} · RTW check expiry: ${escapeHtml(data.rtw_check_expiry_date || data.expiry_date || "Not set")} · Mode: ${escapeHtml(data.mode)}</p>`;
+          panel.innerHTML = `<p class="promo-result-message promo-result-message--ok">${escapeHtml(data.message || "Verified")} · RTW: ${escapeHtml(data.rtw_status)} · Visa expiry: ${escapeHtml(formatDisplayDate(data.visa_expiry_date))} · RTW check expiry: ${escapeHtml(formatDisplayDate(data.rtw_check_expiry_date || data.expiry_date))} · Mode: ${escapeHtml(data.mode)}</p>`;
         }
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       },
@@ -661,13 +815,21 @@
     host.dataset.mounted = "true";
   }
 
-  function mountRtwUploadForm() {
+  async function mountRtwUploadForm() {
     const host = document.getElementById("rtw-upload-form");
     if (!host || host.dataset.mounted === "true") return;
+    await loadEmployees();
+    const employees = window.Admin.formOptions?.employees || [];
+    const employeeOptions = [
+      `<option value="">Select employee</option>`,
+      ...employees.map(
+        (emp) => `<option value="${escapeHtml(emp.value)}">${escapeHtml(emp.label)}</option>`
+      ),
+    ].join("");
     host.innerHTML = `
       <form class="edit-form edit-form--cols-2" id="rtw-upload">
-        <label class="edit-field"><span class="edit-label">Employee ID</span><input name="employee_id" type="number" required /></label>
-        <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required /></label>
+        <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" required>${employeeOptions}</select></label>
+        <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required data-empty="true" /></label>
         <label class="edit-field"><span class="edit-label">Method</span><input name="check_method" value="Manual PDF upload" required /></label>
         <label class="edit-field"><span class="edit-label">Outcome</span>
           <select name="outcome" required>
@@ -676,8 +838,8 @@
             <option value="fail">Fail</option>
           </select>
         </label>
-        <label class="edit-field"><span class="edit-label">Visa expiry</span><input name="visa_expiry_date" type="date" /></label>
-        <label class="edit-field"><span class="edit-label">RTW check expiry</span><input name="rtw_check_expiry_date" type="date" /></label>
+        <label class="edit-field"><span class="edit-label">Visa expiry</span><input name="visa_expiry_date" type="date" data-empty="true" /></label>
+        <label class="edit-field"><span class="edit-label">RTW check expiry</span><input name="rtw_check_expiry_date" type="date" data-empty="true" /></label>
         <label class="edit-field" data-span="2"><span class="edit-label">RTW evidence PDF</span><input name="evidence_pdf" type="file" accept="application/pdf" required /></label>
         <div class="edit-form-actions" data-span="2">
           <button class="btn" type="submit">Store immutable RTW PDF</button>
@@ -692,19 +854,20 @@
       const fd = new FormData(form);
       fd.set("checker_user_id", localStorage.getItem("username") || "hr");
       try {
-        const res = await fetch(`${API_BASE}/compliance/sponsor-licence/rtw-checks`, {
+        const res = await apiFetch("/compliance/sponsor-licence/rtw-checks", {
           method: "POST",
           headers: authHeaders(false),
           body: fd,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Upload failed");
-        if (status) status.textContent = `Stored check #${data.check_id} · SHA ${data.content_sha256?.slice(0, 12)}…`;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
+        if (status) status.textContent = `Stored check #${data.check_id} · SHA ${String(data.content_sha256 || "").slice(0, 12)}…`;
         form.reset();
+        window.Admin?.bindDateInputs?.(form);
         window.dispatchEvent(new CustomEvent("admin:compliance-refresh"));
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       } catch (error) {
-        if (status) status.textContent = error.message;
+        if (status) status.textContent = error.message || "Upload failed";
       }
     });
     host.dataset.mounted = "true";
@@ -716,51 +879,69 @@
       const ready = await ensureSponsorLicenceAcknowledged();
       if (!ready) return;
     }
-    mountRtwUploadForm();
     await Promise.all([
+      mountRtwUploadForm(),
       mountShareCodeForm(),
       mountAbsenceDayForm(),
+      mountBankHolidayForm(),
       mountWorkingCalendarForm(),
+      loadBankHolidays(),
       loadWorkingCalendar(),
       loadReportingTriggers(),
     ]);
     fillAuditExportEmployees(window.Admin.formOptions?.employees || (await loadEmployees()));
 
-    document.getElementById("audit-export-json")?.addEventListener("click", async () => {
-      const employeeId = document.getElementById("audit-export-employee")?.value;
-      const path = employeeId
-        ? `/compliance/sponsor-licence/audit-export?employee_id=${encodeURIComponent(employeeId)}`
-        : "/compliance/sponsor-licence/audit-export";
-      const res = await apiFetch(path);
-      const data = await res.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `audit-pack-business-${window.Admin.TENANT_ID}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      markAuditExportTested();
-      refreshSponsorOverview();
-    });
+    if (document.body.dataset.auditExportBound !== "true") {
+      document.body.dataset.auditExportBound = "true";
+      document.getElementById("audit-export-json")?.addEventListener("click", async () => {
+        try {
+          const employeeId = document.getElementById("audit-export-employee")?.value;
+          const path = employeeId
+            ? `/compliance/sponsor-licence/audit-export?employee_id=${encodeURIComponent(employeeId)}`
+            : "/compliance/sponsor-licence/audit-export";
+          const res = await apiFetch(path);
+          if (!res.ok) throw new Error(await readApiError(res, "Could not export JSON audit pack"));
+          const data = await res.json();
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `audit-pack-business-${window.Admin.TENANT_ID}.json`;
+          link.click();
+          URL.revokeObjectURL(url);
+          markAuditExportTested();
+          refreshSponsorOverview();
+        } catch (error) {
+          window.Admin?.showAdminToast?.(error.message || "Could not export JSON audit pack");
+        }
+      });
 
-    document.getElementById("audit-export-pdf")?.addEventListener("click", async () => {
-      const employeeId = document.getElementById("audit-export-employee")?.value;
-      let path = "/compliance/sponsor-licence/audit-export?format=pdf";
-      if (employeeId) path += `&employee_id=${encodeURIComponent(employeeId)}`;
-      await downloadAuthenticated(path, `audit-pack-business-${window.Admin.TENANT_ID}.pdf`);
-      markAuditExportTested();
-      refreshSponsorOverview();
-    });
+      document.getElementById("audit-export-pdf")?.addEventListener("click", async () => {
+        try {
+          const employeeId = document.getElementById("audit-export-employee")?.value;
+          let path = "/compliance/sponsor-licence/audit-export?format=pdf";
+          if (employeeId) path += `&employee_id=${encodeURIComponent(employeeId)}`;
+          await downloadAuthenticated(path, `audit-pack-business-${window.Admin.TENANT_ID}.pdf`);
+          markAuditExportTested();
+          refreshSponsorOverview();
+        } catch (error) {
+          window.Admin?.showAdminToast?.(error.message || "Could not export PDF audit pack");
+        }
+      });
 
-    document.getElementById("audit-export-zip")?.addEventListener("click", async () => {
-      const employeeId = document.getElementById("audit-export-employee")?.value;
-      let path = "/compliance/sponsor-licence/audit-export?format=zip";
-      if (employeeId) path += `&employee_id=${encodeURIComponent(employeeId)}`;
-      await downloadAuthenticated(path, `audit-pack-business-${window.Admin.TENANT_ID}.zip`);
-      markAuditExportTested();
-      refreshSponsorOverview();
-    });
+      document.getElementById("audit-export-zip")?.addEventListener("click", async () => {
+        try {
+          const employeeId = document.getElementById("audit-export-employee")?.value;
+          let path = "/compliance/sponsor-licence/audit-export?format=zip";
+          if (employeeId) path += `&employee_id=${encodeURIComponent(employeeId)}`;
+          await downloadAuthenticated(path, `audit-pack-business-${window.Admin.TENANT_ID}.zip`);
+          markAuditExportTested();
+          refreshSponsorOverview();
+        } catch (error) {
+          window.Admin?.showAdminToast?.(error.message || "Could not export ZIP audit pack");
+        }
+      });
+    }
 
     window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
     window.dispatchEvent(new CustomEvent("admin:absence-refresh"));

@@ -52,8 +52,11 @@
   }
 
   function formatDate(iso) {
+    if (window.Admin?.formatDisplayDate) return window.Admin.formatDisplayDate(iso);
     if (!iso) return "—";
-    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+    const date = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -65,6 +68,7 @@
     if (!endIso || startIso === endIso) return formatDate(startIso);
     const start = new Date(`${startIso}T12:00:00`);
     const end = new Date(`${endIso}T12:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return formatDate(startIso);
     const sameYear = start.getFullYear() === end.getFullYear();
     const sameMonth = sameYear && start.getMonth() === end.getMonth();
     if (sameMonth) {

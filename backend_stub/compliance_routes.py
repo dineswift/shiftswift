@@ -23,9 +23,10 @@ from sponsor_licence_compliance import (
     get_absence_monitoring_detail,
     get_absence_streak_summaries,
     get_advertisement_record,
-    get_rtw_check,
+    get_rtw_record,
     list_advertisement_records,
     list_rtw_checks,
+    rtw_record_file,
     list_sponsored_absence_days,
     list_working_calendar,
     log_sms_reportable_change,
@@ -157,7 +158,7 @@ def sponsor_licence_acknowledge(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_plan(tenant_id=tenant_id, conn=conn)
-        return acknowledge_sponsor_licence(
+        result = acknowledge_sponsor_licence(
             tenant_id=tenant_id,
             acknowledged_by=current_user.username,
             holds_sponsor_licence=payload.holds_sponsor_licence,
@@ -167,6 +168,7 @@ def sponsor_licence_acknowledge(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     else:
         conn.commit()
+        return result
     finally:
         conn.close()
 
@@ -194,9 +196,9 @@ def list_rtw_check_records(
         conn.close()
 
 
-@router.get("/rtw-checks/{check_id}")
+@router.get("/rtw-checks/{record_id}")
 def get_rtw_check_record(
-    check_id: int,
+    record_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, Any]:
@@ -204,16 +206,16 @@ def get_rtw_check_record(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        return get_rtw_check(tenant_id=tenant_id, check_id=check_id, conn=conn)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return get_rtw_record(tenant_id=tenant_id, record_id=record_id, conn=conn)
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
     finally:
         conn.close()
 
 
-@router.post("/rtw-checks/{check_id}/send-reminder")
+@router.post("/rtw-checks/{record_id}/send-reminder")
 def send_rtw_check_reminder(
-    check_id: int,
+    record_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, Any]:
@@ -221,7 +223,7 @@ def send_rtw_check_reminder(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        result = send_rtw_expiry_reminder(tenant_id=tenant_id, check_id=check_id, conn=conn)
+        result = send_rtw_expiry_reminder(tenant_id=tenant_id, check_id=record_id, conn=conn)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -279,38 +281,24 @@ async def create_rtw_check(
     }
 
 
-@router.get("/rtw-checks/{check_id}/file")
+@router.get("/rtw-checks/{record_id}/file")
 def download_rtw_check_file(
-    check_id: int,
+    record_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ):
     from fastapi.responses import FileResponse
 
-    from modules.documents.storage import resolve_rtw_file
-
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT employee_id, check_date, storage_path, content_sha256
-                FROM right_to_work_checks
-                WHERE tenant_id = %s AND id = %s
-                """,
-                (tenant_id, check_id),
-            )
-            row = cur.fetchone()
+        payload = rtw_record_file(tenant_id=tenant_id, record_id=record_id, conn=conn)
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
     finally:
         conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="RTW check not found")
-    employee_id, check_date, storage_path, _digest = row
-    path = resolve_rtw_file(tenant_id=tenant_id, storage_path=storage_path)
-    filename = f"rtw-check-employee-{employee_id}-{check_date.isoformat()}.pdf"
-    return FileResponse(path, media_type="application/pdf", filename=filename)
+    return FileResponse(payload["path"], media_type=payload["media_type"], filename=payload["filename"])
 
 
 @router.post("/absence-alerts/run")

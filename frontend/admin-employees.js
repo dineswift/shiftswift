@@ -962,15 +962,22 @@
 
   function formatSinceMonth(value) {
     if (!value) return "";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "";
-    return `Since ${parsed.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`;
+    const raw = String(value).trim();
+    const date = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(date.getTime())) return "";
+    return `Since ${date.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`;
   }
 
   function formatFriendlyDate(value) {
+    if (window.Admin?.formatDisplayDate) return window.Admin.formatDisplayDate(value);
     if (!value) return "—";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+    const raw = String(value).trim();
+    const parsed = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return "—";
     return parsed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
 
@@ -1410,8 +1417,15 @@
 
   function formatJoinedDate(value) {
     if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+    if (window.Admin?.formatDisplayDate) {
+      const text = window.Admin.formatDisplayDate(value);
+      return text === "—" ? null : text;
+    }
+    const raw = String(value).trim();
+    const parsed = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
     return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   }
 
@@ -1716,8 +1730,11 @@
   }
 
   function formatLeaveDate(iso) {
+    if (window.Admin?.formatDisplayDate) return window.Admin.formatDisplayDate(iso);
     if (!iso) return "—";
-    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+    const date = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -2425,7 +2442,7 @@
             </label>
             <label class="employee-record-field" id="employees-side-doc-expiry-field">
               <span class="employee-record-field__label">Expiry date</span>
-              <input type="date" name="expires_at" id="employees-side-doc-expires" />
+              <input type="date" name="expires_at" id="employees-side-doc-expires" data-empty="true" />
             </label>
             <label class="employee-record-field" id="employees-side-doc-alert-field" hidden>
               <span class="employee-record-field__label">HR alert</span>
@@ -3251,7 +3268,7 @@
             <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Skilled Worker visa" /></label>
             <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
             <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-            <label class="edit-field" id="employee-document-upload-expiry-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint" id="employee-document-upload-expiry-hint">Required for ID, passport, visa / BRP, and right to work checks.</span></label>
+            <label class="edit-field" id="employee-document-upload-expiry-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" data-empty="true" /><span class="muted edit-hint" id="employee-document-upload-expiry-hint">Required for ID, passport, visa / BRP, and right to work checks.</span></label>
             <label class="edit-field" id="employee-document-upload-alert-field" hidden>
               <span class="edit-label">HR alert window</span>
               <select name="expiry_alert_days" id="employee-document-upload-alert-days">
@@ -3303,7 +3320,7 @@
           <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
           <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-edit-category"></select></label>
           <label class="edit-field" id="employee-document-edit-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-edit-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-          <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /></label>
+          <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" data-empty="true" /></label>
           <label class="edit-field" id="employee-document-edit-alert-field" hidden>
             <span class="edit-label">HR alert window</span>
             <select name="expiry_alert_days">

@@ -9,8 +9,6 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from psycopg2.extras import Json
-
 UK_RTW_CHECKLIST_URL = os.getenv(
     "UK_RTW_CHECKLIST_URL",
     "https://www.gov.uk/government/publications/right-to-work-checklist",
@@ -127,7 +125,14 @@ def rtw_document_type(check_method: str | None, outcome: str) -> str:
         "pass": "Right to work verified",
         "time_limited": "Time-limited permission",
         "fail": "Failed check",
-    }.get(outcome, "RTW check")
+    }.get(outcome, "Right to work check")
+
+
+DOCUMENT_KIND_EXPIRY_LABELS = {
+    "passport": "Passport expiry",
+    "visa": "Visa expiry",
+    "rtw_check": "RTW check expiry",
+}
 
 
 def rtw_document_number_masked(content_sha256: str) -> str:
@@ -164,7 +169,10 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
     days_until_expiry = (expiry_date - today).days if expiry_date else None
     filename = Path(storage_path).name if storage_path else f"rtw-check-{check_id}.pdf"
     return {
-        "id": check_id,
+        "id": f"check-{check_id}",
+        "source": "immutable_check",
+        "document_kind": "rtw_check",
+        "check_id": check_id,
         "employee_id": employee_id,
         "employee_name": name,
         "employee_short_name": _employee_short_name(first_name, last_name, employee_id),
@@ -183,11 +191,15 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         "days_until_expiry": days_until_expiry,
         "status": status,
         "document_type": rtw_document_type(check_method, outcome),
+        "document_title": rtw_document_type(check_method, outcome),
+        "expiry_label": DOCUMENT_KIND_EXPIRY_LABELS["rtw_check"],
         "document_number_masked": rtw_document_number_masked(content_sha256),
         "content_sha256": content_sha256,
         "filename": filename,
         "created_at": created_at.isoformat() if created_at else None,
         "immutable_locked": True,
+        "document_expiry_date": expiry_date.isoformat() if expiry_date else None,
+        "download_path": f"/compliance/sponsor-licence/rtw-checks/check-{check_id}/file",
     }
 
 
@@ -201,14 +213,261 @@ def _employee_short_name(first_name: str | None, last_name: str | None, employee
     return f"#{employee_id}"
 
 
+def _sponsor_profile_expiry_select(conn: Any) -> str:
+    from core.schema import table_columns
+
+    cols = table_columns(conn, "employee_sponsor_profiles")
+    visa = "esp.visa_expiry_date" if "visa_expiry_date" in cols else "CAST(NULL AS date)"
+    rtw = "esp.rtw_check_expiry_date" if "rtw_check_expiry_date" in cols else "CAST(NULL AS date)"
+    return f"{visa}, {rtw}"
+
+
+def identity_document_kind(category: str | None) -> str | None:
+    from modules.documents.constants import ID_PASSPORT_CATEGORIES, RTW_CHECK_CATEGORIES, VISA_CATEGORIES
+
+    cat = str(category or "").strip().lower()
+    if cat in ID_PASSPORT_CATEGORIES:
+        return "passport"
+    if cat in VISA_CATEGORIES:
+        return "visa"
+    if cat in RTW_CHECK_CATEGORIES:
+        return "rtw_check"
+    return None
+
+
+def identity_document_type_label(category: str | None, title: str | None = None) -> str:
+    from modules.documents.constants import EMPLOYEE_DOCUMENT_CATEGORY_LABELS
+
+    kind = identity_document_kind(category)
+    if kind == "passport":
+        return "Passport / ID"
+    if kind == "visa":
+        return "Visa / BRP"
+    if kind == "rtw_check":
+        return "Right to work check"
+    cat = str(category or "").strip().lower()
+    return EMPLOYEE_DOCUMENT_CATEGORY_LABELS.get(cat) or (title or "").strip() or "Identity document"
+
+
+def parse_rtw_record_id(record_id: int | str) -> tuple[str, int]:
+    raw = str(record_id or "").strip()
+    try:
+        if not raw:
+            raise ValueError("Missing RTW record id")
+        prefix, _sep, rest = raw.partition("-")
+        if prefix in {"doc", "check"} and rest:
+            return ("document" if prefix == "doc" else "check", int(rest))
+        return "check", int(raw)
+    except (TypeError, ValueError) as exc:
+        raise LookupError("RTW record not found") from exc
+
+
+def _coerce_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()[:10]
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def _guess_media_type(filename: str | None, content_type: str | None = None) -> str:
+    if content_type:
+        return str(content_type)
+    suffix = Path(filename or "").suffix.lower()
+    return {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".heic": "image/heic",
+        ".tif": "image/tiff",
+        ".tiff": "image/tiff",
+    }.get(suffix, "application/octet-stream")
+
+
+def _nullable_sql(alias: str, cols: frozenset[str], name: str, fallback: str = "NULL") -> str:
+    if name in cols:
+        return f"{alias}.{name}"
+    return fallback
+
+
+def _serialize_identity_document_row(row: tuple, *, as_of: date | None = None) -> dict[str, Any]:
+    (
+        document_id,
+        employee_id,
+        title,
+        category,
+        original_filename,
+        storage_path,
+        content_sha256,
+        content_type,
+        expires_at,
+        created_at,
+        uploaded_by,
+        first_name,
+        last_name,
+        job_title,
+        department,
+        email,
+        is_sponsored,
+        visa_expiry_date,
+        rtw_check_expiry_date,
+    ) = row
+    kind = identity_document_kind(category) or "rtw_check"
+    today = as_of or date.today()
+    document_expiry = _coerce_date(expires_at)
+    profile_visa = _coerce_date(visa_expiry_date)
+    profile_rtw = _coerce_date(rtw_check_expiry_date)
+    visa_out = document_expiry if kind == "visa" else profile_visa
+    rtw_out = document_expiry if kind == "rtw_check" else profile_rtw
+    status_expiry = document_expiry
+    if status_expiry is None and kind == "visa":
+        status_expiry = profile_visa
+    if status_expiry is None and kind == "rtw_check":
+        status_expiry = profile_rtw
+    outcome = "pass"
+    if status_expiry is not None:
+        days_left = (status_expiry - today).days
+        if days_left < 0:
+            outcome = "fail"
+        elif days_left <= RTW_EXPIRING_SOON_DAYS:
+            outcome = "time_limited"
+    status = rtw_check_status(outcome=outcome, expiry_date=status_expiry, as_of=today)
+    name = f"{first_name or ''} {last_name or ''}".strip() or f"Employee #{employee_id}"
+    role = job_title or department or "Staff"
+    created = created_at if isinstance(created_at, datetime) else None
+    check_date = _coerce_date(created_at)
+    filename = (
+        original_filename
+        or (Path(storage_path).name if storage_path else None)
+        or title
+        or f"document-{document_id}"
+    )
+    record_id = f"doc-{document_id}"
+    days_until_expiry = (status_expiry - today).days if status_expiry else None
+    type_label = identity_document_type_label(category, title)
+    title_text = str(title or "").strip()
+    if not title_text or title_text.lower() == type_label.lower():
+        title_text = filename if filename and filename != type_label else type_label
+    if status_expiry is None:
+        status = "needs_review"
+    return {
+        "id": record_id,
+        "source": "employee_document",
+        "document_kind": kind,
+        "document_id": document_id,
+        "check_id": None,
+        "employee_id": employee_id,
+        "employee_name": name,
+        "employee_short_name": _employee_short_name(first_name, last_name, employee_id),
+        "employee_role": role,
+        "is_sponsored": bool(is_sponsored),
+        "employee_email": email,
+        "check_date": check_date.isoformat() if check_date else None,
+        "check_method": "Employee document store",
+        "checker_user_id": uploaded_by,
+        "outcome": outcome,
+        "expiry_date": status_expiry.isoformat() if status_expiry else None,
+        "document_expiry_date": document_expiry.isoformat() if document_expiry else None,
+        "visa_expiry_date": visa_out.isoformat() if visa_out else None,
+        "rtw_check_expiry_date": rtw_out.isoformat() if rtw_out else None,
+        "days_until_expiry": days_until_expiry,
+        "status": status,
+        "document_type": type_label,
+        "document_title": title_text,
+        "expiry_label": DOCUMENT_KIND_EXPIRY_LABELS.get(kind, "Expiry"),
+        "document_number_masked": rtw_document_number_masked(content_sha256 or ""),
+        "content_sha256": content_sha256,
+        "content_type": content_type,
+        "storage_path": storage_path,
+        "filename": filename,
+        "title": title,
+        "category": category,
+        "created_at": created.isoformat() if created else (check_date.isoformat() if check_date else None),
+        "immutable_locked": False,
+        "download_path": f"/compliance/sponsor-licence/rtw-checks/{record_id}/file",
+    }
+
+
+def _list_identity_rtw_documents(
+    *,
+    tenant_id: int,
+    conn: Any,
+    limit: int = 500,
+    document_id: int | None = None,
+    as_of: date | None = None,
+) -> list[dict[str, Any]]:
+    from core.schema import table_columns
+    from modules.documents.constants import IDENTITY_EXPIRY_CATEGORIES
+
+    cols = table_columns(conn, "employee_documents")
+    if "id" not in cols or "employee_id" not in cols or "category" not in cols or "tenant_id" not in cols:
+        return []
+    categories = tuple(sorted(IDENTITY_EXPIRY_CATEGORIES))
+    placeholders = ", ".join(["%s"] * len(categories))
+    select_sql = ", ".join(
+        [
+            "d.id",
+            "d.employee_id",
+            _nullable_sql("d", cols, "title"),
+            "d.category",
+            _nullable_sql("d", cols, "original_filename"),
+            _nullable_sql("d", cols, "storage_path"),
+            _nullable_sql("d", cols, "content_sha256"),
+            _nullable_sql("d", cols, "content_type"),
+            _nullable_sql("d", cols, "expires_at"),
+            _nullable_sql("d", cols, "created_at"),
+            _nullable_sql("d", cols, "uploaded_by"),
+            "e.first_name",
+            "e.last_name",
+            "e.job_title",
+            "e.department",
+            "e.email",
+            "COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored",
+            _sponsor_profile_expiry_select(conn),
+        ]
+    )
+    where = [f"d.tenant_id = %s", f"LOWER(d.category) IN ({placeholders})"]
+    params: list[Any] = [tenant_id, *categories]
+    if document_id is not None:
+        where.append("d.id = %s")
+        params.append(document_id)
+    params.append(limit)
+    order_sql = "d.created_at DESC NULLS LAST, d.id DESC" if "created_at" in cols else "d.id DESC"
+    query = f"""
+        SELECT {select_sql}
+        FROM employee_documents d
+        JOIN employees e ON e.tenant_id = d.tenant_id AND e.id = d.employee_id
+        LEFT JOIN employee_sponsor_profiles esp
+          ON esp.tenant_id = d.tenant_id AND esp.employee_id = d.employee_id
+        WHERE {" AND ".join(where)}
+        ORDER BY {order_sql}
+        LIMIT %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, params)
+        rows = cur.fetchall()
+    today = as_of or date.today()
+    return [_serialize_identity_document_row(row, as_of=today) for row in rows]
+
+
 def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str, Any]:
     today = date.today()
-    query = """
+    query = f"""
         SELECT c.id, c.employee_id, c.check_date, c.check_method, c.checker_user_id,
                c.outcome, c.expiry_date, c.content_sha256, c.storage_path, c.created_at,
                e.first_name, e.last_name, e.job_title, e.department, e.email,
                COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored,
-               esp.visa_expiry_date, esp.rtw_check_expiry_date
+               {_sponsor_profile_expiry_select(conn)}
         FROM right_to_work_checks c
         JOIN employees e ON e.tenant_id = c.tenant_id AND e.id = c.employee_id
         LEFT JOIN employee_sponsor_profiles esp
@@ -221,22 +480,30 @@ def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str,
         cur.execute(query, (tenant_id, limit))
         rows = cur.fetchall()
     items = [_serialize_rtw_row(row, as_of=today) for row in rows]
+    items.extend(
+        _list_identity_rtw_documents(tenant_id=tenant_id, conn=conn, limit=limit, as_of=today)
+    )
+    items.sort(key=lambda item: (item.get("check_date") or "", str(item.get("id") or "")), reverse=True)
+    items = items[:limit]
     stats = {
         "total": len(items),
         "verified": sum(1 for item in items if item["status"] == "verified"),
         "expiring_soon": sum(1 for item in items if item["status"] == "expiring_soon"),
         "needs_review": sum(1 for item in items if item["status"] == "needs_review"),
+        "passports": sum(1 for item in items if item.get("document_kind") == "passport"),
+        "visa_brp": sum(1 for item in items if item.get("document_kind") == "visa"),
+        "rtw_checks": sum(1 for item in items if item.get("document_kind") == "rtw_check"),
     }
     return {"items": items, "stats": stats}
 
 
 def get_rtw_check(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]:
-    query = """
+    query = f"""
         SELECT c.id, c.employee_id, c.check_date, c.check_method, c.checker_user_id,
                c.outcome, c.expiry_date, c.content_sha256, c.storage_path, c.created_at,
                e.first_name, e.last_name, e.job_title, e.department, e.email,
                COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored,
-               esp.visa_expiry_date, esp.rtw_check_expiry_date
+               {_sponsor_profile_expiry_select(conn)}
         FROM right_to_work_checks c
         JOIN employees e ON e.tenant_id = c.tenant_id AND e.id = c.employee_id
         LEFT JOIN employee_sponsor_profiles esp
@@ -253,16 +520,71 @@ def get_rtw_check(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]
         {
             "filename": item["filename"],
             "uploaded_at": item["check_date"],
-            "download_path": f"/compliance/sponsor-licence/rtw-checks/{check_id}/file",
+            "download_path": item["download_path"],
         }
     ]
     return item
 
 
-def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]:
+def get_identity_rtw_document(*, tenant_id: int, document_id: int, conn: Any) -> dict[str, Any]:
+    items = _list_identity_rtw_documents(
+        tenant_id=tenant_id, conn=conn, document_id=document_id, limit=1
+    )
+    if not items:
+        raise LookupError("RTW record not found")
+    item = items[0]
+    item["documents"] = [
+        {
+            "filename": item["filename"],
+            "uploaded_at": item["check_date"],
+            "download_path": item["download_path"],
+        }
+    ]
+    return item
+
+
+def get_rtw_record(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[str, Any]:
+    source, numeric_id = parse_rtw_record_id(record_id)
+    if source == "document":
+        return get_identity_rtw_document(tenant_id=tenant_id, document_id=numeric_id, conn=conn)
+    return get_rtw_check(tenant_id=tenant_id, check_id=numeric_id, conn=conn)
+
+
+def rtw_record_file(*, tenant_id: int, record_id: int | str, conn: Any) -> dict[str, Any]:
+    from modules.documents.storage import resolve_rtw_file, resolve_stored_file
+
+    source, numeric_id = parse_rtw_record_id(record_id)
+    if source == "document":
+        item = get_identity_rtw_document(tenant_id=tenant_id, document_id=numeric_id, conn=conn)
+        path = resolve_stored_file(tenant_id=tenant_id, storage_path=item.get("storage_path"))
+        filename = item.get("filename") or f"document-{numeric_id}"
+        return {
+            "path": path,
+            "filename": filename,
+            "media_type": _guess_media_type(filename, item.get("content_type")),
+        }
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT employee_id, check_date, storage_path
+            FROM right_to_work_checks
+            WHERE tenant_id = %s AND id = %s
+            """,
+            (tenant_id, numeric_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError("RTW check not found")
+    employee_id, check_date, storage_path = row
+    path = resolve_rtw_file(tenant_id=tenant_id, storage_path=storage_path)
+    filename = f"rtw-check-employee-{employee_id}-{_coerce_date(check_date) or date.today()}.pdf"
+    return {"path": path, "filename": filename, "media_type": "application/pdf"}
+
+
+def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int | str, conn: Any) -> dict[str, Any]:
     from core.notifications import email_delivered, send_email_notification, smtp_configured
 
-    check = get_rtw_check(tenant_id=tenant_id, check_id=check_id, conn=conn)
+    check = get_rtw_record(tenant_id=tenant_id, record_id=check_id, conn=conn)
     if not check.get("expiry_date"):
         raise ValueError("This RTW record has no expiry date — no reminder needed.")
     email = check.get("employee_email")
@@ -271,10 +593,11 @@ def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int, conn: Any) -> dic
     if not smtp_configured():
         raise ValueError("SMTP is not configured — cannot send RTW reminder email.")
     days_left = check.get("days_until_expiry")
+    document_label = check.get("document_type") or "Right to Work documentation"
     subject = "Right to Work document expiry reminder"
     body = (
         f"Dear {check['employee_name']},\n\n"
-        f"Your Right to Work documentation expires on {check['expiry_date']}"
+        f"Your {document_label} expires on {check['expiry_date']}"
         f"{f' ({days_left} days remaining)' if days_left is not None else ''}.\n"
         "Please contact HR to arrange a re-check before this date.\n\n"
         "ShiftSwift HR"
@@ -287,7 +610,7 @@ def send_rtw_expiry_reminder(*, tenant_id: int, check_id: int, conn: Any) -> dic
         purpose="compliance",
         to=email,
         audience="employee",
-        payload={"rtw_check_id": check_id, "employee_id": check["employee_id"]},
+        payload={"rtw_record_id": str(check_id), "employee_id": check["employee_id"]},
         deliver_now=True,
         commit=False,
     )
@@ -1324,6 +1647,8 @@ def log_sms_reportable_change(
         return None
     if (old_value or "") == (new_value or ""):
         return None
+
+    from psycopg2.extras import Json
 
     changed_at = _utcnow()
     deadline = (changed_at.date() + timedelta(days=SMS_REPORTING_WINDOW_DAYS))

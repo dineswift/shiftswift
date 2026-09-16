@@ -39,11 +39,12 @@
 
   function formatDate(value) {
     if (!value) return "—";
-    try {
-      return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-    } catch {
-      return value;
-    }
+    const raw = String(value).trim();
+    const date = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
 
   async function downloadDocument(documentId, filename, scope = "employee") {
