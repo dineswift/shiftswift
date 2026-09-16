@@ -143,7 +143,7 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         check_method,
         checker_user_id,
         outcome,
-        expiry_date,
+        check_expiry_date,
         content_sha256,
         storage_path,
         created_at,
@@ -151,9 +151,12 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         last_name,
         job_title,
         department,
-        is_sponsored,
         email,
+        is_sponsored,
+        visa_expiry_date,
+        rtw_check_expiry_date,
     ) = row
+    expiry_date = rtw_check_expiry_date or check_expiry_date
     status = rtw_check_status(outcome=outcome, expiry_date=expiry_date, as_of=as_of)
     name = f"{first_name or ''} {last_name or ''}".strip() or f"Employee #{employee_id}"
     role = job_title or department or "Staff"
@@ -173,6 +176,10 @@ def _serialize_rtw_row(row: tuple, *, as_of: date | None = None) -> dict[str, An
         "checker_user_id": checker_user_id,
         "outcome": outcome,
         "expiry_date": expiry_date.isoformat() if expiry_date else None,
+        "visa_expiry_date": visa_expiry_date.isoformat() if visa_expiry_date else None,
+        "rtw_check_expiry_date": (rtw_check_expiry_date or check_expiry_date).isoformat()
+        if (rtw_check_expiry_date or check_expiry_date)
+        else None,
         "days_until_expiry": days_until_expiry,
         "status": status,
         "document_type": rtw_document_type(check_method, outcome),
@@ -200,7 +207,8 @@ def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str,
         SELECT c.id, c.employee_id, c.check_date, c.check_method, c.checker_user_id,
                c.outcome, c.expiry_date, c.content_sha256, c.storage_path, c.created_at,
                e.first_name, e.last_name, e.job_title, e.department, e.email,
-               COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored
+               COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored,
+               esp.visa_expiry_date, esp.rtw_check_expiry_date
         FROM right_to_work_checks c
         JOIN employees e ON e.tenant_id = c.tenant_id AND e.id = c.employee_id
         LEFT JOIN employee_sponsor_profiles esp
@@ -227,7 +235,8 @@ def get_rtw_check(*, tenant_id: int, check_id: int, conn: Any) -> dict[str, Any]
         SELECT c.id, c.employee_id, c.check_date, c.check_method, c.checker_user_id,
                c.outcome, c.expiry_date, c.content_sha256, c.storage_path, c.created_at,
                e.first_name, e.last_name, e.job_title, e.department, e.email,
-               COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored
+               COALESCE(esp.is_sponsored_worker, e.is_sponsored, FALSE) AS is_sponsored,
+               esp.visa_expiry_date, esp.rtw_check_expiry_date
         FROM right_to_work_checks c
         JOIN employees e ON e.tenant_id = c.tenant_id AND e.id = c.employee_id
         LEFT JOIN employee_sponsor_profiles esp
@@ -298,6 +307,7 @@ def store_immutable_rtw_pdf(
     outcome: str,
     checker_user_id: str,
     expiry_date: date | None = None,
+    visa_expiry_date: date | None = None,
     gov_checklist_version: str | None = None,
     conn: Any,
 ) -> RtwStoredDocument:
@@ -340,6 +350,23 @@ def store_immutable_rtw_pdf(
             ),
         )
         check_id = cur.fetchone()[0]
+        if expiry_date or visa_expiry_date:
+            cur.execute(
+                """
+                INSERT INTO employee_sponsor_profiles (
+                  tenant_id, employee_id, is_sponsored_worker,
+                  visa_expiry_date, rtw_check_expiry_date, updated_at
+                )
+                VALUES (%s, %s, COALESCE((SELECT is_sponsored FROM employees WHERE tenant_id = %s AND id = %s), FALSE), %s, %s, NOW())
+                ON CONFLICT (tenant_id, employee_id) DO UPDATE SET
+                  visa_expiry_date = COALESCE(EXCLUDED.visa_expiry_date, employee_sponsor_profiles.visa_expiry_date),
+                  rtw_check_expiry_date = COALESCE(
+                    EXCLUDED.rtw_check_expiry_date, employee_sponsor_profiles.rtw_check_expiry_date
+                  ),
+                  updated_at = NOW()
+                """,
+                (tenant_id, employee_id, tenant_id, employee_id, visa_expiry_date, expiry_date),
+            )
         cur.execute(
             """
             INSERT INTO compliance_audit_events (tenant_id, event_type, entity_type, entity_id, payload)

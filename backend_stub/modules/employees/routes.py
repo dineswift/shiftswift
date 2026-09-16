@@ -71,6 +71,7 @@ class SectionPatch(BaseModel):
         default=None,
         pattern="^(pending|verified|time_limited|failed)$",
     )
+    rtw_check_expiry_date: date | None = None
     termination_date: date | None = None
     termination_reason: str | None = Field(default=None, max_length=500)
 
@@ -84,6 +85,7 @@ class EmployeeDocumentCreate(BaseModel):
     expires_at: date | None = None
     original_filename: str | None = Field(default=None, max_length=255)
     employee_visible: bool | None = None
+    expiry_alert_days: int | None = Field(default=30)
 
 
 class EmployeeDocumentUpdate(BaseModel):
@@ -96,6 +98,7 @@ class EmployeeDocumentUpdate(BaseModel):
     original_filename: str | None = Field(default=None, max_length=255)
     pay_period: str | None = Field(default=None, max_length=64)
     employee_visible: bool | None = None
+    expiry_alert_days: int | None = Field(default=None)
 
 
 class BulkPortalInviteRequest(BaseModel):
@@ -322,6 +325,7 @@ async def upload_employee_document(
     lifecycle_stage: str = Form(default="document_store"),
     notes: str | None = Form(default=None),
     expires_at: date | None = Form(default=None),
+    expiry_alert_days: int | None = Form(default=30),
     pay_period: str | None = Form(default=None),
     employee_visible: bool = Form(default=False),
     notify_employee: bool = Form(default=True),
@@ -357,6 +361,7 @@ async def upload_employee_document(
                 "lifecycle_stage": lifecycle_stage,
                 "notes": notes or "File stored on ShiftSwift HR",
                 "expires_at": expires_at,
+                "expiry_alert_days": expiry_alert_days,
                 "original_filename": file.filename,
                 "pay_period": normalized_pay_period,
                 "employee_visible": employee_visible,
@@ -413,6 +418,15 @@ async def upload_employee_document(
             field_name=f"employee_id={employee_id}",
             ip_address=client_ip(request),
             user_agent=request.headers.get("User-Agent"),
+            conn=conn,
+        )
+        from modules.employees.service import apply_visa_document_expiry
+
+        apply_visa_document_expiry(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            category=category,
+            expires_at=expires_at,
             conn=conn,
         )
         if notify_employee:
@@ -642,6 +656,15 @@ def add_employee_document(
             uploaded_by=current_user.username,
             conn=conn,
         )
+        from modules.employees.service import apply_visa_document_expiry
+
+        apply_visa_document_expiry(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            category=payload.category,
+            expires_at=payload.expires_at,
+            conn=conn,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
@@ -689,13 +712,23 @@ def patch_employee_document(
                     status_code=400,
                     detail="Pay period is required when category is payslip (e.g. 2026-04 or April 2026)",
                 )
-        return update_employee_document(
+        updated = update_employee_document(
             tenant_id=tenant_id,
             employee_id=employee_id,
             document_id=document_id,
             updates=updates,
             conn=conn,
         )
+        from modules.employees.service import apply_visa_document_expiry
+
+        apply_visa_document_expiry(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            category=updated.get("category") or updates.get("category"),
+            expires_at=updated.get("expires_at") if "expires_at" in updates else None,
+            conn=conn,
+        )
+        return updated
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

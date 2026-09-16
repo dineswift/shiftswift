@@ -102,6 +102,18 @@ def document_requirements(*, is_sponsored: bool) -> list[dict[str, Any]]:
     return [dict(item) for item in EMPLOYEE_DOCUMENT_REQUIREMENTS[key]]
 
 
+def _requirement_category_satisfied(req_category: str, present_categories: set[Any]) -> bool:
+    if req_category in present_categories:
+        return True
+    if req_category == "visa_brp":
+        return bool(present_categories & {"visa_brp", "visa"})
+    if req_category == "rtw":
+        return bool(present_categories & {"rtw", "right_to_work"})
+    if req_category == "id":
+        return bool(present_categories & {"id", "passport", "identity"})
+    return False
+
+
 def requirements_status(
     *,
     is_sponsored: bool,
@@ -112,7 +124,7 @@ def requirements_status(
     items = []
     missing_required = 0
     for req in requirements:
-        satisfied = req["category"] in present_categories
+        satisfied = _requirement_category_satisfied(str(req["category"]), present_categories)
         if req["required"] and not satisfied:
             missing_required += 1
         items.append({**req, "satisfied": satisfied})

@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v159" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v162" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
   </head>
@@ -1789,12 +1789,13 @@
                       <th>Employee</th>
                       <th>Document type</th>
                       <th>Check date</th>
-                      <th>Expiry</th>
+                      <th>Visa expiry</th>
+                      <th>RTW check expiry</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody id="rtw-table-body">
-                    <tr><td colspan="5" class="muted">Loading RTW records…</td></tr>
+                    <tr><td colspan="6" class="muted">Loading RTW records…</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1831,15 +1832,18 @@
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
                 <h3>Home Office audit export</h3>
-                <p class="muted">One-click pack for unexpected sponsor licence inspections.</p>
+                <p class="muted">Inspection pack: sponsored workers, RTW checks, visa/ID copies, SMS log, absences, and evidence files.</p>
               </div>
               <div class="link-row">
-                <label class="edit-field" style="min-width:140px;margin:0;">
-                  <span class="edit-label">Employee ID (optional)</span>
-                  <input id="audit-export-employee" type="number" placeholder="All" />
+                <label class="edit-field" style="min-width:180px;margin:0;">
+                  <span class="edit-label">Employee (optional)</span>
+                  <select id="audit-export-employee">
+                    <option value="">All employees</option>
+                  </select>
                 </label>
                 <button type="button" class="btn secondary" id="audit-export-json">Download JSON</button>
-                <button type="button" class="btn" id="audit-export-pdf">Download PDF</button>
+                <button type="button" class="btn secondary" id="audit-export-pdf">Download PDF</button>
+                <button type="button" class="btn" id="audit-export-zip">Download ZIP</button>
               </div>
             </header>
           </article>
@@ -3607,7 +3611,7 @@
       data-portal="admin"
       data-app-name="ShiftSwift HR Admin"
       data-manifest="./admin-manifest.webmanifest?v=8"
-      data-sw="./admin-sw.js?v=14"
+      data-sw="./admin-sw.js?v=15"
     ></script>
     <script src="./mobile-shell.js?v=9"></script>
     <script src="./mobile-tables.js?v=1"></script>
@@ -3621,13 +3625,13 @@
     <script src="./admin-workspace.js?v=admin-v33"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=33"></script>
-    <script src="./admin-employees.js?v=41"></script>
+    <script src="./admin-employees.js?v=44"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>
-    <script src="./admin-compliance.js?v=admin-v12"></script>
+    <script src="./admin-compliance.js?v=admin-v14"></script>
     <script src="./admin-absence.js?v=3"></script>
-    <script src="./admin-rtw.js?v=4"></script>
+    <script src="./admin-rtw.js?v=5"></script>
     <script src="./admin-grievance.js?v=7"></script>
     <script src="./admin-disciplinary.js?v=4"></script>
     <script src="./admin-offboarding.js?v=admin-v8"></script>

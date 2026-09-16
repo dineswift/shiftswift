@@ -242,6 +242,8 @@ async def create_rtw_check(
     outcome: str = Form(...),
     checker_user_id: str = Form(...),
     expiry_date: date | None = Form(None),
+    visa_expiry_date: date | None = Form(None),
+    rtw_check_expiry_date: date | None = Form(None),
     gov_checklist_version: str | None = Form(None),
     evidence_pdf: UploadFile = File(...),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
@@ -259,7 +261,8 @@ async def create_rtw_check(
             check_method=check_method,
             outcome=outcome,
             checker_user_id=checker_user_id or current_user.username,
-            expiry_date=expiry_date,
+            expiry_date=rtw_check_expiry_date or expiry_date,
+            visa_expiry_date=visa_expiry_date,
             gov_checklist_version=gov_checklist_version,
             conn=conn,
         )
@@ -835,19 +838,35 @@ def audit_export(
 
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
         assert_tenant_feature(tenant_id=tenant_id, feature="audit_export", conn=conn)
-        if format.lower() == "pdf":
+        filename = f"audit-pack-tenant-{tenant_id}"
+        if employee_id:
+            filename += f"-employee-{employee_id}"
+        fmt = format.lower()
+        if fmt == "pdf":
             pdf_bytes = audit_export_pdf_bytes(
                 tenant_id=tenant_id, employee_id=employee_id, conn=conn
             )
-            filename = f"audit-pack-tenant-{tenant_id}"
-            if employee_id:
-                filename += f"-employee-{employee_id}"
             return Response(
                 content=pdf_bytes,
                 media_type="application/pdf",
                 headers={"Content-Disposition": f'attachment; filename="{filename}.pdf"'},
             )
-        return build_audit_export(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        if fmt == "zip":
+            from modules.compliance.audit_export import build_audit_export_zip
+
+            zip_bytes = build_audit_export_zip(
+                tenant_id=tenant_id, employee_id=employee_id, conn=conn
+            )
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.zip"'},
+            )
+        pack = build_audit_export(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        for section in ("right_to_work_checks", "employee_documents", "tenant_documents", "identity_documents"):
+            for row in pack["sections"].get(section, []):
+                row.pop("storage_path", None)
+        return pack
     finally:
         conn.close()
 

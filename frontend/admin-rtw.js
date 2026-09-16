@@ -48,9 +48,15 @@
   }
 
   function expiryClass(item) {
-    if (!item.expiry_date) return "";
-    if (item.status === "needs_review") return "rtw-expiry rtw-expiry--danger";
-    if (item.status === "expiring_soon") return "rtw-expiry rtw-expiry--warn";
+    return dateExpiryClass(item.rtw_check_expiry_date || item.expiry_date);
+  }
+
+  function dateExpiryClass(iso) {
+    if (!iso) return "";
+    const days = Math.round((new Date(`${iso}T12:00:00`).getTime() - Date.now()) / 86400000);
+    if (Number.isNaN(days)) return "";
+    if (days < 0) return "rtw-expiry rtw-expiry--danger";
+    if (days <= 30) return "rtw-expiry rtw-expiry--warn";
     return "";
   }
 
@@ -123,7 +129,7 @@
           <span class="rtw-record-card__avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(item.employee_name))}</span>
           <span class="rtw-record-card__body">
             <span class="rtw-record-card__name">${escapeHtml(item.employee_short_name || item.employee_name)}</span>
-            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)} · Expires ${escapeHtml(formatDate(item.expiry_date))}</span>
+            <span class="rtw-record-card__meta muted">${escapeHtml(item.document_type)} · Visa ${escapeHtml(formatDate(item.visa_expiry_date))} · RTW ${escapeHtml(formatDate(item.rtw_check_expiry_date || item.expiry_date))}</span>
           </span>
           <span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span>
         </button>`;
@@ -144,7 +150,7 @@
           rtwItems.length === 0
             ? "No RTW records yet — add your first check above."
             : "No RTW records match this filter.";
-        tbody.innerHTML = `<tr><td colspan="5">${emptyStateHtml(message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6">${emptyStateHtml(message)}</td></tr>`;
       } else {
         tbody.innerHTML = rows
           .map((item) => {
@@ -165,7 +171,8 @@
           </td>
           <td>${escapeHtml(item.document_type)}</td>
           <td>${escapeHtml(formatDate(item.check_date))}</td>
-          <td><span class="${expiryClass(item)}">${escapeHtml(formatDate(item.expiry_date))}</span></td>
+          <td><span class="${dateExpiryClass(item.visa_expiry_date)}">${escapeHtml(formatDate(item.visa_expiry_date))}</span></td>
+          <td><span class="${expiryClass(item)}">${escapeHtml(formatDate(item.rtw_check_expiry_date || item.expiry_date))}</span></td>
           <td><span class="${statusClass(item.status)}">${escapeHtml(statusLabel(item.status))}</span></td>
         </tr>`;
           })
@@ -230,7 +237,8 @@
         <div><dt>Check date</dt><dd>${escapeHtml(formatDate(item.check_date))}</dd></div>
         <div><dt>Checked by</dt><dd>${escapeHtml(item.checker_user_id || "—")}</dd></div>
         <div><dt>Check method</dt><dd>${escapeHtml(item.check_method || "—")}</dd></div>
-        <div><dt>Expiry date</dt><dd class="${expiryClass(item)}">${escapeHtml(formatDate(item.expiry_date))}</dd></div>
+        <div><dt>Visa expiry</dt><dd class="${dateExpiryClass(item.visa_expiry_date)}">${escapeHtml(formatDate(item.visa_expiry_date))}</dd></div>
+        <div><dt>RTW check expiry</dt><dd class="${expiryClass(item)}">${escapeHtml(formatDate(item.rtw_check_expiry_date || item.expiry_date))}</dd></div>
       </dl>
       <div class="rtw-detail-docs">
         <h5>Documents</h5>

@@ -16,6 +16,15 @@
     hint: "PDF, JPEG or PNG · max 10 MB per file",
   };
 
+  const ID_PASSPORT_CATEGORIES = new Set(["id", "passport", "identity"]);
+  const VISA_CATEGORIES = new Set(["visa_brp", "visa"]);
+  const RTW_CHECK_CATEGORIES = new Set(["rtw", "right_to_work"]);
+  const IDENTITY_EXPIRY_CATEGORIES = new Set([
+    ...ID_PASSPORT_CATEGORIES,
+    ...VISA_CATEGORIES,
+    ...RTW_CHECK_CATEGORIES,
+  ]);
+
   function documentUploadPolicy() {
     return window.Admin.formOptions?.document_upload || DEFAULT_DOCUMENT_UPLOAD;
   }
@@ -122,6 +131,7 @@
         { name: "share_code", label: "GOV.UK share code", type: "text" },
         { name: "cos_reference", label: "CoS reference", type: "text" },
         { name: "rtw_status", label: "Right to work status", type: "select", optionsKey: "rtw_statuses", defaultValue: "pending" },
+        { name: "rtw_check_expiry_date", label: "Right to work check expiry", type: "date" },
       ],
     },
     offboarding: {
@@ -141,7 +151,7 @@
     onboarding: "Set status to <strong>Onboarding</strong> for new starters. Contract hours drive rota over/under warnings — leave blank to use the default for the employment type.",
     induction: "Phone, home address, and emergency contact are required. NI number is validated when provided.",
     job_performance: "Salary is stored here for payroll CSV export. Run probation and annual reviews using HR Templates — file signed forms in Document store.",
-    compliance_reporting: "Visa type plus a GOV.UK share code <em>or</em> CoS reference required.",
+    compliance_reporting: "Visa type plus a GOV.UK share code <em>or</em> CoS reference required. Set visa expiry and right to work check expiry so HR is alerted in time.",
     support: "Add HR-only internal notes or messages the employee will see in their portal.",
     offboarding: "Set employee status to <strong>Terminated</strong> in on-boarding (or off-boarding workflow) to unlock this step.",
   };
@@ -199,7 +209,9 @@
   const SIDE_PANEL_CHECKLIST = [
     { key: "recruitment", sectionKey: "recruitment", label: "Recruitment" },
     { key: "induction", sectionKey: "induction", label: "Personal information" },
-    { key: "rtw", sectionKey: "document_store", docCategory: "rtw", label: "Right to work" },
+    { key: "id", sectionKey: "document_store", docCategory: "id", label: "ID / passport" },
+    { key: "visa", sectionKey: "document_store", docCategory: "visa_brp", label: "Visa / BRP" },
+    { key: "rtw", sectionKey: "document_store", docCategory: "rtw", label: "Right to work check" },
     { key: "contract", sectionKey: "document_store", docCategory: "contract", label: "Contract" },
   ];
 
@@ -277,7 +289,10 @@
   function checklistItemComplete(workspace, item) {
     if (item.docCategory) {
       const req = (workspace.document_requirements?.items || []).find((entry) => entry.category === item.docCategory);
-      return Boolean(req?.satisfied);
+      if (req) return Boolean(req.satisfied);
+      return (workspace.documents || []).some(
+        (doc) => String(doc.category || "").toLowerCase() === item.docCategory,
+      );
     }
     const section = (workspace.sections || []).find((entry) => entry.key === item.sectionKey);
     return Boolean(section?.complete);
@@ -1085,6 +1100,8 @@
         : "Leave balance";
     const rtw = rtwDisplayLabel(employee);
     const rtwTone = rtw === "Verified" ? "ok" : rtw === "Pending" ? "warn" : "";
+    const rtwExpiryRaw = employee.sponsorship?.rtw_check_expiry_date || employee.rtw_check_expiry_date;
+    const visaExpiryRaw = employee.sponsorship?.visa_expiry_date || employee.visa_expiry_date;
     const contractCopy =
       contracted != null ? `${contracted} hrs / week` : employmentTypeLabel(employee.employment_type) || "—";
 
@@ -1119,6 +1136,8 @@
           ${profileDetailRow({ icon: "calendar", label: "Start date", value: employee.start_date ? formatFriendlyDate(employee.start_date) : "" })}
           ${profileDetailRow({ icon: "clock", label: "Contract", value: contractCopy })}
           ${profileDetailRow({ icon: "shield", label: "Right to work", value: rtw, tone: rtwTone })}
+          ${profileDetailRow({ icon: "calendar", label: "Visa expiry", value: visaExpiryRaw ? formatFriendlyDate(visaExpiryRaw) : "" })}
+          ${profileDetailRow({ icon: "calendar", label: "RTW check expiry", value: rtwExpiryRaw ? formatFriendlyDate(rtwExpiryRaw) : "" })}
         </div>
       </section>
 
@@ -1995,19 +2014,65 @@
   }
 
   function splitEmployeeDocuments(docs) {
+    const idDocs = [];
+    const visaDocs = [];
+    const rtwDocs = [];
     const businessOnly = [];
     const shared = [];
     (docs || []).forEach((doc) => {
-      if (doc.employee_visible) shared.push(doc);
+      const category = String(doc.category || "").toLowerCase();
+      if (ID_PASSPORT_CATEGORIES.has(category)) idDocs.push(doc);
+      else if (VISA_CATEGORIES.has(category)) visaDocs.push(doc);
+      else if (RTW_CHECK_CATEGORIES.has(category)) rtwDocs.push(doc);
+      else if (doc.employee_visible) shared.push(doc);
       else businessOnly.push(doc);
     });
-    return { businessOnly, shared };
+    return { idDocs, visaDocs, rtwDocs, businessOnly, shared };
+  }
+
+  function documentExpiryMeta(doc) {
+    const raw = String(doc?.expires_at || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { text: "No expiry date", tone: "none" };
+    const expires = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(expires.getTime())) return { text: "No expiry date", tone: "none" };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.round((expires.getTime() - today.getTime()) / 86400000);
+    const alertDays = Number(doc.expiry_alert_days) || 30;
+    if (days < 0) return { text: `Expired ${raw}`, tone: "expired" };
+    if (days === 0) return { text: "Expires today", tone: "expired" };
+    if (days <= alertDays) return { text: `Expires ${raw}`, tone: "soon" };
+    return { text: `Expires ${raw}`, tone: "ok" };
+  }
+
+  function isIdentityExpiryCategory(value) {
+    return IDENTITY_EXPIRY_CATEGORIES.has(String(value || "").toLowerCase());
+  }
+
+  function renderDocumentExpiryCell(row) {
+    const expiry = documentExpiryMeta(row);
+    return `<span class="employee-record-doc-item__expiry--${expiry.tone}">${escapeHtml(expiry.text)}</span>`;
+  }
+
+  function syncIdentityExpiryFields({ categoryValue, expiryInput, alertField, hintEl }) {
+    const identityExpiry = isIdentityExpiryCategory(categoryValue);
+    const hasDate = Boolean(expiryInput?.value);
+    if (alertField) alertField.hidden = !(identityExpiry && hasDate);
+    if (hintEl) {
+      hintEl.hidden = !identityExpiry;
+      if (identityExpiry) {
+        hintEl.textContent = hasDate
+          ? "ShiftSwift will alert HR before this ID, passport, visa, or right to work check expires."
+          : "Add an expiry date so HR is alerted before this ID, passport, visa, or right to work check lapses.";
+      }
+    }
   }
 
   function renderEmployeeRecordDocItem(doc) {
+    const expiry = documentExpiryMeta(doc);
     const meta = [
       categoryLabel(doc.category),
-      (doc.created_at || "").slice(0, 10) || null,
+      expiry.text,
       doc.signing_status === "signed" ? "Signed" : doc.signing_status === "sent" ? "Awaiting signature" : null,
     ]
       .filter(Boolean)
@@ -2021,17 +2086,52 @@
     actions.push(`<button type="button" class="btn ghost btn-sm" data-record-delete-doc="${doc.id}">Remove</button>`);
     return `<li class="employee-record-doc-item">
       <span class="employee-record-doc-item__title">${escapeHtml(doc.title)}</span>
-      <span class="employee-record-doc-item__meta muted">${escapeHtml(meta || "—")}</span>
+      <span class="employee-record-doc-item__meta muted employee-record-doc-item__expiry--${expiry.tone}">${escapeHtml(meta || "—")}</span>
       <div class="employee-record-doc-item__actions">${actions.join("")}</div>
     </li>`;
   }
 
+  function renderEmployeeRecordDocGroup({ id, title, hint, docs, empty }) {
+    return `<div class="employee-record-doc-group" data-doc-group="${id}">
+      <h5 class="employee-record-doc-group__title">${title}${hint ? ` <span class="muted">${hint}</span>` : ""} <span class="employee-record-block__count" id="employees-side-doc-${id}-count">${docs.length}</span></h5>
+      <ul class="employee-record-doc-list" id="employees-side-doc-${id}-list">${
+        docs.length
+          ? docs.map(renderEmployeeRecordDocItem).join("")
+          : `<li><p class="employee-record-doc-empty muted">${empty}</p></li>`
+      }</ul>
+    </div>`;
+  }
+
   function renderEmployeeRecordDocumentLists(workspace) {
-    const { businessOnly, shared } = splitEmployeeDocuments(workspace.documents || []);
+    const { idDocs, visaDocs, rtwDocs, businessOnly, shared } = splitEmployeeDocuments(workspace.documents || []);
+    const idCount = document.getElementById("employees-side-doc-id-count");
+    const visaCount = document.getElementById("employees-side-doc-visa-count");
+    const rtwCount = document.getElementById("employees-side-doc-rtw-count");
+    const idList = document.getElementById("employees-side-doc-id-list");
+    const visaList = document.getElementById("employees-side-doc-visa-list");
+    const rtwList = document.getElementById("employees-side-doc-rtw-list");
     const businessCount = document.getElementById("employees-side-doc-business-count");
     const sharedCount = document.getElementById("employees-side-doc-shared-count");
     const businessList = document.getElementById("employees-side-doc-business-list");
     const sharedList = document.getElementById("employees-side-doc-shared-list");
+    if (idCount) idCount.textContent = String(idDocs.length);
+    if (visaCount) visaCount.textContent = String(visaDocs.length);
+    if (rtwCount) rtwCount.textContent = String(rtwDocs.length);
+    if (idList) {
+      idList.innerHTML = idDocs.length
+        ? idDocs.map(renderEmployeeRecordDocItem).join("")
+        : `<li><p class="employee-record-doc-empty muted">No ID or passport on file yet.</p></li>`;
+    }
+    if (visaList) {
+      visaList.innerHTML = visaDocs.length
+        ? visaDocs.map(renderEmployeeRecordDocItem).join("")
+        : `<li><p class="employee-record-doc-empty muted">No visa or BRP on file yet.</p></li>`;
+    }
+    if (rtwList) {
+      rtwList.innerHTML = rtwDocs.length
+        ? rtwDocs.map(renderEmployeeRecordDocItem).join("")
+        : `<li><p class="employee-record-doc-empty muted">No right to work check on file yet.</p></li>`;
+    }
     if (businessCount) businessCount.textContent = String(businessOnly.length);
     if (sharedCount) sharedCount.textContent = String(shared.length);
     if (businessList) {
@@ -2143,8 +2243,16 @@
         if (payPeriodField) payPeriodField.hidden = !isPayslip;
         if (payPeriodInput) payPeriodInput.required = isPayslip;
         if (shareCheckbox && isPayslip) shareCheckbox.checked = true;
+        syncIdentityExpiryFields({
+          categoryValue: categorySelect.value,
+          expiryInput: document.getElementById("employees-side-doc-expires"),
+          alertField: document.getElementById("employees-side-doc-alert-field"),
+          hintEl: document.getElementById("employees-side-doc-expiry-hint"),
+        });
       };
       categorySelect.addEventListener("change", syncCategory);
+      document.getElementById("employees-side-doc-expires")?.addEventListener("change", syncCategory);
+      document.getElementById("employees-side-doc-expires")?.addEventListener("input", syncCategory);
       syncCategory();
     }
 
@@ -2193,7 +2301,7 @@
 
   function renderEmployeeRecordSectionsHtml(employee, workspace) {
     const emp = workspace.employee || employee || {};
-    const { businessOnly, shared } = splitEmployeeDocuments(workspace.documents || []);
+    const { idDocs, visaDocs, rtwDocs, businessOnly, shared } = splitEmployeeDocuments(workspace.documents || []);
     const requirements = workspace.document_requirements || {};
     const reqSummary = requirements.complete
       ? `<p class="employee-doc-status employee-doc-status--ok">Required documents complete.</p>`
@@ -2250,9 +2358,30 @@
       <section class="employee-record-block" id="employees-side-documents" aria-labelledby="employees-side-documents-title">
         <div class="employee-record-block__head">
           <h4 id="employees-side-documents-title">Documents</h4>
-          <span class="employee-record-block__count muted">${businessOnly.length + shared.length} on file</span>
+          <span class="employee-record-block__count muted">${idDocs.length + visaDocs.length + rtwDocs.length + businessOnly.length + shared.length} on file</span>
         </div>
         ${reqSummary}
+        ${renderEmployeeRecordDocGroup({
+          id: "id",
+          title: "ID / passport",
+          hint: "with expiry alerts",
+          docs: idDocs,
+          empty: "No ID or passport on file yet.",
+        })}
+        ${renderEmployeeRecordDocGroup({
+          id: "visa",
+          title: "Visa / BRP",
+          hint: "with expiry alerts",
+          docs: visaDocs,
+          empty: "No visa or BRP on file yet.",
+        })}
+        ${renderEmployeeRecordDocGroup({
+          id: "rtw",
+          title: "Right to work check",
+          hint: "with expiry alerts",
+          docs: rtwDocs,
+          empty: "No right to work check on file yet.",
+        })}
         <div class="employee-record-doc-group">
           <h5 class="employee-record-doc-group__title">Business only <span class="muted">(HR only)</span> <span class="employee-record-block__count" id="employees-side-doc-business-count">${businessOnly.length}</span></h5>
           <ul class="employee-record-doc-list" id="employees-side-doc-business-list">${
@@ -2294,6 +2423,19 @@
               <span class="employee-record-field__label">Pay period</span>
               <input type="text" name="pay_period" id="employees-side-doc-pay-period" placeholder="e.g. 2026-04" />
             </label>
+            <label class="employee-record-field" id="employees-side-doc-expiry-field">
+              <span class="employee-record-field__label">Expiry date</span>
+              <input type="date" name="expires_at" id="employees-side-doc-expires" />
+            </label>
+            <label class="employee-record-field" id="employees-side-doc-alert-field" hidden>
+              <span class="employee-record-field__label">HR alert</span>
+              <select name="expiry_alert_days" id="employees-side-doc-alert-days">
+                <option value="30">30 days before</option>
+                <option value="60">60 days before</option>
+                <option value="90">90 days before</option>
+              </select>
+            </label>
+            <p class="muted employee-record-field__hint employee-record-field--full" id="employees-side-doc-expiry-hint" hidden>ShiftSwift will alert HR before this ID, passport, visa, or right to work check expires.</p>
             <label class="ss-check-row ss-check-row--compact employee-record-field--full">
               <input class="ss-check-row__input" type="checkbox" id="employees-side-doc-share" name="employee_visible" value="true" />
               <span class="ss-check-row__box" aria-hidden="true"></span>
@@ -2690,6 +2832,11 @@
     const isPayslip = categorySelect?.value === "payslip";
     if (payPeriodField) payPeriodField.hidden = !isPayslip;
     if (payPeriodInput) payPeriodInput.required = isPayslip;
+    syncIdentityExpiryFields({
+      categoryValue: categorySelect?.value,
+      expiryInput: form?.querySelector('[name="expires_at"]'),
+      alertField: form?.querySelector("#employee-document-edit-alert-field"),
+    });
   }
 
   function openEmployeeDocumentEditPanel(row, container) {
@@ -2708,6 +2855,8 @@
     if (payPeriodInput) payPeriodInput.value = row.pay_period || "";
     const expiresInput = form.querySelector('[name="expires_at"]');
     if (expiresInput) expiresInput.value = (row.expires_at || "").slice(0, 10);
+    const alertSelect = form.querySelector('[name="expiry_alert_days"]');
+    if (alertSelect) alertSelect.value = String(row.expiry_alert_days || 30);
     const visibleInput = form.querySelector("#employee-document-edit-visible");
     if (visibleInput) visibleInput.checked = Boolean(row.employee_visible);
     syncEmployeeDocumentEditPayPeriod(form);
@@ -2724,6 +2873,9 @@
     form.dataset.bound = "true";
 
     form.querySelector("#employee-document-edit-category")?.addEventListener("change", () => {
+      syncEmployeeDocumentEditPayPeriod(form);
+    });
+    form.querySelector('[name="expires_at"]')?.addEventListener("change", () => {
       syncEmployeeDocumentEditPayPeriod(form);
     });
     form.querySelector("[data-cancel-doc-edit]")?.addEventListener("click", () => {
@@ -2744,6 +2896,7 @@
         title: form.querySelector('[name="title"]')?.value?.trim(),
         category,
         expires_at: form.querySelector('[name="expires_at"]')?.value || null,
+        expiry_alert_days: Number(form.querySelector('[name="expiry_alert_days"]')?.value || 30),
         employee_visible: form.querySelector("#employee-document-edit-visible")?.checked ?? false,
       };
       if (category === "payslip") payload.pay_period = payPeriod;
@@ -2837,7 +2990,7 @@
       columns: [
         { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
         { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
-        { key: "expires_at", render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set") },
+        { key: "expires_at", render: (row) => renderDocumentExpiryCell(row) },
         { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
         {
           key: "signing_status",
@@ -3095,10 +3248,19 @@
                 <p class="doc-upload-filename" id="employee-document-upload-filename" hidden></p>
               </div>
             </div>
-            <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
+            <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Skilled Worker visa" /></label>
             <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
             <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-            <label class="edit-field"><span class="edit-label">Expiry date <span class="muted">(optional)</span></span><input name="expires_at" type="date" /><span class="muted edit-hint">Renewable certificates only.</span></label>
+            <label class="edit-field" id="employee-document-upload-expiry-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint" id="employee-document-upload-expiry-hint">Required for ID, passport, visa / BRP, and right to work checks.</span></label>
+            <label class="edit-field" id="employee-document-upload-alert-field" hidden>
+              <span class="edit-label">HR alert window</span>
+              <select name="expiry_alert_days" id="employee-document-upload-alert-days">
+                <option value="30">30 days before</option>
+                <option value="60">60 days before</option>
+                <option value="90">90 days before</option>
+              </select>
+              <span class="muted edit-hint">ShiftSwift will alert HR before this document expires.</span>
+            </label>
           </section>
           <section class="employee-doc-upload-section employee-doc-upload-section--delivery" aria-label="Employee notification">
             <h6 class="employee-doc-upload-section__title">Employee notification</h6>
@@ -3141,7 +3303,15 @@
           <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
           <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-edit-category"></select></label>
           <label class="edit-field" id="employee-document-edit-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-edit-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-          <label class="edit-field"><span class="edit-label">Expiry date <span class="muted">(optional)</span></span><input name="expires_at" type="date" /></label>
+          <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /></label>
+          <label class="edit-field" id="employee-document-edit-alert-field" hidden>
+            <span class="edit-label">HR alert window</span>
+            <select name="expiry_alert_days">
+              <option value="30">30 days before</option>
+              <option value="60">60 days before</option>
+              <option value="90">90 days before</option>
+            </select>
+          </label>
           <label class="ss-check-row ss-check-row--compact" data-span="2">
             <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="employee-document-edit-visible" value="true" />
             <span class="ss-check-row__box" aria-hidden="true"></span>
@@ -3182,6 +3352,13 @@
         },
         { name: "document_url", label: "Document URL", type: "url", placeholder: "https://..." },
         { name: "expires_at", label: "Expiry date", type: "date" },
+        {
+          name: "expiry_alert_days",
+          label: "HR alert window",
+          type: "select",
+          optionsKey: "document_expiry_alert_days",
+          defaultValue: 30,
+        },
         { name: "notes", label: "Notes", type: "textarea", span: 2 },
       ],
     }, {
@@ -3194,6 +3371,7 @@
             document_url: payload.document_url || null,
             notes: payload.notes || null,
             expires_at: payload.expires_at || null,
+            expiry_alert_days: Number(payload.expiry_alert_days || 30),
           }),
         });
         const data = await res.json();
@@ -3215,7 +3393,7 @@
       columns: [
         { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
         { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
-        { key: "expires_at", render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set") },
+        { key: "expires_at", render: (row) => renderDocumentExpiryCell(row) },
         { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
         {
           key: "signing_status",
@@ -3260,13 +3438,21 @@
         uploadCategory.value = "payslip";
       }
       if (!uploadCategory.dataset.ready) {
-        const syncPayPeriod = () => {
+        const syncUploadCategory = () => {
           const isPayslip = uploadCategory.value === "payslip";
           if (payPeriodField) payPeriodField.hidden = !isPayslip;
           if (payPeriodInput) payPeriodInput.required = isPayslip;
+          syncIdentityExpiryFields({
+            categoryValue: uploadCategory.value,
+            expiryInput: uploadForm?.querySelector('[name="expires_at"]'),
+            alertField: container.querySelector("#employee-document-upload-alert-field"),
+            hintEl: container.querySelector("#employee-document-upload-expiry-hint"),
+          });
         };
-        uploadCategory.addEventListener("change", syncPayPeriod);
-        syncPayPeriod();
+        uploadCategory.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("input", syncUploadCategory);
+        syncUploadCategory();
         uploadCategory.dataset.ready = "true";
       }
     }

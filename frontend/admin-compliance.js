@@ -50,7 +50,17 @@
     return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
 
-  function auditExportTested() {
+  function fillAuditExportEmployees(employees) {
+    const select = document.getElementById("audit-export-employee");
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = `<option value="">All employees</option>${(employees || [])
+      .map((emp) => `<option value="${escapeHtml(emp.value)}">${escapeHtml(emp.label)}</option>`)
+      .join("")}`;
+    if (current && [...select.options].some((opt) => opt.value === current)) {
+      select.value = current;
+    }
+  }
     return localStorage.getItem(AUDIT_EXPORT_FLAG_KEY) === "1";
   }
 
@@ -643,7 +653,7 @@
         const panel = document.getElementById("share-code-result");
         if (panel) {
           panel.hidden = false;
-          panel.innerHTML = `<p class="promo-result-message promo-result-message--ok">${escapeHtml(data.message || "Verified")} · RTW: ${escapeHtml(data.rtw_status)} · Expiry: ${escapeHtml(data.expiry_date || "Not set")} · Mode: ${escapeHtml(data.mode)}</p>`;
+          panel.innerHTML = `<p class="promo-result-message promo-result-message--ok">${escapeHtml(data.message || "Verified")} · RTW: ${escapeHtml(data.rtw_status)} · Visa expiry: ${escapeHtml(data.visa_expiry_date || "Not set")} · RTW check expiry: ${escapeHtml(data.rtw_check_expiry_date || data.expiry_date || "Not set")} · Mode: ${escapeHtml(data.mode)}</p>`;
         }
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       },
@@ -666,7 +676,8 @@
             <option value="fail">Fail</option>
           </select>
         </label>
-        <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expiry_date" type="date" /></label>
+        <label class="edit-field"><span class="edit-label">Visa expiry</span><input name="visa_expiry_date" type="date" /></label>
+        <label class="edit-field"><span class="edit-label">RTW check expiry</span><input name="rtw_check_expiry_date" type="date" /></label>
         <label class="edit-field" data-span="2"><span class="edit-label">RTW evidence PDF</span><input name="evidence_pdf" type="file" accept="application/pdf" required /></label>
         <div class="edit-form-actions" data-span="2">
           <button class="btn" type="submit">Store immutable RTW PDF</button>
@@ -713,6 +724,7 @@
       loadWorkingCalendar(),
       loadReportingTriggers(),
     ]);
+    fillAuditExportEmployees(window.Admin.formOptions?.employees || (await loadEmployees()));
 
     document.getElementById("audit-export-json")?.addEventListener("click", async () => {
       const employeeId = document.getElementById("audit-export-employee")?.value;
@@ -728,6 +740,8 @@
       link.download = `audit-pack-business-${window.Admin.TENANT_ID}.json`;
       link.click();
       URL.revokeObjectURL(url);
+      markAuditExportTested();
+      refreshSponsorOverview();
     });
 
     document.getElementById("audit-export-pdf")?.addEventListener("click", async () => {
@@ -735,6 +749,15 @@
       let path = "/compliance/sponsor-licence/audit-export?format=pdf";
       if (employeeId) path += `&employee_id=${encodeURIComponent(employeeId)}`;
       await downloadAuthenticated(path, `audit-pack-business-${window.Admin.TENANT_ID}.pdf`);
+      markAuditExportTested();
+      refreshSponsorOverview();
+    });
+
+    document.getElementById("audit-export-zip")?.addEventListener("click", async () => {
+      const employeeId = document.getElementById("audit-export-employee")?.value;
+      let path = "/compliance/sponsor-licence/audit-export?format=zip";
+      if (employeeId) path += `&employee_id=${encodeURIComponent(employeeId)}`;
+      await downloadAuthenticated(path, `audit-pack-business-${window.Admin.TENANT_ID}.zip`);
       markAuditExportTested();
       refreshSponsorOverview();
     });

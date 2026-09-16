@@ -18,7 +18,9 @@ from modules.push.service import app_url_path, send_employee_push
 
 UK_TZ = ZoneInfo("Europe/London")
 DOC_THRESHOLDS = frozenset({90, 60, 30, 14, 7})
-ID_CATEGORIES = frozenset({"id", "passport", "visa", "right_to_work", "rtw", "identity"})
+ID_CATEGORIES = frozenset(
+    {"id", "passport", "visa", "visa_brp", "right_to_work", "rtw", "identity"}
+)
 
 
 def _prefs(tenant_id: int, conn: Any) -> dict[str, str]:
