@@ -5986,6 +5986,37 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 .employee-doc-req--missing { color: #b45309; }
 .employee-doc-req--optional { color: inherit; opacity: 0.85; }
 
+.employee-doc-add {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.employee-doc-add__title,
+.employee-doc-list__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+.employee-doc-add .settings-doc-tabs {
+  margin-bottom: 0;
+}
+.employee-doc-add .settings-doc-tab-panel {
+  margin-bottom: 0;
+}
+.employee-doc-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+}
+.employee-doc-list__lead {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 #document-filters {
   margin-bottom: 16px;
 }
