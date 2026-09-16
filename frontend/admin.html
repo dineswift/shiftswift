@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v169" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v170" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
   </head>
@@ -1812,8 +1812,12 @@
                 <h4>Add RTW check</h4>
                 <button type="button" class="rtw-add-panel__close" id="rtw-add-panel-close" aria-label="Close">×</button>
               </header>
-              <div id="rtw-upload-form"></div>
-              <div id="share-code-form"></div>
+              <div class="rtw-add-method-tabs" role="tablist" aria-label="How to add this check">
+                <button type="button" class="btn" data-rtw-add-method="upload" aria-selected="true">Upload evidence</button>
+                <button type="button" class="btn outline" data-rtw-add-method="share-code" aria-selected="false">GOV.UK share code</button>
+              </div>
+              <div id="rtw-upload-form" data-rtw-add-pane="upload"></div>
+              <div id="share-code-form" data-rtw-add-pane="share-code" hidden></div>
               <div id="share-code-result" class="promo-result" hidden></div>
             </div>
 
@@ -3675,7 +3679,7 @@
     <script src="./admin-mobile.js?v=24"></script>
     <script src="./admin-compliance-mobile.js?v=6"></script>
     <script src="./action-feedback.js?v=4"></script>
-    <script src="./admin-shared.js?v=admin-v50"></script>
+    <script src="./admin-shared.js?v=admin-v51"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v33"></script>
@@ -3685,9 +3689,9 @@
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=6"></script>
-    <script src="./admin-compliance.js?v=admin-v20"></script>
+    <script src="./admin-compliance.js?v=admin-v22"></script>
     <script src="./admin-absence.js?v=4"></script>
-    <script src="./admin-rtw.js?v=13"></script>
+    <script src="./admin-rtw.js?v=15"></script>
     <script src="./admin-grievance.js?v=7"></script>
     <script src="./admin-disciplinary.js?v=4"></script>
     <script src="./admin-offboarding.js?v=admin-v8"></script>

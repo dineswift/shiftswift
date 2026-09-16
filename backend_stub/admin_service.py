@@ -697,6 +697,7 @@ def list_employees_register(*, tenant_id: int, conn: Any, limit: int = 200) -> l
                 "is_sponsored": item.get("is_sponsored"),
                 "employment_type": item.get("employment_type"),
                 "start_date": item.get("start_date"),
+                "date_of_birth": item.get("date_of_birth"),
                 "completion_pct": summary["completion_pct"],
                 "next_section": summary["next_section"],
             }

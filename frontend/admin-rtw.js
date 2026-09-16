@@ -545,12 +545,50 @@
     }
   }
 
+  function setAddCheckEmployee(employeeId, { followUp = false } = {}) {
+    const id = employeeId == null || employeeId === "" ? "" : String(employeeId);
+    const selects = document.querySelectorAll(
+      "#rtw-upload [name='employee_id'], #share-code-form [name='employee_id']"
+    );
+    if (id && !selects.length) {
+      window.setTimeout(() => setAddCheckEmployee(employeeId, { followUp }), 80);
+      return;
+    }
+    selects.forEach((el) => {
+      el.value = id;
+    });
+    const method = document.querySelector("#rtw-upload [name='check_method']");
+    if (method && followUp && [...method.options].some((opt) => opt.value === "Follow-up check")) {
+      method.value = "Follow-up check";
+    }
+    const heading = document.querySelector("#rtw-add-panel h4");
+    if (heading) heading.textContent = id ? "Add another RTW check" : "Add RTW check";
+    document.querySelector("#rtw-upload [name='employee_id']")?.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function clearRtwAddStatus() {
+    document.querySelectorAll("#rtw-add-panel [data-status]").forEach((el) => {
+      el.textContent = "";
+    });
+    const result = document.getElementById("share-code-result");
+    if (result) {
+      result.hidden = true;
+      result.innerHTML = "";
+    }
+  }
+
   function openRecheckPanel(employeeId, file = null) {
     const panel = document.getElementById("rtw-add-panel");
     panel?.removeAttribute("hidden");
+    document.querySelector('[data-rtw-add-method="upload"]')?.click();
+    clearRtwAddStatus();
     panel?.scrollIntoView({ behavior: "smooth", block: "start" });
-    const employeeInput = document.querySelector("#rtw-upload input[name='employee_id']");
-    if (employeeInput && employeeId) employeeInput.value = String(employeeId);
+    const alreadyHasCheck = rtwItems.some(
+      (row) =>
+        String(row.employee_id) === String(employeeId) &&
+        (row.document_kind === "rtw_check" || row.immutable_locked)
+    );
+    setAddCheckEmployee(employeeId, { followUp: alreadyHasCheck });
     const fileInput = document.querySelector("#rtw-upload-file") || document.querySelector("#rtw-upload input[name='evidence_pdf']");
     if (fileInput && file) {
       fileInput._sshrPendingFile = file;
@@ -653,11 +691,12 @@
 
     document.getElementById("rtw-export-all-btn")?.addEventListener("click", exportAllRecords);
     document.getElementById("rtw-add-check-btn")?.addEventListener("click", () => {
-      document.getElementById("rtw-add-panel")?.removeAttribute("hidden");
-      document.getElementById("rtw-add-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const item = rtwItems.find((row) => sameRecordId(row.id, selectedCheckId));
+      openRecheckPanel(item?.employee_id);
     });
     document.getElementById("rtw-add-panel-close")?.addEventListener("click", () => {
       document.getElementById("rtw-add-panel")?.setAttribute("hidden", "");
+      setAddCheckEmployee("");
     });
 
     document.querySelectorAll(".rtw-filter-tab").forEach((tab) => {

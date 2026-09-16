@@ -115,6 +115,20 @@ def _db_conn() -> Any:
     return psycopg2.connect(url)
 
 
+def _optional_form_date(value: date | str | None) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid date: {text}") from exc
+
+
 async def _read_validated_pdf(upload: UploadFile) -> bytes:
     if upload.content_type not in {None, "application/pdf", "application/octet-stream"}:
         raise HTTPException(status_code=400, detail="Only PDF uploads are allowed")
@@ -243,9 +257,9 @@ async def create_rtw_check(
     check_method: str = Form(...),
     outcome: str = Form(...),
     checker_user_id: str = Form(...),
-    expiry_date: date | None = Form(None),
-    visa_expiry_date: date | None = Form(None),
-    rtw_check_expiry_date: date | None = Form(None),
+    expiry_date: str | None = Form(None),
+    visa_expiry_date: str | None = Form(None),
+    rtw_check_expiry_date: str | None = Form(None),
     gov_checklist_version: str | None = Form(None),
     evidence_pdf: UploadFile = File(...),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
@@ -256,6 +270,8 @@ async def create_rtw_check(
     file_bytes, _content_type, _ext = await read_validated_upload(
         evidence_pdf, max_bytes=settings.max_upload_bytes
     )
+    parsed_expiry = _optional_form_date(rtw_check_expiry_date) or _optional_form_date(expiry_date)
+    parsed_visa_expiry = _optional_form_date(visa_expiry_date)
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
@@ -267,8 +283,8 @@ async def create_rtw_check(
             check_method=check_method,
             outcome=outcome,
             checker_user_id=checker_user_id or current_user.username,
-            expiry_date=rtw_check_expiry_date or expiry_date,
-            visa_expiry_date=visa_expiry_date,
+            expiry_date=parsed_expiry,
+            visa_expiry_date=parsed_visa_expiry,
             gov_checklist_version=gov_checklist_version,
             conn=conn,
         )
@@ -866,7 +882,7 @@ def audit_export(
 class ShareCodeVerifyRequest(BaseModel):
     employee_id: int
     share_code: str = Field(min_length=6, max_length=32)
-    date_of_birth: date
+    date_of_birth: date | None = None
 
 
 @router.post("/rtw-verify-share-code")
@@ -875,22 +891,48 @@ def verify_rtw_share_code(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    from modules.compliance.idsp_rtw import IdspError, idsp_configured, persist_verification, verify_share_code
+    from modules.compliance.idsp_rtw import (
+        IdspError,
+        idsp_configured,
+        persist_verification,
+        resolve_share_code_date_of_birth,
+        verify_share_code,
+    )
+    from modules.employees.repository import fetch_employee, update_employee_fields
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    try:
-        verification = verify_share_code(
-            share_code=payload.share_code,
-            date_of_birth=payload.date_of_birth,
-            employee_id=payload.employee_id,
-            tenant_id=tenant_id,
-        )
-    except IdspError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
+        employee = fetch_employee(tenant_id=tenant_id, employee_id=payload.employee_id, conn=conn)
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        try:
+            date_of_birth = resolve_share_code_date_of_birth(
+                provided=payload.date_of_birth,
+                stored=employee.get("date_of_birth"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if employee.get("date_of_birth") is None:
+            try:
+                update_employee_fields(
+                    tenant_id=tenant_id,
+                    employee_id=payload.employee_id,
+                    updates={"date_of_birth": date_of_birth},
+                    conn=conn,
+                )
+            except Exception:
+                pass
+        try:
+            verification = verify_share_code(
+                share_code=payload.share_code,
+                date_of_birth=date_of_birth,
+                employee_id=payload.employee_id,
+                tenant_id=tenant_id,
+            )
+        except IdspError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         result = persist_verification(
             conn=conn,
             tenant_id=tenant_id,

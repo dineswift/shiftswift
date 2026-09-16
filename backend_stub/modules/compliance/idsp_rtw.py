@@ -56,6 +56,15 @@ def _as_date(value: Any) -> date | None:
         return None
 
 
+def resolve_share_code_date_of_birth(*, provided: date | None, stored: Any) -> date:
+    dob = _as_date(stored) or provided
+    if dob is None:
+        raise ValueError(
+            "Date of birth is not on this employee record. Add it in Personal information first."
+        )
+    return dob
+
+
 def _first_date(payload: Any, keys: frozenset[str]) -> date | None:
     if isinstance(payload, dict):
         for key, value in payload.items():

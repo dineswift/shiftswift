@@ -15021,6 +15021,32 @@ body.rota-week-readonly .rota-builder-hint {
   margin: 0;
 }
 
+.rtw-add-method-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.rtw-add-method-tabs .btn {
+  min-height: 36px;
+}
+
+#rtw-add-panel [data-rtw-add-pane][hidden],
+#share-code-result[hidden] {
+  display: none !important;
+}
+
+.rtw-share-code-note {
+  margin: 0 0 14px;
+  line-height: 1.45;
+}
+
+.rtw-dob-on-file {
+  display: block;
+  margin-top: 6px;
+}
+
 .rtw-add-panel__close {
   border: none;
   background: transparent;

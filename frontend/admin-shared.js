@@ -968,6 +968,8 @@ window.Admin = (() => {
       job_title: emp.job_title,
       email: emp.email,
       employment_type: emp.employment_type || "full_time",
+      date_of_birth: emp.date_of_birth || null,
+      share_code: emp.share_code || emp.sponsorship?.share_code || null,
     }));
     if (!formOptions) formOptions = {};
     formOptions.employees = options;
@@ -1033,6 +1035,15 @@ window.Admin = (() => {
     return !value || /^\[object /i.test(value) || value === "undefined" || value === "null";
   }
 
+  function isNetworkFailText(text) {
+    return /^(Load failed|Failed to fetch)$/i.test(String(text || "").trim());
+  }
+
+  function networkErrorFallback(fallback = "Request failed") {
+    const base = fallback && fallback !== "Request failed" ? fallback : "Cannot reach the API";
+    return `${base}. Check your connection and try again.`;
+  }
+
   function parseApiDetail(data, fallback = "Request failed") {
     const detail = data?.detail ?? data?.message;
     if (typeof detail === "string") {
@@ -1062,13 +1073,17 @@ window.Admin = (() => {
     if (error == null || error === "") return fallback;
     if (typeof error === "string") {
       const text = error.trim();
-      return isJunkErrorText(text) ? fallback : text;
+      if (isJunkErrorText(text)) return fallback;
+      if (isNetworkFailText(text)) return networkErrorFallback(fallback);
+      return text;
     }
     const candidates = [error.message, error.errorMessage, error.error?.message, error.detail];
     for (const candidate of candidates) {
       if (typeof candidate === "string") {
         const text = candidate.trim();
-        if (!isJunkErrorText(text)) return text;
+        if (isJunkErrorText(text)) continue;
+        if (isNetworkFailText(text)) return networkErrorFallback(fallback);
+        if (text) return text;
       } else if (candidate && typeof candidate === "object") {
         const nested = parseApiDetail({ detail: candidate }, "");
         if (nested) return nested;
@@ -1631,7 +1646,7 @@ window.Admin = (() => {
       fields: [
         { name: "employee_id", label: "Employee", type: "select", optionsKey: "employees", required: true },
         { name: "share_code", label: "GOV.UK share code", type: "text", required: true, placeholder: "ABC123XYZ" },
-        { name: "date_of_birth", label: "Date of birth", type: "date", required: true },
+        { name: "date_of_birth", label: "Date of birth", type: "date" },
       ],
     },
     absenceDay: {

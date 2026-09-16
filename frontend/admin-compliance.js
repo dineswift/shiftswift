@@ -1,6 +1,6 @@
 /** Compliance admin tools — RTW, absence, calendar, audit export, reporting triggers. */
 (async function initAdminComplianceTools() {
-  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, statusPill, downloadAuthenticated, authHeaders, API_BASE, parseHashBaseSection, readApiError, parseApiDetail, formatDisplayDate } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, statusPill, downloadAuthenticated, authHeaders, API_BASE, parseHashBaseSection, readApiError, parseApiDetail, formatDisplayDate, friendlyNativeError } = window.Admin;
 
   let complianceReady = false;
   let ackPanelBound = false;
@@ -791,33 +791,286 @@
     }
   }
 
+  function localIsoDate(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function isoDateField(form, name) {
+    const value = String(form.querySelector(`[name="${name}"]`)?.value || "").trim();
+    if (!value) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const slash = value.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/);
+    if (slash) return `${slash[3]}-${slash[2].padStart(2, "0")}-${slash[1].padStart(2, "0")}`;
+    return value.slice(0, 10);
+  }
+
+  function rtwFormError(error, fallback = "Could not store RTW evidence") {
+    const message =
+      friendlyNativeError?.(error, fallback) ||
+      window.Admin?.formatErrorMessage?.(error, fallback) ||
+      error?.message ||
+      fallback;
+    if (message === "Load failed" || message === "Failed to fetch") {
+      return `${fallback}. Check your connection and try again.`;
+    }
+    return message;
+  }
+
+  function isoDateOnly(value) {
+    if (!value) return "";
+    const text = String(value).trim();
+    return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : "";
+  }
+
+  function employeeOptionRecord(employeeId) {
+    if (!employeeId) return null;
+    const fromOptions = (window.Admin.formOptions?.employees || []).find(
+      (emp) => String(emp.value) === String(employeeId) || String(emp.id) === String(employeeId)
+    );
+    if (fromOptions) return fromOptions;
+    return (window.Admin.peekEmployeesListCache?.() || []).find((emp) => String(emp.id) === String(employeeId)) || null;
+  }
+
+  function rememberEmployeeField(employeeId, key, value) {
+    if (!employeeId || !value) return;
+    const options = window.Admin.formOptions?.employees || [];
+    const row = options.find((emp) => String(emp.value) === String(employeeId) || String(emp.id) === String(employeeId));
+    if (row) row[key] = value;
+  }
+
+  async function lookupEmployeeDob(employeeId) {
+    if (!employeeId) return "";
+    const local = isoDateOnly(employeeOptionRecord(employeeId)?.date_of_birth);
+    if (local) return local;
+    try {
+      const res = await apiFetch(`/admin/employees/${encodeURIComponent(employeeId)}/workspace`);
+      if (!res.ok) return "";
+      const data = await res.json();
+      const dob = isoDateOnly(data?.employee?.date_of_birth);
+      const shareCode = data?.employee?.sponsorship?.share_code || data?.employee?.share_code;
+      if (dob) rememberEmployeeField(employeeId, "date_of_birth", dob);
+      if (shareCode) rememberEmployeeField(employeeId, "share_code", shareCode);
+      return dob;
+    } catch {
+      return "";
+    }
+  }
+
+  async function applyShareCodeEmployee(employeeId) {
+    const form = document.getElementById("share-code-verify-form");
+    if (!form) return;
+    const field = form.querySelector("[data-share-code-dob-field]");
+    const input = form.querySelector("input[name='date_of_birth']");
+    const note = form.querySelector("[data-share-code-dob-note]");
+    const shareInput = form.querySelector("input[name='share_code']");
+    const employeeSelect = form.querySelector("select[name='employee_id']");
+    if (employeeSelect && employeeId && employeeSelect.value !== String(employeeId)) {
+      employeeSelect.value = String(employeeId);
+    }
+    const record = employeeOptionRecord(employeeId);
+    if (shareInput && record?.share_code && !String(shareInput.value || "").trim()) {
+      shareInput.value = record.share_code;
+    }
+    if (!employeeId) {
+      if (field) field.hidden = true;
+      if (input) {
+        input.value = "";
+        input.required = false;
+        input.hidden = true;
+      }
+      if (note) note.hidden = true;
+      return;
+    }
+    if (field) field.hidden = false;
+    if (note) {
+      note.hidden = false;
+      note.textContent = "Checking date of birth on file…";
+    }
+    const dob = await lookupEmployeeDob(employeeId);
+    const latest = employeeOptionRecord(employeeId);
+    if (shareInput && latest?.share_code && !String(shareInput.value || "").trim()) {
+      shareInput.value = latest.share_code;
+    }
+    if (dob) {
+      if (input) {
+        input.value = dob;
+        input.required = false;
+        input.hidden = true;
+      }
+      if (field) {
+        const label = field.querySelector(".edit-label");
+        if (label) label.hidden = true;
+      }
+      if (note) {
+        note.hidden = false;
+        note.textContent = "Using the date of birth already on this employee record.";
+      }
+      return;
+    }
+    if (field) {
+      const label = field.querySelector(".edit-label");
+      if (label) label.hidden = false;
+    }
+    if (input) {
+      input.hidden = false;
+      input.required = true;
+    }
+    if (note) {
+      note.hidden = false;
+      note.textContent = "Date of birth is not on file yet — enter it once and it will be saved on the employee record.";
+    }
+  }
+
+  function currentRtwAddEmployeeId() {
+    return (
+      document.querySelector("#rtw-upload [name='employee_id']")?.value ||
+      document.querySelector("#share-code-form [name='employee_id']")?.value ||
+      ""
+    );
+  }
+
+  function setRtwAddMethod(method) {
+    const panel = document.getElementById("rtw-add-panel");
+    if (!panel) return;
+    const next = method === "share-code" ? "share-code" : "upload";
+    panel.querySelectorAll("[data-rtw-add-method]").forEach((btn) => {
+      const active = btn.dataset.rtwAddMethod === next;
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+      btn.classList.toggle("outline", !active);
+    });
+    panel.querySelectorAll("[data-rtw-add-pane]").forEach((pane) => {
+      pane.hidden = pane.dataset.rtwAddPane !== next;
+    });
+    const result = document.getElementById("share-code-result");
+    if (result && next !== "share-code") result.hidden = true;
+    const employeeId = currentRtwAddEmployeeId();
+    if (employeeId) {
+      panel.querySelectorAll("select[name='employee_id']").forEach((select) => {
+        select.value = employeeId;
+      });
+    }
+    if (next === "share-code") void applyShareCodeEmployee(employeeId);
+  }
+
+  function bindRtwAddMethodTabs() {
+    const panel = document.getElementById("rtw-add-panel");
+    if (!panel || panel.dataset.methodTabsBound === "true") return;
+    panel.dataset.methodTabsBound = "true";
+    panel.querySelectorAll("[data-rtw-add-method]").forEach((btn) => {
+      btn.addEventListener("click", () => setRtwAddMethod(btn.dataset.rtwAddMethod));
+    });
+    panel.addEventListener("change", (event) => {
+      const select = event.target?.closest?.("select[name='employee_id']");
+      if (!select) return;
+      const employeeId = select.value;
+      panel.querySelectorAll("select[name='employee_id']").forEach((other) => {
+        if (other !== select) other.value = employeeId;
+      });
+      void applyShareCodeEmployee(employeeId);
+    });
+    setRtwAddMethod("upload");
+  }
+
+  async function postRtwEvidence(formData) {
+    const tenantId = window.Admin.TENANT_ID;
+    const apiBase = window.Admin.getApiBase?.() || API_BASE;
+    const res = await window.ShiftSwiftSession.fetchWithAuth(
+      "/compliance/sponsor-licence/rtw-checks",
+      { method: "POST", body: formData },
+      { apiBase, tenantId }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(parseApiDetail(data, "Could not store RTW evidence"));
+    return data;
+  }
+
   async function mountShareCodeForm() {
     const host = document.getElementById("share-code-form");
     if (!host || host.dataset.mounted === "true") return;
-    await loadFormOptions();
-    await loadEmployees();
-    mountEditForm(host, FORM_SCHEMAS.shareCodeVerify, {
-      onSubmit: async (payload) => {
+    bindRtwAddMethodTabs();
+    try {
+      await loadFormOptions();
+      await loadEmployees();
+    } catch (error) {
+      host.innerHTML = `<p class="muted">${escapeHtml(rtwFormError(error, "Could not load employees for share-code checks."))}</p>`;
+      return;
+    }
+    const employees = window.Admin.formOptions?.employees || [];
+    const employeeOptions = [
+      `<option value="">Select employee</option>`,
+      ...employees.map((emp) => `<option value="${escapeHtml(emp.value)}">${escapeHtml(emp.label)}</option>`),
+    ].join("");
+    host.innerHTML = `
+      <p class="muted rtw-share-code-note">Verify an eVisa with the GOV.UK share code. Date of birth is taken from the employee record when it is already stored.</p>
+      <form class="edit-form edit-form--cols-2" id="share-code-verify-form">
+        <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" required>${employeeOptions}</select></label>
+        <label class="edit-field"><span class="edit-label">GOV.UK share code</span><input name="share_code" type="text" required placeholder="ABC123XYZ" autocomplete="off" /></label>
+        <label class="edit-field" data-share-code-dob-field data-span="2" hidden>
+          <span class="edit-label">Date of birth</span>
+          <input name="date_of_birth" type="date" hidden />
+          <span class="muted rtw-dob-on-file" data-share-code-dob-note hidden></span>
+        </label>
+        <div class="edit-form-actions" data-span="2">
+          <button class="btn" type="submit">Verify eVisa share code</button>
+          <p class="edit-form-status muted" data-status></p>
+        </div>
+      </form>`;
+    const form = host.querySelector("form");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = form.querySelector("[data-status]");
+      const employeeId = form.querySelector("select[name='employee_id']")?.value;
+      const shareCode = String(form.querySelector("input[name='share_code']")?.value || "").trim();
+      const dobInput = form.querySelector("input[name='date_of_birth']");
+      if (!employeeId) {
+        if (status) status.textContent = "Select an employee.";
+        return;
+      }
+      if (shareCode.length < 6) {
+        if (status) status.textContent = "Enter the GOV.UK share code.";
+        return;
+      }
+      const storedDob = isoDateOnly(employeeOptionRecord(employeeId)?.date_of_birth);
+      const enteredDob = isoDateOnly(dobInput?.value);
+      if (!storedDob && !enteredDob) {
+        if (status) status.textContent = "Date of birth is not on this employee record. Add it here or in Personal information first.";
+        return;
+      }
+      if (status) status.textContent = "Verifying…";
+      const payload = { employee_id: Number(employeeId), share_code: shareCode };
+      if (enteredDob && !storedDob) payload.date_of_birth = enteredDob;
+      try {
         const res = await apiFetch("/compliance/sponsor-licence/rtw-verify-share-code", {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(parseApiDetail(data, "Verification failed"));
+        if (enteredDob) rememberEmployeeField(employeeId, "date_of_birth", enteredDob);
+        if (status) status.textContent = "";
         const panel = document.getElementById("share-code-result");
         if (panel) {
           panel.hidden = false;
           panel.innerHTML = `<p class="promo-result-message promo-result-message--ok">${escapeHtml(data.message || "Verified")} · RTW: ${escapeHtml(data.rtw_status)} · Visa expiry: ${escapeHtml(formatDisplayDate(data.visa_expiry_date))} · RTW check expiry: ${escapeHtml(formatDisplayDate(data.rtw_check_expiry_date || data.expiry_date))} · Mode: ${escapeHtml(data.mode)}</p>`;
         }
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
-      },
+      } catch (error) {
+        if (status) status.textContent = rtwFormError(error, "Verification failed");
+      }
     });
     host.dataset.mounted = "true";
+    const selected = currentRtwAddEmployeeId();
+    if (selected) {
+      const select = form.querySelector("select[name='employee_id']");
+      if (select) select.value = selected;
+      void applyShareCodeEmployee(selected);
+    }
   }
 
   async function mountRtwUploadForm() {
     const host = document.getElementById("rtw-upload-form");
     if (!host || host.dataset.mounted === "true") return;
+    bindRtwAddMethodTabs();
     await loadEmployees();
     const employees = window.Admin.formOptions?.employees || [];
     const employeeOptions = [
@@ -826,11 +1079,18 @@
         (emp) => `<option value="${escapeHtml(emp.value)}">${escapeHtml(emp.label)}</option>`
       ),
     ].join("");
+    const today = localIsoDate();
     host.innerHTML = `
       <form class="edit-form edit-form--cols-2" id="rtw-upload">
-        <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" required>${employeeOptions}</select></label>
-        <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required data-empty="true" /></label>
-        <label class="edit-field"><span class="edit-label">Method</span><input name="check_method" value="Manual evidence upload" required /></label>
+        <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" required>${employeeOptions}</select><span class="muted edit-hint">You can store more than one RTW check for the same person.</span></label>
+        <label class="edit-field"><span class="edit-label">Check date</span><input name="check_date" type="date" required value="${today}" /></label>
+        <label class="edit-field"><span class="edit-label">Method</span>
+          <select name="check_method" required>
+            <option value="Manual evidence upload" selected>Manual evidence upload</option>
+            <option value="Follow-up check">Follow-up check</option>
+            <option value="ID document check">ID document check</option>
+          </select>
+        </label>
         <label class="edit-field"><span class="edit-label">Outcome</span>
           <select name="outcome" required>
             <option value="pass">Pass</option>
@@ -843,7 +1103,7 @@
         <div class="edit-field" data-span="2">
           <span class="edit-label">Evidence</span>
           <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="rtw-upload-dropzone">
-            <input name="evidence_pdf" type="file" id="rtw-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+            <input name="evidence_pdf" type="file" id="rtw-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden />
             <input type="file" id="rtw-upload-camera" accept="image/*" capture="environment" hidden />
             <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
             <p class="doc-upload-dropzone__hint muted">PDF, JPEG or PNG · max 10 MB</p>
@@ -855,6 +1115,7 @@
           <p class="edit-form-status muted" data-status></p>
         </div>
       </form>`;
+    window.Admin?.bindDateInputs?.(host);
     window.AdminDocuments?.bindFileDropzone?.({
       dropzone: document.getElementById("rtw-upload-dropzone"),
       fileInput: document.getElementById("rtw-upload-file"),
@@ -866,6 +1127,16 @@
       const form = event.currentTarget;
       const status = form.querySelector("[data-status]");
       const fileInput = form.querySelector("#rtw-upload-file");
+      const employeeId = String(form.querySelector("[name='employee_id']")?.value || "").trim();
+      const checkDate = isoDateField(form, "check_date");
+      if (!employeeId) {
+        if (status) status.textContent = "Choose an employee.";
+        return;
+      }
+      if (!checkDate) {
+        if (status) status.textContent = "Choose a check date.";
+        return;
+      }
       let file = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput?.files?.[0];
       try {
         if (file && window.AdminDocuments?.prepareUploadFile) {
@@ -880,19 +1151,33 @@
         return;
       }
       if (status) status.textContent = "Uploading…";
-      const fd = new FormData(form);
-      fd.set("evidence_pdf", file);
+      const fd = new FormData();
+      fd.set("employee_id", employeeId);
+      fd.set("check_date", checkDate);
+      fd.set("check_method", form.querySelector("[name='check_method']")?.value || "Manual evidence upload");
+      fd.set("outcome", form.querySelector("[name='outcome']")?.value || "pass");
       fd.set("checker_user_id", localStorage.getItem("username") || "hr");
+      const visaExpiry = isoDateField(form, "visa_expiry_date");
+      const rtwExpiry = isoDateField(form, "rtw_check_expiry_date");
+      if (visaExpiry) fd.set("visa_expiry_date", visaExpiry);
+      if (rtwExpiry) fd.set("rtw_check_expiry_date", rtwExpiry);
+      fd.set("evidence_pdf", file, file.name || "rtw-evidence.pdf");
       try {
-        const res = await apiFetch("/compliance/sponsor-licence/rtw-checks", {
-          method: "POST",
-          headers: authHeaders(false),
-          body: fd,
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(parseApiDetail(data, "Upload failed"));
-        if (status) status.textContent = `Stored check #${data.check_id} · SHA ${String(data.content_sha256 || "").slice(0, 12)}…`;
+        const data = await postRtwEvidence(fd);
+        if (status) {
+          status.textContent = `Stored check #${data.check_id}. You can add another RTW check for the same employee.`;
+        }
         form.reset();
+        const checkDateInput = form.querySelector("[name='check_date']");
+        if (checkDateInput) checkDateInput.value = localIsoDate();
+        const employeeSelect = form.querySelector("[name='employee_id']");
+        if (employeeSelect) employeeSelect.value = employeeId;
+        const methodSelect = form.querySelector("[name='check_method']");
+        if (methodSelect && [...methodSelect.options].some((opt) => opt.value === "Follow-up check")) {
+          methodSelect.value = "Follow-up check";
+        }
+        const heading = document.querySelector("#rtw-add-panel h4");
+        if (heading) heading.textContent = "Add another RTW check";
         if (fileInput) {
           fileInput.value = "";
           fileInput._sshrPendingFile = null;
@@ -906,7 +1191,7 @@
         window.dispatchEvent(new CustomEvent("admin:compliance-refresh"));
         window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       } catch (error) {
-        if (status) status.textContent = window.Admin?.formatErrorMessage?.(error, "Upload failed") || error.message || "Upload failed";
+        if (status) status.textContent = rtwFormError(error);
       }
     });
     host.dataset.mounted = "true";
@@ -914,6 +1199,7 @@
 
   async function initComplianceTools(skipAckCheck = false) {
     bindSponsorOverviewActions();
+    bindRtwAddMethodTabs();
     if (!skipAckCheck) {
       const ready = await ensureSponsorLicenceAcknowledged();
       if (!ready) return;
