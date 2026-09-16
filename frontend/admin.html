@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v167" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v168" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
   </head>
@@ -103,6 +103,8 @@
             <img class="brand-logo brand-logo--compact app-mark app-mark--chrome" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6" alt="ShiftSwift HR" />
           </a>
           <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
+          <button type="button" class="sidebar-collapse" id="sidebar-collapse" hidden>Hide sidebar</button>
+          <button type="button" class="sidebar-pin" id="sidebar-pin" hidden>Keep sidebar</button>
         </div>
         <nav class="nav" aria-label="Admin sections">
           <a class="nav-link" href="#overview" data-section="overview">
@@ -1779,13 +1781,16 @@
               <div id="rtw-mobile-cards" class="rtw-mobile-cards" hidden aria-live="polite"></div>
               <aside id="rtw-detail-panel" class="rtw-detail-panel" hidden>
                 <div class="rtw-detail-panel__head">
-                  <h4>RTW record</h4>
-                  <button type="button" class="rtw-detail-edit-link" id="rtw-detail-recheck-link">Re-check</button>
+                  <div class="rtw-detail-panel__heading">
+                    <h4 id="rtw-detail-title">Record</h4>
+                    <span id="rtw-detail-status" class="rtw-status-pill" hidden></span>
+                  </div>
+                  <button type="button" class="rtw-detail-close" id="rtw-detail-close" aria-label="Close record">Close</button>
                 </div>
                 <div id="rtw-detail-content"></div>
                 <div class="rtw-detail-panel__foot">
                   <button type="button" class="btn ghost" id="rtw-send-reminder-btn">Send reminder</button>
-                  <button type="button" class="btn" id="rtw-detail-recheck-btn">Re-check</button>
+                  <button type="button" class="btn" id="rtw-detail-recheck-btn">Add RTW check</button>
                 </div>
               </aside>
             </div>
@@ -3660,7 +3665,7 @@
     <script src="./admin-crm.js?v=5"></script>
     <script src="./admin-compliance.js?v=admin-v18"></script>
     <script src="./admin-absence.js?v=4"></script>
-    <script src="./admin-rtw.js?v=10"></script>
+    <script src="./admin-rtw.js?v=11"></script>
     <script src="./admin-grievance.js?v=7"></script>
     <script src="./admin-disciplinary.js?v=4"></script>
     <script src="./admin-offboarding.js?v=admin-v8"></script>

@@ -99,15 +99,123 @@ html.native-app.native-tablet .sidebar.sidebar--open {
   transform: none !important;
 }
 
-html.native-app.native-tablet .sidebar-close,
 html.native-app.native-tablet .sidebar-overlay,
 html.native-app.native-tablet #mobile-tab-bar,
 html.native-app.native-tablet #mobile-more-panel,
 html.native-app.native-tablet .mobile-home-header,
 html.native-app.native-tablet .mobile-back-btn,
-html.native-app.native-tablet .sidebar-toggle,
 html.native-app.native-tablet .mobile-panel-title--modules {
   display: none !important;
+}
+
+html.native-app.native-tablet .sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+html.native-app.native-tablet .sidebar-head .brand {
+  margin-right: auto;
+}
+
+html.native-app.native-tablet .sidebar-toggle {
+  display: inline-flex !important;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar-toggle {
+  border-color: var(--green-800, #0f6e56) !important;
+}
+
+html.native-app.native-tablet .sidebar-close,
+html.native-app.native-tablet .sidebar-pin,
+html.native-app.native-tablet .sidebar-collapse {
+  display: none !important;
+}
+
+html.native-app.native-tablet:not(.native-sidebar-collapsed) .sidebar-collapse {
+  display: inline-flex !important;
+  align-items: center;
+  margin-left: auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--card-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--white, #fff);
+  color: var(--green-800, #0f6e56);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Hidden sidebar — full-width editing, menu as overlay */
+html.native-app.native-tablet.native-sidebar-collapsed {
+  --tablet-content-pad-x: 20px;
+}
+
+html.native-app.native-tablet-large.native-sidebar-collapsed {
+  --tablet-content-pad-x: 28px;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed body:has(#mobile-tab-bar) .app {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: auto !important;
+  bottom: 0 !important;
+  inset: 0 auto 0 0 !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  transform: translateX(-105%) !important;
+  z-index: 130 !important;
+  box-shadow: 12px 0 40px rgba(10, 34, 25, 0.18) !important;
+  border-right: 1px solid var(--card-border, #e5e7eb) !important;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar.sidebar--open {
+  transform: translateX(0) !important;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar-overlay {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 120 !important;
+  background: rgba(15, 23, 42, 0.4) !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar-overlay.sidebar-overlay--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar-close {
+  display: inline-flex !important;
+}
+
+html.native-app.native-tablet.native-sidebar-collapsed .sidebar.sidebar--open .sidebar-pin {
+  display: inline-flex !important;
+  align-items: center;
+  margin-left: auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--card-border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--white, #fff);
+  color: var(--green-800, #0f6e56);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 html.native-app.native-tablet main.content {
@@ -442,9 +550,9 @@ html.native-app.native-tablet .rota-builder-layout {
 html.native-app.native-tablet .hr-detail-panel,
 html.native-app.native-tablet .rtw-detail-panel,
 html.native-app.native-tablet .absence-detail-panel {
-  flex: 0 0 min(380px, 34vw) !important;
-  width: min(380px, 34vw) !important;
-  min-width: 260px !important;
+  flex: 0 1 min(480px, 44vw) !important;
+  width: min(480px, 44vw) !important;
+  min-width: 340px !important;
   max-height: none !important;
   position: relative !important;
   inset: auto !important;

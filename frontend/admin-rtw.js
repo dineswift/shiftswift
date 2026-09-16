@@ -318,47 +318,71 @@
     return alerts.filter(Boolean).join("");
   }
 
+  function closeDetailPanel() {
+    selectedCheckId = null;
+    const panel = document.getElementById("rtw-detail-panel");
+    panel?.setAttribute("hidden", "");
+    document.querySelector(".rtw-workspace-layout")?.classList.remove("is-detail-open");
+    renderTable();
+  }
+
   function renderDetailPanel(item) {
     const panel = document.getElementById("rtw-detail-panel");
     const content = document.getElementById("rtw-detail-content");
+    const title = document.getElementById("rtw-detail-title");
+    const statusEl = document.getElementById("rtw-detail-status");
     if (!panel || !content || !item) return;
     panel.hidden = false;
+    document.querySelector(".rtw-workspace-layout")?.classList.add("is-detail-open");
+    if (title) title.textContent = item.document_type || "Record";
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.className = statusClass(item.status);
+      statusEl.textContent = statusLabel(item.status);
+    }
     const workerType = item.is_sponsored ? "Sponsored worker" : "Standard worker";
-    const docs = (item.documents || [{ filename: item.filename, uploaded_at: item.check_date }])
+    const fileName = item.filename || item.document_title || "document";
+    const identityRecord = !item.immutable_locked && item.document_kind !== "rtw_check";
+    const docs = (item.documents || [{ filename: fileName, uploaded_at: item.check_date }])
       .map(
         (doc) => `<li class="rtw-doc-item">
-          <span>${escapeHtml(doc.filename || item.filename || "document")}</span>
-          <span class="muted">${escapeHtml(formatDate(doc.uploaded_at || item.check_date))}</span>
-          <button type="button" class="btn ghost btn-sm" data-rtw-download="${escapeHtml(String(item.id))}">Download</button>
+          <div class="rtw-doc-item__text">
+            <strong>${escapeHtml(doc.filename || fileName)}</strong>
+            <span class="muted">Saved ${escapeHtml(formatDate(doc.uploaded_at || item.check_date))}</span>
+          </div>
+          <button type="button" class="btn outline btn-sm" data-rtw-download="${escapeHtml(String(item.id))}">Download file</button>
         </li>`
       )
       .join("");
     const lockNote = item.immutable_locked
-      ? `<p class="rtw-detail-lock muted"><strong>Immutable record.</strong> Saved ${escapeHtml(formatDate(item.created_at?.slice(0, 10) || item.check_date))} by ${escapeHtml(item.checker_user_id || "admin")}. Cannot be edited or deleted.</p>`
-      : `<p class="rtw-detail-lock muted">Saved on the employee file ${escapeHtml(formatDate(item.created_at?.slice(0, 10) || item.check_date))}. Passport, BRP, visa and right-to-work documents appear in this list.</p>`;
+      ? `<p class="rtw-detail-lock muted"><strong>Immutable RTW check.</strong> Saved ${escapeHtml(formatDate(item.created_at?.slice(0, 10) || item.check_date))} by ${escapeHtml(item.checker_user_id || "admin")}. This file cannot be edited or deleted.</p>`
+      : `<p class="rtw-detail-lock muted">This file lives on the employee record. Open the employee file to replace it or add another document.</p>`;
+    const extraAction = identityRecord
+      ? `<a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`
+      : `<label class="rtw-upload-zone">
+        <span class="rtw-upload-zone__label">Drop PDF evidence here or click to upload</span>
+        <span class="muted rtw-upload-zone__hint">PDF only · max 10MB · creates a new immutable RTW check</span>
+        <input type="file" accept="application/pdf" data-rtw-supplement="${item.employee_id}" hidden />
+      </label>`;
 
     content.innerHTML = `
       ${renderDetailAlert(item)}
       <div class="rtw-detail-employee">
         <strong>${escapeHtml(item.employee_name)}</strong>
-        <span class="muted">${escapeHtml(item.employee_role)} · ${escapeHtml(workerType)}</span>
+        <span class="muted">${escapeHtml(item.employee_role || "Staff")} · ${escapeHtml(workerType)}</span>
       </div>
       <dl class="rtw-detail-meta">
-        <div><dt>Document type</dt><dd>${escapeHtml(item.document_type)}</dd></div>
-        <div><dt>File</dt><dd>${escapeHtml(item.document_title || item.filename || "—")}</dd></div>
+        <div><dt>Document</dt><dd>${escapeHtml(item.document_type)}</dd></div>
         <div><dt>Date on file</dt><dd>${escapeHtml(formatDate(item.check_date))}</dd></div>
-        <div><dt>Uploaded by</dt><dd>${escapeHtml(item.checker_user_id || "—")}</dd></div>
         <div><dt>${escapeHtml(item.expiry_label || "Expiry")}</dt><dd class="${expiryClass(item)}">${escapeHtml(formatDate(rowExpiryIso(item)))}</dd></div>
+        <div><dt>Uploaded by</dt><dd>${escapeHtml(item.checker_user_id || "—")}</dd></div>
+        <div class="rtw-detail-meta__wide"><dt>File name</dt><dd>${escapeHtml(item.document_title || fileName)}</dd></div>
       </dl>
       <div class="rtw-detail-docs">
-        <h5>Documents</h5>
+        <h5>Saved file</h5>
         <ul class="rtw-doc-list">${docs}</ul>
       </div>
-      <label class="rtw-upload-zone">
-        <span class="rtw-upload-zone__label">Drop PDF evidence here or click to upload</span>
-        <span class="muted rtw-upload-zone__hint">PDF only · max 10MB · creates a new immutable RTW check</span>
-        <input type="file" accept="application/pdf" data-rtw-supplement="${item.employee_id}" hidden />
-      </label>
+      ${extraAction}
       ${lockNote}`;
 
     content.querySelector("[data-rtw-download]")?.addEventListener("click", () => {
@@ -417,7 +441,7 @@
         await selectCheck(selectedCheckId);
       } else {
         selectedCheckId = null;
-        document.getElementById("rtw-detail-panel")?.setAttribute("hidden", "");
+        closeDetailPanel();
       }
     } catch (error) {
       rtwItems = [];
@@ -509,9 +533,7 @@
       const item = rtwItems.find((row) => sameRecordId(row.id, selectedCheckId));
       openRecheckPanel(item?.employee_id);
     });
-    document.getElementById("rtw-detail-recheck-link")?.addEventListener("click", () => {
-      document.getElementById("rtw-detail-recheck-btn")?.click();
-    });
+    document.getElementById("rtw-detail-close")?.addEventListener("click", closeDetailPanel);
 
     window.addEventListener("admin:rtw-refresh", () => loadRtwRecords());
     window.addEventListener("admin:compliance-tools-ready", () => tryLoadRtwRecords());
