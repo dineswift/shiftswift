@@ -7,6 +7,11 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 1
 fi
 
+if pgrep -x Xcode >/dev/null 2>&1; then
+  echo "Quit Xcode first (Cmd+Q), then run this again so it does not use a stale project." >&2
+  exit 1
+fi
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IOS_APP="$ROOT/ios-app/App"
 EXPORT_PLIST="$ROOT/ios-app/ExportOptions.Transporter.plist"

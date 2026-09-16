@@ -93,7 +93,9 @@ def test_native_ios_app_is_universal_ipad() -> None:
         encoding="utf-8"
     )
     assert "app-store-connect" in export_plist
-    assert (ROOT / "mobile" / "scripts" / "export-ipa-for-transporter.sh").is_file()
+    podfile = (ROOT / "mobile" / "ios-app" / "App" / "Podfile").read_text(encoding="utf-8")
+    assert "SUPPORTS_MACCATALYST'] = 'NO'" in podfile or 'SUPPORTS_MACCATALYST"] = "NO"' in podfile or "SUPPORTS_MACCATALYST'] = 'NO'" in podfile
+    assert "SUPPORTS_MACCATALYST" in podfile
     assert "NSCameraUsageDescription" in plist
     assert "NSPhotoLibraryUsageDescription" in plist
     assert "NSLocationWhenInUseUsageDescription" in plist
