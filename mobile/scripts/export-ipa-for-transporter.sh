@@ -13,6 +13,16 @@ if pgrep -x Xcode >/dev/null 2>&1; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO="$(cd "$ROOT/.." && pwd)"
+BRANCH="$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [[ "$BRANCH" != "cursor/ios-ipad-updates-b650" ]]; then
+  echo "This Mac copy is on branch '${BRANCH:-unknown}', not cursor/ios-ipad-updates-b650." >&2
+  echo "Quit Xcode, then run:" >&2
+  echo "  cd $REPO" >&2
+  echo "  git fetch origin" >&2
+  echo "  git checkout -f -B cursor/ios-ipad-updates-b650 origin/cursor/ios-ipad-updates-b650" >&2
+  exit 1
+fi
 IOS_APP="$ROOT/ios-app/App"
 EXPORT_PLIST="$ROOT/ios-app/ExportOptions.Transporter.plist"
 BUILD_DIR="$ROOT/build/transporter"
