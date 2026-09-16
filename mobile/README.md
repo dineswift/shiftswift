@@ -38,8 +38,7 @@ Quit **Xcode** first (Cmd+Q). Easiest: double-click `Open-ShiftSwift-in-Xcode.co
 ```bash
 cd /Users/gskharel/Desktop/shiftswifthr
 git fetch origin
-git checkout cursor/ios-ipad-updates-b650
-git pull --ff-only origin cursor/ios-ipad-updates-b650
+git checkout -f -B cursor/ios-ipad-updates-b650 origin/cursor/ios-ipad-updates-b650
 cd mobile
 npm install
 npm run ios:sync
@@ -47,6 +46,8 @@ cd ios-app/App
 pod install
 open App.xcworkspace
 ```
+
+`checkout -f -B` throws away local `ios:sync` / Podfile.lock edits and switches onto the iPad branch. A normal `checkout` fails while those files are dirty, and `pull --ff-only` then runs on the **old** branch.
 
 In Xcode:
 

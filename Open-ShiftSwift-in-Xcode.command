@@ -36,8 +36,8 @@ cd "$ROOT"
 echo "Repo: $ROOT"
 
 git fetch origin
-git checkout cursor/ios-ipad-updates-b650
-git pull --ff-only origin cursor/ios-ipad-updates-b650
+# Discard local ios:sync dirt and point this folder at the iPad branch.
+git checkout -f -B cursor/ios-ipad-updates-b650 origin/cursor/ios-ipad-updates-b650
 
 cd "$ROOT/mobile"
 npm install
