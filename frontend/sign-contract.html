@@ -29,19 +29,35 @@
         font-weight: 600;
       }
       .signature-pad-frame {
-        border: 1px dashed var(--gray-300, #c5d0cb);
+        position: relative;
+        border: 1px solid var(--gray-300, #c5d0cb);
         border-radius: var(--radius-md, 10px);
         background:
-          linear-gradient(to bottom, transparent calc(100% - 36px), #d7e4df calc(100% - 36px), #d7e4df calc(100% - 34px), transparent calc(100% - 34px)),
-          #fff;
+          linear-gradient(to bottom, transparent calc(100% - 40px), #0F6E56 calc(100% - 40px), #0F6E56 calc(100% - 38px), transparent calc(100% - 38px)),
+          #fbfdfc;
         overflow: hidden;
+      }
+      .signature-pad-placeholder {
+        position: absolute;
+        left: 18px;
+        bottom: 48px;
+        margin: 0;
+        font-family: "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive;
+        font-size: 1.4rem;
+        color: #9aaba4;
+        pointer-events: none;
+      }
+      .signature-pad-frame.is-signed .signature-pad-placeholder {
+        display: none;
       }
       #signature-pad {
         display: block;
         width: 100%;
-        height: 168px;
+        height: 180px;
         touch-action: none;
         cursor: crosshair;
+        user-select: none;
+        -webkit-user-select: none;
       }
       .signature-pad-actions {
         display: flex;
@@ -59,11 +75,12 @@
         <p class="muted" id="contract-meta">Loading contract…</p>
         <div id="contract-preview" class="contract-preview"></div>
         <form id="sign-form" class="stack" style="margin-top:16px;">
-          <label>Your full name (electronic signature)<input name="signature_name" required autocomplete="name" /></label>
+          <label>Your full name<input name="signature_name" required autocomplete="name" /></label>
           <div class="signature-pad-field">
-            <span class="signature-pad-label" id="signature-pad-label">Draw your signature</span>
-            <p class="muted signature-pad-hint">Use your finger, mouse, or stylus on the line below.</p>
-            <div class="signature-pad-frame">
+            <span class="signature-pad-label" id="signature-pad-label">Handwritten signature</span>
+            <p class="muted signature-pad-hint">Draw with your finger, mouse, or stylus on the line.</p>
+            <div class="signature-pad-frame" id="signature-pad-frame">
+              <p class="signature-pad-placeholder" id="signature-pad-placeholder">Sign here</p>
               <canvas id="signature-pad" width="640" height="180" role="img" aria-labelledby="signature-pad-label"></canvas>
             </div>
             <div class="signature-pad-actions">
@@ -81,7 +98,7 @@
       </div>
     </div>
     <script src="./action-feedback.js?v=3"></script>
-    <script src="./sign-contract.js?v=5"></script>
+    <script src="./sign-contract.js?v=6"></script>
       <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

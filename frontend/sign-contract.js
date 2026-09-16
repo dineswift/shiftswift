@@ -41,6 +41,7 @@ function createSignaturePad(canvas) {
   if (!canvas) return null;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
+  const frame = canvas.closest(".signature-pad-frame");
   let drawing = false;
   let dirty = false;
   let last = null;
@@ -50,6 +51,19 @@ function createSignaturePad(canvas) {
     return { width: Math.max(rect.width, 1), height: Math.max(rect.height, 1) };
   }
 
+  function markDirty() {
+    dirty = true;
+    frame?.classList.add("is-signed");
+  }
+
+  function stylePen() {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#12352d";
+    ctx.fillStyle = "#12352d";
+    ctx.lineWidth = 2.6;
+  }
+
   function resize() {
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     const { width, height } = cssSize();
@@ -57,10 +71,7 @@ function createSignaturePad(canvas) {
     canvas.width = Math.floor(width * ratio);
     canvas.height = Math.floor(height * ratio);
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#12352d";
-    ctx.lineWidth = 2.4;
+    stylePen();
     if (snapshot) {
       const img = new Image();
       img.onload = () => ctx.drawImage(img, 0, 0, width, height);
@@ -78,6 +89,11 @@ function createSignaturePad(canvas) {
     event.preventDefault();
     drawing = true;
     last = pointFromEvent(event);
+    stylePen();
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 1.15, 0, Math.PI * 2);
+    ctx.fill();
+    markDirty();
     try {
       canvas.setPointerCapture?.(event.pointerId);
     } catch {
@@ -86,7 +102,7 @@ function createSignaturePad(canvas) {
   }
 
   function move(event) {
-    if (!drawing) return;
+    if (!drawing || !last) return;
     event.preventDefault();
     const next = pointFromEvent(event);
     ctx.beginPath();
@@ -94,7 +110,7 @@ function createSignaturePad(canvas) {
     ctx.lineTo(next.x, next.y);
     ctx.stroke();
     last = next;
-    dirty = true;
+    markDirty();
   }
 
   function end(event) {
@@ -113,8 +129,8 @@ function createSignaturePad(canvas) {
   canvas.addEventListener("pointermove", move);
   canvas.addEventListener("pointerup", end);
   canvas.addEventListener("pointercancel", end);
-  canvas.addEventListener("pointerleave", end);
   window.addEventListener("resize", resize);
+  window.addEventListener("load", resize);
   resize();
 
   return {
@@ -130,6 +146,7 @@ function createSignaturePad(canvas) {
       dirty = false;
       drawing = false;
       last = null;
+      frame?.classList.remove("is-signed");
     },
   };
 }
