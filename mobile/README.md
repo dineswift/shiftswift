@@ -5,10 +5,13 @@ Built with [Capacitor](https://capacitorjs.com/): a full-screen iOS WebView load
 
 ## Apps
 
-| App | Bundle ID | Capacitor variant | Start URL |
-|-----|-----------|-------------------|-----------|
-| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `employee-login.html?source=native` |
-| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `business-login.html?source=native` |
+| App | Bundle ID | Capacitor variant | Xcode project | Start URL |
+|-----|-----------|-------------------|---------------|-----------|
+| **ShiftSwift HR** (unified) | `co.uk.shiftswifthr.app` | `app` | `ios-app/` | Bundled login, then `app.shiftswifthr.co.uk` |
+| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `ios-employee/` | `employee-login.html?source=native` |
+| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `ios-business/` | `business-login.html?source=native` |
+
+The iPad Himalayan Inn app is **ShiftSwift HR** (`ios-app`). After a web deploy it loads the live PWA; this native update adds camera/location permission strings and bumps the build so WebKit drops a stale cache.
 
 ## Requirements
 
@@ -31,6 +34,9 @@ npm run ios:setup
 ## Open in Xcode
 
 ```bash
+# ShiftSwift HR (unified — iPad HR Admin + staff)
+npm run ios:open
+
 # Employee app
 npm run ios:employee:open
 
