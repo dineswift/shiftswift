@@ -113,5 +113,14 @@ def test_native_ios_app_is_universal_ipad() -> None:
     assert (ROOT / "mobile" / "ios-app" / "App" / "App" / "capacitor.config.json").is_file()
     assert (ROOT / "mobile" / "ios-app" / "App" / "App" / "config.xml").is_file()
     native_app = (FRONTEND / "native-app.js").read_text(encoding="utf-8")
-    assert 'BUNDLED_ASSET_VERSION = "28"' in native_app
+    assert 'BUNDLED_ASSET_VERSION = "29"' in native_app
+    session = (FRONTEND / "session-auth.js").read_text(encoding="utf-8")
+    native_portal = session.split("function portalUrl", 1)[1].split("function getCapacitorAppId", 1)[0]
+    assert "capacitorAssetUrl" in native_portal
+    assert "://localhost/" in native_portal
+    capacitor_branch = native_portal.split("if (isCapacitorNative())", 1)[1].split("if (isNativeSource())", 1)[0]
+    assert "app.shiftswifthr.co.uk" not in capacitor_branch
+    assert (ROOT / "mobile" / "www" / "app" / "admin.html").is_file()
+    assert (ROOT / "mobile" / "www" / "app" / "admin-tablet.css").is_file()
+    assert (ROOT / "mobile" / "www" / "app" / "employee.html").is_file()
 

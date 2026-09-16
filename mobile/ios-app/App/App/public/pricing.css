@@ -1,0 +1,1042 @@
+/* Subscription pricing — marketing & signup (shared with landing.css) */
+
+.pricing-section {
+  padding: 48px 0 48px;
+  overflow: visible;
+}
+
+@media (max-width: 900px) {
+  .pricing-section {
+    padding: 32px 0 28px;
+  }
+
+  .pricing-subsection {
+    margin-top: 24px;
+  }
+
+  .pricing-footnote {
+    margin-top: 20px;
+  }
+}
+
+.pricing-intro {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 40px;
+}
+
+.pricing-intro h2 {
+  font-family: var(--font-heading);
+  font-size: var(--text-section-size);
+  font-weight: var(--text-section-weight);
+  letter-spacing: var(--text-section-tracking);
+  color: var(--pine);
+}
+
+.pricing-intro p {
+  font-size: var(--text-body-size-lg);
+  font-weight: var(--text-support-weight);
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+.pricing-grid--platform {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pricing-billing-toggle {
+  display: inline-flex;
+  margin-top: 20px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-card);
+}
+
+.pricing-billing-toggle button {
+  border: none;
+  background: transparent;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: var(--text-label-weight);
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.pricing-billing-toggle button.is-active {
+  background: var(--pine);
+  color: var(--white);
+}
+
+.pricing-billing-toggle .save-tag {
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.pricing-link-cta {
+  display: block;
+  text-align: center;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-support-weight);
+  color: var(--green-700);
+  padding: 4px 0;
+}
+
+.pricing-link-cta:hover {
+  text-decoration: underline;
+}
+
+.pricing-card {
+  background: var(--white);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  padding: 28px 24px 24px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.pricing-card:hover {
+  border-color: var(--green-500);
+  box-shadow: var(--shadow-soft);
+}
+
+.pricing-card.is-featured {
+  background: var(--pine);
+  border: 2px solid var(--verdant);
+  box-shadow: var(--shadow-pine);
+  z-index: 2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pricing-card.is-featured {
+    transform: translateY(-8px) scale(1.02);
+  }
+
+  .pricing-card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (max-width: 900px) {
+  .pricing-card.is-featured {
+    transform: none;
+  }
+}
+
+.pricing-card.is-featured .pricing-plan-name,
+.pricing-card.is-featured .pricing-amount .currency,
+.pricing-card.is-featured .pricing-amount .value {
+  color: var(--white);
+}
+
+.pricing-card.is-featured .pricing-plan-desc,
+.pricing-card.is-featured .pricing-amount .interval,
+.pricing-card.is-featured .pricing-vat,
+.pricing-card.is-featured .pricing-staff-cap,
+.pricing-card.is-featured .pricing-features li,
+.pricing-card.is-featured .pricing-per-head-detail,
+.pricing-card.is-featured .pricing-examples li {
+  color: rgba(234, 243, 222, 0.88);
+}
+
+.pricing-card.is-featured .pricing-examples strong {
+  color: var(--white);
+  font-weight: 600;
+}
+
+.pricing-card.is-featured .pricing-badge {
+  background: var(--verdant);
+  color: var(--pine);
+}
+
+.pricing-card.is-featured .btn {
+  background: var(--verdant);
+  color: var(--pine);
+}
+
+.pricing-card.is-featured .btn:hover {
+  box-shadow: 0 10px 24px rgba(29, 158, 117, 0.4);
+}
+
+.pricing-card.is-featured .pricing-link-cta {
+  color: var(--sage-50);
+}
+
+.pricing-grid--platform {
+  align-items: center;
+}
+
+.pricing-grid--platform .pricing-card:not(.is-featured) {
+  box-shadow: 0 8px 24px rgba(15, 46, 34, 0.06);
+}
+
+.pricing-card.is-selected {
+  border-color: var(--green-700);
+  background: linear-gradient(180deg, var(--white) 0%, var(--green-100) 100%);
+  box-shadow: 0 0 0 3px rgba(15, 110, 86, 0.15);
+}
+
+.pricing-card-head {
+  display: grid;
+  gap: 8px;
+}
+
+.pricing-plan-name {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: var(--text-card-title-weight);
+  color: var(--pine);
+  letter-spacing: var(--text-card-title-tracking);
+}
+
+.pricing-plan-desc {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: var(--text-support-weight);
+  line-height: 1.5;
+  min-height: 42px;
+}
+
+.pricing-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--green-100);
+  color: var(--green-800);
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase;
+}
+
+.pricing-badge--muted {
+  background: var(--gray-100, #f0efeb);
+  color: var(--gray-700);
+}
+
+.pricing-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pricing-amount .currency {
+  font-size: 1.125rem;
+  font-weight: var(--text-price-weight);
+  letter-spacing: var(--text-price-tracking);
+  color: var(--gray-900);
+}
+
+.pricing-amount .value {
+  font-family: var(--font-heading);
+  font-size: var(--text-price-size);
+  font-weight: var(--text-price-weight);
+  line-height: 1;
+  color: var(--pine);
+  letter-spacing: var(--text-price-tracking);
+}
+
+.pricing-amount .interval {
+  font-size: var(--text-body-size);
+  font-weight: var(--text-support-weight);
+  color: var(--gray-500);
+}
+
+.pricing-vat {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-caption-weight);
+  color: var(--gray-500);
+}
+
+.pricing-vat strong {
+  color: var(--green-700);
+  font-weight: var(--text-label-weight);
+}
+
+.pricing-staff-cap {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-label-weight);
+  color: var(--gray-700);
+}
+
+.pricing-model-note {
+  max-width: 640px;
+  margin: 0 auto 1rem;
+  font-size: var(--text-caption-size);
+}
+
+.pricing-calculator {
+  margin: 0;
+  max-width: none;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid rgba(15, 46, 34, 0.1);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-card);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pricing-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 20px;
+  max-width: 1080px;
+  margin: 2rem auto 0;
+  align-items: stretch;
+}
+
+.pricing-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  margin: 0;
+  max-width: none;
+}
+
+.pricing-integration-wrap {
+  min-width: 0;
+}
+
+.pricing-card--integration {
+  height: 100%;
+  border-color: var(--green-500, #2a9d7a);
+  background: linear-gradient(180deg, var(--white) 0%, rgba(232, 244, 240, 0.45) 100%);
+}
+
+.pricing-integration-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.pricing-integration-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pricing-integration-split__col {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--white);
+  border: 1px solid var(--gray-200, #e5e7eb);
+}
+
+.pricing-integration-split__col strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: var(--text-caption-size);
+  color: var(--green-700);
+}
+
+.pricing-integration-split__col p {
+  margin: 0;
+  font-size: var(--text-caption-size);
+  color: var(--gray-700);
+  line-height: 1.45;
+}
+
+.pricing-card--enterprise {
+  max-width: none;
+  margin: 0;
+  text-align: left;
+  height: 100%;
+}
+
+.pricing-card--enterprise__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 900px) {
+  .pricing-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-secondary {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pricing-integration-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-calculator h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.125rem;
+}
+
+.pricing-calculator__controls {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.pricing-calculator label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-label-weight);
+}
+
+.pricing-calculator select,
+.pricing-calculator input {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--gray-300, #d1d5db);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.pricing-calculator__result {
+  margin: 1rem 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: var(--text-label-weight);
+}
+
+.pricing-calculator__detail {
+  margin: 0;
+  font-size: var(--text-caption-size);
+}
+
+@media (max-width: 560px) {
+  .pricing-calculator__controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-examples {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.pricing-examples li {
+  font-size: var(--text-caption-size);
+  color: var(--gray-700);
+}
+
+.pricing-examples strong {
+  color: var(--gray-900);
+}
+
+.pricing-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  flex: 1;
+}
+
+.pricing-features li {
+  position: relative;
+  padding-left: 22px;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-support-weight);
+  color: var(--gray-700);
+  line-height: 1.45;
+}
+
+.pricing-features li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--green-700);
+  font-weight: 800;
+}
+
+.pricing-card-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.pricing-card-actions .btn {
+  width: 100%;
+}
+
+.pricing-card-actions .btn.ghost {
+  font-size: 12px;
+  padding: 8px 16px;
+}
+
+.pricing-badge--payroll {
+  background: #e8f4f0;
+  color: var(--brand-700, #0f6e56);
+}
+
+.pricing-subsection {
+  margin-top: 48px;
+}
+
+.pricing-subsection h3 {
+  text-align: center;
+  margin: 0 0 8px;
+  font-size: var(--text-card-title-size);
+  font-weight: var(--text-card-title-weight);
+  letter-spacing: var(--text-card-title-tracking);
+}
+
+.pricing-model-tag {
+  display: inline-block;
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  text-transform: uppercase;
+  letter-spacing: var(--text-label-tracking);
+  padding: 3px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--gray-100, #f3f4f6);
+  color: var(--gray-600, #4b5563);
+  vertical-align: middle;
+}
+
+.pricing-grid--payroll {
+  margin-top: 20px;
+  grid-template-columns: 1fr;
+}
+
+.pricing-card--payroll {
+  border-style: dashed;
+}
+
+.pricing-card--skip .pricing-amount .value {
+  color: var(--gray-500);
+}
+
+.signup-payroll-heading {
+  margin: 28px 0 8px;
+  font-size: 1.1rem;
+}
+
+.pricing-footnote {
+  width: 100%;
+  max-width: min(42rem, calc(100% - 32px));
+  margin: 28px auto 0;
+  padding: 0 16px 24px;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1.65;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-caption-weight);
+  color: var(--gray-400);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.pricing-footnote__link {
+  display: inline;
+  margin-left: 0.35rem;
+  white-space: nowrap;
+}
+
+.pricing-footnote__link a {
+  color: var(--green-700);
+  font-weight: var(--text-support-weight);
+  text-decoration: underline;
+}
+
+.pricing-loading,
+.pricing-error {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--gray-500);
+}
+
+/* Signup page — room for plan picker + form */
+.signup-page {
+  min-height: 100vh;
+  padding: 32px 24px 64px;
+  background: var(--page-bg);
+}
+
+.signup-page-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.signup-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.signup-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 28px;
+  align-items: start;
+}
+
+.signup-form-panel,
+.signup-trust-panel {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  padding: 28px 32px;
+  box-shadow: var(--shadow-card);
+}
+
+.signup-plans-panel {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  padding: 28px 32px;
+  box-shadow: var(--shadow-card);
+}
+
+.signup-plans-panel h2,
+.signup-form-panel h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-heading);
+  font-size: var(--text-section-size);
+  font-weight: var(--text-section-weight);
+  letter-spacing: var(--text-section-tracking);
+  color: var(--gray-900);
+}
+
+.signup-form-panel__lead {
+  margin: 0 0 12px;
+}
+
+.signup-trust-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: var(--text-support-weight);
+  color: var(--green-800);
+}
+
+.signup-trust-inline li::before {
+  content: "✓ ";
+  font-weight: 800;
+}
+
+.signup-trust-panel__title {
+  margin: 0 0 16px;
+  font-size: 1.05rem;
+  font-weight: var(--text-card-title-weight);
+  color: var(--gray-900);
+}
+
+.signup-trust-list {
+  margin: 0 0 16px;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 12px;
+  font-size: 0.9375rem;
+  color: var(--gray-700);
+}
+
+.signup-trust-list strong {
+  color: var(--gray-900);
+}
+
+.signup-trust-panel__note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.signup-plan-compare {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.signup-plan-compare summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--green-800);
+  margin-bottom: 16px;
+}
+
+.signup-plan-compare__grid {
+  margin-top: 12px;
+}
+
+.signup-summary-payroll {
+  font-size: 0.9375rem;
+  font-weight: var(--text-support-weight);
+  color: var(--gray-700);
+  margin-top: 4px;
+}
+
+.signup-plans-panel .pricing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.signup-summary {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--green-100);
+  border: 1px solid var(--card-border);
+}
+
+.signup-summary-label {
+  font-size: var(--text-label-size);
+  font-weight: var(--text-label-weight);
+  letter-spacing: var(--text-label-tracking);
+  text-transform: uppercase;
+  color: var(--green-800);
+  margin-bottom: 6px;
+}
+
+.signup-summary-plan {
+  font-size: 1.125rem;
+  font-weight: var(--text-card-title-weight);
+  letter-spacing: var(--text-card-title-tracking);
+  color: var(--gray-900);
+}
+
+.signup-summary-price {
+  font-size: var(--text-body-size);
+  font-weight: var(--text-support-weight);
+  color: var(--gray-700);
+  margin-top: 4px;
+}
+
+.signup-summary-detail {
+  margin: 8px 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+#signup-status {
+  min-height: 1.25em;
+  font-size: var(--text-caption-size);
+  color: var(--green-800);
+  font-weight: var(--text-support-weight);
+}
+
+/* Signup form — self-contained (signup page does not load styles.css) */
+.signup-form {
+  display: grid;
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.signup-form__section {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.signup-form__legend {
+  display: block;
+  width: 100%;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--green-800);
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.signup-form__legend-note {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--gray-500);
+}
+
+.signup-form__fields {
+  display: grid;
+  gap: 14px;
+}
+
+.signup-form__fields--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.signup-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.signup-field__label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--gray-700);
+  line-height: 1.3;
+}
+
+.signup-field__optional {
+  font-weight: 600;
+  color: var(--gray-500);
+}
+
+.signup-field__required {
+  font-weight: 600;
+  color: var(--green-800);
+}
+
+.signup-field__hint {
+  font-size: 0.8125rem;
+  font-weight: var(--text-support-weight);
+  color: var(--gray-500);
+  line-height: 1.45;
+}
+
+.signup-field input,
+.signup-field select {
+  width: 100%;
+  min-height: 48px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 0.9375rem;
+  background: var(--white);
+  color: var(--gray-900);
+  box-sizing: border-box;
+}
+
+.signup-field input::placeholder {
+  color: var(--gray-400);
+}
+
+.signup-field input:focus,
+.signup-field select:focus {
+  outline: none;
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px rgba(15, 110, 86, 0.12);
+}
+
+.signup-form__toggle {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--green-700);
+  cursor: pointer;
+  text-align: left;
+}
+
+.signup-form__toggle:hover {
+  text-decoration: underline;
+}
+
+.signup-form__collapse {
+  margin-top: 12px;
+}
+
+.signup-promo-details {
+  margin-top: 16px;
+}
+
+.signup-promo-details summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--green-800);
+  margin-bottom: 12px;
+}
+
+.signup-promo-details[open] summary {
+  margin-bottom: 10px;
+}
+
+.signup-form__apply {
+  margin-top: 12px;
+  align-self: flex-start;
+}
+
+.signup-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: var(--page-bg);
+  cursor: pointer;
+}
+
+.signup-check:last-child {
+  margin-bottom: 0;
+}
+
+.signup-check input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--green-700);
+}
+
+.signup-check span {
+  font-size: 0.875rem;
+  font-weight: var(--text-support-weight);
+  line-height: 1.55;
+  color: var(--gray-700);
+}
+
+.signup-check a {
+  color: var(--green-700);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.signup-service-scope {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
+  background: var(--white);
+}
+
+.signup-service-scope h3 {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  color: var(--green-900);
+}
+
+.signup-service-scope h3:not(:first-child) {
+  margin-top: 16px;
+}
+
+.signup-service-scope__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--gray-700);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.signup-service-scope__list li + li {
+  margin-top: 6px;
+}
+
+.signup-form__actions {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.signup-form__submit {
+  width: 100%;
+  min-height: 50px;
+  font-size: 0.9375rem;
+  border-radius: 12px;
+}
+
+.signup-form__back {
+  width: 100%;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.signup-form__status {
+  margin: 0;
+  min-height: 1.25em;
+  text-align: center;
+  font-size: var(--text-caption-size);
+  color: var(--green-800);
+  font-weight: var(--text-support-weight);
+}
+
+.promo-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.promo-message {
+  margin: 10px 0 0;
+  font-size: var(--text-caption-size);
+  font-weight: var(--text-caption-weight);
+}
+
+.promo-message.promo-success {
+  color: var(--green-800);
+  font-weight: var(--text-support-weight);
+}
+
+@media (max-width: 640px) {
+  .promo-row,
+  .signup-form__fields--2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .pricing-grid,
+  .pricing-grid--platform {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signup-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-trust-panel {
+    order: 2;
+  }
+
+  .signup-plans-panel .pricing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .pricing-grid,
+  .pricing-grid--platform,
+  .signup-plans-panel .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-plans-panel,
+  .signup-form-panel {
+    padding: 20px;
+  }
+}

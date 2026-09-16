@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <title>ShiftSwift HR | Start your free 14-day trial</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon.png?v=brandkit-v1" />
+    <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v1" />
+    <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v1" />
+    <link rel="stylesheet" href="./landing.css?v=brandkit-v8" />
+    <link rel="stylesheet" href="./pricing.css?v=10" />
+  </head>
+  <body class="signup-page">
+    <div class="signup-page-inner">
+      <header class="signup-topbar">
+        <a class="brand" href="./index.html">
+          <img class="brand-logo" src="./assets/shiftswift-hr-logo-nav.svg?v=brandkit-v4" alt="ShiftSwift HR" />
+        </a>
+        <a class="btn ghost" href="./index.html#pricing">Compare plans</a>
+      </header>
+
+      <div class="signup-layout">
+        <section class="signup-form-panel" aria-labelledby="form-heading">
+          <h1 id="form-heading">Start your free 14-day trial</h1>
+          <p class="muted signup-form-panel__lead">No card required · UK HR &amp; compliance · cancel anytime</p>
+
+          <ul class="signup-trust-inline" aria-label="Why sign up">
+            <li>No card required for trial</li>
+            <li>UK-hosted · Built for UK GDPR</li>
+            <li>Setup in under 5 minutes</li>
+          </ul>
+
+          <div id="signup-plan-summary" class="signup-summary">
+            <div class="signup-summary-label">Your selection</div>
+            <div class="signup-summary-plan" id="signup-summary-hr">Compliance · HR platform</div>
+            <div class="signup-summary-payroll" id="signup-summary-payroll" hidden></div>
+            <div class="signup-summary-price" id="signup-summary-price">From £19 + £3/active employee · capped at £79 + VAT / month</div>
+            <p class="signup-summary-detail muted" id="signup-summary-detail" aria-live="polite"></p>
+          </div>
+
+          <form id="signup-form" class="signup-form">
+            <input type="hidden" id="selected-plan-id" name="plan_id" value="site_medium_monthly" />
+
+            <fieldset class="signup-form__section">
+              <legend class="signup-form__legend">Your business</legend>
+              <div class="signup-form__fields">
+                <label class="signup-field">
+                  <span class="signup-field__label">Business name</span>
+                  <input name="business_name" required placeholder="e.g. The Crown Pub" autocomplete="organization" />
+                </label>
+                <label class="signup-field">
+                  <span class="signup-field__label">Billing email</span>
+                  <input name="billing_email" type="email" required placeholder="accounts@yourbusiness.co.uk" autocomplete="email" />
+                  <span class="signup-field__hint">Used for invoices and as your sign-in username</span>
+                </label>
+                <label class="signup-field">
+                  <span class="signup-field__label">Password</span>
+                  <input name="admin_password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" />
+                </label>
+                <label class="signup-field">
+                  <span class="signup-field__label">Confirm password</span>
+                  <input name="admin_password_confirm" type="password" required minlength="8" autocomplete="new-password" placeholder="Re-enter password" />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="signup-form__section">
+              <legend class="signup-form__legend">Subscription</legend>
+              <div class="signup-form__fields">
+                <label class="signup-field" for="signup-hr-plan-select">
+                  <span class="signup-field__label">Select HR plan <span class="signup-field__required">(required)</span></span>
+                  <select id="signup-hr-plan-select" name="hr_plan_select" required aria-describedby="signup-summary-hr"></select>
+                </label>
+                <label class="signup-field" for="signup-active-employees">
+                  <span class="signup-field__label">Active employees</span>
+                  <input
+                    id="signup-active-employees"
+                    name="expected_active_employees"
+                    type="number"
+                    min="0"
+                    max="500"
+                    value="10"
+                    inputmode="numeric"
+                    required
+                    aria-describedby="signup-headcount-hint signup-summary-detail"
+                  />
+                  <span class="signup-field__hint" id="signup-headcount-hint">Managers and HR logins are free — billing uses active employees only.</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="signup-form__section">
+              <legend class="signup-form__legend">Extras</legend>
+              <button type="button" class="signup-form__toggle" id="vat-toggle" aria-expanded="false" aria-controls="vat-field-wrap">
+                + Add VAT number
+              </button>
+              <div id="vat-field-wrap" class="signup-form__collapse" hidden>
+                <label class="signup-field">
+                  <span class="signup-field__label">VAT number</span>
+                  <input name="vat_number" placeholder="GB123456789" autocomplete="off" />
+                </label>
+              </div>
+
+              <details class="signup-promo-details">
+                <summary>Have an introducer or promo code?</summary>
+                <label class="signup-field">
+                  <span class="signup-field__label">Introducer / promo code</span>
+                  <input name="promo_code" id="promo-code" placeholder="From your HR advisor or launch offer" autocomplete="off" />
+                </label>
+                <p class="muted signup-field__hint">Optional. If an HR consultant or partner referred you, they will give you a code — not a separate login.</p>
+                <button type="button" class="btn ghost signup-form__apply" id="apply-promo-btn">Apply code</button>
+                <p id="promo-message" class="promo-message muted" role="status"></p>
+              </details>
+            </fieldset>
+
+            <fieldset class="signup-form__section signup-form__section--legal">
+              <legend class="signup-form__legend">Service scope &amp; agreement</legend>
+              <div class="signup-service-scope" aria-labelledby="signup-service-scope-title">
+                <h3 id="signup-service-scope-title">What ShiftSwift HR provides</h3>
+                <ul class="signup-service-scope__list">
+                  <li>Cloud HR software: employee records, onboarding lifecycle, document store, rota, and employee portal</li>
+                  <li>Tools to share payslips, publish rotas, and invite staff to the employee portal</li>
+                  <li>Sponsor compliance <strong>recording and alert tools</strong> (RTW evidence storage, absence tracking, SMS change logs) — not legal advice</li>
+                  <li>Geofenced time clock (mobile PWA) and audit export features (by plan)</li>
+                  <li>UK-hosted workspace with role-based HR admin access</li>
+                </ul>
+                <h3>Your organisation remains responsible for</h3>
+                <ul class="signup-service-scope__list signup-service-scope__list--resp">
+                  <li>All HR, payroll, tax, and employment law decisions and accurate employee data</li>
+                  <li>Right to Work checks, Home Office SMS reporting, and acting on compliance alerts</li>
+                  <li>Immigration and sponsor licence compliance — ShiftSwift HR does <strong>not</strong> submit Home Office reports for you</li>
+                  <li>Paying subscription fees per the selected plan and B2B payment terms</li>
+                  <li>Designating competent staff to review alerts and maintain records</li>
+                </ul>
+              </div>
+              <p class="signup-sponsor-duty-note muted" id="signup-sponsor-duty-note" hidden>
+                ShiftSwift HR provides <strong>recording tools and alerts</strong> for sponsor licence compliance.
+                Your organisation remains responsible for Right to Work checks, Home Office SMS reporting, and acting on alerts.
+              </p>
+              <label class="signup-check">
+                <input type="checkbox" name="accept_service_scope" required />
+                <span>
+                  I have read the service scope above and understand what ShiftSwift HR provides and what remains my organisation&rsquo;s responsibility.
+                </span>
+              </label>
+              <label class="signup-check">
+                <input type="checkbox" name="start_trial" checked />
+                <span>Start my 14-day free trial before billing begins</span>
+              </label>
+              <label class="signup-check">
+                <input type="checkbox" name="accept_eula" required />
+                <span>
+                  I accept the
+                  <a href="./eula.html" target="_blank" rel="noopener">HR Module EULA</a>
+                  on behalf of my organisation.
+                </span>
+              </label>
+              <label class="signup-check">
+                <input type="checkbox" name="accept_payment_terms" required />
+                <span>
+                  I accept the
+                  <a href="./payment-terms.html" target="_blank" rel="noopener">B2B payment terms</a>.
+                </span>
+              </label>
+              <label class="signup-check">
+                <input type="checkbox" name="accept_dpa" required />
+                <span>
+                  I accept the
+                  <a href="./dpa.html" target="_blank" rel="noopener">Data Processing Addendum (DPA)</a>
+                  and
+                  <a href="./privacy-policy.html" target="_blank" rel="noopener">privacy policy</a>.
+                </span>
+              </label>
+              <label class="signup-check">
+                <input type="checkbox" name="holds_sponsor_licence" id="holds-sponsor-licence" />
+                <span>Our organisation holds (or is applying for) a UK Sponsor Licence</span>
+              </label>
+              <label class="signup-check" id="sponsor-ack-wrap" hidden>
+                <input type="checkbox" name="sponsor_licence_acknowledged" id="sponsor-licence-ack" />
+                <span>
+                  I understand we must perform checks and submit Home Office reports ourselves, and I accept sponsor duty terms in the
+                  <a href="./eula.html" target="_blank" rel="noopener">HR Module EULA</a>
+                </span>
+              </label>
+            </fieldset>
+
+            <div class="signup-form__actions">
+              <button class="btn signup-form__submit" type="submit">Start my free trial</button>
+              <p id="signup-status" class="signup-form__status" role="status"></p>
+              <a class="btn ghost signup-form__back" href="./index.html">Back to home</a>
+            </div>
+          </form>
+
+          <details class="signup-plan-compare">
+            <summary>Compare all plans in detail</summary>
+            <div id="signup-pricing-plans" class="pricing-grid signup-plan-compare__grid"></div>
+            <div id="signup-payroll-plans" class="pricing-grid pricing-grid--payroll signup-plan-compare__grid" hidden></div>
+          </details>
+        </section>
+
+        <aside class="signup-trust-panel" aria-label="Trust and reassurance">
+          <h2 class="signup-trust-panel__title">Why teams choose ShiftSwift HR</h2>
+          <ul class="signup-trust-list">
+            <li><strong>No card required</strong> for your 14-day trial</li>
+            <li><strong>Cancel anytime</strong> on monthly plans</li>
+            <li><strong>UK-hosted data</strong> · Built for UK GDPR</li>
+            <li><strong>Setup in under 5 minutes</strong> — we create your workspace instantly</li>
+          </ul>
+          <p class="signup-trust-panel__note muted">Sign in anytime at business login with your billing email and the password you set here.</p>
+        </aside>
+      </div>
+
+      <footer class="site-footer site-footer--compact">
+        <div class="site-footer__grid">
+          <div>
+            <strong>ShiftSwift HR</strong>
+            <p>UK HR &amp; sponsor licence compliance software.</p>
+          </div>
+          <div>
+            <div class="site-footer__label">Legal</div>
+            <a href="./eula.html" target="_blank" rel="noopener">EULA</a>
+            <a href="./payment-terms.html" target="_blank" rel="noopener">Payment terms</a>
+            <a href="./dpa.html" target="_blank" rel="noopener">DPA</a>
+            <a href="./privacy-policy.html" target="_blank" rel="noopener">Privacy</a>
+            <a href="./cookies.html" target="_blank" rel="noopener">Cookies</a>
+          </div>
+          <div>
+            <p class="site-footer__legal">
+              Datasoftware Analytics Ltd · Co. 14568900<br />
+              235 Charlbury Road, Nottingham, NG8 1NF
+            </p>
+          </div>
+        </div>
+        <p class="site-footer__copy">© 2026 Datasoftware Analytics Ltd. All rights reserved.</p>
+      </footer>
+    </div>
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./pricing.js?v=7"></script>
+    <script src="./signup.js?v=8"></script>
+      <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

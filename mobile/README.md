@@ -1,17 +1,17 @@
 # ShiftSwift HR — Native iOS apps
 
 Native **App Store** shells for the same Employee and HR Admin experiences as the PWAs.  
-Built with [Capacitor](https://capacitorjs.com/): a full-screen iOS WebView loads `app.shiftswifthr.co.uk`, so UI, API calls, and features stay identical to the web/PWA apps.
+Built with [Capacitor](https://capacitorjs.com/). The ShiftSwift HR iPad app loads **bundled local files** (login, admin, employee, iPad layout). It does **not** open `app.shiftswifthr.co.uk` after sign-in. API calls still go to `api.shiftswifthr.co.uk`.
 
 ## Apps
 
 | App | Bundle ID | Capacitor variant | Xcode project | Start URL |
 |-----|-----------|-------------------|---------------|-----------|
-| **ShiftSwift HR** (unified) | `co.uk.shiftswifthr.app` | `app` | `ios-app/` | Bundled login, then `app.shiftswifthr.co.uk` |
-| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `ios-employee/` | `employee-login.html?source=native` |
-| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `ios-business/` | `business-login.html?source=native` |
+| **ShiftSwift HR** (unified) | `co.uk.shiftswifthr.app` | `app` | `ios-app/` | Bundled `index.html` login, then local `admin.html` / `employee.html` |
+| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `ios-employee/` | Bundled `employee-login.html` |
+| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `ios-business/` | Bundled `business-login.html` |
 
-The iPad Himalayan Inn app is **ShiftSwift HR** (`ios-app`). After a web deploy it loads the live PWA; this native update adds camera/location permission strings and bumps the build so WebKit drops a stale cache.
+The iPad Himalayan Inn app is **ShiftSwift HR** (`ios-app`). iPad layout, in-app PDFs, and QR scan ship inside the IPA. After you pull this branch and sync, you do not need a web deploy for those screens.
 
 ## Requirements
 
@@ -119,7 +119,7 @@ Or in Xcode: Product → Archive → Distribute App → App Store Connect → Ex
 
 ## How it matches the PWA
 
-- Same HTML/CSS/JS from `app.shiftswifthr.co.uk`
+- Same HTML/CSS/JS **bundled in the app** (iPad layout, PDFs, QR). Login talks to `api.shiftswifthr.co.uk`.
 - Same bottom tabs, clock-in, rotas, documents
 - `native-app.js` hides “Add to Home Screen” prompts in the native shell
 - Green splash + status bar (`#0f6e56`) like the PWA
@@ -131,7 +131,7 @@ Or in Xcode: Product → Archive → Distribute App → App Store Connect → Ex
 ```
 mobile/
   capacitor.config.ts    # app | employee | business via SSHR_APP
-  www/app/               # unified ShiftSwift HR login (iPad)
+  www/app/               # bundled ShiftSwift HR (login + admin + employee)
   www/employee/
   www/business/
   ios-app/               # Xcode project — ShiftSwift HR (iPhone + iPad)

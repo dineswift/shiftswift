@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en" data-app-icon="employee" data-pwa-portal="employee">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="canonical" href="https://app.shiftswifthr.co.uk/employee-login.html" />
+    <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
+    <meta name="theme-color" content="#0f6e56" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Employee" />
+    <script src="./portal-sw-guard.js?v=2"></script>
+    <script>
+      (function () {
+        try {
+          var cap = window.Capacitor;
+          if (!cap?.isNativePlatform?.()) return;
+          if (cap.config?.appId !== "co.uk.shiftswifthr.app") return;
+          var scheme = cap.config?.ios?.scheme || "App";
+          window.location.replace(scheme + "://localhost/index.html");
+        } catch (e) {}
+      })();
+    </script>
+    <script src="./brand-config.js?v=brand-v7"></script>
+    <script src="./app-host-guard.js?v=2"></script>
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script src="./native-app.js?v=6"></script>
+    <script src="./pwa-ios.js?v=1"></script>
+    <title>ShiftSwift Employee | Sign in</title>
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
+  </head>
+  <body class="portal-login-page portal-login-page--employee" data-login-page="employee">
+    <div class="portal-login-shell">
+      <header class="portal-login-brand">
+        <a href="./employee-login.html" aria-label="Employee sign in">
+          <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6" alt="ShiftSwift Employee" />
+        </a>
+        <p class="portal-login-brand-copy">Employee portal &amp; time clock</p>
+      </header>
+
+      <section class="portal-login-card portal-login-card--employee portal-login-card--has-install" id="portal-login-card">
+        <div id="portal-pwa-install-banner" class="portal-pwa-install-banner" hidden role="region" aria-label="Install app">
+          <div class="portal-pwa-install-banner__copy">
+            <strong id="portal-pwa-install-title">Get Employee app</strong>
+            <p id="portal-pwa-install-copy">Add ShiftSwift Employee to your iPhone home screen for a full-screen app experience.</p>
+          </div>
+          <div class="portal-pwa-install-banner__actions">
+            <button type="button" class="btn primary" id="portal-pwa-install-btn">Add to Home Screen</button>
+            <button type="button" class="btn ghost portal-pwa-install-dismiss" id="portal-pwa-install-dismiss">Not now</button>
+          </div>
+        </div>
+
+        <div class="portal-login-role-banner" id="login-role-banner" role="status" aria-live="polite">
+          <span class="portal-login-role-banner__pill" id="login-role-banner-pill">Employee</span>
+          <p class="portal-login-role-banner__copy" id="login-role-banner-copy">
+            Sign in to clock in, view payslips, documents, and your shift schedule.
+          </p>
+        </div>
+
+        <div id="login-shell" class="portal-login-card-body">
+          <div class="portal-login-card-head">
+            <h1>Employee sign in</h1>
+            <p class="portal-login-card-lead" id="login-lead">Sign in to view payslips, documents, and your shift schedule.</p>
+            <p class="muted portal-login-card-note">Use the work email address your employer invited you with.</p>
+          </div>
+
+          <form id="portal-login-form" class="portal-login-form">
+            <label>
+              Username
+              <input name="username" required autocomplete="username" placeholder="employee@shiftswifthr.co.uk" />
+            </label>
+            <label class="portal-login-password-field">
+              <span class="portal-login-password-label">
+                <span id="password-label">Password</span>
+                <a
+                  class="portal-login-inline-link portal-login-forgot"
+                  id="forgot-password-link"
+                  href="./employee-forgot-password.html"
+                >Forgot password?</a>
+              </span>
+              <input
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="Enter password"
+                aria-labelledby="password-label"
+              />
+            </label>
+
+            <p id="login-status" class="form-error-message" hidden></p>
+
+            <button class="btn portal-login-submit" type="submit" id="login-submit">
+              Open employee portal
+            </button>
+
+            <p class="portal-login-secure-note">
+              Secured · <span data-secure-host>shiftswifthr.co.uk</span>
+            </p>
+            <p class="portal-login-alt-note">
+              One login for everyone —
+              <a class="portal-login-inline-link" href="./native-app-login.html">Sign in with work email</a>
+            </p>
+          </form>
+
+        </div>
+
+        <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
+          <div class="portal-login-card-head">
+            <h1>Set up authenticator</h1>
+            <p class="portal-login-card-lead">
+              Two-factor authentication is required. Scan the QR code in Google Authenticator, Authy, or Microsoft Authenticator, then enter a 6-digit code.
+            </p>
+          </div>
+          <div class="portal-login-form">
+            <p id="mfa-enrollment-user" class="muted"></p>
+            <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
+              <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
+            </div>
+            <p class="mfa-enrollment-secret-label">Manual key</p>
+            <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
+            <label>
+              Verification code
+              <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
+            </label>
+            <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
+            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+          </div>
+        </div>
+
+        <div id="mfa-panel" class="portal-login-card-body" hidden>
+          <div class="portal-login-card-head">
+            <h1>Two-factor authentication</h1>
+            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+          </div>
+          <form id="mfa-form" class="portal-login-form">
+            <label>
+              Authenticator code
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+            </label>
+            <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+          </form>
+        </div>
+      </section>
+
+      <p class="portal-login-footnote muted">
+        Need help signing in? Email
+        <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>.
+        · <a class="portal-login-inline-link" href="./install-employee.html">Install iPhone app</a>
+      </p>
+    </div>
+    <script src="./session-auth.js?v=3"></script>
+    <script src="./portal-pwa-stability.js?v=1"></script>
+    <script src="./employee-pwa.js?v=7"></script>
+    <script src="./login.js?v=brandkit-v17"></script>
+    <script>
+      window.ShiftSwiftEmployeePwa?.registerEmployeeSw?.();
+    </script>
+    <script
+      src="./portal-pwa-install.js?v=3"
+      data-portal="employee"
+      data-app-name="ShiftSwift Employee"
+      data-manifest="./employee-manifest.webmanifest?v=8"
+      data-sw="./employee-sw.js?v=14"
+      data-layout="login-card"
+    ></script>
+    <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

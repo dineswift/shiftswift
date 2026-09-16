@@ -69,13 +69,12 @@ const apps: Record<AppVariant, CapacitorConfig> = {
     appId: "co.uk.shiftswifthr.employee",
     appName: "Employee",
     webDir: "www/employee",
-    server: devServer
-      ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation }
-      : {
-          url: "https://app.shiftswifthr.co.uk/employee-login.html?source=native",
-          cleartext: false,
-          allowNavigation,
-        },
+    server: {
+      allowNavigation,
+      ...(devServer
+        ? { url: devServer, cleartext: devServer.startsWith("http://") }
+        : {}),
+    },
     ios: {
       path: "ios-employee",
       contentInset: "automatic",
@@ -89,13 +88,12 @@ const apps: Record<AppVariant, CapacitorConfig> = {
     appId: "co.uk.shiftswifthr.hradmin",
     appName: "HR Admin",
     webDir: "www/business",
-    server: devServer
-      ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation }
-      : {
-          url: "https://app.shiftswifthr.co.uk/business-login.html?source=native",
-          cleartext: false,
-          allowNavigation,
-        },
+    server: {
+      allowNavigation,
+      ...(devServer
+        ? { url: devServer, cleartext: devServer.startsWith("http://") }
+        : {}),
+    },
     ios: {
       path: "ios-business",
       contentInset: "automatic",

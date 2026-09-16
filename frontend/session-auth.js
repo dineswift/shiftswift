@@ -50,7 +50,7 @@
         window.Capacitor?.config?.appId === "co.uk.shiftswifthr.app"
       ) {
         const scheme = window.Capacitor.config?.ios?.scheme || "App";
-        return `${scheme}://localhost/index.html?build=28&v=28`;
+        return `${scheme}://localhost/index.html?build=29&v=29`;
       }
     } catch {
       /* ignore */
@@ -90,7 +90,17 @@
 
   function portalUrl(path) {
     const clean = String(path || "admin.html").replace(/^\.\//, "");
-    if (isCapacitorNative() || isNativeSource()) {
+    if (isCapacitorNative()) {
+      if (window.ShiftSwiftNativeApp?.capacitorAssetUrl) {
+        return withNativeSource(window.ShiftSwiftNativeApp.capacitorAssetUrl(clean));
+      }
+      const scheme = window.Capacitor?.config?.ios?.scheme || "App";
+      const hashIndex = clean.indexOf("#");
+      const hash = hashIndex >= 0 ? clean.slice(hashIndex) : "";
+      const file = (hashIndex >= 0 ? clean.slice(0, hashIndex) : clean).replace(/^\/+/, "");
+      return withNativeSource(`${scheme}://localhost/${file}${hash}`);
+    }
+    if (isNativeSource()) {
       return withNativeSource(`https://app.shiftswifthr.co.uk/${clean}`);
     }
     return `./${clean}`;

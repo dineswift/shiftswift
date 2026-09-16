@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en" data-app-icon="clock">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <script>
+      (function () {
+        var target = new URL("./employee.html", window.location.href);
+        target.hash = "time-clock";
+        if (window.location.search) target.search = window.location.search;
+        window.location.replace(target.toString());
+      })();
+    </script>
+    <meta name="theme-color" content="#0f6e56" />
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Time Clock" />
+    <meta name="description" content="Clock in and out at your assigned work sites with GPS or premises QR." />
+    <title>ShiftSwift Time Clock</title>
+    <link rel="manifest" href="./punch-manifest.webmanifest?v=4" />
+    <link rel="stylesheet" href="./theme.css?v=brand-v1" />
+    <link rel="stylesheet" href="./punch.css?v=6" />
+  </head>
+  <body class="punch-app">
+    <div class="punch-shell">
+      <header class="punch-header">
+        <a class="punch-brand" href="./punch.html" aria-label="ShiftSwift Time Clock home">
+          <img class="app-mark app-mark--chrome" src="./assets/shiftswift-clock-app-icon-192.png?v=brandkit-v5" alt="" />
+          <span class="punch-brand-text">
+            <strong>Time Clock</strong>
+            <span>ShiftSwift HR</span>
+          </span>
+        </a>
+        <div class="punch-header-actions">
+          <button type="button" class="punch-link-btn" id="punch-sign-out" hidden>Sign out</button>
+        </div>
+      </header>
+
+      <div id="punch-offline-banner" class="punch-offline-banner" hidden role="status">
+        You are offline. The app shell works, but clock in/out needs a connection.
+      </div>
+
+      <div id="punch-update-banner" class="punch-update-banner" hidden role="status">
+        <p>A new version of Time Clock is ready.</p>
+        <button type="button" class="punch-btn punch-btn--primary" id="punch-update-btn">Update now</button>
+      </div>
+
+      <div id="pwa-install-banner" class="punch-install-banner punch-install-banner--slim" hidden>
+        <p id="pwa-install-copy">Add to home screen for faster access.</p>
+        <div class="punch-install-actions">
+          <button type="button" class="punch-btn punch-btn--outline punch-btn--compact" id="pwa-install-btn">Install</button>
+          <button type="button" class="punch-link-btn punch-install-dismiss" id="pwa-install-dismiss" aria-label="Dismiss">×</button>
+        </div>
+      </div>
+
+      <section id="punch-login-view" class="punch-view">
+        <article class="punch-card">
+          <h1>Employee sign in</h1>
+          <p class="punch-lead">Sign in to clock in or out at your assigned work site. Use GPS outdoors or scan the premises QR indoors.</p>
+
+          <form id="punch-login-form" class="punch-form">
+            <label>
+              Username
+              <input name="username" required autocomplete="username" placeholder="employee@shiftswifthr.co.uk" />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" required autocomplete="current-password" placeholder="Enter password" />
+            </label>
+            <p class="punch-portal-link">
+              <a href="./employee-forgot-password.html">Forgot password?</a>
+            </p>
+            <p id="punch-login-status" class="punch-status-msg" hidden></p>
+            <button class="punch-btn punch-btn--primary" type="submit">Sign in to clock</button>
+          </form>
+
+          <p class="punch-secure-note">Secured · <span data-secure-host>shiftswifthr.co.uk</span></p>
+        </article>
+
+        <p class="punch-portal-link">
+          Need payslips or documents?
+          <a href="./business-login.html">Open full employee portal</a>
+        </p>
+
+        <details class="punch-install-help" id="punch-install-help">
+          <summary>How to install on your phone</summary>
+          <div class="punch-install-help__body">
+            <p class="punch-install-help__lead">
+              There is no App Store download. Add this page to your home screen once — then open the
+              <strong>Time Clock</strong> icon to clock in at work.
+            </p>
+            <div class="punch-install-help__grid">
+              <div class="punch-install-help__platform">
+                <h3>iPhone / iPad</h3>
+                <ol>
+                  <li>Open this page in <strong>Safari</strong> (not Chrome).</li>
+                  <li>Tap <strong>Share</strong> (square with arrow).</li>
+                  <li>Tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+                </ol>
+              </div>
+              <div class="punch-install-help__platform">
+                <h3>Android</h3>
+                <ol>
+                  <li>Open this page in <strong>Chrome</strong>.</li>
+                  <li>Tap <strong>Install app</strong> (banner or ⋮ menu).</li>
+                  <li>Confirm <strong>Add to Home screen</strong>.</li>
+                </ol>
+              </div>
+            </div>
+            <p class="punch-install-help__note">
+              When you clock in or out outdoors, allow <strong>location</strong> when your phone asks. Indoors, scan the premises QR code instead.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <section id="punch-mfa-view" class="punch-view" hidden>
+        <article class="punch-card">
+          <h1>Verification code</h1>
+          <p class="punch-lead">Enter the code sent for <strong data-mfa-user></strong>.</p>
+          <form id="punch-mfa-form" class="punch-form">
+            <label>
+              Code
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" required placeholder="123456" />
+            </label>
+            <p id="punch-mfa-status" class="punch-status-msg" hidden></p>
+            <button class="punch-btn punch-btn--primary" type="submit">Verify and continue</button>
+          </form>
+        </article>
+      </section>
+
+      <section id="punch-clock-view" class="punch-view" hidden>
+        <article class="punch-card punch-card--clock">
+          <header class="punch-clock-head">
+            <div>
+              <h1 id="punch-greeting">Time clock</h1>
+              <p class="punch-user-line" id="punch-user-line">Loading your shift status…</p>
+            </div>
+          </header>
+
+          <p class="punch-work-state" id="punch-work-state">Not clocked in</p>
+          <p class="punch-live-time" id="punch-live-time" aria-hidden="true">--:--</p>
+
+          <div id="punch-geofence-status" class="punch-location-pill punch-location-pill--loading" aria-live="polite" hidden>
+            Getting your location…
+          </div>
+
+          <div id="punch-expected-shift" class="punch-expected-shift" hidden></div>
+
+          <div class="punch-clock-actions">
+            <button type="button" class="punch-btn punch-btn--in" id="punch-in-btn">Clock in</button>
+            <div class="punch-clock-actions__secondary">
+              <button type="button" class="punch-btn punch-btn--secondary" id="punch-break-start-btn" disabled>Start break</button>
+              <button type="button" class="punch-btn punch-btn--secondary" id="punch-break-end-btn" hidden disabled>End break</button>
+              <button type="button" class="punch-btn punch-btn--secondary" id="punch-out-btn" disabled>Clock out</button>
+            </div>
+            <button type="button" class="punch-btn punch-btn--outline" id="punch-scan-btn">Scan premises QR instead</button>
+          </div>
+
+          <p id="punch-site-scan-status" class="punch-site-scan-status" hidden aria-live="polite"></p>
+          <p id="punch-message" class="punch-message" aria-live="polite"></p>
+
+          <section class="punch-info-card">
+            <h2 class="punch-info-card__title">This week&rsquo;s shifts</h2>
+            <ul id="punch-week-shifts" class="punch-shift-list">
+              <li class="muted">Loading…</li>
+            </ul>
+          </section>
+
+          <section class="punch-info-card">
+            <h2 class="punch-info-card__title">Your punch sites</h2>
+            <ul id="punch-sites" class="punch-site-list">
+              <li>Loading…</li>
+            </ul>
+          </section>
+        </article>
+
+        <p class="punch-portal-link">
+          <a href="./employee.html#time-clock">Open full employee portal</a>
+        </p>
+
+        <details class="punch-install-help" id="punch-install-help-signed-in">
+          <summary>How to install on your phone</summary>
+          <div class="punch-install-help__body">
+            <p class="punch-install-help__lead">
+              Add Time Clock to your home screen for quick access — same steps as on the sign-in screen.
+            </p>
+            <div class="punch-install-help__grid">
+              <div class="punch-install-help__platform">
+                <h3>iPhone / iPad</h3>
+                <ol>
+                  <li>Safari → <strong>Share</strong> → <strong>Add to Home Screen</strong>.</li>
+                </ol>
+              </div>
+              <div class="punch-install-help__platform">
+                <h3>Android</h3>
+                <ol>
+                  <li>Chrome → <strong>Install app</strong> or menu → <strong>Add to Home screen</strong>.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <dialog id="punch-scan-dialog" class="punch-scan-dialog">
+      <form method="dialog" class="punch-scan-dialog__inner">
+        <header class="punch-scan-dialog__head">
+          <h2>Scan premises QR</h2>
+          <button type="button" class="punch-link-btn" id="punch-scan-close" aria-label="Close">Close</button>
+        </header>
+        <p class="punch-scan-dialog__lead">Point your camera at the QR code displayed at your work site.</p>
+        <video id="punch-scan-video" class="punch-scan-video" playsinline muted></video>
+        <p id="punch-scan-message" class="punch-scan-message" aria-live="polite"></p>
+        <label class="punch-scan-fallback">
+          Or take a photo of the QR
+          <input type="file" id="punch-scan-photo" accept="image/*" capture="environment" />
+        </label>
+        <label class="punch-scan-fallback">
+          Or paste the code from the QR link
+          <input type="text" id="punch-scan-manual" placeholder="Paste QR link or code" autocomplete="off" />
+        </label>
+        <button type="button" class="punch-btn punch-btn--primary" id="punch-scan-manual-btn">Verify code</button>
+      </form>
+    </dialog>
+
+    <script src="./brand-config.js?v=brand-v4"></script>
+    <script src="./push-notifications.js?v=3"></script>
+    <script src="./qr-scan.js?v=1"></script>
+    <script src="./punch.js?v=9"></script>
+    <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <title>ShiftSwift HR | Setup</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/favicon.png?v=brandkit-v1" />
+    <link rel="icon" type="image/svg+xml" href="./assets/shiftswift-hr-icon.svg?v=brandkit-v1" />
+    <link rel="apple-touch-icon" href="./assets/shiftswift-hr-icon.png?v=brandkit-v1" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v1" />
+  </head>
+  <body class="auth-body">
+    <div class="setup-shell">
+      <div class="auth-card">
+        <a class="brand" href="./index.html">
+          <img class="brand-logo" src="./assets/shiftswift-hr-logo-nav.svg?v=brandkit-v4" alt="ShiftSwift HR" />
+        </a>
+        <h1>Web installer</h1>
+        <p class="muted">Local API connection · production API is api.shiftswifthr.co.uk</p>
+        <div id="setup-status" class="badge">Checking setup status…</div>
+        <form id="setup-form" class="stack" style="margin-top:16px;">
+          <label>API base URL<input name="api_base_url" placeholder="http://localhost:3000" /></label>
+          <label>Admin username<input name="admin_username" value="admin" /></label>
+          <label>Admin password<input name="admin_password" type="password" /></label>
+          <button class="btn" type="submit">Save configuration</button>
+        </form>
+        <p id="setup-message" class="muted"></p>
+      </div>
+    </div>
+    <script src="./brand-config.js?v=brand-v4"></script>
+    <script src="./setup.js?v=brandkit-v2"></script>
+      <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script src="./portal-sw-guard.js?v=2"></script>
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <meta name="robots" content="noindex, nofollow" />
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <title>ShiftSwift OPS | Master Sign In</title>
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v5" />
+  </head>
+  <body class="portal-login-page">
+    <div class="portal-login-shell">
+      <header class="portal-login-brand">
+        <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" />
+        <p class="portal-login-brand-copy">ShiftSwift OPS · Platform master</p>
+      </header>
+
+      <section class="portal-login-card">
+        <div id="login-shell" class="portal-login-card-body">
+          <div class="portal-login-card-head">
+            <h1>Master sign in</h1>
+            <p class="portal-login-card-lead">Platform administration only. Not for business HR or employees.</p>
+          </div>
+
+          <form id="ops-master-login-form" class="portal-login-form">
+            <label>
+              Username
+              <input name="username" required autocomplete="username" placeholder="admin@shiftswifthr.co.uk" />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" required autocomplete="current-password" />
+            </label>
+
+            <p id="login-status" class="form-error-message" hidden></p>
+
+            <button class="btn portal-login-submit" type="submit">Open master console</button>
+
+            <p class="portal-login-secure-note">
+              Secured · MFA required in production · <span data-secure-host>shiftswifthr.co.uk</span>
+            </p>
+          </form>
+
+          <p class="portal-login-alt-note">
+            Business HR or employee?
+            <a class="portal-login-inline-link" href="./business-login.html">Business sign in</a>
+          </p>
+        </div>
+
+        <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
+          <div class="portal-login-card-head">
+            <h1>Set up authenticator</h1>
+            <p class="portal-login-card-lead">
+              Production requires MFA for master admin. Scan the code below, then enter a 6-digit code to finish.
+            </p>
+          </div>
+          <div class="portal-login-form">
+            <p id="mfa-enrollment-user" class="muted"></p>
+            <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
+              <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
+            </div>
+            <p class="mfa-enrollment-secret-label">Manual key</p>
+            <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
+            <label>
+              Verification code
+              <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
+            </label>
+            <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
+            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+          </div>
+        </div>
+
+        <div id="mfa-panel" class="portal-login-card-body" hidden>
+          <div class="portal-login-card-head">
+            <h1>Two-factor authentication</h1>
+            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+          </div>
+          <form id="mfa-form" class="portal-login-form">
+            <label>
+              Authenticator code
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+            </label>
+            <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+          </form>
+        </div>
+      </section>
+    </div>
+    <script src="./brand-config.js?v=brand-v4"></script>
+    <script src="./login.js?v=brandkit-v17"></script>
+  </body>
+</html>
