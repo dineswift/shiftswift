@@ -33,7 +33,7 @@ npm run ios:setup
 
 ## Open in Xcode (Mac only)
 
-These commands must run **inside the git repo**, not from `~`. On this Mac that is usually `/Users/gskharel/Desktop/shiftswifthr`.
+Quit **Xcode** first (Cmd+Q). These commands must run **inside the git repo**, not from `~`. On this Mac that is usually `/Users/gskharel/Desktop/shiftswifthr`.
 
 ```bash
 cd /Users/gskharel/Desktop/shiftswifthr
@@ -43,14 +43,16 @@ git pull --ff-only origin cursor/ios-ipad-updates-b650
 cd mobile
 npm install
 npm run ios:sync
-npm run ios:open
+cd ios-app/App
+pod install
+open App.xcworkspace
 ```
 
 In Xcode:
 
-1. Select your **Team** (Signing & Capabilities).
-2. Choose a simulator or connected **iPhone or 13-inch iPad**.
-3. Press **Run** (⌘R).
+1. Scheme **App** (not Pods / Capacitor). Destination **Gobinda's iPAD** (or any connected iPhone/iPad) — not My Mac.
+2. App target → **Signing & Capabilities** → your Team.
+3. Product → **Clean Build Folder**, then **Run** (⌘R).
 
 To upload to **Transporter / TestFlight** instead of running locally:
 
@@ -106,7 +108,7 @@ SSHR_APP=business npx @capacitor/assets generate --ios
 npm run ios:ipa
 ```
 
-That writes `~/Desktop/ShiftSwiftHR-1.0.3-11.ipa`. Open **Transporter** from the Mac App Store, drag the IPA in, and click **Deliver**. App Store Connect then processes it for TestFlight.
+That writes `~/Desktop/ShiftSwiftHR-1.0.3-12.ipa`. Open **Transporter** from the Mac App Store, drag the IPA in, and click **Deliver**. App Store Connect then processes it for TestFlight.
 
 Or in Xcode: Product → Archive → Distribute App → App Store Connect → Export, then drop the IPA on Transporter.
 
@@ -140,11 +142,15 @@ mobile/
 
 | Issue | Fix |
 |-------|-----|
+| **Build Failed** (red banner, ~11 errors, navigator on Pods → Capacitor) | Quit Xcode. Open **`App.xcworkspace`**, scheme **App** (not the Capacitor pod), destination the **iPad**. Then `cd ios-app/App && pod install`, Product → Clean Build Folder, Run. |
+| Wrong git branch | Must be `cursor/ios-ipad-updates-b650`, not `release/unified-signin-push-epos-migrations` |
+| App icon / asset catalog errors | The 1024×1024 App Store icon must have **no alpha**. Re-run `npm run brand:ios` from `mobile/` |
+| `unknown argument: '-Owholemodule'` | Pull this branch (Release uses `-O` + whole-module compilation) |
 | White screen on launch | Check `app.shiftswifthr.co.uk` is reachable; verify Signing team in Xcode |
 | `xcodebuild` / plug-in errors | Run `sudo xcodebuild -runFirstLaunch` once after installing or updating Xcode |
 | Location/camera blocked | Settings → Privacy → enable for the app |
 | Stale web UI | Production URL updates automatically; for bundled mode run `cap sync` |
-| Pod install fails | `cd ios-employee/App && pod install` |
+| Pod install fails | `cd ios-app/App && pod install` |
 
 ## Related docs
 

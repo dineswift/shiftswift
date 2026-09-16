@@ -100,10 +100,17 @@ def test_native_ios_app_is_universal_ipad() -> None:
     assert "NSPhotoLibraryUsageDescription" in plist
     assert "NSLocationWhenInUseUsageDescription" in plist
     assert 'TARGETED_DEVICE_FAMILY = "1,2"' in pbx
-    assert "CURRENT_PROJECT_VERSION = 11" in pbx
+    assert "CURRENT_PROJECT_VERSION = 12" in pbx
+    assert "SUPPORTED_PLATFORMS" in podfile
+    assert "ENABLE_USER_SCRIPT_SANDBOXING = NO" in pbx
+    assert "SWIFT_COMPILATION_MODE = wholemodule" in pbx
+    assert 'SWIFT_OPTIMIZATION_LEVEL = "-O"' in pbx
     assert "MARKETING_VERSION = 1.0.3" in pbx
     assert 'preferredContentMode: "mobile"' in cap
     assert "UIRequiresFullScreen: true" in cap
+    assert (ROOT / "mobile" / "ios-app" / "App" / "App" / "public" / "index.html").is_file()
+    assert (ROOT / "mobile" / "ios-app" / "App" / "App" / "capacitor.config.json").is_file()
+    assert (ROOT / "mobile" / "ios-app" / "App" / "App" / "config.xml").is_file()
     native_app = (FRONTEND / "native-app.js").read_text(encoding="utf-8")
     assert 'BUNDLED_ASSET_VERSION = "28"' in native_app
 

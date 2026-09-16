@@ -45,3 +45,9 @@ const syncLogin = spawnSync("node", ["scripts/sync-login-html.mjs"], {
 if (syncLogin.status !== 0) {
   process.exit(syncLogin.status ?? 1);
 }
+
+const publicDir = path.join(root, "ios-app", "App", "App", "public");
+if (fs.existsSync(path.dirname(publicDir))) {
+  fs.cpSync(wwwApp, publicDir, { recursive: true });
+  console.log(`copied ${path.relative(root, publicDir)}`);
+}

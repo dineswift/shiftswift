@@ -19,7 +19,7 @@ BUILD_DIR="$ROOT/build/transporter"
 ARCHIVE_PATH="$BUILD_DIR/ShiftSwiftHR.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"
 DESKTOP="${HOME}/Desktop"
-IPA_NAME="ShiftSwiftHR-1.0.3-11.ipa"
+IPA_NAME="ShiftSwiftHR-1.0.3-12.ipa"
 
 if [[ ! -d "$IOS_APP" ]]; then
   echo "Missing $IOS_APP — clone github.com/dineswift/shiftswift and checkout cursor/ios-ipad-updates-b650 first." >&2

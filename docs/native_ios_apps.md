@@ -29,7 +29,7 @@ ShiftSwift HR ships native iOS apps that use the **same UI and API** as the Empl
 3. Submit **ShiftSwift HR** (`ios-app`) first for iPad; Employee next (highest staff iPhone usage)
 4. Optional phase 2: **APNs** for native push (Web Push already works in PWA on iOS 16.4+)
 
-The iPad HR app loads `app.shiftswifthr.co.uk`. Deploy the tablet layout and in-app PDF/QR UI with the web app, then reopen the native shell (build **11** / **1.0.3** clears a stale WebKit cache).
+The iPad HR app loads `app.shiftswifthr.co.uk`. Deploy the tablet layout and in-app PDF/QR UI with the web app, then reopen the native shell (build **12** / **1.0.3** clears a stale WebKit cache).
 
 See [mobile/README.md](../mobile/README.md) for commands and local dev with `SSHR_SERVER_URL`.
 
@@ -45,4 +45,4 @@ npm install
 npm run ios:ipa
 ```
 
-Then open **Transporter**, drag `~/Desktop/ShiftSwiftHR-1.0.3-11.ipa`, and Deliver. Bundle ID `co.uk.shiftswifthr.app`, version **1.0.3**, build **11**.
+Then open **Transporter**, drag `~/Desktop/ShiftSwiftHR-1.0.3-12.ipa`, and Deliver. Bundle ID `co.uk.shiftswifthr.app`, version **1.0.3**, build **12**.

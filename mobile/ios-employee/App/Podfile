@@ -26,9 +26,17 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+    config.build_settings['SUPPORTED_PLATFORMS'] = 'iphoneos iphonesimulator'
+    config.build_settings['SUPPORTS_MACCATALYST'] = 'NO'
+    config.build_settings['SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD'] = 'NO'
+    config.build_settings['SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD'] = 'NO'
+  end
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['SUPPORTED_PLATFORMS'] = 'iphoneos iphonesimulator'
       config.build_settings['SUPPORTS_MACCATALYST'] = 'NO'
       config.build_settings['SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD'] = 'NO'
       config.build_settings['SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD'] = 'NO'

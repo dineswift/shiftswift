@@ -1,0 +1,39 @@
+{
+	"appId": "co.uk.shiftswifthr.app",
+	"appName": "ShiftSwift HR",
+	"webDir": "www/app",
+	"server": {
+		"allowNavigation": [
+			"app.shiftswifthr.co.uk",
+			"api.shiftswifthr.co.uk",
+			"*.shiftswifthr.co.uk",
+			"localhost",
+			"127.0.0.1"
+		]
+	},
+	"ios": {
+		"path": "ios-app",
+		"contentInset": "automatic",
+		"scheme": "App",
+		"preferredContentMode": "mobile"
+	},
+	"plugins": {
+		"CapacitorHttp": {
+			"enabled": true
+		},
+		"SplashScreen": {
+			"launchAutoHide": false,
+			"launchShowDuration": 0,
+			"launchFadeOutDuration": 280,
+			"backgroundColor": "#0f6e56",
+			"showSpinner": false,
+			"androidSplashResourceName": "splash",
+			"androidScaleType": "CENTER_INSIDE",
+			"iosSpinnerStyle": "small"
+		},
+		"StatusBar": {
+			"style": "LIGHT",
+			"backgroundColor": "#0f6e56"
+		}
+	}
+}
