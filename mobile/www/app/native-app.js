@@ -11,7 +11,7 @@
   const UNIFIED_APP_ID = "co.uk.shiftswifthr.app";
   const EMPLOYEE_APP_ID = "co.uk.shiftswifthr.employee";
   const HR_ADMIN_APP_ID = "co.uk.shiftswifthr.hradmin";
-const BUNDLED_ASSET_VERSION = "27";
+const BUNDLED_ASSET_VERSION = "29";
 const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
 
   function isCapacitorNative() {
@@ -65,11 +65,14 @@ const BUNDLED_LOGIN_PAGE = `index.html?build=${BUNDLED_ASSET_VERSION}`;
   function capacitorAssetUrl(filename) {
     const scheme = window.Capacitor?.config?.ios?.scheme || "App";
     const raw = String(filename || "");
-    const [path, query = ""] = raw.split("?");
+    const hashIndex = raw.indexOf("#");
+    const hash = hashIndex >= 0 ? raw.slice(hashIndex) : "";
+    const withoutHash = hashIndex >= 0 ? raw.slice(0, hashIndex) : raw;
+    const [path, query = ""] = withoutHash.split("?");
     const params = new URLSearchParams(query);
     if (!params.has("v")) params.set("v", BUNDLED_ASSET_VERSION);
     const qs = params.toString();
-    return `${scheme}://localhost/${path}${qs ? `?${qs}` : ""}`;
+    return `${scheme}://localhost/${path}${qs ? `?${qs}` : ""}${hash}`;
   }
 
   function isBundledNativeShell() {

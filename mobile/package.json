@@ -10,6 +10,7 @@
     "ios:add": "SSHR_APP=app npx cap add ios",
     "ios:sync": "node scripts/copy-www-app.mjs && SSHR_APP=app npx cap sync ios && SSHR_APP=app npm run brand:ios",
     "ios:open": "SSHR_APP=app npx cap open ios",
+    "ios:ipa": "bash scripts/export-ipa-for-transporter.sh",
     "ios:run": "SSHR_APP=app npx cap run ios",
     "ios:setup": "npm run assets && npm run ios:add && npm run ios:sync && npm run brand:ios",
     "ios:employee:sync": "SSHR_APP=employee npx cap sync ios",

@@ -36,11 +36,16 @@ const pluginConfig = {
 const cameraPlist = "Scan premises QR codes to clock in at your work site.";
 const locationPlist = "Verify you are at your work site when clocking in.";
 
+const photoPlist = "Read a photo of the premises QR code if the live camera scanner cannot start.";
+
 const sharedPlist = {
   NSCameraUsageDescription: cameraPlist,
   NSLocationWhenInUseUsageDescription: locationPlist,
   NSLocationAlwaysAndWhenInUseUsageDescription: locationPlist,
+  NSPhotoLibraryUsageDescription: photoPlist,
+  ITSAppUsesNonExemptEncryption: false,
   UIBackgroundModes: ["remote-notification"],
+  UIRequiresFullScreen: true,
 };
 
 const apps: Record<AppVariant, CapacitorConfig> = {
@@ -55,6 +60,7 @@ const apps: Record<AppVariant, CapacitorConfig> = {
       path: "ios-app",
       contentInset: "automatic",
       scheme: "App",
+      preferredContentMode: "mobile",
       infoPlist: sharedPlist,
     },
     plugins: pluginConfig,
@@ -63,17 +69,17 @@ const apps: Record<AppVariant, CapacitorConfig> = {
     appId: "co.uk.shiftswifthr.employee",
     appName: "Employee",
     webDir: "www/employee",
-    server: devServer
-      ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation }
-      : {
-          url: "https://app.shiftswifthr.co.uk/employee-login.html?source=native",
-          cleartext: false,
-          allowNavigation,
-        },
+    server: {
+      allowNavigation,
+      ...(devServer
+        ? { url: devServer, cleartext: devServer.startsWith("http://") }
+        : {}),
+    },
     ios: {
       path: "ios-employee",
       contentInset: "automatic",
       scheme: "App",
+      preferredContentMode: "mobile",
       infoPlist: sharedPlist,
     },
     plugins: pluginConfig,
@@ -82,17 +88,17 @@ const apps: Record<AppVariant, CapacitorConfig> = {
     appId: "co.uk.shiftswifthr.hradmin",
     appName: "HR Admin",
     webDir: "www/business",
-    server: devServer
-      ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation }
-      : {
-          url: "https://app.shiftswifthr.co.uk/business-login.html?source=native",
-          cleartext: false,
-          allowNavigation,
-        },
+    server: {
+      allowNavigation,
+      ...(devServer
+        ? { url: devServer, cleartext: devServer.startsWith("http://") }
+        : {}),
+    },
     ios: {
       path: "ios-business",
       contentInset: "automatic",
       scheme: "App",
+      preferredContentMode: "mobile",
       infoPlist: sharedPlist,
     },
     plugins: pluginConfig,

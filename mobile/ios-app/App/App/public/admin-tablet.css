@@ -1,0 +1,409 @@
+/* 13-inch iPad / compact laptop — HR admin app (Safari + PWA + native).
+   Desktop sidebar stays visible from 861px. Portrait 13-inch is 1024px CSS;
+   landscape is 1366px. Stack register + detail workspaces through 1366px so
+   the page never needs horizontal scrolling. Phone layout (≤860px) is
+   unchanged. Do not hide data. */
+
+@media (min-width: 861px) and (max-width: 1366px) {
+  body.admin-portal,
+  body.admin-portal .app,
+  body.admin-portal .content,
+  body.admin-portal .admin-section {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body.admin-portal .app {
+    grid-template-columns: 220px minmax(0, 1fr);
+    overflow-x: hidden;
+  }
+
+  body.admin-portal .sidebar {
+    min-width: 0;
+    max-width: 220px;
+  }
+
+  body.admin-portal .content {
+    padding: 16px 14px 40px;
+    overflow-x: hidden;
+  }
+
+  body.admin-portal .topbar,
+  body.admin-portal .section-header,
+  body.admin-portal .card,
+  body.admin-portal .hr-workspace,
+  body.admin-portal .hr-workspace-layout,
+  body.admin-portal .hr-main-pane,
+  body.admin-portal .hr-detail-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body.admin-portal .nav-link {
+    white-space: normal;
+    align-items: flex-start;
+  }
+
+  body.admin-portal .nav-link__label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+}
+
+@media (min-width: 861px) and (max-width: 1366px) {
+  body.admin-portal {
+    overflow-x: hidden;
+  }
+
+  body.admin-portal .hr-workspace-layout,
+  body.admin-portal .rtw-workspace-layout,
+  body.admin-portal .absence-workspace-layout,
+  body.admin-portal .rota-builder-layout,
+  body.admin-portal .contracts-workspace-layout,
+  body.admin-portal .grievance-workspace-layout,
+  body.admin-portal .disciplinary-workspace-layout,
+  body.admin-portal .leave-workspace-layout,
+  body.admin-portal .offboarding-workspace-layout,
+  body.admin-portal .templates-workspace,
+  body.admin-portal .recruitment-workspace-layout,
+  body.admin-portal .employment-contracts-workspace,
+  body.admin-portal .employees-desktop-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    min-height: 0;
+    max-width: 100%;
+  }
+
+  body.admin-portal .hr-main-pane,
+  body.admin-portal .recruitment-main-pane,
+  body.admin-portal .contracts-main-pane,
+  body.admin-portal .grievance-main-pane,
+  body.admin-portal .disciplinary-main-pane,
+  body.admin-portal .templates-main-pane {
+    flex: 1 0 auto;
+    overflow: visible;
+    max-width: 100%;
+  }
+
+  body.admin-portal .hr-detail-panel,
+  body.admin-portal .rtw-detail-panel,
+  body.admin-portal .absence-detail-panel,
+  body.admin-portal .rota-shift-panel,
+  body.admin-portal .contracts-detail-panel,
+  body.admin-portal .employment-contracts-detail-panel,
+  body.admin-portal .grievance-detail-panel,
+  body.admin-portal .leave-detail-panel,
+  body.admin-portal .offboarding-detail-panel,
+  body.admin-portal .templates-side-panel,
+  body.admin-portal .recruitment-detail-panel,
+  body.admin-portal #employees-side-panel,
+  body.admin-portal #punch-detail-panel {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    margin-left: 0;
+    border-left: none;
+  }
+
+  body.admin-portal .overview-dashboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-portal .overview-actions-panel {
+    position: static;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.admin-portal .overview-setup-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.admin-portal .hr-stats-grid:not(.rota-stats-grid),
+  body.admin-portal .metric-grid.hr-stats-grid:not(.rota-stats-grid),
+  body.admin-portal .rtw-stats-grid,
+  body.admin-portal .absence-stats-grid,
+  body.admin-portal .punch-stats-grid,
+  body.admin-portal .metric-grid,
+  body.admin-portal .alert-grid,
+  body.admin-portal .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.admin-portal .rota-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.admin-portal .admin-section > .section-header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  body.admin-portal .admin-section > .section-header .section-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  body.admin-portal .hr-toolbar,
+  body.admin-portal .rtw-toolbar,
+  body.admin-portal .leave-register-toolbar,
+  body.admin-portal .templates-library-toolbar,
+  body.admin-portal .templates-library-filters,
+  body.admin-portal .employees-register-head,
+  body.admin-portal .employees-register-actions,
+  body.admin-portal .rota-builder-subbar,
+  body.admin-portal .punch-filters,
+  body.admin-portal .punch-action-row,
+  body.admin-portal .crm-toolbar,
+  body.admin-portal .settings-doc-toolbar,
+  body.admin-portal .settings-topbar,
+  body.admin-portal .settings-workspace--detail .settings-topbar {
+    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 100%;
+  }
+
+  body.admin-portal .hr-search,
+  body.admin-portal .rtw-search,
+  body.admin-portal .leave-search,
+  body.admin-portal .crm-search {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body.admin-portal .hr-search input,
+  body.admin-portal .rtw-search input,
+  body.admin-portal .leave-search input,
+  body.admin-portal .crm-search input,
+  body.admin-portal .templates-filter,
+  body.admin-portal .templates-filter--search {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.admin-portal .hr-surface-panel,
+  body.admin-portal .hr-log-panel,
+  body.admin-portal .hr-primary-banner,
+  body.admin-portal .absence-log-panel,
+  body.admin-portal .rtw-add-panel,
+  body.admin-portal .sponsor-enabled-banner {
+    margin-left: 0;
+    margin-right: 0;
+    max-width: 100%;
+  }
+
+  body.admin-portal .hr-table-wrap,
+  body.admin-portal .table-wrap,
+  body.admin-portal .rtw-table-wrap,
+  body.admin-portal .absence-table-wrap,
+  body.admin-portal .leave-table-wrap,
+  body.admin-portal .settings-notify-table-wrap,
+  body.admin-portal .settings-opening-hours-wrap,
+  body.admin-portal .rota-grid-scroll,
+  body.admin-portal .employees-desktop-table {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.admin-portal .lifecycle-stage-rail,
+  body.admin-portal .recruitment-pipeline-stepper,
+  body.admin-portal .hr-status-workflow,
+  body.admin-portal .grievance-status-workflow,
+  body.admin-portal .contracts-status-workflow,
+  body.admin-portal .employment-status-workflow,
+  body.admin-portal .disciplinary-status-workflow,
+  body.admin-portal .employment-workflow-pipeline,
+  body.admin-portal .disciplinary-workflow-pipeline {
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  body.admin-portal .recruitment-pipeline-stepper {
+    gap: 8px 4px;
+  }
+
+  body.admin-portal .recruitment-stepper-item {
+    min-width: 0;
+    flex: 1 1 4.5rem;
+  }
+
+  body.admin-portal .recruitment-stepper-line,
+  body.admin-portal .employment-workflow-connector,
+  body.admin-portal .disciplinary-workflow-connector {
+    display: none;
+  }
+
+  body.admin-portal .lifecycle-stage-rail__label,
+  body.admin-portal .lifecycle-stage-rail__state,
+  body.admin-portal .lifecycle-stage-rail__link {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  body.admin-portal .edit-form--cols-2,
+  body.admin-portal .punch-inline-form,
+  body.admin-portal .punch-admin-form,
+  body.admin-portal .employment-foot-grid,
+  body.admin-portal .employment-template-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-portal .settings-accordion {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  body.admin-portal .settings-accordion-item {
+    grid-template-columns: minmax(0, 1fr);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
+    background: var(--card);
+    overflow: hidden;
+  }
+
+  body.admin-portal .settings-accordion-item.is-open {
+    border-color: var(--green-500, #1d9e75);
+  }
+
+  body.admin-portal .settings-nav__item {
+    grid-column: 1;
+  }
+
+  body.admin-portal .settings-accordion-body {
+    grid-column: 1;
+    padding: 0 12px 12px;
+    min-width: 0;
+  }
+
+  body.admin-portal .settings-accordion-chevron {
+    display: block;
+  }
+
+  body.admin-portal .settings-accordion-divider {
+    display: none;
+  }
+
+  body.admin-portal .settings-hub {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-portal .template-editor__split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.admin-portal .punch-filters .edit-field,
+  body.admin-portal .punch-sync-btn {
+    min-width: 0;
+    flex: 1 1 10rem;
+  }
+
+  body.admin-portal .nav-link__label {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* In-app PDF / QR preview used by the iPad HR app (Capacitor + Safari). */
+.admin-blob-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  background: #e8ecef;
+}
+
+.admin-blob-preview__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  background: #fff;
+  border-bottom: 1px solid #d5dde5;
+}
+
+.admin-blob-preview__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-blob-preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-blob-preview__body {
+  flex: 1;
+  min-height: 0;
+}
+
+.admin-blob-preview__body iframe,
+.admin-blob-preview__body img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #e8ecef;
+  object-fit: contain;
+}
+
+.admin-blob-preview__empty {
+  margin: 0;
+  padding: 24px 16px;
+}
+
+.sshr-file-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  background: #e8ecef;
+}
+
+@media print {
+  body.admin-portal .app,
+  body.admin-portal .mobile-tabbar,
+  .admin-blob-preview__bar,
+  #punch-card-print-shell .admin-blob-preview__bar {
+    display: none !important;
+  }
+
+  body.admin-portal .admin-blob-preview,
+  #punch-card-print-shell {
+    position: static;
+    inset: auto;
+    height: auto;
+    background: #fff;
+  }
+}
+
+@media (max-width: 1366px) {
+  body.admin-portal .punch-export-dialog,
+  body.admin-portal .punch-scan-dialog,
+  body.admin-portal .punch-reclock-dialog,
+  body.admin-portal #rota-print-dialog {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    width: min(520px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}

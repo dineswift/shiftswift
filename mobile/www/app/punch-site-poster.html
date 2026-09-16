@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en" data-app-icon="clock">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="./brand-config.js?v=brand-v6"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <title>Premises clock-in QR poster</title>
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <link rel="stylesheet" href="./theme.css?v=brand-v1" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-body);
+        color: var(--ink-900);
+        background: #e8ecef;
+      }
+
+      .toolbar {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 1rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .toolbar p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--gray-700);
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.55rem 1rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--green-700);
+        color: #fff;
+      }
+
+      .poster-sheet {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto 2rem;
+        padding: 12mm;
+        background: #fff;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.12);
+      }
+
+      .poster-head {
+        display: flex;
+        align-items: center;
+        gap: 4mm;
+        margin-bottom: 8mm;
+        padding-bottom: 5mm;
+        border-bottom: 2px solid var(--green-200);
+      }
+
+      .poster-head img {
+        width: 12mm;
+        height: 12mm;
+        border-radius: 2mm;
+      }
+
+      .poster-head h1 {
+        margin: 0;
+        font-size: 7mm;
+        line-height: 1.15;
+        color: var(--green-900);
+      }
+
+      .poster-head p {
+        margin: 1mm 0 0;
+        font-size: 3.5mm;
+        color: var(--gray-600);
+      }
+
+      .poster-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6mm;
+      }
+
+      .poster-tile {
+        border: 1px solid var(--green-200);
+        border-radius: 3mm;
+        padding: 4mm;
+        display: grid;
+        grid-template-columns: 34mm 1fr;
+        gap: 3mm;
+        align-items: center;
+        break-inside: avoid;
+      }
+
+      .poster-tile img {
+        width: 34mm;
+        height: 34mm;
+        display: block;
+      }
+
+      .poster-tile h2 {
+        margin: 0 0 1.5mm;
+        font-size: 4.5mm;
+        line-height: 1.15;
+      }
+
+      .poster-tile p {
+        margin: 0;
+        font-size: 3mm;
+        line-height: 1.35;
+        color: var(--gray-700);
+      }
+
+      .poster-foot {
+        margin-top: 8mm;
+        padding-top: 4mm;
+        border-top: 1px solid var(--card-border);
+        font-size: 3mm;
+        color: var(--gray-600);
+        line-height: 1.4;
+      }
+
+      .empty-state {
+        max-width: 520px;
+        margin: 2rem auto;
+        padding: 1.25rem;
+        background: #fff;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--card-border);
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .toolbar {
+          display: none !important;
+        }
+
+        .poster-sheet {
+          box-shadow: none;
+          margin: 0;
+          page-break-after: always;
+        }
+
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <p>A4 poster with all active punch sites. Pin near staff entrances or print one copy per department.</p>
+      <button type="button" class="btn" id="poster-print-btn">Print poster</button>
+    </div>
+
+    <div id="poster-empty" class="empty-state" hidden>
+      <h1>No poster data</h1>
+      <p>Open this page from <strong>Admin → Time punch → Print A4 poster (all sites)</strong>.</p>
+    </div>
+
+    <div id="poster-root"></div>
+
+    <script>
+      (function () {
+        const root = document.getElementById("poster-root");
+        const empty = document.getElementById("poster-empty");
+        const printBtn = document.getElementById("poster-print-btn");
+        const raw = sessionStorage.getItem("punchPosterPayload");
+
+        function qrUrl(site) {
+          if (site.qr_image_data_uri) return site.qr_image_data_uri;
+          return (
+            "https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=" +
+            encodeURIComponent(site.clock_url || "")
+          );
+        }
+
+        function escapeHtml(value) {
+          return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        if (!raw) {
+          empty.hidden = false;
+          return;
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(raw);
+        } catch {
+          empty.hidden = false;
+          return;
+        }
+
+        const sites = payload.sites || [];
+        if (!sites.length) {
+          empty.hidden = false;
+          return;
+        }
+
+        const businessName = payload.businessName || "Your business";
+        const portalFoot =
+          window.ShiftSwiftBrand?.portals?.()
+            .filter((p) => p.id !== "master")
+            .map((p) => `<span><strong>${escapeHtml(p.label)}</strong> ${escapeHtml(p.display)}</span>`)
+            .join(" · ") || "";
+        const tiles = sites
+          .map(
+            (site) => `<article class="poster-tile">
+              <img src="${qrUrl(site)}" alt="QR for ${escapeHtml(site.site_name)}" />
+              <div>
+                <h2>${escapeHtml(site.site_name)}</h2>
+                <p>Scan this QR at <strong>${escapeHtml(site.site_name)}</strong>, then clock in or out in the Time Clock app.</p>
+              </div>
+            </article>`
+          )
+          .join("");
+
+        root.innerHTML = `<section class="poster-sheet">
+          <header class="poster-head">
+            <img src="./assets/shiftswift-clock-app-icon-192.png?v=brandkit-v5" alt="" />
+            <div>
+              <h1>${escapeHtml(businessName)} — premises clock-in</h1>
+              <p>Scan the QR for your work area, then punch in the ShiftSwift Time Clock app.</p>
+            </div>
+          </header>
+          <div class="poster-grid">${tiles}</div>
+          <footer class="poster-foot">
+            ${portalFoot ? `<p>${portalFoot}</p>` : ""}
+            <p>GPS works outdoors. Use these QR codes indoors where GPS is weak. If a code is lost, HR can rotate it in Admin → Time punch.</p>
+          </footer>
+        </section>`;
+
+        printBtn?.addEventListener("click", () => window.print());
+      })();
+    </script>
+  </body>
+</html>

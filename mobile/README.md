@@ -1,14 +1,17 @@
 # ShiftSwift HR — Native iOS apps
 
 Native **App Store** shells for the same Employee and HR Admin experiences as the PWAs.  
-Built with [Capacitor](https://capacitorjs.com/): a full-screen iOS WebView loads `app.shiftswifthr.co.uk`, so UI, API calls, and features stay identical to the web/PWA apps.
+Built with [Capacitor](https://capacitorjs.com/). The ShiftSwift HR iPad app loads **bundled local files** (login, admin, employee, iPad layout). It does **not** open `app.shiftswifthr.co.uk` after sign-in. API calls still go to `api.shiftswifthr.co.uk`.
 
 ## Apps
 
-| App | Bundle ID | Capacitor variant | Start URL |
-|-----|-----------|-------------------|-----------|
-| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `employee-login.html?source=native` |
-| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `business-login.html?source=native` |
+| App | Bundle ID | Capacitor variant | Xcode project | Start URL |
+|-----|-----------|-------------------|---------------|-----------|
+| **ShiftSwift HR** (unified) | `co.uk.shiftswifthr.app` | `app` | `ios-app/` | Bundled `index.html` login, then local `admin.html` / `employee.html` |
+| **Employee** | `co.uk.shiftswifthr.employee` | `employee` | `ios-employee/` | Bundled `employee-login.html` |
+| **HR Admin** | `co.uk.shiftswifthr.hradmin` | `business` | `ios-business/` | Bundled `business-login.html` |
+
+The iPad Himalayan Inn app is **ShiftSwift HR** (`ios-app`). iPad layout, in-app PDFs, and QR scan ship inside the IPA. After you pull this branch and sync, you do not need a web deploy for those screens.
 
 ## Requirements
 
@@ -28,21 +31,40 @@ npm run ios:setup
 
 `ios:setup` creates `ios-employee/` and `ios-business/` Xcode projects and syncs Capacitor.
 
-## Open in Xcode
+## Open in Xcode (Mac only)
+
+Quit **Xcode** (Cmd+Q). Signing in Xcode can look fine while the build is still the **old branch**. Paste this **one block** — do not skip `checkout -f -B`:
 
 ```bash
-# Employee app
-npm run ios:employee:open
-
-# HR Admin app
-npm run ios:business:open
+cd /Users/gskharel/Desktop/shiftswifthr
+git fetch origin
+git checkout -f -B cursor/ios-ipad-updates-b650 origin/cursor/ios-ipad-updates-b650
+git status -sb
+git rev-parse --abbrev-ref HEAD
+cd mobile
+npm install
+npm run ios:sync
+cd ios-app/App
+pod install
+open App.xcworkspace
 ```
+
+`git rev-parse --abbrev-ref HEAD` **must** print `cursor/ios-ipad-updates-b650`. If it prints anything else, stop — Xcode is still the old app. `checkout -f -B` discards local `ios:sync` / Podfile.lock edits that blocked a normal checkout.
 
 In Xcode:
 
-1. Select your **Team** (Signing & Capabilities).
-2. Choose a simulator or connected iPhone.
-3. Press **Run** (⌘R).
+1. Scheme **App** (not Pods / Capacitor). Destination **Gobinda's iPAD** (or any connected iPhone/iPad) — not My Mac.
+2. App target → **Signing & Capabilities** → your Team.
+3. Product → **Clean Build Folder**, then **Run** (⌘R).
+
+To upload to **Transporter / TestFlight** instead of running locally:
+
+```bash
+cd /Users/gskharel/Desktop/shiftswifthr/mobile
+npm run ios:ipa
+```
+
+The ShiftSwift HR app is a universal iPhone + iPad build (`TARGETED_DEVICE_FAMILY = 1,2`). On iPad it uses the full screen (no Split View) so the HR admin layout, rota PDFs, and premises QR scanner stay usable.
 
 ## Local development (optional)
 
@@ -82,26 +104,38 @@ SSHR_APP=business npx @capacitor/assets generate --ios
 1. **Apple Developer Program** — enroll at [developer.apple.com](https://developer.apple.com).
 2. **App Store Connect** — create two apps (Employee + HR Admin).
 3. **Privacy** — declare location and camera use (clock-in / QR); link to [privacy policy](https://app.shiftswifthr.co.uk/privacy-policy.html).
-4. **Screenshots** — capture from iPhone simulator (6.7" and 6.1" required).
-5. **Archive** — Xcode → Product → Archive → Distribute to App Store.
+4. **Screenshots** — iPhone 6.7" and 6.1", plus iPad 13" (landscape) and 12.9" for the universal ShiftSwift HR app.
+5. **IPA for Transporter / TestFlight** (Mac only) — from `mobile/`:
+
+```bash
+npm run ios:ipa
+```
+
+That writes `~/Desktop/ShiftSwiftHR-1.0.3-12.ipa`. Open **Transporter** from the Mac App Store, drag the IPA in, and click **Deliver**. App Store Connect then processes it for TestFlight.
+
+Or in Xcode: Product → Archive → Distribute App → App Store Connect → Export, then drop the IPA on Transporter.
+
 6. **Push notifications (optional v2)** — add APNs key in Apple Developer, enable Push capability in Xcode, extend API for native push tokens.
 
 ## How it matches the PWA
 
-- Same HTML/CSS/JS from `app.shiftswifthr.co.uk`
+- Same HTML/CSS/JS **bundled in the app** (iPad layout, PDFs, QR). Login talks to `api.shiftswifthr.co.uk`.
 - Same bottom tabs, clock-in, rotas, documents
 - `native-app.js` hides “Add to Home Screen” prompts in the native shell
 - Green splash + status bar (`#0f6e56`) like the PWA
-- Camera + location permission strings for geofenced punch and QR scan
+- Camera + location + photo-library permission strings for geofenced punch and QR scan
+- Universal iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`), full-screen on iPad
 
 ## Project layout
 
 ```
 mobile/
-  capacitor.config.ts    # employee | business via SSHR_APP
-  www/employee/          # offline fallback shell
+  capacitor.config.ts    # app | employee | business via SSHR_APP
+  www/app/               # bundled ShiftSwift HR (login + admin + employee)
+  www/employee/
   www/business/
-  ios-employee/          # Xcode project (generated)
+  ios-app/               # Xcode project — ShiftSwift HR (iPhone + iPad)
+  ios-employee/
   ios-business/
   assets/                # icons for Capacitor assets tool
   scripts/
@@ -111,11 +145,15 @@ mobile/
 
 | Issue | Fix |
 |-------|-----|
+| **Build Failed** (red banner, ~11 errors, navigator on Pods → Capacitor) | Quit Xcode. Open **`App.xcworkspace`**, scheme **App** (not the Capacitor pod), destination the **iPad**. Then `cd ios-app/App && pod install`, Product → Clean Build Folder, Run. |
+| Wrong git branch | Must be `cursor/ios-ipad-updates-b650`, not `release/unified-signin-push-epos-migrations` |
+| App icon / asset catalog errors | The 1024×1024 App Store icon must have **no alpha**. Re-run `npm run brand:ios` from `mobile/` |
+| `unknown argument: '-Owholemodule'` | Pull this branch (Release uses `-O` + whole-module compilation) |
 | White screen on launch | Check `app.shiftswifthr.co.uk` is reachable; verify Signing team in Xcode |
 | `xcodebuild` / plug-in errors | Run `sudo xcodebuild -runFirstLaunch` once after installing or updating Xcode |
 | Location/camera blocked | Settings → Privacy → enable for the app |
 | Stale web UI | Production URL updates automatically; for bundled mode run `cap sync` |
-| Pod install fails | `cd ios-employee/App && pod install` |
+| Pod install fails | `cd ios-app/App && pod install` |
 
 ## Related docs
 

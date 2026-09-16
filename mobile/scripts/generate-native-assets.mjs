@@ -21,29 +21,46 @@ const legacyVariants = [
 
 fs.mkdirSync(assetsDir, { recursive: true });
 
-function copyIfExists(src, dest) {
+function copyRequired(src, dest) {
   if (!fs.existsSync(src)) {
-    console.error(`Missing asset: ${src}`);
+    console.error(`Missing required asset: ${src}`);
     process.exit(1);
   }
   fs.copyFileSync(src, dest);
   console.log(`wrote ${path.relative(root, dest)}`);
 }
 
+function copyOptional(src, dest, fallback) {
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, dest);
+    console.log(`wrote ${path.relative(root, dest)}`);
+    return;
+  }
+  if (fallback && fs.existsSync(fallback)) {
+    fs.copyFileSync(fallback, dest);
+    console.log(`wrote ${path.relative(root, dest)} (fallback)`);
+    return;
+  }
+  console.warn(`skip missing asset: ${src}`);
+}
+
 const iconSrc = path.join(frontendAssets, branded.icon);
 const splashSrc = path.join(frontendAssets, branded.splash);
+const iconDest = path.join(assetsDir, "icon.png");
 
-copyIfExists(iconSrc, path.join(assetsDir, "icon.png"));
-copyIfExists(splashSrc, path.join(assetsDir, "splash.png"));
-copyIfExists(splashSrc, path.join(assetsDir, "splash-dark.png"));
+copyRequired(iconSrc, iconDest);
+copyOptional(splashSrc, path.join(assetsDir, "splash.png"), iconDest);
+copyOptional(splashSrc, path.join(assetsDir, "splash-dark.png"), iconDest);
 
 for (const variant of legacyVariants) {
-  copyIfExists(
+  copyOptional(
     path.join(frontendAssets, variant.icon),
     path.join(assetsDir, `${variant.slug}-icon.png`),
+    iconDest,
   );
-  const variantSplash = path.join(frontendAssets, variant.splash);
-  if (fs.existsSync(variantSplash)) {
-    copyIfExists(variantSplash, path.join(assetsDir, `${variant.slug}-splash.png`));
-  }
+  copyOptional(
+    path.join(frontendAssets, variant.splash),
+    path.join(assetsDir, `${variant.slug}-splash.png`),
+    iconDest,
+  );
 }

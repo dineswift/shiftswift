@@ -1,11 +1,12 @@
 # Native iOS apps (App Store)
 
-ShiftSwift HR ships two native iPhone apps that use the **same UI and API** as the Employee and HR Admin PWAs. They are Capacitor shells around `app.shiftswifthr.co.uk` — not a separate codebase.
+ShiftSwift HR ships native iOS apps that use the **same UI and API** as the Employee and HR Admin PWAs. They are Capacitor shells around `app.shiftswifthr.co.uk` — not a separate codebase.
 
-| App | Setup |
-|-----|--------|
-| Employee | [mobile/README.md](../mobile/README.md) → `npm run ios:employee:open` |
-| HR Admin | [mobile/README.md](../mobile/README.md) → `npm run ios:business:open` |
+| App | Bundle ID | Open in Xcode |
+|-----|-----------|----------------|
+| **ShiftSwift HR** (unified, iPad) | `co.uk.shiftswifthr.app` | [mobile/README.md](../mobile/README.md) → `npm run ios:open` |
+| Employee | `co.uk.shiftswifthr.employee` | `npm run ios:employee:open` |
+| HR Admin | `co.uk.shiftswifthr.hradmin` | `npm run ios:business:open` |
 
 ## Why Capacitor (not a Swift rewrite)
 
@@ -25,7 +26,23 @@ ShiftSwift HR ships two native iPhone apps that use the **same UI and API** as t
 
 1. Run `cd mobile && npm install && npm run ios:setup`
 2. Configure signing in Xcode (Apple Developer team)
-3. Submit Employee app first (highest staff usage)
+3. Submit **ShiftSwift HR** (`ios-app`) first for iPad; Employee next (highest staff iPhone usage)
 4. Optional phase 2: **APNs** for native push (Web Push already works in PWA on iOS 16.4+)
 
+The iPad HR app ships the ShiftSwift screens **inside the IPA** (no `app.shiftswifthr.co.uk` after login). API calls still use `api.shiftswifthr.co.uk`. Reopen the native shell after sync (build **12** / **1.0.3**).
+
 See [mobile/README.md](../mobile/README.md) for commands and local dev with `SSHR_SERVER_URL`.
+
+## Mac → Transporter / TestFlight
+
+This Cloud Agent runs on Linux and cannot archive. On the MacBook:
+
+```bash
+cd /Users/gskharel/Desktop/shiftswifthr
+git fetch origin && git checkout cursor/ios-ipad-updates-b650 && git pull --ff-only origin cursor/ios-ipad-updates-b650
+cd mobile
+npm install
+npm run ios:ipa
+```
+
+Then open **Transporter**, drag `~/Desktop/ShiftSwiftHR-1.0.3-12.ipa`, and Deliver. Bundle ID `co.uk.shiftswifthr.app`, version **1.0.3**, build **12**.

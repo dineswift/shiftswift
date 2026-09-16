@@ -1,0 +1,133 @@
+/* ShiftSwift HR — UK PECR cookie consent banner */
+.cookie-consent {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 10000;
+  padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(4, 52, 44, 0.97);
+  color: #f4fbf8;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.cookie-consent[hidden] {
+  display: none !important;
+}
+
+.cookie-consent__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cookie-consent__text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: rgba(244, 251, 248, 0.92);
+}
+
+.cookie-consent__text a {
+  color: #9fe8cf;
+  font-weight: 600;
+}
+
+.cookie-consent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.cookie-consent__btn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cookie-consent__btn--primary {
+  background: #0f6e56;
+  color: #fff;
+}
+
+.cookie-consent__btn--ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.cookie-consent__btn--link {
+  background: transparent;
+  color: #9fe8cf;
+  padding-inline: 0.35rem;
+  text-decoration: underline;
+}
+
+.cookie-consent__panel {
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cookie-consent__panel[hidden] {
+  display: none !important;
+}
+
+.cookie-consent__option {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+}
+
+.cookie-consent__option + .cookie-consent__option {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cookie-consent__option strong {
+  display: block;
+  font-size: 0.86rem;
+}
+
+.cookie-consent__option span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: rgba(244, 251, 248, 0.75);
+}
+
+.cookie-consent__badge {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9fe8cf;
+}
+
+body.cookie-consent-open {
+  padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+body.cookie-consent-open #faq {
+  scroll-margin-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .cookie-consent__inner {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  .cookie-consent__actions {
+    justify-content: flex-end;
+  }
+}

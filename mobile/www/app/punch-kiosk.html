@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" data-app-icon="clock">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./app-host-guard.js?v=1"></script>
+    <meta name="theme-color" content="#0f6e56" />
+    <script src="./app-icons.js?v=brandkit-v5"></script>
+    <title>ShiftSwift Time Clock — Kiosk</title>
+    <link rel="stylesheet" href="./theme.css?v=brand-v1" />
+    <link rel="stylesheet" href="./punch-kiosk.css?v=1" />
+  </head>
+  <body class="kiosk-app">
+    <div class="kiosk-shell">
+      <header class="kiosk-header">
+        <img src="./assets/shiftswift-clock-app-icon-192.png?v=brandkit-v5" alt="" />
+        <div>
+          <strong>Time Clock Kiosk</strong>
+          <span id="kiosk-site-name">Loading site…</span>
+        </div>
+      </header>
+
+      <section id="kiosk-pin-view" class="kiosk-panel">
+        <h1>Enter your PIN</h1>
+        <p class="kiosk-lead">Use your employee number and kiosk PIN set by HR.</p>
+        <form id="kiosk-pin-form" class="kiosk-form">
+          <label>
+            Employee number
+            <input name="employee_id" inputmode="numeric" required placeholder="e.g. 12" />
+          </label>
+          <label>
+            PIN
+            <input name="pin" type="password" inputmode="numeric" maxlength="6" required placeholder="4–6 digits" />
+          </label>
+          <p id="kiosk-pin-status" class="kiosk-status" hidden></p>
+          <button type="submit" class="kiosk-btn kiosk-btn--primary">Continue</button>
+        </form>
+      </section>
+
+      <section id="kiosk-punch-view" class="kiosk-panel" hidden>
+        <p class="kiosk-user" id="kiosk-user-line">Signed in</p>
+        <p class="kiosk-state" id="kiosk-state-line"></p>
+        <div class="kiosk-actions">
+          <button type="button" class="kiosk-btn kiosk-btn--in" id="kiosk-in-btn">Clock in</button>
+          <button type="button" class="kiosk-btn kiosk-btn--break" id="kiosk-break-start-btn">Start break</button>
+          <button type="button" class="kiosk-btn kiosk-btn--break" id="kiosk-break-end-btn" hidden>End break</button>
+          <button type="button" class="kiosk-btn kiosk-btn--out" id="kiosk-out-btn">Clock out</button>
+        </div>
+        <p id="kiosk-message" class="kiosk-message" aria-live="polite"></p>
+        <button type="button" class="kiosk-link" id="kiosk-switch-user">Switch employee</button>
+      </section>
+    </div>
+    <script src="./brand-config.js?v=brand-v4"></script>
+    <script src="./punch-kiosk.js?v=1"></script>
+  </body>
+</html>

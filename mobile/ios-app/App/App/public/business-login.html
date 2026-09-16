@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" data-app-icon="hr" data-pwa-portal="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <link rel="canonical" href="https://app.shiftswifthr.co.uk/business-login.html" />
+    <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
+    <meta name="theme-color" content="#0f6e56" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="HR Admin" />
+    <script src="./portal-sw-guard.js?v=2"></script>
+    <script>
+      (function () {
+        try {
+          var cap = window.Capacitor;
+          if (!cap?.isNativePlatform?.()) return;
+          if (cap.config?.appId !== "co.uk.shiftswifthr.app") return;
+          var scheme = cap.config?.ios?.scheme || "App";
+          window.location.replace(scheme + "://localhost/index.html?build=14");
+        } catch (e) {}
+      })();
+    </script>
+    <script src="./brand-config.js?v=brand-v7"></script>
+    <script src="./app-host-guard.js?v=2"></script>
+    <script src="./app-icons.js?v=brandkit-v7"></script>
+    <script src="./native-app.js?v=6"></script>
+    <script src="./pwa-ios.js?v=1"></script>
+    <title>ShiftSwift HR | Business sign in</title>
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v8" />
+  </head>
+  <body class="portal-login-page portal-login-page--streamlined" data-login-page="business">
+    <div class="portal-login-shell portal-login-shell--streamlined">
+      <header class="portal-login-brand portal-login-brand--streamlined">
+        <a href="./native-app-login.html">
+          <img class="portal-login-brand-logo app-mark app-mark--login" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" width="44" height="44" />
+        </a>
+        <p class="portal-login-brand-copy">HR admin</p>
+      </header>
+
+      <section class="portal-login-card portal-login-card--business portal-login-card--streamlined" id="portal-login-card">
+        <div id="login-shell" class="portal-login-card-body">
+          <div class="portal-login-card-head portal-login-card-head--streamlined">
+            <h1>Business sign in</h1>
+            <p class="portal-login-card-lead" id="login-lead">Sign in to your ShiftSwift HR account.</p>
+          </div>
+
+          <form id="portal-login-form" class="portal-login-form portal-login-form--streamlined">
+            <label>
+              Work email
+              <input name="username" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="hr@yourcompany.co.uk" />
+            </label>
+            <label class="portal-login-password-field">
+              <span class="portal-login-password-label">
+                <span id="password-label">Password</span>
+                <a
+                  class="portal-login-inline-link portal-login-forgot"
+                  id="forgot-password-link"
+                  href="./forgot-password.html"
+                >Forgot?</a>
+              </span>
+              <input
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+                placeholder="Enter password"
+                aria-labelledby="password-label"
+              />
+            </label>
+
+            <p id="login-status" class="form-error-message" hidden></p>
+
+            <button class="btn portal-login-submit" type="submit" id="login-submit">
+              Open HR dashboard
+            </button>
+
+            <p class="portal-login-secure-note">
+              Secured · <span data-secure-host>shiftswifthr.co.uk</span>
+            </p>
+          </form>
+
+          <p class="portal-login-alt-note portal-login-alt-note--compact">
+            Prefer one login for staff and managers?
+            <a class="portal-login-inline-link" href="./native-app-login.html">Sign in with work email</a>
+            ·
+            <a class="portal-login-inline-link" href="./signup.html">Start free trial</a>
+          </p>
+        </div>
+
+        <div id="mfa-enrollment-panel" class="portal-login-card-body" hidden>
+          <div class="portal-login-card-head">
+            <h1>Set up authenticator</h1>
+            <p class="portal-login-card-lead">
+              Two-factor authentication is required. Scan the QR code in Google Authenticator, Authy, or Microsoft Authenticator, then enter a 6-digit code.
+            </p>
+          </div>
+          <div class="portal-login-form">
+            <p id="mfa-enrollment-user" class="muted"></p>
+            <div id="mfa-enrollment-qr-wrap" class="mfa-enrollment-qr-wrap" hidden>
+              <img id="mfa-enrollment-qr" alt="Authenticator QR code" width="200" height="200" />
+            </div>
+            <p class="mfa-enrollment-secret-label">Manual key</p>
+            <code id="mfa-enrollment-secret" class="mfa-enrollment-secret"></code>
+            <label>
+              Verification code
+              <input id="mfa-enrollment-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456" />
+            </label>
+            <p id="mfa-enrollment-status" class="form-error-message" hidden></p>
+            <button type="button" class="btn portal-login-submit" id="mfa-enrollment-submit">Enable MFA and sign in</button>
+          </div>
+        </div>
+
+        <div id="mfa-panel" class="portal-login-card-body" hidden>
+          <div class="portal-login-card-head">
+            <h1>Two-factor authentication</h1>
+            <p class="portal-login-card-lead">Enter the 6-digit code for <strong data-mfa-user></strong>.</p>
+          </div>
+          <form id="mfa-form" class="portal-login-form">
+            <label>
+              Authenticator code
+              <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required placeholder="123456" />
+            </label>
+            <button class="btn portal-login-submit" type="submit">Verify and sign in</button>
+          </form>
+        </div>
+      </section>
+
+      <p class="portal-login-footnote muted portal-login-footnote--streamlined">
+        Need help?
+        <a class="portal-login-inline-link" data-brand-support-mailto="Sign-in help" href="mailto:support@shiftswifthr.co.uk">support</a>
+      </p>
+    </div>
+    <script src="./session-auth.js?v=9"></script>
+    <script src="./portal-pwa-stability.js?v=1"></script>
+    <script src="./admin-pwa.js?v=8"></script>
+    <script src="./login.js?v=brandkit-v18"></script>
+    <script>
+      window.ShiftSwiftAdminPwa?.registerAdminSw?.();
+    </script>
+    <script src="./cookie-consent.js?v=1"></script>
+  </body>
+</html>

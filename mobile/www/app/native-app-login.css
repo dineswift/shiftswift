@@ -545,3 +545,49 @@ html.native-app body.portal-login-page--unified {
     box-shadow: 0 20px 52px rgba(7, 25, 18, 0.14);
   }
 }
+
+@media (min-width: 861px) {
+  .portal-login-page--unified .portal-login-shell {
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: stretch;
+    min-height: 100dvh;
+    padding: 0;
+    gap: 0;
+  }
+
+  .portal-login-page--unified .native-login-hero {
+    flex: 1 1 46%;
+    max-width: none;
+    min-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    justify-content: center;
+    padding:
+      max(48px, calc(env(safe-area-inset-top) + 32px))
+      48px
+      48px
+      max(48px, env(safe-area-inset-left));
+  }
+
+  .portal-login-page--unified .native-login-sheet {
+    flex: 1 1 54%;
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding:
+      48px
+      max(48px, env(safe-area-inset-right))
+      max(48px, env(safe-area-inset-bottom))
+      48px;
+  }
+
+  .portal-login-page--unified .portal-login-card {
+    width: min(440px, 100%);
+    margin: 0 auto;
+  }
+}
