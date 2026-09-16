@@ -19,6 +19,7 @@ class SignDocumentRequest(BaseModel):
     signature_name: str = Field(min_length=2, max_length=120)
     signature_title: str | None = Field(default=None, max_length=120)
     accept_terms: bool
+    signature_image: str | None = Field(default=None, max_length=400000)
 
 
 def _db_conn() -> Any:
@@ -87,6 +88,7 @@ def accept_document_signature(
                 token=token,
                 signature_name=payload.signature_name,
                 ip_address=client_ip(request),
+                signature_image=payload.signature_image,
             )
         except LookupError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

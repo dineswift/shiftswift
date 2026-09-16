@@ -16,6 +16,7 @@ from modules.documents.storage import (
     delete_stored_file,
     resolve_documents_storage_dir,
     resolve_stored_file,
+    stored_file_response,
     write_document_file,
 )
 
@@ -120,3 +121,15 @@ def test_delete_stored_file_removes_file(tmp_path) -> None:
     target.write_bytes(b"data")
     delete_stored_file(str(target))
     assert not target.exists()
+
+
+def test_stored_file_response_preview_is_inline(tmp_path) -> None:
+    target = tmp_path / "passport.pdf"
+    target.write_bytes(b"%PDF-1.4 test")
+    download = stored_file_response(target, media_type="application/pdf", filename="passport.pdf")
+    preview = stored_file_response(
+        target, media_type="application/pdf", filename="passport.pdf", inline=True
+    )
+    assert "attachment" in download.headers["content-disposition"]
+    assert "inline" in preview.headers["content-disposition"]
+    assert preview.media_type == "application/pdf"

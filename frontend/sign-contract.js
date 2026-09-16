@@ -7,14 +7,149 @@ const viewPath =
   contractType === "document"
     ? `/document-sign/view/${encodeURIComponent(token)}`
     : contractType === "employment"
-      ? `/employment-contracts/sign/view/${encodeURIComponent(token)}`
-      : `/contracts/sign/view/${encodeURIComponent(token)}`;
+    ? `/employment-contracts/sign/view/${encodeURIComponent(token)}`
+    : `/contracts/sign/view/${encodeURIComponent(token)}`;
 const signPath =
   contractType === "document"
     ? `/document-sign/${encodeURIComponent(token)}`
     : contractType === "employment"
       ? `/employment-contracts/sign/${encodeURIComponent(token)}`
       : `/contracts/sign/${encodeURIComponent(token)}`;
+
+function parseSignError(data, fallback) {
+  const detail = data?.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const first = detail.find((item) => item?.msg)?.msg;
+    if (first) return first;
+  }
+  if (detail && typeof detail === "object" && typeof detail.message === "string") {
+    return detail.message;
+  }
+  return data?.message || fallback;
+}
+
+function networkSignError(error, fallback) {
+  const message = error?.message || "";
+  if (message === "Failed to fetch" || message === "Load failed") {
+    return "Could not reach the signing service. Check your connection and try again.";
+  }
+  return message || fallback;
+}
+
+function createSignaturePad(canvas) {
+  if (!canvas) return null;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const frame = canvas.closest(".signature-pad-frame");
+  let drawing = false;
+  let dirty = false;
+  let last = null;
+
+  function cssSize() {
+    const rect = canvas.getBoundingClientRect();
+    return { width: Math.max(rect.width, 1), height: Math.max(rect.height, 1) };
+  }
+
+  function markDirty() {
+    dirty = true;
+    frame?.classList.add("is-signed");
+  }
+
+  function stylePen() {
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#12352d";
+    ctx.fillStyle = "#12352d";
+    ctx.lineWidth = 2.6;
+  }
+
+  function resize() {
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    const { width, height } = cssSize();
+    const snapshot = dirty ? canvas.toDataURL("image/png") : null;
+    canvas.width = Math.floor(width * ratio);
+    canvas.height = Math.floor(height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    stylePen();
+    if (snapshot) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, width, height);
+      img.src = snapshot;
+    }
+  }
+
+  function pointFromEvent(event) {
+    const rect = canvas.getBoundingClientRect();
+    const src = event.touches?.[0] || event.changedTouches?.[0] || event;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+
+  function start(event) {
+    event.preventDefault();
+    drawing = true;
+    last = pointFromEvent(event);
+    stylePen();
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 1.15, 0, Math.PI * 2);
+    ctx.fill();
+    markDirty();
+    try {
+      canvas.setPointerCapture?.(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function move(event) {
+    if (!drawing || !last) return;
+    event.preventDefault();
+    const next = pointFromEvent(event);
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(next.x, next.y);
+    ctx.stroke();
+    last = next;
+    markDirty();
+  }
+
+  function end(event) {
+    if (!drawing) return;
+    event.preventDefault();
+    drawing = false;
+    last = null;
+    try {
+      canvas.releasePointerCapture?.(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  window.addEventListener("resize", resize);
+  window.addEventListener("load", resize);
+  resize();
+
+  return {
+    isEmpty() {
+      return !dirty;
+    },
+    toDataURL() {
+      return canvas.toDataURL("image/png");
+    },
+    clear() {
+      const { width, height } = cssSize();
+      ctx.clearRect(0, 0, width, height);
+      dirty = false;
+      drawing = false;
+      last = null;
+      frame?.classList.remove("is-signed");
+    },
+  };
+}
 
 function renderDocumentPreview(data) {
   const preview = document.getElementById("contract-preview");
@@ -43,14 +178,19 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+const signaturePad = createSignaturePad(document.getElementById("signature-pad"));
+document.getElementById("signature-pad-clear")?.addEventListener("click", () => {
+  signaturePad?.clear();
+});
+
 async function loadContract() {
   if (!token) {
     document.getElementById("contract-meta").textContent = "Missing signing link.";
     return;
   }
   const res = await fetch(`${API_BASE}${viewPath}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || "Contract unavailable");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(parseSignError(data, "Contract unavailable"));
 
   const isDocument = contractType === "document" || data.contract_type === "document";
   const isEmployment = contractType === "employment" || data.contract_type === "employment";
@@ -83,6 +223,11 @@ async function loadContract() {
   const titleField = document.querySelector('[name="signature_title"]')?.closest("label");
   if (titleField) titleField.hidden = isDocument;
 
+  const submitBtn = document.querySelector('#sign-form button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.textContent = isDocument ? "Sign document" : "Sign contract";
+  }
+
   if (data.signatory_name) {
     document.querySelector('[name="signature_name"]').value = data.signatory_name;
   }
@@ -94,17 +239,26 @@ document.getElementById("sign-form")?.addEventListener("submit", async (event) =
   const form = event.currentTarget;
   const submitBtn = form.querySelector('button[type="submit"]');
   const performSign = async () => {
-    const res = await fetch(`${API_BASE}${signPath}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        signature_name: form.signature_name.value.trim(),
-        signature_title: form.signature_title.value.trim() || null,
-        accept_terms: form.accept_terms.checked,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Signing failed");
+    if (signaturePad?.isEmpty()) {
+      throw new Error("Draw your signature in the box before signing.");
+    }
+    let res;
+    try {
+      res = await fetch(`${API_BASE}${signPath}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signature_name: form.signature_name.value.trim(),
+          signature_title: form.signature_title.value.trim() || null,
+          accept_terms: form.accept_terms.checked,
+          signature_image: signaturePad ? signaturePad.toDataURL() : null,
+        }),
+      });
+    } catch (error) {
+      throw new Error(networkSignError(error, "Signing failed"));
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(parseSignError(data, "Signing failed"));
     const ref = data.reference_code || data.contract_number || "recorded";
     return `Signed successfully. Reference ${ref}. You may close this page.`;
   };
@@ -142,5 +296,5 @@ document.getElementById("sign-form")?.addEventListener("submit", async (event) =
 });
 
 loadContract().catch((error) => {
-  document.getElementById("contract-meta").textContent = error.message;
+  document.getElementById("contract-meta").textContent = networkSignError(error, error.message);
 });

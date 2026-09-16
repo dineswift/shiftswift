@@ -215,7 +215,7 @@
     host.innerHTML = rows
       .map((row) => {
         const fileAction = row.has_file
-          ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
+          ? `<button type="button" class="btn ghost" data-preview-doc="${row.id}" ${documentActionAttrs(row)}>Preview</button><button type="button" class="btn ghost" data-download-doc="${row.id}" ${documentActionAttrs(row)}>Download</button>`
           : row.document_url
             ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
             : "";
@@ -287,6 +287,32 @@
 
   function bindDocumentRowActions(container, rows) {
     if (!container) return;
+    container.querySelectorAll("[data-preview-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.previewDoc,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        if (!row || !window.ShiftSwiftDocumentPreview?.open) return;
+        try {
+          const res = await apiFetch(documentDownloadPath(row, { preview: true }));
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Preview failed");
+          }
+          const blob = await res.blob();
+          window.ShiftSwiftDocumentPreview.open({
+            blob,
+            title: row.title,
+            filename: row.original_filename || `${row.title || "document"}`,
+            contentType: blob.type || row.content_type,
+          });
+        } catch (error) {
+          window.AdminSettings?.showSettingsToast?.(error.message || "Preview failed");
+        }
+      });
+    });
     container.querySelectorAll("[data-download-doc]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const row = findDocumentRow(rows, {
@@ -465,12 +491,13 @@
     return employeeLabel(row.employee_id);
   }
 
-  function documentDownloadPath(row) {
+  function documentDownloadPath(row, { preview = false } = {}) {
     const scope = row.scope || "tenant";
     const params = new URLSearchParams({ scope });
     if (scope === "employee" && row.employee_id) {
       params.set("employee_id", String(row.employee_id));
     }
+    if (preview) params.set("preview", "1");
     return `/admin/documents/${row.id}/file?${params.toString()}`;
   }
 

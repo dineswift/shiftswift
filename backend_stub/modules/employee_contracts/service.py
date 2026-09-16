@@ -480,13 +480,18 @@ def sign_employment_contract(
     signature_name: str,
     signature_title: str | None,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
+    from modules.document_signing.service import sanitize_signature_image, signature_drawing_html
+
     contract = get_contract_by_token(conn, token)
+    drawing = signature_drawing_html(sanitize_signature_image(signature_image))
     signed_block = (
         f'<section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">'
         f"<h2>Electronic signature</h2>"
         f"<p><strong>Signed by:</strong> {html.escape(signature_name)}"
         f"{f' ({html.escape(signature_title)})' if signature_title else ''}</p>"
+        f"{drawing}"
         f"<p><strong>Signed at:</strong> {_utcnow().strftime('%d %B %Y %H:%M UTC')}</p>"
         f"<p><strong>IP address:</strong> {html.escape(ip_address or 'Not recorded')}</p>"
         f"</section>"

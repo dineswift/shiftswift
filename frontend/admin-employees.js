@@ -714,9 +714,27 @@
 
   function employeeApiError(res, data, fallback = "Request failed") {
     const detail = data?.detail;
-    if (typeof detail === "string") return detail;
-    if (detail && typeof detail.message === "string") return detail.message;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (Array.isArray(detail)) {
+      const first = detail.find((item) => item?.msg)?.msg;
+      if (first) return first;
+    }
+    if (detail && typeof detail === "object" && typeof detail.message === "string") {
+      return detail.message;
+    }
     return fallback;
+  }
+
+  function employeeNetworkError(error, fallback = "Request failed") {
+    const message = error?.message || "";
+    if (
+      message === "Failed to fetch" ||
+      message === "Load failed" ||
+      message === "NetworkError when attempting to fetch resource."
+    ) {
+      return "Could not reach the API. Check your connection, then try again. If this keeps happening, sign out and back in.";
+    }
+    return message || fallback;
   }
 
   function duplicateEmployeeId(res, data) {
@@ -862,16 +880,16 @@
   }
 
   function formatInviteError(error, data) {
-    const message = error?.message || "";
-    if (message === "Failed to fetch" || message === "Load failed") {
-      return "Could not reach the API. Check your connection, then try again. If this keeps happening, sign out and back in.";
+    const networked = employeeNetworkError(error, "");
+    if (error?.message === "Failed to fetch" || error?.message === "Load failed") {
+      return networked;
     }
     if (typeof data?.detail === "string" && data.detail) return data.detail;
     if (Array.isArray(data?.detail)) {
       const first = data.detail.find((item) => item?.msg)?.msg;
       if (first) return first;
     }
-    return message || "Invite failed.";
+    return error?.message || "Invite failed.";
   }
 
   async function sendPortalInvite(employeeId, statusId = "employees-bulk-invite-status") {
@@ -1654,6 +1672,72 @@
     return categories.find((item) => item.value === value)?.label || value;
   }
 
+  const EMPLOYEE_DOC_TAB_COPY = {
+    upload:
+      "Upload one PDF, JPEG, or PNG for this employee. Set a single expiry date if the document expires (passport, visa, BRP, certificates).",
+    link: "Save an external URL, or record a check without a file. Still only one expiry date per document.",
+  };
+
+  let employeeDocumentAddTab = "upload";
+
+  function documentExpiryHint(category) {
+    if (category === "id" || category === "rtw") {
+      return "Set the passport, visa, or BRP expiry date. One date per document — add a second document if the dates differ.";
+    }
+    if (category === "qualification") {
+      return "Set for food hygiene, first aid, and other renewable certificates.";
+    }
+    if (category === "payslip") {
+      return "Payslips do not usually need an expiry date.";
+    }
+    return "Optional. Leave blank if this document does not expire.";
+  }
+
+  function bindEmployeeDocumentExpiryHint(selectEl, hintEl) {
+    if (!selectEl || !hintEl) return;
+    const sync = () => {
+      hintEl.textContent = documentExpiryHint(selectEl.value);
+    };
+    selectEl.addEventListener("change", sync);
+    sync();
+  }
+
+  function bindEmployeeDocumentTabs(container) {
+    const tabs = [...container.querySelectorAll("[data-employee-doc-tab]")];
+    const desc = container.querySelector("#employee-document-tab-desc");
+    const activate = (target) => {
+      const next = target === "link" ? "link" : "upload";
+      employeeDocumentAddTab = next;
+      tabs.forEach((tab) => {
+        const active = tab.dataset.employeeDocTab === next;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+        tab.tabIndex = active ? 0 : -1;
+      });
+      container.querySelectorAll("[data-employee-doc-panel]").forEach((panel) => {
+        panel.hidden = panel.dataset.employeeDocPanel !== next;
+      });
+      if (desc) desc.textContent = EMPLOYEE_DOC_TAB_COPY[next] || "";
+    };
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => activate(tab.dataset.employeeDocTab));
+    });
+    activate(employeeDocumentAddTab);
+  }
+
+  function bindEmployeeDocumentNotify(container) {
+    const notify = container.querySelector("#employee-document-upload-notify");
+    const emailWrap = container.querySelector("#employee-document-upload-email-wrap");
+    const email = container.querySelector("#employee-document-upload-email");
+    const sync = () => {
+      const on = notify?.checked ?? false;
+      if (emailWrap) emailWrap.hidden = !on;
+      if (email) email.disabled = !on;
+    };
+    notify?.addEventListener("change", sync);
+    sync();
+  }
+
   function renderRequirementsChecklist(requirements) {
     if (!requirements?.items?.length) return "";
     const summary = requirements.complete
@@ -1680,46 +1764,68 @@
         <p class="muted">${escapeHtml(section?.description || "")}</p>
         ${renderRequirementsChecklist(requirements)}
       </div>
-      <div id="employee-document-form"></div>
-      <form id="employee-document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data" style="margin-bottom:1rem;">
-        <label class="edit-field"><span class="edit-label">Upload title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
-        <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /><span class="muted edit-hint" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</span></label>
-        <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
-        <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-        <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint">Set for food hygiene, first aid, and other renewable certificates.</span></label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Notify employee when published</span>
-            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
-          </span>
-        </label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Email employee when notified</span>
-            <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
-          </span>
-        </label>
-        <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
-      </form>
+      <div class="employee-doc-add">
+        <h5 class="employee-doc-add__title">Add a document</h5>
+        <div class="settings-doc-tabs" role="tablist" aria-label="How to add this document">
+          <button type="button" class="settings-doc-tab is-active" data-employee-doc-tab="upload" role="tab" id="employee-doc-tab-upload" aria-controls="employee-document-upload-panel" aria-selected="true">Upload file</button>
+          <button type="button" class="settings-doc-tab" data-employee-doc-tab="link" role="tab" id="employee-doc-tab-link" aria-controls="employee-document-link-panel" aria-selected="false">Add a link or note</button>
+        </div>
+        <p class="settings-doc-tab-desc muted" id="employee-document-tab-desc">${EMPLOYEE_DOC_TAB_COPY.upload}</p>
+        <div id="employee-document-upload-panel" class="settings-doc-tab-panel" data-employee-doc-panel="upload" role="tabpanel" aria-labelledby="employee-doc-tab-upload">
+          <form id="employee-document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data">
+            <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Right to Work (Passport)" /></label>
+            <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /><span class="muted edit-hint" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</span></label>
+            <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
+            <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+            <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint" id="employee-document-upload-expiry-hint">Optional. Leave blank if this document does not expire.</span></label>
+            <label class="edit-field" data-span="2"><span class="edit-label">Notes <span class="muted">(optional)</span></span><textarea name="notes" rows="3" placeholder="e.g. Passport and BRP checked on arrival"></textarea></label>
+            <label class="ss-check-row" data-span="2">
+              <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
+              <span class="ss-check-row__box" aria-hidden="true"></span>
+              <span class="ss-check-row__content">
+                <span class="ss-check-row__title">Notify employee in the portal</span>
+                <span class="ss-check-row__hint muted">Shows an alert in their app. Turn this off to keep the file HR-only until they next log in.</span>
+              </span>
+            </label>
+            <div id="employee-document-upload-email-wrap" class="employee-doc-notify-extra" data-span="2">
+              <label class="ss-check-row settings-doc-notify-email">
+                <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Also send an email</span>
+                  <span class="ss-check-row__hint muted">Uses their work email. Leave this off if the portal alert is enough.</span>
+                </span>
+              </label>
+            </div>
+            <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload document</button><p class="edit-form-status muted" data-upload-status></p></div>
+          </form>
+        </div>
+        <div id="employee-document-link-panel" class="settings-doc-tab-panel" data-employee-doc-panel="link" hidden role="tabpanel" aria-labelledby="employee-doc-tab-link">
+          <div id="employee-document-form"></div>
+        </div>
+      </div>
       <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
       <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
       <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th></th></tr></thead>
-          <tbody id="employee-documents-body"></tbody>
-        </table>
+      <div class="employee-doc-list">
+        <h5 class="employee-doc-list__title">Documents on file</h5>
+        <p class="muted employee-doc-list__lead">Each row is one document with one expiry date. After you add a file or link, it appears here.</p>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th></th></tr></thead>
+            <tbody id="employee-documents-body"></tbody>
+          </table>
+        </div>
       </div>`;
+
+    bindEmployeeDocumentTabs(container);
+    bindEmployeeDocumentNotify(container);
 
     mountEditForm(container.querySelector("#employee-document-form"), {
       id: "employee-document",
       columns: 2,
-      submitLabel: "Add document",
-      successMessage: "Document added.",
+      submitLabel: "Save record",
+      successMessage: "Document recorded.",
       fields: [
         { name: "title", label: "Title", type: "text", required: true },
         {
@@ -1729,9 +1835,9 @@
           optionsKey: "employee_document_categories",
           defaultValue: "contract",
         },
-        { name: "document_url", label: "Document URL", type: "url", placeholder: "https://..." },
+        { name: "document_url", label: "Document URL", type: "url", placeholder: "https://... (optional)" },
         { name: "expires_at", label: "Expiry date", type: "date" },
-        { name: "notes", label: "Notes", type: "textarea", span: 2 },
+        { name: "notes", label: "Notes", type: "textarea", span: 2, placeholder: "e.g. Passport and BRP checked on arrival" },
       ],
     }, {
       onSubmit: async (payload) => {
@@ -1759,6 +1865,16 @@
       },
     });
 
+    const linkCategory = container.querySelector("#employee-document-form select[name='category']");
+    const linkExpiryInput = container.querySelector("#employee-document-form input[name='expires_at']");
+    if (linkExpiryInput && !container.querySelector("#employee-document-link-expiry-hint")) {
+      const hint = document.createElement("span");
+      hint.className = "muted edit-hint";
+      hint.id = "employee-document-link-expiry-hint";
+      linkExpiryInput.after(hint);
+      bindEmployeeDocumentExpiryHint(linkCategory, hint);
+    }
+
     renderTableBody(container.querySelector("#employee-documents-body"), {
       emptyMessage: "No documents recorded yet.",
       columns: [
@@ -1782,6 +1898,7 @@
               row.category !== "payslip" &&
               row.signing_status !== "signed";
             return `<div class="table-actions">
+              ${row.has_file ? `<button type="button" class="btn ghost" data-preview-doc="${row.id}">Preview</button>` : ""}
               ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
               ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
               ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
@@ -1829,6 +1946,50 @@
       });
     });
 
+    container.querySelectorAll("[data-preview-doc]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const actionStatus = container.querySelector("#employee-document-action-status");
+        const row = docs.find((item) => String(item.id) === btn.dataset.previewDoc);
+        const run = window.ShiftSwiftAction?.runButtonAction;
+        const performPreview = async () => {
+          const res = await apiFetch(
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.previewDoc}/file?preview=1`
+          );
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || "Preview failed");
+          }
+          const blob = await res.blob();
+          if (!window.ShiftSwiftDocumentPreview?.open) {
+            throw new Error("Preview is not available.");
+          }
+          window.ShiftSwiftDocumentPreview.open({
+            blob,
+            title: row?.title,
+            filename: row?.original_filename || `${row?.title || "document"}`,
+            contentType: blob.type || row?.content_type,
+          });
+          return "Opened preview.";
+        };
+        if (run) {
+          await run(btn, actionStatus, {
+            loadingLabel: "Opening…",
+            successMessage: "Preview opened.",
+            errorMessage: "Preview failed.",
+            successLabel: "Opened",
+            clearStatusAfterMs: 2000,
+            onAction: performPreview,
+          });
+        } else {
+          try {
+            await performPreview();
+          } catch (error) {
+            window.ShiftSwiftAction?.showActionToast?.(error.message || "Preview failed", "error");
+          }
+        }
+      });
+    });
+
     container.querySelectorAll("[data-download-doc]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const actionStatus = container.querySelector("#employee-document-action-status");
@@ -1866,21 +2027,36 @@
         const signingStatus = container.querySelector("#employee-document-signing-status");
         const run = window.ShiftSwiftAction?.runButtonAction;
         const performSend = async () => {
-          const res = await apiFetch(
-            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
-            {
-              method: "POST",
-              body: JSON.stringify({ frontend_base: window.location.origin }),
-            }
-          );
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "Send failed");
+          let res;
+          try {
+            res = await apiFetch(
+              `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
+              {
+                method: "POST",
+                body: JSON.stringify({ frontend_base: window.location.origin }),
+              }
+            );
+          } catch (error) {
+            throw new Error(employeeNetworkError(error, "Send failed"));
+          }
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(employeeApiError(res, data, "Send failed"));
           pendingDocumentSigningUi = {
             signing_url: data.signing_url,
             reference_code: data.reference_code,
+            email_queued: data.email_queued !== false,
           };
-          await openEmployee(activeEmployeeId, "document_store");
-          return `Sent for signature · ${data.reference_code}`;
+          revealDocumentSigningLink(container, pendingDocumentSigningUi);
+          try {
+            await openEmployee(activeEmployeeId, "document_store");
+          } catch (reloadError) {
+            console.warn("Employee reload after send-for-signature failed", reloadError);
+          }
+          const emailed =
+            data.email_queued === false
+              ? "Copy the signing link below — the email could not be queued."
+              : "Emailed to the employee.";
+          return `Sent for signature · ${data.reference_code}. ${emailed}`;
         };
         if (run) {
           await run(btn, signingStatus, {
@@ -1926,6 +2102,10 @@
         syncPayPeriod();
         uploadCategory.dataset.ready = "true";
       }
+      bindEmployeeDocumentExpiryHint(
+        uploadCategory,
+        container.querySelector("#employee-document-upload-expiry-hint")
+      );
     }
     uploadForm?.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -1952,10 +2132,15 @@
       const performUpload = async () => {
         const fd = new FormData(uploadForm);
         const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
-        const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
+        const sendEmail =
+          notify && (uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true);
         fd.set("notify_employee", notify ? "true" : "false");
         fd.set("send_email", sendEmail ? "true" : "false");
         if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
+        if (!String(fd.get("expires_at") || "").trim()) fd.delete("expires_at");
+        const notes = String(fd.get("notes") || "").trim();
+        if (notes) fd.set("notes", notes);
+        else fd.delete("notes");
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",
           headers: authHeaders(false),
@@ -1994,23 +2179,31 @@
     });
 
     if (pendingDocumentSigningUi) {
-      const { signing_url: signingUrl, reference_code: referenceCode } = pendingDocumentSigningUi;
-      const linkBox = container.querySelector("#employee-document-signing-link");
-      const signingStatus = container.querySelector("#employee-document-signing-status");
-      if (linkBox && signingUrl) {
-        linkBox.hidden = false;
-        linkBox.innerHTML = `<p><strong>Signing link</strong> (also emailed to employee):</p>
-          <input type="text" readonly value="${escapeHtml(signingUrl)}" style="width:100%;" onclick="this.select()" />`;
-      }
-      if (signingStatus) {
-        const message = `Sent for signature · ${referenceCode}`;
-        if (window.ShiftSwiftAction?.setActionStatus) {
-          window.ShiftSwiftAction.setActionStatus(signingStatus, message, "ok");
-        } else {
-          signingStatus.textContent = message;
-        }
-      }
+      revealDocumentSigningLink(container, pendingDocumentSigningUi);
       pendingDocumentSigningUi = null;
+    }
+  }
+
+  function revealDocumentSigningLink(container, info) {
+    if (!container || !info?.signing_url) return;
+    const linkBox = container.querySelector("#employee-document-signing-link");
+    const signingStatus = container.querySelector("#employee-document-signing-status");
+    if (linkBox) {
+      linkBox.hidden = false;
+      const emailNote =
+        info.email_queued === false
+          ? "Email could not be queued — copy this link and send it to the employee."
+          : "Also emailed to the employee.";
+      linkBox.innerHTML = `<p><strong>Signing link</strong> (${emailNote})</p>
+        <input type="text" readonly value="${escapeHtml(info.signing_url)}" style="width:100%;" onclick="this.select()" />`;
+    }
+    if (signingStatus) {
+      const message = `Sent for signature · ${info.reference_code || ""}`.trim();
+      if (window.ShiftSwiftAction?.setActionStatus) {
+        window.ShiftSwiftAction.setActionStatus(signingStatus, message, "ok");
+      } else {
+        signingStatus.textContent = message;
+      }
     }
   }
 
@@ -2256,19 +2449,33 @@
     hideEmployeeHistoryPanels();
     showDetailView();
     const accordion = lifecycleAccordionHost();
+    const cachedWorkspace =
+      workspaceCache && Number(workspaceCache.employee?.id) === Number(employeeId) ? workspaceCache : null;
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;
 
-    const res = await apiFetch(`/admin/employees/${employeeId}/workspace`);
-    if (requestId !== openEmployeeRequest) return;
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.detail || "Could not load employee");
-      showListView();
-      return;
-    }
+    try {
+      const res = await apiFetch(`/admin/employees/${employeeId}/workspace`);
+      if (requestId !== openEmployeeRequest) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (cachedWorkspace) {
+          renderWorkspace(cachedWorkspace);
+        } else {
+          alert(employeeApiError(res, data, "Could not load employee"));
+          showListView();
+        }
+        return;
+      }
 
-    activeSection = section || data.next_section || "recruitment";
-    renderWorkspace(data);
+      activeSection = section || data.next_section || "recruitment";
+      renderWorkspace(data);
+    } catch (error) {
+      if (requestId !== openEmployeeRequest) return;
+      if (cachedWorkspace) {
+        renderWorkspace(cachedWorkspace);
+      }
+      throw error;
+    }
   }
 
   async function refreshEmployeesTable() {
