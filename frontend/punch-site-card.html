@@ -3,8 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-store" />
     <script src="./brand-config.js?v=brand-v6"></script>
-    <script src="./app-host-guard.js?v=1"></script>
+    <script src="./app-host-guard.js?v=2"></script>
+    <script src="./punch-card-link.js?v=38"></script>
     <title>Premises clock-in QR card</title>
     <script src="./app-icons.js?v=brandkit-v5"></script>
     <link rel="stylesheet" href="./theme.css?v=brand-v1" />
@@ -12,6 +14,10 @@
       :root {
         --card-w: 85mm;
         --card-h: 55mm;
+      }
+
+      [hidden] {
+        display: none !important;
       }
 
       * {
@@ -311,6 +317,7 @@
     <div class="toolbar">
       <p>Print on thick paper or laminate. Staff scan with the Time Clock app — not a separate hardware scanner.</p>
       <div class="toolbar-actions">
+        <a class="btn btn--ghost" href="./admin.html#time-punch">Back to Time punch</a>
         <button type="button" class="btn btn--ghost" id="card-size-pocket">Pocket card</button>
         <button type="button" class="btn btn--ghost" id="card-size-desk">Desk card</button>
         <button type="button" class="btn btn--ghost" id="card-size-tent">Tent card</button>
@@ -320,7 +327,8 @@
 
     <div id="card-empty" class="empty-state" hidden>
       <h1>Missing QR link</h1>
-      <p>Open this page from <strong>Admin → Time punch → select a site → Print QR card</strong>, or add <code>?url=…&amp;site=…</code> to the address bar.</p>
+      <p>Open this page from <strong>Admin → Time punch → Print card</strong>. That button puts the premises link in the address bar (<code>?url=…&amp;site=…</code> and <code>#url=…&amp;site=…</code>).</p>
+      <p><a href="./admin.html#time-punch">Back to Time punch</a></p>
     </div>
 
     <div class="preview-wrap" id="card-preview" hidden>
@@ -380,58 +388,48 @@
 
     <script>
       (function () {
-        function qrSrc(url, embedded) {
-          if (embedded) return embedded;
-          if (!url) return "";
-          return (
-            "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=" +
-            encodeURIComponent(url)
-          );
-        }
-
-        function readCardPayload() {
-          const raw = sessionStorage.getItem("punchCardPayload");
-          if (!raw) return null;
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return null;
-          }
-        }
-
-        const stored = readCardPayload();
-        const params = new URLSearchParams(window.location.search);
-        const clockUrl = stored?.clock_url || params.get("url") || "";
-        const siteName = stored?.site_name || params.get("site") || "Work site";
-        const embeddedQr = stored?.qr_image_data_uri || "";
-        const preview = document.getElementById("card-preview");
-        const empty = document.getElementById("card-empty");
-        const qrImg = document.getElementById("card-qr-image");
-        const siteEl = document.getElementById("card-site-name");
-        const tentSiteEl = document.getElementById("tent-site-name");
-        const tentQrImg = document.getElementById("tent-qr-image");
-        const cardWrap = document.querySelector(".punch-card-wrap");
-        const tentWrap = document.querySelector(".tent-wrap");
+        const helpers = window.ShiftSwiftPunchCards;
         const printBtn = document.getElementById("card-print-btn");
         const pocketBtn = document.getElementById("card-size-pocket");
         const deskBtn = document.getElementById("card-size-desk");
         const tentBtn = document.getElementById("card-size-tent");
 
-        function setLayout(mode) {
-          document.body.classList.remove("layout-pocket", "layout-desk", "layout-tent");
-          document.body.classList.add(`layout-${mode}`);
-          const isTent = mode === "tent";
-          if (cardWrap) cardWrap.hidden = isTent;
-          if (tentWrap) tentWrap.hidden = !isTent;
-          const root = document.documentElement;
-          if (mode === "desk") {
-            root.style.setProperty("--card-w", "105mm");
-            root.style.setProperty("--card-h", "74mm");
-          } else if (mode === "pocket") {
-            root.style.setProperty("--card-w", "85mm");
-            root.style.setProperty("--card-h", "55mm");
+        function bootFallback() {
+          const search = new URLSearchParams(window.location.search);
+          const hash = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
+          const clockUrl = search.get("url") || hash.get("url") || "";
+          const siteName = search.get("site") || hash.get("site") || "Work site";
+          const empty = document.getElementById("card-empty");
+          const preview = document.getElementById("card-preview");
+          if (!clockUrl) {
+            if (empty) empty.hidden = false;
+            if (preview) preview.hidden = true;
+            return { ok: false };
           }
+          if (empty) empty.hidden = true;
+          if (preview) preview.hidden = false;
+          const siteEl = document.getElementById("card-site-name");
+          const tentSiteEl = document.getElementById("tent-site-name");
+          const qrImg = document.getElementById("card-qr-image");
+          const tentQrImg = document.getElementById("tent-qr-image");
+          const qr =
+            "https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=8&data=" +
+            encodeURIComponent(clockUrl);
+          if (siteEl) siteEl.textContent = siteName;
+          if (tentSiteEl) tentSiteEl.textContent = siteName;
+          if (qrImg) {
+            qrImg.src = qr;
+            qrImg.alt = "Premises clock-in QR for " + siteName;
+          }
+          if (tentQrImg) {
+            tentQrImg.src = qr;
+            tentQrImg.alt = qrImg ? qrImg.alt : "Premises clock-in QR for " + siteName;
+          }
+          return { ok: true };
         }
+
+        const storages = [localStorage, sessionStorage];
+        let wired = false;
 
         function renderPortalLines(containerId) {
           const host = document.getElementById(containerId);
@@ -442,32 +440,35 @@
             .join("");
         }
 
-        if (!clockUrl) {
-          empty.hidden = false;
-          return;
+        function finish(result) {
+          if (!result?.ok) return;
+          renderPortalLines("card-portals");
+          if (wired) return;
+          wired = true;
+          printBtn?.addEventListener("click", () => window.print());
+          pocketBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "pocket"));
+          deskBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "desk"));
+          tentBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "tent"));
         }
 
-        preview.hidden = false;
-        siteEl.textContent = siteName;
-        if (tentSiteEl) tentSiteEl.textContent = siteName;
-        const qr = qrSrc(clockUrl, embeddedQr);
-        qrImg.src = qr;
-        qrImg.alt = "Premises clock-in QR for " + siteName;
-        if (tentQrImg) {
-          tentQrImg.src = qr;
-          tentQrImg.alt = qrImg.alt;
+        const result = helpers?.bootPunchSiteCard
+          ? helpers.bootPunchSiteCard(document, window.location, storages)
+          : bootFallback();
+        finish(result);
+
+        if (helpers?.listenForParentPayload) {
+          helpers.listenForParentPayload(window, document, window.location, storages, finish);
+        } else {
+          window.addEventListener("message", (event) => {
+            const data = event?.data;
+            if (!data || data.type !== "shiftswift-punch-card" || !data.clock_url) return;
+            finish(
+              helpers?.applyExternalPayload
+                ? helpers.applyExternalPayload(document, data, window.location, storages)
+                : bootFallback(),
+            );
+          });
         }
-        renderPortalLines("card-portals");
-
-        const initialLayout =
-          stored?.layout ||
-          (params.get("layout") === "tent" ? "tent" : params.get("layout") === "desk" ? "desk" : "pocket");
-        setLayout(initialLayout);
-
-        printBtn?.addEventListener("click", () => window.print());
-        pocketBtn?.addEventListener("click", () => setLayout("pocket"));
-        deskBtn?.addEventListener("click", () => setLayout("desk"));
-        tentBtn?.addEventListener("click", () => setLayout("tent"));
       })();
     </script>
   </body>

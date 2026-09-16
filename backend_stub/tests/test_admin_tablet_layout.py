@@ -57,3 +57,25 @@ def test_phone_layout_breakpoint_is_unchanged() -> None:
     assert "min-width: 861px" in css
     mobile = (FRONTEND / "admin-mobile-polish.css").read_text(encoding="utf-8")
     assert "@media (max-width: 860px)" in mobile
+
+
+def test_tablet_css_includes_in_app_file_preview() -> None:
+    css = TABLET_CSS.read_text(encoding="utf-8")
+    assert ".admin-blob-preview" in css
+    assert ".admin-blob-preview__bar" in css
+    assert ".admin-blob-preview__body iframe" in css
+
+
+def test_admin_shared_opens_files_in_place_on_ipad() -> None:
+    source = (FRONTEND / "admin-shared.js").read_text(encoding="utf-8")
+    assert "function isCompactIosShell()" in source
+    assert "ShiftSwiftFileOpen" in source
+    assert "deliverBlob" in source
+    html = ADMIN_HTML.read_text(encoding="utf-8")
+    assert 'src="./file-open.js?v=1"' in html
+    assert 'src="./admin-shared.js?v=admin-v47"' in html
+    assert 'href="./admin-tablet.css?v=3"' in html
+    rota = (FRONTEND / "admin-rota.js").read_text(encoding="utf-8")
+    assert "Use Print or Share in the preview." in rota
+    assert "/admin/rota/weeks/" in rota
+    assert "export.pdf" in rota or "export.${ext}" in rota

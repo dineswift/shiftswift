@@ -15069,6 +15069,25 @@ body.rota-week-readonly .rota-builder-hint {
   background: rgba(15, 23, 42, 0.45);
 }
 
+@media (max-width: 1366px) {
+  .punch-export-dialog,
+  .punch-scan-dialog,
+  .punch-reclock-dialog {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translateX(-50%);
+    margin: 0;
+    width: min(520px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 .punch-export-dialog__card {
   margin: 0;
   padding: 18px 20px;

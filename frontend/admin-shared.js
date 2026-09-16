@@ -593,20 +593,64 @@ window.Admin = (() => {
     return options;
   }
 
+  function isCompactIosShell() {
+    try {
+      if (window.ShiftSwiftFileOpen?.prefersInAppViewer?.()) return true;
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) return true;
+    } catch {
+      /* ignore */
+    }
+    const ua = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    if (/iP(hone|od|ad)/i.test(ua)) return true;
+    return platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1;
+  }
+
+  function triggerBlobDownload(blob, filename) {
+    const opener = window.ShiftSwiftFileOpen;
+    if (opener?.deliverBlob) {
+      void opener.deliverBlob(blob, filename);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename || "download";
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  }
+
+  function downloadErrorMessage(data, fallback = "Download failed") {
+    const detail = data?.detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (detail && typeof detail.message === "string" && detail.message.trim()) return detail.message;
+    return fallback;
+  }
+
   async function downloadAuthenticated(path, filename) {
     const res = await apiFetch(path);
-    if (!res.ok) throw new Error("Download failed");
+    if (!res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(downloadErrorMessage(data));
+      }
+      throw new Error("Download failed");
+    }
     let name = filename;
     const disposition = res.headers.get("Content-Disposition") || "";
-    const match = disposition.match(/filename="([^"]+)"/);
-    if (match) name = match[1];
+    const match = disposition.match(/filename="([^"]+)"/) || disposition.match(/filename=([^;]+)/);
+    if (match) name = match[1].trim().replace(/^UTF-8''/, "");
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = name;
-    link.click();
-    URL.revokeObjectURL(url);
+    if (!blob || blob.size === 0) throw new Error("Download was empty");
+    triggerBlobDownload(blob, name);
   }
 
   async function loadFormOptions() {
@@ -1242,6 +1286,8 @@ window.Admin = (() => {
     isFeatureEnabled,
     isAddonEnabled,
     loadEmployees,
+    isCompactIosShell,
+    triggerBlobDownload,
     downloadAuthenticated,
     isPlatformAdmin,
     escapeHtml,

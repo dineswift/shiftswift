@@ -25,6 +25,7 @@
   const scanManualInput = document.getElementById("punch-scan-manual");
   const scanManualBtn = document.getElementById("punch-scan-manual-btn");
   const scanCloseBtn = document.getElementById("punch-scan-close");
+  const scanPhotoInput = document.getElementById("punch-scan-photo");
 
   const SITE_SCAN_KEY = "employeePortalSiteScan";
   const SITE_SCAN_TTL_MS = 10 * 60 * 1000;
@@ -43,6 +44,7 @@
   let clockInCooldownSeconds = DEFAULT_COOLDOWN_SECONDS;
   let scanStream = null;
   let scanFrameHandle = null;
+  let qrScanHandle = null;
   let statusTickTimer = null;
   let API_BASE = "";
   let tenantId = "";
@@ -376,6 +378,8 @@
   }
 
   function stopQrScanner() {
+    qrScanHandle?.stop?.();
+    qrScanHandle = null;
     if (scanFrameHandle) {
       cancelAnimationFrame(scanFrameHandle);
       scanFrameHandle = null;
@@ -392,10 +396,24 @@
     if (scanMessageEl) scanMessageEl.textContent = "";
     stopQrScanner();
 
+    const helper = window.ShiftSwiftQrScan;
+    if (helper?.start) {
+      qrScanHandle = helper.start({
+        video: scanVideo,
+        onStatus: (message) => {
+          if (scanMessageEl) scanMessageEl.textContent = message;
+        },
+        onCode: async (raw) => {
+          await validateSiteScan(raw);
+        },
+      });
+      return;
+    }
+
     if (!("BarcodeDetector" in window)) {
       if (scanMessageEl) {
         scanMessageEl.textContent =
-          "Camera QR scan is not supported here. Paste the premises link below instead.";
+          "Camera QR scan is not supported here. Take a photo of the premises QR or paste the link below.";
       }
       return;
     }
@@ -425,8 +443,22 @@
       scanFrameHandle = requestAnimationFrame(tick);
     } catch {
       if (scanMessageEl) {
-        scanMessageEl.textContent = "Camera access denied. Paste the premises link below instead.";
+        scanMessageEl.textContent = "Camera access denied. Take a photo of the QR or paste the premises link below.";
       }
+    }
+  }
+
+  async function handleScanPhoto(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      if (scanMessageEl) scanMessageEl.textContent = "Reading photo…";
+      const raw = await window.ShiftSwiftQrScan.decodeImageFile(file);
+      if (!raw) throw new Error("Could not find a QR code in that photo.");
+      await validateSiteScan(raw);
+    } catch (error) {
+      if (scanMessageEl) scanMessageEl.textContent = error.message || "Could not read that photo.";
     }
   }
 
@@ -636,6 +668,10 @@
     scanCloseBtn?.addEventListener("click", () => {
       stopQrScanner();
       if (scanDialog?.close) scanDialog.close();
+    });
+
+    scanPhotoInput?.addEventListener("change", (event) => {
+      void handleScanPhoto(event);
     });
 
     scanManualBtn?.addEventListener("click", () => {
