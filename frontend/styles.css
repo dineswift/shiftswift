@@ -6017,6 +6017,17 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   font-size: 0.82rem;
   line-height: 1.45;
 }
+.employee-doc-notify-extra {
+  margin-left: 8px;
+  padding-left: 14px;
+  border-left: 2px solid var(--green-200, #cce6d8);
+}
+.employee-doc-notify-extra[data-span="2"] {
+  grid-column: 1 / -1;
+}
+.employee-doc-notify-extra .ss-check-row {
+  margin: 0;
+}
 
 #document-filters {
   margin-bottom: 16px;

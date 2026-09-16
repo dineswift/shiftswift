@@ -1707,6 +1707,19 @@
     activate(employeeDocumentAddTab);
   }
 
+  function bindEmployeeDocumentNotify(container) {
+    const notify = container.querySelector("#employee-document-upload-notify");
+    const emailWrap = container.querySelector("#employee-document-upload-email-wrap");
+    const email = container.querySelector("#employee-document-upload-email");
+    const sync = () => {
+      const on = notify?.checked ?? false;
+      if (emailWrap) emailWrap.hidden = !on;
+      if (email) email.disabled = !on;
+    };
+    notify?.addEventListener("change", sync);
+    sync();
+  }
+
   function renderRequirementsChecklist(requirements) {
     if (!requirements?.items?.length) return "";
     const summary = requirements.complete
@@ -1752,18 +1765,20 @@
               <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
               <span class="ss-check-row__box" aria-hidden="true"></span>
               <span class="ss-check-row__content">
-                <span class="ss-check-row__title">Notify employee when published</span>
-                <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
+                <span class="ss-check-row__title">Notify employee in the portal</span>
+                <span class="ss-check-row__hint muted">Shows an alert in their app. Turn this off to keep the file HR-only until they next log in.</span>
               </span>
             </label>
-            <label class="ss-check-row" data-span="2">
-              <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
-              <span class="ss-check-row__box" aria-hidden="true"></span>
-              <span class="ss-check-row__content">
-                <span class="ss-check-row__title">Email employee when notified</span>
-                <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
-              </span>
-            </label>
+            <div id="employee-document-upload-email-wrap" class="employee-doc-notify-extra" data-span="2">
+              <label class="ss-check-row settings-doc-notify-email">
+                <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Also send an email</span>
+                  <span class="ss-check-row__hint muted">Uses their work email. Leave this off if the portal alert is enough.</span>
+                </span>
+              </label>
+            </div>
             <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload document</button><p class="edit-form-status muted" data-upload-status></p></div>
           </form>
         </div>
@@ -1786,6 +1801,7 @@
       </div>`;
 
     bindEmployeeDocumentTabs(container);
+    bindEmployeeDocumentNotify(container);
 
     mountEditForm(container.querySelector("#employee-document-form"), {
       id: "employee-document",
@@ -2038,7 +2054,8 @@
       const performUpload = async () => {
         const fd = new FormData(uploadForm);
         const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
-        const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
+        const sendEmail =
+          notify && (uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true);
         fd.set("notify_employee", notify ? "true" : "false");
         fd.set("send_email", sendEmail ? "true" : "false");
         if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
