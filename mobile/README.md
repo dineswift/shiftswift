@@ -31,17 +31,19 @@ npm run ios:setup
 
 `ios:setup` creates `ios-employee/` and `ios-business/` Xcode projects and syncs Capacitor.
 
-## Open in Xcode
+## Open in Xcode (Mac only)
+
+These commands must run **inside the git repo**, not from `~`. On this Mac that is usually `/Users/gskharel/Desktop/shiftswifthr`.
 
 ```bash
-# ShiftSwift HR (unified — iPad HR Admin + staff)
+cd /Users/gskharel/Desktop/shiftswifthr
+git fetch origin
+git checkout cursor/ios-ipad-updates-b650
+git pull --ff-only origin cursor/ios-ipad-updates-b650
+cd mobile
+npm install
+npm run ios:sync
 npm run ios:open
-
-# Employee app
-npm run ios:employee:open
-
-# HR Admin app
-npm run ios:business:open
 ```
 
 In Xcode:
@@ -49,6 +51,13 @@ In Xcode:
 1. Select your **Team** (Signing & Capabilities).
 2. Choose a simulator or connected **iPhone or 13-inch iPad**.
 3. Press **Run** (⌘R).
+
+To upload to **Transporter / TestFlight** instead of running locally:
+
+```bash
+cd /Users/gskharel/Desktop/shiftswifthr/mobile
+npm run ios:ipa
+```
 
 The ShiftSwift HR app is a universal iPhone + iPad build (`TARGETED_DEVICE_FAMILY = 1,2`). On iPad it uses the full screen (no Split View) so the HR admin layout, rota PDFs, and premises QR scanner stay usable.
 
@@ -91,7 +100,16 @@ SSHR_APP=business npx @capacitor/assets generate --ios
 2. **App Store Connect** — create two apps (Employee + HR Admin).
 3. **Privacy** — declare location and camera use (clock-in / QR); link to [privacy policy](https://app.shiftswifthr.co.uk/privacy-policy.html).
 4. **Screenshots** — iPhone 6.7" and 6.1", plus iPad 13" (landscape) and 12.9" for the universal ShiftSwift HR app.
-5. **Archive** — Xcode → Product → Archive → Distribute to App Store.
+5. **IPA for Transporter / TestFlight** (Mac only) — from `mobile/`:
+
+```bash
+npm run ios:ipa
+```
+
+That writes `~/Desktop/ShiftSwiftHR-1.0.3-11.ipa`. Open **Transporter** from the Mac App Store, drag the IPA in, and click **Deliver**. App Store Connect then processes it for TestFlight.
+
+Or in Xcode: Product → Archive → Distribute App → App Store Connect → Export, then drop the IPA on Transporter.
+
 6. **Push notifications (optional v2)** — add APNs key in Apple Developer, enable Push capability in Xcode, extend API for native push tokens.
 
 ## How it matches the PWA

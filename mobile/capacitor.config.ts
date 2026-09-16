@@ -43,6 +43,7 @@ const sharedPlist = {
   NSLocationWhenInUseUsageDescription: locationPlist,
   NSLocationAlwaysAndWhenInUseUsageDescription: locationPlist,
   NSPhotoLibraryUsageDescription: photoPlist,
+  ITSAppUsesNonExemptEncryption: false,
   UIBackgroundModes: ["remote-notification"],
   UIRequiresFullScreen: true,
 };

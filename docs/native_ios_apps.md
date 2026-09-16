@@ -32,3 +32,17 @@ ShiftSwift HR ships native iOS apps that use the **same UI and API** as the Empl
 The iPad HR app loads `app.shiftswifthr.co.uk`. Deploy the tablet layout and in-app PDF/QR UI with the web app, then reopen the native shell (build **11** / **1.0.3** clears a stale WebKit cache).
 
 See [mobile/README.md](../mobile/README.md) for commands and local dev with `SSHR_SERVER_URL`.
+
+## Mac → Transporter / TestFlight
+
+This Cloud Agent runs on Linux and cannot archive. On the MacBook:
+
+```bash
+cd /Users/gskharel/Desktop/shiftswifthr
+git fetch origin && git checkout cursor/ios-ipad-updates-b650 && git pull --ff-only origin cursor/ios-ipad-updates-b650
+cd mobile
+npm install
+npm run ios:ipa
+```
+
+Then open **Transporter**, drag `~/Desktop/ShiftSwiftHR-1.0.3-11.ipa`, and Deliver. Bundle ID `co.uk.shiftswifthr.app`, version **1.0.3**, build **11**.

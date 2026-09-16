@@ -88,7 +88,12 @@ def test_native_ios_app_is_universal_ipad() -> None:
     )
     cap = (ROOT / "mobile" / "capacitor.config.ts").read_text(encoding="utf-8")
     assert "UISupportedInterfaceOrientations~ipad" in plist
-    assert "UIRequiresFullScreen" in plist
+    assert "ITSAppUsesNonExemptEncryption" in plist
+    export_plist = (ROOT / "mobile" / "ios-app" / "ExportOptions.Transporter.plist").read_text(
+        encoding="utf-8"
+    )
+    assert "app-store-connect" in export_plist
+    assert (ROOT / "mobile" / "scripts" / "export-ipa-for-transporter.sh").is_file()
     assert "NSCameraUsageDescription" in plist
     assert "NSPhotoLibraryUsageDescription" in plist
     assert "NSLocationWhenInUseUsageDescription" in plist
