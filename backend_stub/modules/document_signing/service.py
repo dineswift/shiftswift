@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import html
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -10,6 +12,17 @@ from typing import Any
 from modules.documents.service import create_employee_document, get_employee_document, update_employee_document
 
 UNSIGNABLE_CATEGORIES = frozenset({"payslip"})
+SIGNING_TABLE_UNAVAILABLE = (
+    "Document signing is not set up on this workspace yet. "
+    "Run the latest database migrations and try again."
+)
+_SIGNATURE_IMAGE_PREFIXES = (
+    "data:image/png;base64,",
+    "data:image/jpeg;base64,",
+    "data:image/jpg;base64,",
+)
+_MAX_SIGNATURE_IMAGE_CHARS = 400_000
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -18,6 +31,77 @@ def _utcnow() -> datetime:
 
 def _reference_code(request_id: int) -> str:
     return f"DOC-SIG-{request_id:06d}"
+
+
+def _is_missing_signing_table(exc: BaseException | None) -> bool:
+    if exc is None:
+        return False
+    pgcode = getattr(exc, "pgcode", None)
+    message = str(exc).lower()
+    name = type(exc).__name__
+    if pgcode == "42P01":
+        return True
+    if "employee_document_signing_requests" in message and (
+        "does not exist" in message or "undefined" in message
+    ):
+        return True
+    if name == "UndefinedTable":
+        return True
+    if name == "ProgrammingError" and (
+        "does not exist" in message or "undefined table" in message or "relation" in message
+    ):
+        return True
+    return False
+
+
+def signing_service_error_message(exc: Exception) -> str:
+    if _is_missing_signing_table(exc) or _is_missing_signing_table(getattr(exc, "__cause__", None)):
+        return SIGNING_TABLE_UNAVAILABLE
+    from modules.documents.errors import document_service_error_message
+
+    raw = document_service_error_message(exc)
+    return (
+        raw.replace("Document upload is unavailable", "Document signing is unavailable")
+        .replace("Document upload failed", "Send for signature failed")
+        .replace("document upload", "send for signature")
+    )
+
+
+def sanitize_signature_image(data_url: str | None) -> str | None:
+    if data_url is None:
+        return None
+    value = str(data_url).strip()
+    if not value:
+        return None
+    lower = value.lower()
+    if not lower.startswith(_SIGNATURE_IMAGE_PREFIXES):
+        raise ValueError("Draw your signature in the box, then try again")
+    if len(value) > _MAX_SIGNATURE_IMAGE_CHARS:
+        raise ValueError("Signature drawing is too large — clear the pad and sign again")
+    comma = value.find(",")
+    payload = value[comma + 1 :].encode("ascii", "ignore")
+    try:
+        decoded = base64.b64decode(payload)
+    except Exception as exc:
+        raise ValueError("Signature drawing could not be read — clear the pad and sign again") from exc
+    if len(decoded) < 24:
+        raise ValueError("Draw your signature in the box, then try again")
+    return value
+
+
+def signature_drawing_html(data_url: str | None) -> str:
+    try:
+        safe = sanitize_signature_image(data_url)
+    except ValueError:
+        return ""
+    if not safe:
+        return ""
+    return (
+        '<p><img alt="Handwritten signature" src="'
+        + safe
+        + '" style="max-width:min(100%,320px);height:auto;background:#fff;'
+        + "border:1px solid #d5ddd9;border-radius:8px;padding:8px;\" /></p>"
+    )
 
 
 def _cancel_pending_for_document(*, conn: Any, source_document_id: int) -> None:
@@ -91,7 +175,19 @@ def attach_signing_status(
     conn: Any,
 ) -> list[dict[str, Any]]:
     ids = [int(doc["id"]) for doc in documents if doc.get("id") is not None]
-    status_by_id = signing_status_map(tenant_id=tenant_id, document_ids=ids, conn=conn)
+    try:
+        status_by_id = signing_status_map(tenant_id=tenant_id, document_ids=ids, conn=conn)
+    except Exception as exc:
+        if not _is_missing_signing_table(exc):
+            raise
+        rollback = getattr(conn, "rollback", None)
+        if callable(rollback):
+            try:
+                rollback()
+            except Exception:
+                pass
+        logger.warning("Signing status skipped — table missing: %s", exc)
+        status_by_id = {}
     enriched: list[dict[str, Any]] = []
     for doc in documents:
         item = dict(doc)
@@ -126,58 +222,69 @@ def send_document_for_signature(
     contact = _employee_contact(conn=conn, tenant_id=tenant_id, employee_id=employee_id)
     token = secrets.token_urlsafe(32)
     expires = _utcnow() + timedelta(days=30)
-    _cancel_pending_for_document(conn=conn, source_document_id=document_id)
-
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO employee_document_signing_requests (
-              tenant_id, employee_id, source_document_id, reference_code, status,
-              signing_token, signing_token_expires_at, sent_by
-            ) VALUES (%s, %s, %s, 'pending', 'sent', %s, %s, %s)
-            RETURNING id
-            """,
-            (tenant_id, employee_id, document_id, token, expires, actor),
-        )
-        request_id = int(cur.fetchone()[0])
-        reference = _reference_code(request_id)
-        cur.execute(
-            """
-            UPDATE employee_document_signing_requests
-            SET reference_code = %s
-            WHERE id = %s
-            """,
-            (reference, request_id),
-        )
+    try:
+        _cancel_pending_for_document(conn=conn, source_document_id=document_id)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO employee_document_signing_requests (
+                  tenant_id, employee_id, source_document_id, reference_code, status,
+                  signing_token, signing_token_expires_at, sent_by
+                ) VALUES (%s, %s, %s, 'pending', 'sent', %s, %s, %s)
+                RETURNING id
+                """,
+                (tenant_id, employee_id, document_id, token, expires, actor),
+            )
+            request_id = int(cur.fetchone()[0])
+            reference = _reference_code(request_id)
+            cur.execute(
+                """
+                UPDATE employee_document_signing_requests
+                SET reference_code = %s
+                WHERE id = %s
+                """,
+                (reference, request_id),
+            )
+    except Exception as exc:
+        if _is_missing_signing_table(exc):
+            raise ValueError(SIGNING_TABLE_UNAVAILABLE) from exc
+        raise
 
     signing_url = f"{frontend_base.rstrip('/')}/sign-contract.html?token={token}&type=document"
-    from core.email_templates import document_signing_email
-    from core.notifications import queue_email_notification
-
-    content = document_signing_email(
-        signatory_name=contact["name"],
-        document_title=str(doc.get("title") or "Document"),
-        reference_code=reference,
-        signing_url=signing_url,
-    )
-    queue_email_notification(
-        conn=conn,
-        tenant_id=tenant_id,
-        subject=content.subject,
-        body=content.text,
-        purpose="document_signing",
-        to=contact["email"],
-        payload={
-            "document_id": document_id,
-            "signing_request_id": request_id,
-            "signing_url": signing_url,
-            "type": "document_signing",
-            "audience": "employee",
-            "html_body": content.html,
-        },
-        commit=False,
-    )
     conn.commit()
+
+    email_queued = False
+    try:
+        from core.email_templates import document_signing_email
+        from core.notifications import queue_email_notification
+
+        content = document_signing_email(
+            signatory_name=contact["name"],
+            document_title=str(doc.get("title") or "Document"),
+            reference_code=reference,
+            signing_url=signing_url,
+        )
+        queue_email_notification(
+            conn=conn,
+            tenant_id=tenant_id,
+            subject=content.subject,
+            body=content.text,
+            purpose="employee",
+            to=contact["email"],
+            payload={
+                "document_id": document_id,
+                "signing_request_id": request_id,
+                "signing_url": signing_url,
+                "type": "document_signing",
+                "audience": "employee",
+                "html_body": content.html,
+            },
+            commit=True,
+        )
+        email_queued = True
+    except Exception:
+        logger.exception("Could not queue document signing email for %s", reference)
+
     return {
         "signing_request_id": request_id,
         "reference_code": reference,
@@ -185,6 +292,7 @@ def send_document_for_signature(
         "signatory_email": contact["email"],
         "signing_url": signing_url,
         "expires_at": expires.isoformat(),
+        "email_queued": email_queued,
     }
 
 
@@ -277,6 +385,7 @@ def _build_acknowledgment_html(
     signature_name: str,
     reference_code: str,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> str:
     signed_at = _utcnow().strftime("%d %B %Y %H:%M UTC")
     title = html.escape(str(doc.get("title") or "Document"))
@@ -285,6 +394,7 @@ def _build_acknowledgment_html(
     signer = html.escape(signature_name)
     ip = html.escape(ip_address or "Not recorded")
     ref = html.escape(reference_code)
+    drawing = signature_drawing_html(signature_image)
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><title>Signed acknowledgment — {title}</title></head>
 <body style="font-family:system-ui,sans-serif;line-height:1.5;max-width:720px;margin:2rem auto;padding:0 1rem;">
@@ -296,6 +406,7 @@ def _build_acknowledgment_html(
   <section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">
     <h2>Signature</h2>
     <p><strong>Signed by:</strong> {signer}</p>
+    {drawing}
     <p><strong>Signed at:</strong> {signed_at}</p>
     <p><strong>IP address:</strong> {ip}</p>
     <p>The signatory confirms they reviewed the document identified above.</p>
@@ -309,8 +420,10 @@ def sign_document(
     token: str,
     signature_name: str,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
     get_signing_by_token(conn, token)
+    drawing = sanitize_signature_image(signature_image)
 
     with conn.cursor() as cur:
         cur.execute(
@@ -340,6 +453,7 @@ def sign_document(
         signature_name=signature_name,
         reference_code=reference_code,
         ip_address=ip_address,
+        signature_image=drawing,
     )
     signed_bytes = signed_html.encode("utf-8")
     from modules.documents.storage import write_document_file

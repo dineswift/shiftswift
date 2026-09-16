@@ -714,9 +714,27 @@
 
   function employeeApiError(res, data, fallback = "Request failed") {
     const detail = data?.detail;
-    if (typeof detail === "string") return detail;
-    if (detail && typeof detail.message === "string") return detail.message;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    if (Array.isArray(detail)) {
+      const first = detail.find((item) => item?.msg)?.msg;
+      if (first) return first;
+    }
+    if (detail && typeof detail === "object" && typeof detail.message === "string") {
+      return detail.message;
+    }
     return fallback;
+  }
+
+  function employeeNetworkError(error, fallback = "Request failed") {
+    const message = error?.message || "";
+    if (
+      message === "Failed to fetch" ||
+      message === "Load failed" ||
+      message === "NetworkError when attempting to fetch resource."
+    ) {
+      return "Could not reach the API. Check your connection, then try again. If this keeps happening, sign out and back in.";
+    }
+    return message || fallback;
   }
 
   function duplicateEmployeeId(res, data) {
@@ -862,16 +880,16 @@
   }
 
   function formatInviteError(error, data) {
-    const message = error?.message || "";
-    if (message === "Failed to fetch" || message === "Load failed") {
-      return "Could not reach the API. Check your connection, then try again. If this keeps happening, sign out and back in.";
+    const networked = employeeNetworkError(error, "");
+    if (error?.message === "Failed to fetch" || error?.message === "Load failed") {
+      return networked;
     }
     if (typeof data?.detail === "string" && data.detail) return data.detail;
     if (Array.isArray(data?.detail)) {
       const first = data.detail.find((item) => item?.msg)?.msg;
       if (first) return first;
     }
-    return message || "Invite failed.";
+    return error?.message || "Invite failed.";
   }
 
   async function sendPortalInvite(employeeId, statusId = "employees-bulk-invite-status") {
@@ -2009,21 +2027,36 @@
         const signingStatus = container.querySelector("#employee-document-signing-status");
         const run = window.ShiftSwiftAction?.runButtonAction;
         const performSend = async () => {
-          const res = await apiFetch(
-            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
-            {
-              method: "POST",
-              body: JSON.stringify({ frontend_base: window.location.origin }),
-            }
-          );
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "Send failed");
+          let res;
+          try {
+            res = await apiFetch(
+              `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.sendSignDoc}/send-for-signature`,
+              {
+                method: "POST",
+                body: JSON.stringify({ frontend_base: window.location.origin }),
+              }
+            );
+          } catch (error) {
+            throw new Error(employeeNetworkError(error, "Send failed"));
+          }
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(employeeApiError(res, data, "Send failed"));
           pendingDocumentSigningUi = {
             signing_url: data.signing_url,
             reference_code: data.reference_code,
+            email_queued: data.email_queued !== false,
           };
-          await openEmployee(activeEmployeeId, "document_store");
-          return `Sent for signature · ${data.reference_code}`;
+          revealDocumentSigningLink(container, pendingDocumentSigningUi);
+          try {
+            await openEmployee(activeEmployeeId, "document_store");
+          } catch (reloadError) {
+            console.warn("Employee reload after send-for-signature failed", reloadError);
+          }
+          const emailed =
+            data.email_queued === false
+              ? "Copy the signing link below — the email could not be queued."
+              : "Emailed to the employee.";
+          return `Sent for signature · ${data.reference_code}. ${emailed}`;
         };
         if (run) {
           await run(btn, signingStatus, {
@@ -2146,23 +2179,31 @@
     });
 
     if (pendingDocumentSigningUi) {
-      const { signing_url: signingUrl, reference_code: referenceCode } = pendingDocumentSigningUi;
-      const linkBox = container.querySelector("#employee-document-signing-link");
-      const signingStatus = container.querySelector("#employee-document-signing-status");
-      if (linkBox && signingUrl) {
-        linkBox.hidden = false;
-        linkBox.innerHTML = `<p><strong>Signing link</strong> (also emailed to employee):</p>
-          <input type="text" readonly value="${escapeHtml(signingUrl)}" style="width:100%;" onclick="this.select()" />`;
-      }
-      if (signingStatus) {
-        const message = `Sent for signature · ${referenceCode}`;
-        if (window.ShiftSwiftAction?.setActionStatus) {
-          window.ShiftSwiftAction.setActionStatus(signingStatus, message, "ok");
-        } else {
-          signingStatus.textContent = message;
-        }
-      }
+      revealDocumentSigningLink(container, pendingDocumentSigningUi);
       pendingDocumentSigningUi = null;
+    }
+  }
+
+  function revealDocumentSigningLink(container, info) {
+    if (!container || !info?.signing_url) return;
+    const linkBox = container.querySelector("#employee-document-signing-link");
+    const signingStatus = container.querySelector("#employee-document-signing-status");
+    if (linkBox) {
+      linkBox.hidden = false;
+      const emailNote =
+        info.email_queued === false
+          ? "Email could not be queued — copy this link and send it to the employee."
+          : "Also emailed to the employee.";
+      linkBox.innerHTML = `<p><strong>Signing link</strong> (${emailNote})</p>
+        <input type="text" readonly value="${escapeHtml(info.signing_url)}" style="width:100%;" onclick="this.select()" />`;
+    }
+    if (signingStatus) {
+      const message = `Sent for signature · ${info.reference_code || ""}`.trim();
+      if (window.ShiftSwiftAction?.setActionStatus) {
+        window.ShiftSwiftAction.setActionStatus(signingStatus, message, "ok");
+      } else {
+        signingStatus.textContent = message;
+      }
     }
   }
 
@@ -2408,19 +2449,33 @@
     hideEmployeeHistoryPanels();
     showDetailView();
     const accordion = lifecycleAccordionHost();
+    const cachedWorkspace =
+      workspaceCache && Number(workspaceCache.employee?.id) === Number(employeeId) ? workspaceCache : null;
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;
 
-    const res = await apiFetch(`/admin/employees/${employeeId}/workspace`);
-    if (requestId !== openEmployeeRequest) return;
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.detail || "Could not load employee");
-      showListView();
-      return;
-    }
+    try {
+      const res = await apiFetch(`/admin/employees/${employeeId}/workspace`);
+      if (requestId !== openEmployeeRequest) return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (cachedWorkspace) {
+          renderWorkspace(cachedWorkspace);
+        } else {
+          alert(employeeApiError(res, data, "Could not load employee"));
+          showListView();
+        }
+        return;
+      }
 
-    activeSection = section || data.next_section || "recruitment";
-    renderWorkspace(data);
+      activeSection = section || data.next_section || "recruitment";
+      renderWorkspace(data);
+    } catch (error) {
+      if (requestId !== openEmployeeRequest) return;
+      if (cachedWorkspace) {
+        renderWorkspace(cachedWorkspace);
+      }
+      throw error;
+    }
   }
 
   async function refreshEmployeesTable() {

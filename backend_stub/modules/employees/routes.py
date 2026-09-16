@@ -483,7 +483,8 @@ def send_employee_document_for_signature(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    from modules.document_signing.service import send_document_for_signature
+    from modules.document_signing.service import send_document_for_signature, signing_service_error_message
+    from modules.documents.errors import _rollback_quietly
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     frontend_base = (payload.frontend_base or str(request.base_url)).rstrip("/")
@@ -503,24 +504,32 @@ def send_employee_document_for_signature(
                 frontend_base=frontend_base,
             )
         except LookupError as exc:
+            _rollback_quietly(conn)
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
+            _rollback_quietly(conn)
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        log_employee_data_event(
-            tenant_id=tenant_id,
-            actor_username=current_user.username,
-            actor_role=current_user.role,
-            action="send_for_signature",
-            entity_type="employee_document",
-            entity_id=document_id,
-            field_name=f"employee_id={employee_id}",
-            ip_address=client_ip(request),
-            user_agent=request.headers.get("User-Agent"),
-            conn=conn,
-        )
+        except Exception as exc:
+            _rollback_quietly(conn)
+            raise HTTPException(status_code=500, detail=signing_service_error_message(exc)) from exc
+        try:
+            log_employee_data_event(
+                tenant_id=tenant_id,
+                actor_username=current_user.username,
+                actor_role=current_user.role,
+                action="send_for_signature",
+                entity_type="employee_document",
+                entity_id=document_id,
+                field_name=f"employee_id={employee_id}",
+                ip_address=client_ip(request),
+                user_agent=request.headers.get("User-Agent"),
+                conn=conn,
+            )
+        except Exception:
+            _rollback_quietly(conn)
+        return result
     finally:
         conn.close()
-    return result
 
 
 @router.post("/{employee_id}/documents")
