@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-store" />
     <script src="./brand-config.js?v=brand-v6"></script>
     <script src="./app-host-guard.js?v=2"></script>
-    <script src="./punch-card-link.js?v=37"></script>
+    <script src="./punch-card-link.js?v=38"></script>
     <title>Premises clock-in QR card</title>
     <script src="./app-icons.js?v=brandkit-v5"></script>
     <link rel="stylesheet" href="./theme.css?v=brand-v1" />
@@ -428,9 +428,8 @@
           return { ok: true };
         }
 
-        const result = helpers?.bootPunchSiteCard
-          ? helpers.bootPunchSiteCard(document, window.location, [localStorage, sessionStorage])
-          : bootFallback();
+        const storages = [localStorage, sessionStorage];
+        let wired = false;
 
         function renderPortalLines(containerId) {
           const host = document.getElementById(containerId);
@@ -441,13 +440,35 @@
             .join("");
         }
 
-        if (!result.ok) return;
+        function finish(result) {
+          if (!result?.ok) return;
+          renderPortalLines("card-portals");
+          if (wired) return;
+          wired = true;
+          printBtn?.addEventListener("click", () => window.print());
+          pocketBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "pocket"));
+          deskBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "desk"));
+          tentBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "tent"));
+        }
 
-        renderPortalLines("card-portals");
-        printBtn?.addEventListener("click", () => window.print());
-        pocketBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "pocket"));
-        deskBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "desk"));
-        tentBtn?.addEventListener("click", () => helpers?.applyLayout?.(document, "tent"));
+        const result = helpers?.bootPunchSiteCard
+          ? helpers.bootPunchSiteCard(document, window.location, storages)
+          : bootFallback();
+        finish(result);
+
+        if (helpers?.listenForParentPayload) {
+          helpers.listenForParentPayload(window, document, window.location, storages, finish);
+        } else {
+          window.addEventListener("message", (event) => {
+            const data = event?.data;
+            if (!data || data.type !== "shiftswift-punch-card" || !data.clock_url) return;
+            finish(
+              helpers?.applyExternalPayload
+                ? helpers.applyExternalPayload(document, data, window.location, storages)
+                : bootFallback(),
+            );
+          });
+        }
       })();
     </script>
   </body>

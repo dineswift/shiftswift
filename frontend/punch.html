@@ -218,6 +218,10 @@
         <video id="punch-scan-video" class="punch-scan-video" playsinline muted></video>
         <p id="punch-scan-message" class="punch-scan-message" aria-live="polite"></p>
         <label class="punch-scan-fallback">
+          Or take a photo of the QR
+          <input type="file" id="punch-scan-photo" accept="image/*" capture="environment" />
+        </label>
+        <label class="punch-scan-fallback">
           Or paste the code from the QR link
           <input type="text" id="punch-scan-manual" placeholder="Paste QR link or code" autocomplete="off" />
         </label>
@@ -227,7 +231,8 @@
 
     <script src="./brand-config.js?v=brand-v4"></script>
     <script src="./push-notifications.js?v=3"></script>
-    <script src="./punch.js?v=8"></script>
+    <script src="./qr-scan.js?v=1"></script>
+    <script src="./punch.js?v=9"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

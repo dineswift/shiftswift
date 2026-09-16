@@ -33,9 +33,13 @@ def _run_node(script: str) -> None:
 
 def test_admin_html_cache_busts_punch_card_scripts() -> None:
     source = ADMIN_HTML.read_text(encoding="utf-8")
-    assert 'src="./punch-card-link.js?v=37"' in source
-    assert 'src="./admin-time-punch.js?v=37"' in source
-    assert 'src="./admin-time-punch.js?v=36"' not in source
+    assert 'src="./punch-card-link.js?v=38"' in source
+    assert 'src="./admin-time-punch.js?v=38"' in source
+    assert 'src="./admin-time-punch.js?v=37"' not in source
+    assert 'src="./file-open.js?v=1"' in source
+    assert 'src="./admin-shared.js?v=admin-v47"' in source
+    assert 'src="./admin-rota.js?v=37"' in source
+    assert 'id="rota-print-submit">Open PDF' in source
 
 
 def test_print_card_entry_points_all_call_open_punch_card_page() -> None:
@@ -50,17 +54,23 @@ def test_print_card_entry_points_all_call_open_punch_card_page() -> None:
     assert "window.location.assign(href)" in source
     assert "isBlankPrintWindow" in source
     assert "navigatePrintWindow" in source
+    assert "shouldOpenPrintInPlace" in source
+    assert "pngBlobFromOnScreenQr" in source
+    assert "data-gallery-qr" in source
+    assert "shiftswift-punch-card" in source
     assert 'window.open(href, "_blank")' in source
     assert 'window.open(href, "_blank", "noopener")' not in source
     assert "punch-site-card.html" in source
     assert "window.location.origin + window.location.pathname" in source
     assert 'new URL("./punch-site-card.html", window.location.href)' not in source
+    assert "QR card opened in the app. Use Print, then Close to return." in source
 
 
 def test_card_html_reads_shared_helper_not_session_storage_only() -> None:
     source = PUNCH_SITE_CARD.read_text(encoding="utf-8")
-    assert 'src="./punch-card-link.js?v=37"' in source
+    assert 'src="./punch-card-link.js?v=38"' in source
     assert "bootPunchSiteCard" in source
+    assert "listenForParentPayload" in source
     assert "localStorage, sessionStorage" in source
     assert "#url=" in source or "#url=…" in source
 

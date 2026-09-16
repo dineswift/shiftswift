@@ -607,7 +607,29 @@ window.Admin = (() => {
     return options;
   }
 
+  function isCompactIosShell() {
+    try {
+      if (window.ShiftSwiftFileOpen?.prefersInAppViewer?.()) return true;
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) return true;
+    } catch {
+      /* ignore */
+    }
+    const ua = String(navigator.userAgent || "");
+    const platform = String(navigator.platform || "");
+    if (/iP(hone|od|ad)/i.test(ua)) return true;
+    return platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1;
+  }
+
   function triggerBlobDownload(blob, filename) {
+    const opener = window.ShiftSwiftFileOpen;
+    if (opener?.deliverBlob) {
+      void opener.deliverBlob(blob, filename);
+      return;
+    }
     const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = objectUrl;
@@ -1278,6 +1300,7 @@ window.Admin = (() => {
     isFeatureEnabled,
     isAddonEnabled,
     loadEmployees,
+    isCompactIosShell,
     triggerBlobDownload,
     downloadAuthenticated,
     isPlatformAdmin,

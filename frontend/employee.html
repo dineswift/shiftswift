@@ -60,7 +60,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v135" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v141" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=1" />
   </head>
   <body class="employee-portal">
@@ -594,6 +594,10 @@
         <video id="punch-scan-video" class="punch-scan-video" playsinline muted></video>
         <p id="punch-scan-message" class="punch-message" aria-live="polite"></p>
         <label class="edit-field">
+          <span class="edit-label">Take a photo of the QR</span>
+          <input type="file" id="punch-scan-photo" accept="image/*" capture="environment" />
+        </label>
+        <label class="edit-field">
           <span class="edit-label">Paste QR link or code</span>
           <input type="text" id="punch-scan-manual" placeholder="Paste QR link or code" autocomplete="off" />
         </label>
@@ -623,7 +627,8 @@
     <script src="./action-feedback.js?v=3"></script>
     <script src="./employee.js?v=11"></script>
     <script src="./employee-push-alerts.js?v=3"></script>
-    <script src="./employee-time-punch.js?v=11"></script>
+    <script src="./qr-scan.js?v=1"></script>
+    <script src="./employee-time-punch.js?v=12"></script>
     <script src="./employee-timesheet.js?v=2"></script>
     <script src="./employee-rota.js?v=8"></script>
     <script src="./employee-shift-reminders.js?v=2"></script>
