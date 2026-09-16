@@ -1,0 +1,197 @@
+/** Employee portal — mobile tab shell polish (Clock tab matches installed PWA). */
+@media (max-width: 860px) {
+  body.employee-portal:has(#mobile-tab-bar) #time-clock > .section-header {
+    display: none;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar)[data-mobile-tab="clock"] .topbar.app-mobile-header {
+    margin-bottom: 6px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock.admin-section {
+    padding-top: 0;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-card--clock-widget {
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-work-state-label--ready {
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: var(--green-800, #166534);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-expected-shift {
+    margin: 0 0 4px;
+    padding: 12px 14px;
+    font-size: 0.88rem;
+    border-radius: 14px;
+    font-weight: 500;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-expected-shift--on_site {
+    box-shadow: 0 4px 14px rgba(15, 110, 86, 0.12);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-work-state-label {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+    background: var(--card);
+    font-size: 1.02rem;
+    line-height: 1.4;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-work-state-label--working {
+    background: #ecfdf5;
+    border-color: #bbf7d0;
+    color: var(--green-800, #166534);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-work-state-label--break {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-work-state-label--out {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-geofence-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-geofence-status {
+    width: 100%;
+    margin: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-geofence-qr {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-actions {
+    gap: 8px;
+    margin: 4px 0 0;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary,
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary--out {
+    min-height: 52px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-radius: 14px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary.is-ready:not(:disabled) {
+    box-shadow: 0 8px 22px rgba(15, 110, 86, 0.26);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .btn.outline.punch-clock-primary--out.is-active-out:not(:disabled),
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary--out.is-active-out:not(:disabled) {
+    background: var(--green-700, #0f6e56) !important;
+    border-color: var(--green-700, #0f6e56) !important;
+    color: #fff !important;
+    box-shadow: 0 8px 22px rgba(15, 110, 86, 0.26);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .btn.outline.punch-clock-primary--out.is-idle-out,
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary--out.is-idle-out,
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary--out:disabled {
+    background: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+    color: #9ca3af !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary:disabled,
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary.is-idle {
+    min-height: 52px;
+    border-radius: 14px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-actions__phase--secondary:not([hidden]) {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-secondary {
+    min-height: 46px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-cooldown-note {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-message {
+    min-height: 0;
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    font-size: 0.88rem;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-message:empty {
+    display: none;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-message--success {
+    background: #ecfdf5;
+    border-color: #bbf7d0;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-message--error {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-sites-heading {
+    margin: 10px 0 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-500);
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .punch-site-list {
+    margin: 0;
+    padding: 10px 12px 10px 28px;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  body.employee-portal:has(#mobile-tab-bar) #time-clock .employee-timesheet-card {
+    margin-top: 12px;
+  }
+}
+
+html.native-app.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary,
+html.native-app.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-primary--out,
+html.native-app.employee-portal:has(#mobile-tab-bar) #time-clock .punch-clock-secondary {
+  touch-action: manipulation;
+}

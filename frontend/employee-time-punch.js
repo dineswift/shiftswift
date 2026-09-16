@@ -44,7 +44,11 @@
   let scanStream = null;
   let scanFrameHandle = null;
   let statusTickTimer = null;
+  let geofencePollTimer = null;
+  let statusPollTimer = null;
+  let expectedShiftToday = null;
   let API_BASE = "";
+  let punchTimeMode = "timestamped";
   let tenantId = "";
 
   function authHeaders(json = true) {
@@ -75,10 +79,26 @@
   function setGeofenceStatus(text, tone) {
     if (!geofenceEl) return;
     geofenceEl.textContent = text || "";
-    geofenceEl.hidden = !text;
+    geofenceEl.hidden = false;
     geofenceEl.className = tone
       ? `punch-geofence-status punch-geofence-status--${tone}`
       : "punch-geofence-status";
+  }
+
+  function formatGeofenceMessage(data, within) {
+    const site = data.site_name || "your site";
+    const dist = data.distance_meters != null ? Math.round(data.distance_meters) : null;
+    const radius = data.radius_meters != null ? Number(data.radius_meters) : 25;
+    const accuracy =
+      data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
+
+    if (within) {
+      const distPart = dist != null ? `${dist}m from site` : "On site";
+      return `✓ ${distPart} · within ${radius}m at ${site}.${accuracy} Tap Clock in.`;
+    }
+
+    const distPart = dist != null ? `You're ~${dist}m away` : "You're outside the site";
+    return `${distPart} from ${site} · need to be within ${radius}m to clock in.${accuracy} Move closer or scan QR.`;
   }
 
   function setSiteScanStatus(text) {
@@ -119,8 +139,12 @@
     }
   }
 
+  function isPresenceOnly() {
+    return punchTimeMode === "presence_only";
+  }
+
   function formatTimeShort(iso) {
-    if (!iso) return "";
+    if (!iso || isPresenceOnly()) return "";
     try {
       return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     } catch {
@@ -189,6 +213,15 @@
     if (phaseSecondaryEl) {
       phaseSecondaryEl.hidden = !working && !onBreak;
     }
+
+    document.body.classList.toggle("employee-punch-working", working);
+    document.body.classList.toggle("employee-punch-on-break", onBreak);
+    document.body.classList.toggle("employee-punch-off", workState === "off");
+    document.body.classList.toggle(
+      "employee-punch-can-clock-in",
+      workState === "off" && readyIn && online && !punchInFlight && !geofenceCheckInFlight,
+    );
+    refreshExpectedShiftNote();
   }
 
   function formatTime(iso) {
@@ -204,44 +237,78 @@
     if (!statusEl) return;
     const last = data?.last_punch;
     if (data?.work_state === "on_break") {
-      const since = formatTimeShort(data.break_started_at || last?.punched_at);
-      const duration = formatDurationSince(data.break_started_at || last?.punched_at);
-      statusEl.innerHTML = `<strong>On break</strong> since ${since}${duration ? ` · ${duration}` : ""}.`;
+      if (isPresenceOnly()) {
+        statusEl.innerHTML = `<strong>On break</strong> at ${last?.site_name || "work site"}.`;
+      } else {
+        const since = formatTimeShort(data.break_started_at || last?.punched_at);
+        const duration = formatDurationSince(data.break_started_at || last?.punched_at);
+        statusEl.innerHTML = `<strong>On break</strong> since ${since}${duration ? ` · ${duration}` : ""}.`;
+      }
       statusEl.className = "punch-work-state-label punch-work-state-label--break";
       return;
     }
     if (data?.work_state === "clocked_in") {
-      statusEl.innerHTML = `<strong>Working</strong> since ${formatTimeShort(last?.punched_at)} at ${last?.site_name || "work site"}.`;
+      if (isPresenceOnly()) {
+        statusEl.innerHTML = `<strong>Present</strong> at ${last?.site_name || "work site"}.`;
+      } else {
+        statusEl.innerHTML = `<strong>Working</strong> since ${formatTimeShort(last?.punched_at)} at ${last?.site_name || "work site"}.`;
+      }
       statusEl.className = "punch-work-state-label punch-work-state-label--working";
       return;
     }
     if (secondsSinceClockOut != null && data?.last_punch?.punch_type === "out") {
-      const ago =
-        secondsSinceClockOut < 60
-          ? `${secondsSinceClockOut} sec`
-          : formatDurationSince(last?.punched_at);
-      statusEl.textContent = `Clocked out ${ago} ago · last out at ${formatTimeShort(last?.punched_at)}.`;
+      if (isPresenceOnly()) {
+        statusEl.textContent = "Not present — clocked out today.";
+      } else {
+        const ago =
+          secondsSinceClockOut < 60
+            ? `${secondsSinceClockOut} sec`
+            : formatDurationSince(last?.punched_at);
+        statusEl.textContent = `Clocked out ${ago} ago · last out at ${formatTimeShort(last?.punched_at)}.`;
+      }
       statusEl.className = "punch-work-state-label punch-work-state-label--out";
       return;
     }
     if (geofencePreview?.within_geofence) {
-      statusEl.textContent = `On site · within ${geofencePreview.site_name || "your site"}.`;
-    } else if (siteScanReady) {
-      statusEl.textContent = `Premises verified — ${siteScanName}.`;
-    } else {
-      statusEl.textContent = "Not clocked in.";
+      const dist =
+        geofencePreview.distance_meters != null
+          ? `${Math.round(geofencePreview.distance_meters)}m from ${geofencePreview.site_name || "site"}`
+          : `On site at ${geofencePreview.site_name || "your site"}`;
+      statusEl.textContent = `✓ ${dist} · tap Clock in below.`;
+      statusEl.className = "punch-work-state-label punch-work-state-label--ready";
+      return;
     }
+    if (siteScanReady) {
+      statusEl.textContent = `✓ Premises verified — ${siteScanName}. Tap Clock in below.`;
+      statusEl.className = "punch-work-state-label punch-work-state-label--ready";
+      return;
+    }
+    statusEl.textContent = "Not clocked in — move on site or scan QR to enable Clock in.";
     statusEl.className = "punch-work-state-label muted";
   }
 
   function updatePunchSummary(data) {
     let text = "Ready to clock in";
     if (data?.work_state === "on_break") {
-      text = `On break since ${formatTimeShort(data.break_started_at || data.last_punch?.punched_at)}`;
+      text = isPresenceOnly()
+        ? "On break"
+        : `On break since ${formatTimeShort(data.break_started_at || data.last_punch?.punched_at)}`;
     } else if (data?.work_state === "clocked_in") {
-      text = `Working since ${formatTimeShort(data.last_punch?.punched_at)}`;
+      text = isPresenceOnly()
+        ? "Present"
+        : `Working since ${formatTimeShort(data.last_punch?.punched_at)}`;
     } else if (data?.last_punch?.punch_type === "out") {
-      text = `Clocked out at ${formatTimeShort(data.last_punch?.punched_at)}`;
+      text = isPresenceOnly()
+        ? "Not present"
+        : `Clocked out at ${formatTimeShort(data.last_punch?.punched_at)}`;
+    } else if (clockInReady()) {
+      text = "On site — ready to clock in";
+    } else if (geofencePreview && !geofencePreview.within_geofence) {
+      const dist =
+        geofencePreview.distance_meters != null
+          ? `~${Math.round(geofencePreview.distance_meters)}m from site`
+          : "Outside site";
+      text = `${dist} — move closer to clock in`;
     }
     document.querySelectorAll("[data-mirror='employee-punch-summary']").forEach((el) => {
       el.textContent = text;
@@ -261,6 +328,7 @@
       }
       const data = await response.json();
       workState = data.work_state || (data.clocked_in ? "clocked_in" : "off");
+      punchTimeMode = data.punch_time_mode === "presence_only" ? "presence_only" : "timestamped";
       secondsSinceClockOut = data.seconds_since_clock_out ?? null;
       breakStartedAt = data.break_started_at || null;
       clockInCooldownSeconds = Number(data.clock_in_cooldown_seconds) || DEFAULT_COOLDOWN_SECONDS;
@@ -271,17 +339,22 @@
           ? sites.map((s) => `<li>${s.name}: ${s.address} (${s.radius_meters}m radius)</li>`).join("")
           : "<li>No punch sites configured. Ask HR to sync a site in Admin → Time punch.</li>";
       }
-      if (expectedEl && data.expected_shift_today) {
-        const s = data.expected_shift_today;
-        expectedEl.hidden = false;
-        expectedEl.innerHTML = `<strong>Today’s shift</strong> ${s.start_time}–${s.end_time}${s.role_label ? ` · ${s.role_label}` : ""}`;
+      expectedShiftToday = data.expected_shift_today || null;
+      if (expectedShiftToday) {
+        renderExpectedShift(expectedShiftToday, {
+          onSite: clockInReady(),
+          radiusMeters: geofencePreview?.radius_meters,
+        });
       } else if (expectedEl) {
         expectedEl.hidden = true;
       }
       updatePunchSummary(data);
       syncClockWidget();
       startStatusTicker();
-      refreshGeofencePreview();
+      startGeofencePoll();
+      startStatusPoll();
+      if ((data.assigned_sites || []).length) maybePromptPushNotifications();
+      void refreshGeofencePreview();
     } catch {
       statusEl.textContent = "Could not reach the time punch service.";
     }
@@ -325,6 +398,7 @@
     saveSiteScanSession(data);
     setSiteScanStatus(`Premises verified — ${siteScanName}. You can clock in or out without GPS.`);
     syncClockWidget();
+    refreshExpectedShiftNote();
   }
 
   function restoreSiteScanSession() {
@@ -447,17 +521,88 @@
     });
   }
 
+  function renderExpectedShift(expected, options = {}) {
+    if (!expectedEl) return;
+    if (!expected) {
+      expectedEl.hidden = true;
+      return;
+    }
+    const status = expected.attendance_status;
+    const onSite = Boolean(options.onSite);
+    let statusNote =
+      status === "late"
+        ? "You clocked in late for today’s shift."
+        : status === "no_show"
+          ? "You missed today’s scheduled shift — contact your manager."
+          : status === "awaiting"
+            ? onSite
+              ? "You’re on site — tap Clock in below."
+              : "You’re on the rota today — move on site or scan the premises QR to clock in."
+            : status === "attended"
+              ? "Today’s shift is recorded."
+              : onSite
+                ? "You’re on site — tap Clock in below."
+                : `Move within ${options.radiusMeters || 25}m of the site or scan QR to clock in.`;
+    const tag =
+      status === "no_show"
+        ? `<span class="punch-expected-shift__tag">Missed shift</span>`
+        : status === "late"
+          ? `<span class="punch-expected-shift__tag">Late</span>`
+          : onSite && (status === "awaiting" || !status || status === "scheduled")
+            ? `<span class="punch-expected-shift__tag punch-expected-shift__tag--ready">On site</span>`
+            : status === "awaiting" || !status
+              ? `<span class="punch-expected-shift__tag">Today’s shift</span>`
+              : "";
+    expectedEl.hidden = false;
+    expectedEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
+    const tone = onSite ? "on_site" : status || "scheduled";
+    expectedEl.className = `punch-expected-shift punch-expected-shift--${tone}`;
+  }
+
+  function refreshExpectedShiftNote() {
+    if (!expectedShiftToday) return;
+    renderExpectedShift(expectedShiftToday, {
+      onSite: clockInReady(),
+      radiusMeters: geofencePreview?.radius_meters,
+    });
+  }
+
   function startStatusTicker() {
     window.clearInterval(statusTickTimer);
     statusTickTimer = window.setInterval(() => {
       if (workState !== "off" || secondsSinceClockOut == null) return;
+      const wasCooldown = inCooldownWindow();
       secondsSinceClockOut += 1;
       updateWorkStateLabel({
         work_state: workState,
-        last_punch: { punch_type: "out", punched_at: new Date(Date.now() - secondsSinceClockOut * 1000).toISOString() },
+        last_punch: {
+          punch_type: "out",
+          punched_at: new Date(Date.now() - secondsSinceClockOut * 1000).toISOString(),
+        },
         seconds_since_clock_out: secondsSinceClockOut,
       });
-    }, 15000);
+      if (wasCooldown !== inCooldownWindow()) {
+        syncClockWidget();
+      }
+    }, 1000);
+  }
+
+  function startGeofencePoll() {
+    window.clearInterval(geofencePollTimer);
+    geofencePollTimer = window.setInterval(() => {
+      if (document.hidden || !navigator.onLine) return;
+      if (workState !== "off" || siteScanReady || geofenceCheckInFlight) return;
+      void refreshGeofencePreview();
+    }, geofenceWithin ? 45000 : 15000);
+  }
+
+  function startStatusPoll() {
+    window.clearInterval(statusPollTimer);
+    statusPollTimer = window.setInterval(() => {
+      if (document.hidden || !navigator.onLine) return;
+      const section = window.location.hash.replace("#", "").split("/")[0];
+      if (section === "time-clock") void loadStatus();
+    }, 60000);
   }
 
   async function readLocation() {
@@ -496,7 +641,16 @@
   }
 
   async function refreshGeofencePreview() {
-    if (!geofenceEl || !navigator.onLine || siteScanReady) return;
+    if (!geofenceEl || !navigator.onLine) return;
+    if (siteScanReady) {
+      setGeofenceStatus(
+        `Using premises QR for ${siteScanName}. GPS check skipped — scan again if this expires.`,
+        "ok",
+      );
+      geofenceWithin = true;
+      syncClockWidget();
+      return;
+    }
     if (geofenceCheckInFlight) return;
     if (workState !== "off") return;
 
@@ -506,7 +660,16 @@
     syncClockWidget();
 
     try {
-      const location = await readLocation();
+      await window.ShiftSwiftNativeGeo?.requestPermission?.();
+      const location = await Promise.race([
+        readLocation(),
+        new Promise((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error("Location timed out. Check GPS or scan the premises QR.")),
+            25000,
+          );
+        }),
+      ]);
       const response = await apiFetch("/time-punch/preview", {
         method: "POST",
         body: JSON.stringify(location),
@@ -519,9 +682,7 @@
 
       geofenceWithin = Boolean(data.within_geofence);
       geofencePreview = data;
-      const accuracyNote =
-        data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
-      setGeofenceStatus(`${data.message}${accuracyNote}`, geofenceWithin ? "ok" : "warn");
+      setGeofenceStatus(formatGeofenceMessage(data, geofenceWithin), geofenceWithin ? "ok" : "warn");
       if (workState === "off") {
         updateWorkStateLabel({
           work_state: workState,
@@ -529,6 +690,7 @@
         });
       }
       if (geofenceWithin) maybePromptPushNotifications();
+      startGeofencePoll();
     } catch (error) {
       setGeofenceStatus(error.message || "Could not read your location.", "error");
     } finally {
@@ -609,6 +771,7 @@
       }
       if (!response.ok) {
         setMessage(parseApiError(data, "Punch failed."), "error");
+        void window.ShiftSwiftNativeHaptics?.error?.();
         return;
       }
       let detail = `${punchTypeLabel(punchType)} at ${data.site_name}`;
@@ -616,10 +779,12 @@
       else if (data.distance_meters != null) detail += ` (${Math.round(data.distance_meters)}m from site)`;
       if (data.rapid_re_punch) detail += " — flagged for HR review.";
       setMessage(`${detail}.`, "success");
+      void window.ShiftSwiftNativeHaptics?.success?.();
       await loadStatus();
       window.EmployeeTimesheet?.reload?.();
     } catch (error) {
       setMessage(error.message || "Punch failed.", "error");
+      void window.ShiftSwiftNativeHaptics?.error?.();
     } finally {
       punchInFlight = false;
       syncClockWidget();
@@ -667,8 +832,9 @@
     window.addEventListener("employee:section", (event) => {
       if (event.detail?.section === "time-clock") {
         restoreSiteScanSession();
-        void loadStatus();
         void window.ShiftSwiftNativeGeo?.requestPermission?.();
+        maybePromptPushNotifications();
+        void loadStatus();
       }
     });
   }

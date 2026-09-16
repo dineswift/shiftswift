@@ -21,10 +21,8 @@ def master_ip_allowlist(settings: Settings) -> frozenset[str]:
 
 
 def master_require_mfa(settings: Settings) -> bool:
-    explicit = os.getenv("MASTER_REQUIRE_MFA")
-    if explicit is not None:
-        return explicit.strip().lower() in {"1", "true", "yes", "on"}
-    return settings.is_production
+    """Require master admin TOTP at sign-in — off unless MASTER_REQUIRE_MFA=1."""
+    return os.getenv("MASTER_REQUIRE_MFA", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def assert_master_ip(request: Request, settings: Settings) -> None:

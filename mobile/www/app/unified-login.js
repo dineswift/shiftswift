@@ -67,7 +67,9 @@
         body: body ? JSON.stringify(body) : undefined,
         signal: controller?.signal,
       };
-      if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
+      if (window.ShiftSwiftNativeApiFetch?.isCapacitorHttpEnabled?.()) {
+        response = await fetch(url, reqInit);
+      } else if (window.ShiftSwiftNativeApiFetch?.nativeAwareFetch) {
         response = await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, reqInit);
       } else {
         response = await fetch(url, reqInit);
@@ -196,15 +198,51 @@
   }
 
   async function finishAuthSuccess(data, email, redirect) {
+    if (email) {
+      try {
+        localStorage.setItem("employeeUsername", email);
+      } catch {
+        /* ignore */
+      }
+    }
     if (window.ShiftSwiftSession?.storeSession) {
-      window.ShiftSwiftSession.storeSession(data);
+      window.ShiftSwiftSession.storeSession({ ...data, username: data?.username || email });
     } else {
-      storeSession(data);
+      storeSession({ ...data, username: data?.username || email });
     }
-    if (window.ShiftSwiftSession?.persistNativeSession) {
+    if (window.ShiftSwiftSession?.confirmNativeSessionPersisted) {
+      await window.ShiftSwiftSession.confirmNativeSessionPersisted();
+    } else if (window.ShiftSwiftSession?.persistNativeSession) {
       await window.ShiftSwiftSession.persistNativeSession();
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
     }
+    window.ShiftSwiftSession?.bridgeNativeSessionForNextPage?.();
+
+    if (isNativeShell()) {
+      const leaf = (() => {
+        try {
+          const parsed = new URL(String(redirect), window.location.href);
+          const name = parsed.pathname.split("/").filter(Boolean).pop();
+          return name && /\.html$/i.test(name) ? name : "admin.html";
+        } catch {
+          return "admin.html";
+        }
+      })();
+      redirect =
+        window.ShiftSwiftSession?.buildNativePortalRedirectUrl?.(leaf) ||
+        window.ShiftSwiftSession?.nativePortalRedirectAfterLogin?.(data, redirect) ||
+        redirect;
+    }
+
     await window.ShiftSwiftTrustedDevice?.rememberDeviceFromResponse?.(email, data);
+    window.ShiftSwiftPasskeyAuth?.rememberLastEmail?.(email);
+    if (window.ShiftSwiftPasskeyAuth?.isPasskeyOptIn?.()) {
+      try {
+        await window.ShiftSwiftPasskeyAuth.registerPasskey(email);
+      } catch {
+        /* optional — password login still succeeded */
+      }
+    }
     await maybeEnableBiometricUnlock();
     markPostLoginTransition();
     window.location.replace(redirect);
@@ -480,8 +518,17 @@
     showMasterLoginNotice();
     bindKeyboardScroll();
     bindUnifiedLogin();
-    if (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.()) return;
-    if (await window.ShiftSwiftSession?.redirectIfLoggedIn?.()) return;
+    window.ShiftSwiftPasskeyAuth?.bindPasskeyUi?.();
+    let bouncedFromPortal = false;
+    try {
+      bouncedFromPortal = sessionStorage.getItem("sshrAuthBouncedToLogin") === "1";
+      if (bouncedFromPortal) sessionStorage.removeItem("sshrAuthBouncedToLogin");
+    } catch {
+      /* ignore */
+    }
+    if (!bouncedFromPortal && (await window.ShiftSwiftTrustedDevice?.tryQuickUnlock?.())) return;
+    if (!bouncedFromPortal && (await window.ShiftSwiftPasskeyAuth?.tryAutoLogin?.())) return;
+    if (!bouncedFromPortal && (await window.ShiftSwiftSession?.redirectIfLoggedIn?.())) return;
     revealLoginShell();
     showLoginForm();
   }

@@ -61,6 +61,10 @@ class PublishRotaRequest(BaseModel):
     notify_staff: bool = Field(default=False)
 
 
+class ResendRotaNotificationsRequest(BaseModel):
+    employee_ids: list[int] | None = Field(default=None, max_length=500)
+
+
 class CopyWeekRequest(BaseModel):
     expected_version: int | None = Field(default=None, ge=1)
 
@@ -422,6 +426,31 @@ def publish_week_rota(
                 actor_username=current_user.username,
                 conn=conn,
                 notify_staff=payload.notify_staff,
+            )
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/weeks/{week_start}/resend-notifications")
+def resend_week_rota_notifications(
+    week_start: str,
+    payload: ResendRotaNotificationsRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+            return rota_service.resend_week_notifications(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                conn=conn,
+                employee_ids=payload.employee_ids,
             )
         except (RotaValidationError, RotaConflictError, ValueError) as exc:
             raise _handle_rota_errors(exc) from exc

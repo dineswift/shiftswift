@@ -3,45 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script>
-      (function () {
-        try {
-          if (!window.Capacitor?.isNativePlatform?.()) return;
-          window.__SSHR_BUNDLED_NATIVE_BOOT = true;
-          var scheme =
-            window.Capacitor.config && window.Capacitor.config.ios
-              ? window.Capacitor.config.ios.scheme
-              : "App";
-          if (!scheme) scheme = "App";
-          document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-portal-guard.js?v=16"><\/script>',
-          );
-          document.write(
-            '<script src="' +
-              scheme +
-              '://localhost/native-app-bootstrap.js?v=16"><\/script>',
-          );
-        } catch (e) {
-          /* ignore */
-        }
-      })();
-    </script>
-    <script>
-      if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
-        document.write('<script src="./native-app-bootstrap.js?v=6"><\/script>');
-      }
-    </script>
-    <script src="./brand-config.js?v=brand-v5"></script>
-    <script src="./app-host-guard.js?v=1"></script>
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#142033" />
     <script src="./app-icons.js?v=brandkit-v5"></script>
     <title>ShiftSwift | Master Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./master.css?v=24" />
+    <link rel="stylesheet" href="./master.css?v=26" />
   </head>
   <body class="master-app">
     <script>
@@ -63,9 +31,10 @@
     <aside class="master-sidebar" id="master-sidebar">
       <div class="master-sidebar__head">
         <div class="master-brand">
-          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5" alt="ShiftSwift HR" class="master-brand__logo" />
-          <span class="master-badge master-badge--admin">Master admin</span>
+          <img src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v4" alt="ShiftSwift" class="master-brand__logo app-mark app-mark--chrome" />
+          <span class="master-badge master-badge--ops">OPS</span>
         </div>
+        <span class="master-badge master-badge--admin">Master Admin</span>
         <button type="button" class="master-sidebar__close" id="master-sidebar-close" aria-label="Close menu">×</button>
       </div>
 
@@ -188,20 +157,25 @@
             <label>Plan
               <select name="plan_id" id="master-create-plan"></select>
             </label>
-            <label>Max employees<input name="max_employees" type="number" min="1" max="9999" placeholder="Plan default" /></label>
+            <label id="master-create-staff-tier-wrap">Staff license tier
+              <select name="staff_tier" id="master-create-staff-tier"></select>
+            </label>
+            <label id="master-create-staff-custom-wrap" hidden>Custom staff limit<input name="max_employees" type="number" min="1" max="9999" placeholder="e.g. 25" /></label>
+            <p class="muted master-create-price-hint" id="master-create-price-hint" hidden></p>
             <label>Access
               <select name="access" id="master-create-access">
                 <option value="active" selected>Active (no trial)</option>
-                <option value="trialing">Trial period</option>
+                <option value="trialing" id="master-create-access-trial-option">Trial period (Stripe only)</option>
               </select>
             </label>
-            <label id="master-create-trial-wrap" hidden>Trial days<input name="trial_days" type="number" min="1" max="90" value="14" /></label>
+            <label id="master-create-trial-wrap" hidden>Trial days<input name="trial_days" type="number" min="1" max="90" value="14" disabled /></label>
             <label>Billing
-              <select name="billing_mode">
+              <select name="billing_mode" id="master-create-billing">
                 <option value="offline" selected>Offline / invoice (recommended)</option>
                 <option value="stripe">Stripe subscription</option>
               </select>
             </label>
+            <p class="muted master-create-billing-hint" id="master-create-billing-hint">Offline billing starts active — no trial period.</p>
             <label>Billing notes<textarea name="billing_notes" rows="2" placeholder="e.g. £79/mo agreed, invoice quarterly, PO ref…"></textarea></label>
             <label class="master-check"><input type="checkbox" name="send_welcome_email" checked /> Send welcome email</label>
             <p class="master-inline-status muted" id="master-create-status" aria-live="polite"></p>
@@ -285,7 +259,7 @@
         </section>
 
         <section id="master-section-account" class="master-section" data-master-panel="account" hidden>
-          <header class="master-page-head"><div><h1>Master account</h1><p class="master-page-sub muted">Password and MFA for platform sign-in</p></div></header>
+          <header class="master-page-head"><div><h1>Master account</h1><p class="master-page-sub muted">Password, email sign-in codes, and optional authenticator</p></div></header>
           <div id="master-account-content" class="master-panel-card"><p class="muted">Loading…</p></div>
         </section>
       </main>
@@ -330,10 +304,28 @@
               <div id="detail-billing-sections"></div>
               <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
                 <h3>Change plan</h3>
+                <label class="master-change-plan__field" id="detail-change-staff-tier-wrap">
+                  Staff license tier
+                  <select id="detail-change-staff-tier"></select>
+                </label>
+                <label class="master-change-plan__field" id="detail-change-staff-custom-wrap" hidden>
+                  Custom staff limit
+                  <input id="detail-change-staff-custom" type="number" min="1" max="9999" placeholder="e.g. 25" />
+                </label>
+                <p class="muted master-create-price-hint" id="detail-change-price-hint" hidden></p>
                 <label class="master-change-plan__field">
                   New plan
                   <select id="detail-change-plan-select"></select>
                 </label>
+                <label class="master-change-plan__field" id="detail-change-staff-tier-wrap">
+                  Staff license tier
+                  <select id="detail-change-staff-tier"></select>
+                </label>
+                <label class="master-change-plan__field" id="detail-change-staff-custom-wrap" hidden>
+                  Custom staff limit
+                  <input id="detail-change-staff-custom" type="number" min="1" max="9999" placeholder="e.g. 25" />
+                </label>
+                <p class="muted master-create-price-hint" id="detail-change-price-hint" hidden></p>
                 <label class="master-change-plan__field">
                   Billing note
                   <input id="detail-change-plan-notes" type="text" placeholder="Agreed price, invoice ref, PO…" />
@@ -387,6 +379,8 @@
                   <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-action-change-plan">Change plan</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-email-tenant">Email tenant</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-reset-hr-password">Send HR reset email</button>
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-set-temp-hr-password">Set temporary HR password</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
                 </div>
                 <div class="master-tenant-actions__secondary">
@@ -409,9 +403,9 @@
     <script src="./session-auth.js?v=12"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=6"></script>
-    <script src="./master-tenant-detail.js?v=5"></script>
+    <script src="./master-tenant-detail.js?v=8"></script>
     <script src="./master-tenant-contracts.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
-    <script src="./master.js?v=23"></script>
+    <script src="./master.js?v=26"></script>
   </body>
 </html>

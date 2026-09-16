@@ -49,6 +49,19 @@ def _paragraphs(text_blocks: Iterable[str]) -> str:
     )
 
 
+def _paragraph_html(html_block: str) -> str:
+    """Trusted HTML paragraph (built from _email_link only)."""
+    return f'<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{INK};">{html_block}</p>'
+
+
+def _email_link(url: str, label: str | None = None) -> str:
+    text = label or url
+    return (
+        f'<a href="{_esc(url)}" style="color:{GREEN_700};font-weight:600;text-decoration:underline;">'
+        f"{_esc(text)}</a>"
+    )
+
+
 def _bullet_list(items: Iterable[tuple[str, str]]) -> str:
     rows = []
     for label, value in items:
@@ -94,6 +107,7 @@ def render_email(
     title: str,
     intro: str,
     paragraphs: Iterable[str] = (),
+    html_paragraphs: Iterable[str] = (),
     details: Iterable[tuple[str, str]] = (),
     cta_url: str | None = None,
     cta_label: str | None = None,
@@ -166,7 +180,7 @@ def render_email(
             <td class="pad" style="padding:32px 28px 12px;">
               <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:{GREEN_900};">{_esc(title)}</h1>
               <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:{INK};">{_esc(intro)}</p>
-              {_paragraphs(paragraphs)}
+              {_paragraphs(paragraphs)}{"".join(_paragraph_html(block) for block in html_paragraphs)}
               {detail_html}
               {cta_html}
             </td>
@@ -330,6 +344,60 @@ def password_reset_email(*, role_label: str, reset_url: str, reset_hours: int) -
         ],
         cta_url=reset_url,
         cta_label="Choose a new password",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def login_email_mfa_code(*, code: str, minutes: int) -> EmailContent:
+    subject = f"{APP_NAME} — your sign-in code"
+    text = (
+        f"Hello,\n\n"
+        f"Your {APP_NAME} sign-in code is:\n\n"
+        f"{code}\n\n"
+        f"This code expires in {minutes} minutes. If you did not try to sign in, ignore this email "
+        f"and consider changing your password.\n\n"
+        f"{APP_NAME}\n"
+        f"Reply: {SUPPORT_EMAIL}\n"
+    )
+    html = render_email(
+        preheader=f"Your sign-in code is {code}.",
+        title="Your sign-in code",
+        intro="Use this code to finish signing in to ShiftSwift HR.",
+        paragraphs=[
+            f"<strong style=\"font-size:28px;letter-spacing:4px\">{code}</strong>",
+            f"This code expires in {minutes} minutes. If you did not try to sign in, you can ignore this email.",
+        ],
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def workspace_user_invite_email(
+    *,
+    role_label: str,
+    setup_url: str,
+    login_url: str,
+    reset_hours: int,
+) -> EmailContent:
+    subject = f"{APP_NAME} — you have been invited to the HR workspace"
+    text = (
+        f"Hello,\n\n"
+        f"You have been invited to {APP_NAME} as a {role_label}.\n\n"
+        f"Set your password to sign in (link expires in {reset_hours} hours):\n"
+        f"{setup_url}\n\n"
+        f"After setup, sign in at:\n{login_url}\n\n"
+        f"{APP_NAME}\n"
+        f"Reply: {SUPPORT_EMAIL}\n"
+    )
+    html = render_email(
+        preheader=f"You have been invited as {role_label}.",
+        title="Workspace invitation",
+        intro=f"You have been invited to <strong>{APP_NAME}</strong> as a <strong>{role_label}</strong>.",
+        paragraphs=[
+            f"Set your password using the button below. The link expires in {reset_hours} hours.",
+            f"After setup, sign in at {login_url}.",
+        ],
+        cta_url=setup_url,
+        cta_label="Set password and sign in",
     )
     return EmailContent(subject=subject, text=text, html=html)
 
@@ -523,8 +591,8 @@ def employee_portal_invite_email(
             "If you do not see this email, check your junk or spam folder.",
             f"Portal sign-in: {login_url}",
             iphone_install_note,
-            f'Privacy policy: <a href="{privacy_url}">{privacy_url}</a>',
         ],
+        html_paragraphs=[f"Privacy policy: {_email_link(privacy_url)}"],
         cta_url=setup_url,
         cta_label="Choose your password",
         employer_name=notification_from_name,
@@ -766,6 +834,73 @@ def missed_punch_hr_email(
     return EmailContent(subject=subject, text=text, html=html)
 
 
+def missed_clock_out_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    shift_label: str,
+    minutes_after_end: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#time-punch"
+    subject = f"{APP_NAME} — missed clock-out: {employee_name}"
+    intro = (
+        f"{employee_name} is still clocked in {minutes_after_end} minutes after "
+        f"their shift ended ({shift_label})."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review time punch:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Missed clock-out alert",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Shift", shift_label),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open time punch",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def leave_request_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    leave_type: str,
+    start_date: str,
+    end_date: str,
+) -> EmailContent:
+    leave_url = f"{APP_URL}/admin.html#leave"
+    subject = f"{APP_NAME} — leave request: {employee_name}"
+    intro = f"{employee_name} submitted a new {leave_type} request."
+    text = (
+        f"Hello,\n\n"
+        f"{intro}\n\n"
+        f"Dates: {start_date} → {end_date}\n"
+        f"Organisation: {tenant_name}\n\n"
+        f"Review and approve in ShiftSwift:\n{leave_url}\n\n"
+        f"— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=f"{employee_name} requested {leave_type} ({start_date} → {end_date}).",
+        title="New leave request",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Leave type", leave_type),
+            ("Dates", f"{start_date} → {end_date}"),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=leave_url,
+        cta_label="Review leave request",
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
 def missed_punch_employee_email(
     *,
     employee_name: str,
@@ -922,5 +1057,177 @@ def generic_notification_email(*, subject: str, message: str, cta_url: str | Non
         intro=message,
         cta_url=cta_url,
         cta_label=cta_label,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def rtw_expiry_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#compliance"
+    subject = f"{APP_NAME} — RTW expires in {days_until_expiry} days: {employee_name}"
+    intro = (
+        f"{employee_name}'s right-to-work check expires on {expiry_date} "
+        f"({days_until_expiry} days)."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review compliance:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Right-to-work expiry",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Expiry date", expiry_date),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open compliance",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def visa_expiry_hr_email(
+    *,
+    tenant_name: str,
+    employee_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#compliance"
+    subject = f"{APP_NAME} — visa expires in {days_until_expiry} days: {employee_name}"
+    intro = f"{employee_name}'s visa expires on {expiry_date} ({days_until_expiry} days)."
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review sponsored workers:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Visa expiry",
+        intro=intro,
+        details=[
+            ("Employee", employee_name),
+            ("Visa expiry", expiry_date),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open compliance",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def document_expiry_hr_email(
+    *,
+    tenant_name: str,
+    document_title: str,
+    employee_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/admin.html#documents"
+    subject = f"{APP_NAME} — document expires in {days_until_expiry} days"
+    intro = (
+        f"{employee_name}: “{document_title}” expires on {expiry_date} "
+        f"({days_until_expiry} days)."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Review documents:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="ID / document expiry",
+        intro=intro,
+        details=[
+            ("Document", document_title),
+            ("Person", employee_name),
+            ("Expiry date", expiry_date),
+            ("Organisation", tenant_name),
+        ],
+        cta_url=url,
+        cta_label="Open documents",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def sms_login_reminder_hr_email(*, tenant_name: str) -> EmailContent:
+    url = f"{APP_URL}/admin.html#compliance"
+    subject = f"{APP_NAME} — monthly Home Office SMS login reminder"
+    intro = (
+        "Log into the Home Office Sponsor Management System (SMS) this month "
+        "to review your sponsor licence duties and reporting."
+    )
+    text = (
+        f"Hello,\n\n{intro}\n\nOrganisation: {tenant_name}\n\n"
+        f"Open compliance in ShiftSwift HR:\n{url}\n\n— {APP_NAME}\n"
+    )
+    html = render_email(
+        preheader=intro,
+        title="Monthly SMS login reminder",
+        intro=intro,
+        details=[("Organisation", tenant_name)],
+        cta_url=url,
+        cta_label="Open compliance",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def employee_document_expiry_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    document_title: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/employee.html#documents"
+    subject = f"Your document expires in {days_until_expiry} days"
+    intro = (
+        f"Hello {employee_name}, your document “{document_title}” expires on {expiry_date} "
+        f"({days_until_expiry} days). Please contact HR if you need to renew it."
+    )
+    text = f"{intro}\n\nOpen documents:\n{url}\n\n{_employer_text_signoff(tenant_name)}\n"
+    html = render_email(
+        preheader=subject,
+        title="Document expiry reminder",
+        intro=intro,
+        cta_url=url,
+        cta_label="Open my documents",
+        employer_name=tenant_name,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def employee_visa_expiry_email(
+    *,
+    employee_name: str,
+    tenant_name: str,
+    expiry_date: str,
+    days_until_expiry: int,
+) -> EmailContent:
+    url = f"{APP_URL}/employee.html#my-details"
+    subject = f"Your visa expires in {days_until_expiry} days"
+    intro = (
+        f"Hello {employee_name}, your visa expires on {expiry_date} "
+        f"({days_until_expiry} days). Please speak to HR about renewal."
+    )
+    text = f"{intro}\n\nOpen your details:\n{url}\n\n{_employer_text_signoff(tenant_name)}\n"
+    html = render_email(
+        preheader=subject,
+        title="Visa expiry reminder",
+        intro=intro,
+        cta_url=url,
+        cta_label="Open my details",
+        employer_name=tenant_name,
     )
     return EmailContent(subject=subject, text=text, html=html)

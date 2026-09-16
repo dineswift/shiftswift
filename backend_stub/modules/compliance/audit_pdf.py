@@ -14,8 +14,18 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from modules.compliance.audit_export import build_audit_export
 
 
-def audit_export_pdf_bytes(*, tenant_id: int, employee_id: int | None, conn: Any) -> bytes:
-    pack = build_audit_export(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+def _row_values(row: dict[str, Any], keys: list[str]) -> list[str]:
+    return [str(row.get(key) or "—")[:48] for key in keys]
+
+
+def audit_export_pdf_bytes(
+    *,
+    tenant_id: int,
+    employee_id: int | None,
+    conn: Any,
+    pack: dict[str, Any] | None = None,
+) -> bytes:
+    pack = pack or build_audit_export(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
@@ -40,6 +50,7 @@ def audit_export_pdf_bytes(*, tenant_id: int, employee_id: int | None, conn: Any
         spaceBefore=14,
         spaceAfter=8,
     )
+    summary = pack.get("summary") or {}
     body = [
         Paragraph("ShiftSwift HR — Sponsor Licence Audit Pack", title_style),
         Paragraph(
@@ -49,29 +60,60 @@ def audit_export_pdf_bytes(*, tenant_id: int, employee_id: int | None, conn: Any
         ),
         Spacer(1, 8),
         Paragraph(
-            f"Summary: {pack['summary']['rtw_checks']} RTW checks, "
-            f"{pack['summary']['sms_changes']} SMS changes, "
-            f"{pack['summary']['absence_alerts']} absence alerts, "
-            f"{pack['summary']['reporting_triggers']} reporting triggers.",
+            f"Summary: {summary.get('sponsored_workers', 0)} sponsored workers, "
+            f"{summary.get('rtw_checks', 0)} RTW checks, "
+            f"{summary.get('identity_documents', 0)} ID/visa/RTW documents, "
+            f"{summary.get('sms_changes', 0)} SMS changes, "
+            f"{summary.get('absence_alerts', 0)} absence alerts, "
+            f"{summary.get('reporting_triggers', 0)} reporting triggers.",
             styles["Normal"],
         ),
     ]
 
     sections = [
-        ("Right to Work checks", pack["sections"].get("right_to_work_checks", [])),
-        ("SMS change log", pack["sections"].get("sms_change_log", [])),
-        ("Absence alerts", pack["sections"].get("absence_alerts", [])),
-        ("Recruitment adverts", pack["sections"].get("advertisement_records", [])),
-        ("Reporting triggers", pack["sections"].get("reporting_triggers", [])),
+        (
+            "Sponsored workers",
+            pack["sections"].get("sponsored_workers", []),
+            ["employee_name", "visa_type", "visa_expiry_date", "rtw_check_expiry_date", "rtw_status"],
+        ),
+        (
+            "Right to Work checks",
+            pack["sections"].get("right_to_work_checks", []),
+            ["employee_name", "check_date", "outcome", "expiry_date", "check_method"],
+        ),
+        (
+            "ID, visa and right to work documents",
+            pack["sections"].get("identity_documents", []),
+            ["employee_name", "title", "category", "expires_at", "has_file"],
+        ),
+        (
+            "SMS change log",
+            pack["sections"].get("sms_change_log", []),
+            ["employee_name", "field_name", "changed_at", "sms_reporting_deadline", "alert_status"],
+        ),
+        (
+            "Absence alerts",
+            pack["sections"].get("absence_alerts", []),
+            ["employee_name", "consecutive_working_days", "alert_status", "home_office_report_required_by"],
+        ),
+        (
+            "Recruitment adverts",
+            pack["sections"].get("advertisement_records", []),
+            ["job_title", "platform", "posted_date", "job_reference"],
+        ),
+        (
+            "Reporting triggers",
+            pack["sections"].get("reporting_triggers", []),
+            ["employee_name", "trigger_type", "deadline_date", "status"],
+        ),
     ]
 
-    for title, rows in sections:
+    for title, rows, keys in sections:
         body.append(Paragraph(title, section_style))
         if not rows:
             body.append(Paragraph("No records.", styles["Italic"]))
             continue
-        keys = list(rows[0].keys())[:5]
-        table_data = [keys] + [[str(row.get(k, "—"))[:48] for k in keys] for row in rows[:25]]
+        table_data = [keys] + [_row_values(row, keys) for row in rows[:40]]
         table = Table(table_data, repeatRows=1)
         table.setStyle(
             TableStyle(
@@ -86,8 +128,8 @@ def audit_export_pdf_bytes(*, tenant_id: int, employee_id: int | None, conn: Any
             )
         )
         body.append(table)
-        if len(rows) > 25:
-            body.append(Paragraph(f"… and {len(rows) - 25} more rows (see JSON export).", styles["Italic"]))
+        if len(rows) > 40:
+            body.append(Paragraph(f"… and {len(rows) - 40} more rows (see JSON or ZIP export).", styles["Italic"]))
 
     doc.build(body)
     return buffer.getvalue()

@@ -206,7 +206,11 @@ window.ShiftSwiftBrand.applyBrandDom = function applyBrandDom(root) {
 
 window.ShiftSwiftBrand.bootstrapBrand = async function bootstrapBrand() {
   try {
-    const res = await fetch(`${this.resolveApiBase()}/setup/brand`);
+    const url = `${this.resolveApiBase()}/setup/brand`;
+    const res =
+      window.Capacitor?.isNativePlatform?.() && window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+        ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, {})
+        : await fetch(url);
     if (res.ok) {
       this.mergeBrand(await res.json());
     }

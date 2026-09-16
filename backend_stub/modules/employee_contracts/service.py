@@ -406,7 +406,10 @@ def send_for_signature(
         _log_event(cur, contract_id, tenant_id, "sent", actor, signing_url)
 
     from core.email_templates import contract_signing_email
-    from core.notifications import queue_email_notification
+    from core.notifications import require_email_delivered, send_email_content, smtp_configured
+
+    if not smtp_configured():
+        raise ValueError("SMTP is not configured — cannot send contract signing email")
 
     content = contract_signing_email(
         signatory_name=employee_name,
@@ -414,22 +417,22 @@ def send_for_signature(
         contract_number=contract_number,
         signing_url=signing_url,
     )
-    queue_email_notification(
+    delivery = send_email_content(
         conn=conn,
         tenant_id=tenant_id,
-        subject=content.subject.replace("agreement", "employment contract"),
-        body=content.text,
-        purpose="employment_contract",
         to=employee_email,
+        content=content,
+        purpose="employment_contract",
+        audience="employee",
         payload={
             "employment_contract_id": contract_id,
             "signing_url": signing_url,
             "type": "employment_contract_signing",
-            "audience": "employee",
-            "html_body": content.html,
         },
+        deliver_now=True,
         commit=False,
     )
+    require_email_delivered(delivery)
     conn.commit()
     return {
         "contract_id": contract_id,

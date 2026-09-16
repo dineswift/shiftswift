@@ -34,13 +34,41 @@ def uk_day_range_bounds(
 def uk_today() -> date:
     return datetime.now(UK_TZ).date()
 
+from modules.time_punch.punch_time_mode import (
+    DEFAULT_PUNCH_TIME_MODE,
+    PUNCH_TIME_MODES,
+    SPONSOR_PRESENCE_ONLY_BLOCKED,
+    PunchTimeMode,
+    normalize_punch_time_mode,
+    validate_punch_time_mode_choice,
+)
+
 PunchType = Literal["in", "out", "break_start", "break_end"]
-PunchMethod = Literal["gps", "site_qr", "admin", "kiosk"]
+PunchMethod = Literal["gps", "site_qr", "admin", "kiosk", "epos"]
 WorkState = Literal["off", "clocked_in", "on_break"]
 SITE_SCAN_VALID_MINUTES = 10
 RAPID_RE_PUNCH_MINUTES = int(os.getenv("PUNCH_RAPID_REPUNCH_MINUTES", "10"))
 PUNCH_QR_MAX_AGE_HOURS = int(os.getenv("PUNCH_QR_MAX_AGE_HOURS", "24"))
 DEFAULT_RADIUS_M = int(os.getenv("PUNCH_GEOFENCE_RADIUS_M", "150"))
+
+
+def get_tenant_punch_time_mode(*, tenant_id: int, conn: Any) -> PunchTimeMode:
+    from core.schema import table_columns
+
+    if "punch_time_mode" not in table_columns(conn, "tenants"):
+        return DEFAULT_PUNCH_TIME_MODE
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT punch_time_mode FROM tenants WHERE id = %s",
+            (tenant_id,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return DEFAULT_PUNCH_TIME_MODE
+    try:
+        return normalize_punch_time_mode(row[0])
+    except ValueError:
+        return DEFAULT_PUNCH_TIME_MODE
 
 
 class PunchSyncError(ValueError):
@@ -244,6 +272,8 @@ def _insert_time_punch(
     punch_method: PunchMethod,
     conn: Any,
     rapid_re_punch: bool = False,
+    external_ref: str | None = None,
+    integration_token_id: int | None = None,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -251,9 +281,10 @@ def _insert_time_punch(
             INSERT INTO time_punches (
               tenant_id, employee_id, punch_site_id, punch_type, punched_at,
               latitude, longitude, accuracy_meters, distance_meters, within_geofence,
-              app_username, ip_address, user_agent, punch_method, rapid_re_punch
+              app_username, ip_address, user_agent, punch_method, rapid_re_punch,
+              external_ref, integration_token_id
             )
-            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, punched_at
             """,
             (
@@ -270,6 +301,8 @@ def _insert_time_punch(
                 user_agent,
                 punch_method,
                 rapid_re_punch,
+                external_ref,
+                integration_token_id,
             ),
         )
         row = cur.fetchone()
@@ -768,6 +801,7 @@ def employee_punch_status(*, tenant_id: int, employee_id: int, conn: Any) -> dic
         "break_started_at": break_started_at,
         "rapid_re_punch_window_minutes": RAPID_RE_PUNCH_MINUTES,
         "clock_in_cooldown_seconds": int(os.getenv("PUNCH_CLOCK_IN_COOLDOWN_SECONDS", "90")),
+        "punch_time_mode": get_tenant_punch_time_mode(tenant_id=tenant_id, conn=conn),
         "tenant_name": tenant_display_name(tenant_id=tenant_id, conn=conn),
         "assigned_sites": [
             {

@@ -1,0 +1,13 @@
+node_modules/
+www/
+.DS_Store
+android/.gradle/
+android/app/build/
+android/build/
+android/key.properties
+android/keystore/
+*.jks
+android/app/google-services.json
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json

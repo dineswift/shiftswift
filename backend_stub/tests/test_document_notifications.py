@@ -22,7 +22,10 @@ def test_parse_employee_id_list() -> None:
     assert parse_employee_id_list("1, 2,3") == [1, 2, 3]
 
 
-@patch("modules.documents.notifications.notify_employee_document_shared", return_value=True)
+@patch(
+    "modules.documents.notifications.notify_employee_document_shared",
+    return_value={"employee_id": 1, "email_sent": True, "push_sent": 1},
+)
 def test_notify_document_recipients_counts_emails(mock_notify) -> None:
     conn = MagicMock()
     result = notify_document_recipients(
@@ -40,7 +43,10 @@ def test_notify_document_recipients_counts_emails(mock_notify) -> None:
         conn=conn,
         commit=False,
     )
-    assert result == {"notified_count": 2, "emails_sent": 2, "emails_skipped": 0}
+    assert result["notified_count"] == 2
+    assert result["emails_sent"] == 2
+    assert result["emails_skipped"] == 0
+    assert result["email_failures"] == []
     assert mock_notify.call_count == 2
     assert mock_notify.call_args.kwargs["document_scope"] == "tenant"
 

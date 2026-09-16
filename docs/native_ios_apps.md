@@ -1,31 +1,39 @@
-# Native iOS apps (App Store)
+# Native iOS app (App Store)
 
-ShiftSwift HR ships two native iPhone apps that use the **same UI and API** as the Employee and HR Admin PWAs. They are Capacitor shells around `app.shiftswifthr.co.uk` — not a separate codebase.
+ShiftSwift HR ships **one** universal iOS app for iPhone and iPad. Same UI and API as the PWAs — a Capacitor shell around the bundled frontend (and `app.shiftswifthr.co.uk` where needed).
 
-| App | Setup |
-|-----|--------|
-| Employee | [mobile/README.md](../mobile/README.md) → `npm run ios:employee:open` |
-| HR Admin | [mobile/README.md](../mobile/README.md) → `npm run ios:business:open` |
+| | |
+|---|---|
+| **App** | ShiftSwift HR |
+| **Bundle ID** | `co.uk.shiftswifthr.app` |
+| **Project** | [`iphone-app/`](../iphone-app/) |
+| **Devices** | iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`) |
+
+There is no separate Employee app, HR Admin app, or iPad-only app. Staff and managers sign in to the same build; iPhone uses bottom tabs, iPad uses a sidebar + content layout.
 
 ## Why Capacitor (not a Swift rewrite)
 
 - **Identical to PWA** — same screens, rotas, clock-in, compliance modules
-- **One deploy** — fix the web app; native apps pick it up on next launch (remote URL mode)
-- **Faster to App Store** — native splash, icons, permissions, and distribution without rebuilding every screen in SwiftUI
+- **One deploy** — fix the web app, then `npm run sync:ios` in `iphone-app/`
+- **App Store** — native splash, icons, Face ID, push, camera, and location
 
-## Distribution options
+## Layouts
 
-| Channel | Best for |
-|---------|----------|
-| **PWA** (done) | Staff who can use Safari → Add to Home Screen |
-| **Native iOS** (this) | App Store presence, MDM, users who expect “download from App Store” |
-| **TestFlight** | Pilot customers before public listing |
+| Device | UI |
+|--------|----|
+| iPhone | Bottom tabs |
+| iPad | Full-screen sidebar + content (no Split View) |
 
-## Next steps for production
+## Setup
 
-1. Run `cd mobile && npm install && npm run ios:setup`
-2. Configure signing in Xcode (Apple Developer team)
-3. Submit Employee app first (highest staff usage)
-4. Optional phase 2: **APNs** for native push (Web Push already works in PWA on iOS 16.4+)
+```bash
+cd iphone-app
+npm install
+npm run sync:ios
+npm run brand:ios
+npm run ios:open
+```
 
-See [mobile/README.md](../mobile/README.md) for commands and local dev with `SSHR_SERVER_URL`.
+See [iphone-app/README.md](../iphone-app/README.md) for device run and App Store archive commands.
+
+The older `mobile/` Employee / HR Admin split is retired. Do not open those Xcode projects for new builds.

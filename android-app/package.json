@@ -1,0 +1,39 @@
+{
+  "name": "shiftswifthr-android-app",
+  "private": true,
+  "version": "1.3.8",
+  "description": "ShiftSwift HR — Android Capacitor app (bundled login + employee/admin portals)",
+  "scripts": {
+    "sync:www": "node scripts/sync-www.mjs",
+    "sync:android": "npm run sync:www && npx cap sync android",
+    "brand:android": "node scripts/apply-android-branding.mjs",
+    "android:open": "npx cap open android",
+    "android:run": "npx cap run android",
+    "android:device": "bash scripts/run-android-device.sh",
+    "android:deploy": "npm run sync:android && npm run brand:android && npx cap run android",
+    "playstore:signing": "bash scripts/setup-android-signing.sh",
+    "playstore:firebase": "node scripts/setup-android-firebase.mjs",
+    "playstore:archive": "bash scripts/archive-for-play-store.sh",
+    "playstore:upload": "bash scripts/upload-to-play-console.sh",
+    "playstore:release": "npm run playstore:archive && npm run playstore:upload"
+  },
+  "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^9.1.2",
+    "@capacitor/android": "^7.6.7",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/browser": "^7.0.5",
+    "@capacitor/core": "^7.6.7",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/local-notifications": "^7.0.6",
+    "@capacitor/preferences": "^7.0.4",
+    "@capacitor/push-notifications": "^7.0.7",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.7",
+    "typescript": "^6.0.3"
+  }
+}

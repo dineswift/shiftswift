@@ -8,21 +8,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        clearBundledWebCacheIfNeeded()
         return true
-    }
-
-    private func clearBundledWebCacheIfNeeded() {
-        let bundleVersion = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
-        let key = "sshrClearedWebCacheForBuild"
-        guard UserDefaults.standard.string(forKey: key) != bundleVersion else { return }
-        let store = WKWebsiteDataStore.default()
-        let types = WKWebsiteDataStore.allWebsiteDataTypes()
-        store.fetchDataRecords(ofTypes: types) { records in
-            store.removeData(ofTypes: types, for: records) {
-                UserDefaults.standard.set(bundleVersion, forKey: key)
-            }
-        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -40,7 +26,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Login redirect is handled once at launch and by bundled login scripts.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

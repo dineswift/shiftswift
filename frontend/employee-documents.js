@@ -39,11 +39,12 @@
 
   function formatDate(value) {
     if (!value) return "—";
-    try {
-      return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-    } catch {
-      return value;
-    }
+    const raw = String(value).trim();
+    const date = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
   }
 
   async function downloadDocument(documentId, filename, scope = "employee") {
@@ -109,12 +110,12 @@
     const actions = [];
     if (row.has_file) {
       actions.push(
-        `<button type="button" class="btn ghost" data-download-doc="${escapeHtml(row.id)}" data-download-scope="${escapeHtml(row.scope || "employee")}">Download</button>`
+        `<button type="button" class="btn ghost btn-sm" data-download-doc="${escapeHtml(row.id)}" data-download-scope="${escapeHtml(row.scope || "employee")}">Download</button>`
       );
     }
     if (row.document_url) {
       actions.push(
-        `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
+        `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`
       );
     }
     return actions.join(" ");

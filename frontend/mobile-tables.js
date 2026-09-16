@@ -7,7 +7,7 @@
   const SKIP_SELECTOR = ".keep-table-scroll, .rota-shifts-table-wrap, .employee-desktop-table-wrap";
 
   function isMobile() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function shouldSkipWrap(wrap) {
