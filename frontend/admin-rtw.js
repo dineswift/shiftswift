@@ -8,6 +8,9 @@
   let activeFilter = "all";
   let searchQuery = "";
   let selectedCheckId = null;
+  let selectedItem = null;
+  let editingRecord = false;
+  let previewObjectUrl = null;
 
   const AVATAR_PALETTES = [
     { bg: "#E1F5EE", color: "#0F6E56" },
@@ -450,22 +453,70 @@
     </div>`;
   }
 
-  function renderUpdateForm(item) {
-    return `<form id="rtw-update-form" class="rtw-update-form">
-      <h5>Update this document</h5>
-      <p class="muted">Change the dates or replace the file. The earlier version stays on the list as kept on file.</p>
-      <div class="rtw-update-form__dates">
-        <label>${escapeHtml(dateOnFileLabel(item))}
-          <input type="date" name="start_date" value="${isoDateValue(rowRecordedIso(item))}" />
-        </label>
-        <label>${escapeHtml(expiryOnFileLabel(item))}
-          <input type="date" name="expiry_date" value="${isoDateValue(rowExpiryIso(item))}" />
-        </label>
+  function renderUpdateEditor(item) {
+    return `<div class="rtw-file-editor">
+      <p class="muted">This is the current file. Change the dates or replace the document. The earlier version stays on the list as kept on file.</p>
+      <div class="rtw-file-preview" data-rtw-file-preview>
+        <p class="muted">Opening file…</p>
       </div>
-      ${evidenceDropzoneHtml({ hint: "Optional · PDF, JPEG or PNG · replaces the file on this document" })}
-      <p class="rtw-update-status muted" data-rtw-update-status></p>
-      <button type="submit" class="btn primary">Save update</button>
-    </form>`;
+      <form id="rtw-update-form" class="rtw-update-form rtw-update-form--editor">
+        <h5>Replace this document</h5>
+        <div class="rtw-update-form__dates">
+          <label>${escapeHtml(dateOnFileLabel(item))}
+            <input type="date" name="start_date" value="${isoDateValue(rowRecordedIso(item))}" />
+          </label>
+          <label>${escapeHtml(expiryOnFileLabel(item))}
+            <input type="date" name="expiry_date" value="${isoDateValue(rowExpiryIso(item))}" />
+          </label>
+        </div>
+        ${evidenceDropzoneHtml({ hint: "PDF, JPEG or PNG · browse or take photo to replace this file" })}
+        <p class="rtw-update-status muted" data-rtw-update-status></p>
+        <div class="rtw-update-form__actions">
+          <button type="button" class="btn outline" data-rtw-cancel-edit>Cancel</button>
+          <button type="submit" class="btn primary">Save file</button>
+        </div>
+      </form>
+    </div>`;
+  }
+
+  function releaseFilePreview() {
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+    }
+  }
+
+  function showPreviewBlob(host, blob, label) {
+    if (!host) return;
+    releaseFilePreview();
+    previewObjectUrl = URL.createObjectURL(blob);
+    const type = String(blob.type || "").toLowerCase();
+    const name = String(label || "").toLowerCase();
+    if (type.startsWith("image/") || /\.(jpe?g|png|gif|webp)$/.test(name)) {
+      host.innerHTML = `<img src="${previewObjectUrl}" alt="${escapeHtml(label || "Document")}" class="rtw-file-preview__img" />`;
+      return;
+    }
+    if (type.includes("pdf") || name.endsWith(".pdf")) {
+      host.innerHTML = `<iframe src="${previewObjectUrl}" class="rtw-file-preview__frame" title="${escapeHtml(label || "Document")}"></iframe>`;
+      return;
+    }
+    host.innerHTML = `<div class="rtw-file-preview__fallback">
+      <p><strong>${escapeHtml(label || "Document")}</strong></p>
+      <p class="muted">This file type cannot be shown here. Download it, or replace it below.</p>
+    </div>`;
+  }
+
+  async function fillFilePreview(item, host) {
+    if (!host) return;
+    host.innerHTML = `<p class="muted">Opening file…</p>`;
+    try {
+      const res = await apiFetch(downloadPathFor(item));
+      if (!res.ok) throw new Error("Could not open this file");
+      const blob = await res.blob();
+      showPreviewBlob(host, blob, item.filename || item.document_title || "Document");
+    } catch (error) {
+      host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not open this file.")}</p>`;
+    }
   }
 
   function rtwMultipartHeaders() {
@@ -540,9 +591,17 @@
 
   function closeDetailPanel() {
     selectedCheckId = null;
+    selectedItem = null;
+    editingRecord = false;
+    releaseFilePreview();
     const panel = document.getElementById("rtw-detail-panel");
     panel?.setAttribute("hidden", "");
-    document.querySelector(".rtw-workspace-layout")?.classList.remove("is-detail-open");
+    document.querySelector(".rtw-workspace-layout")?.classList.remove("is-detail-open", "is-updating");
+    const recheckBtn = document.getElementById("rtw-detail-recheck-btn");
+    if (recheckBtn) {
+      recheckBtn.hidden = false;
+      recheckBtn.textContent = "Update file";
+    }
     renderTable();
   }
 
@@ -552,18 +611,28 @@
     const title = document.getElementById("rtw-detail-title");
     const statusEl = document.getElementById("rtw-detail-status");
     if (!panel || !content || !item) return;
+    selectedItem = item;
+    const editing = editingRecord && !item.superseded;
     panel.hidden = false;
-    document.querySelector(".rtw-workspace-layout")?.classList.add("is-detail-open");
-    if (title) title.textContent = item.superseded
-      ? `${item.document_type || "Record"} · earlier version`
-      : item.document_type || "Record";
+    document.querySelector(".rtw-workspace-layout")?.classList.toggle("is-detail-open", true);
+    document.querySelector(".rtw-workspace-layout")?.classList.toggle("is-updating", editing);
+    if (title) {
+      title.textContent = item.superseded
+        ? `${item.document_type || "Record"} · earlier version`
+        : editing
+          ? `Update file · ${item.document_type || "Record"}`
+          : item.document_type || "Record";
+    }
     if (statusEl) {
       statusEl.hidden = false;
       statusEl.className = statusClass(item.status);
       statusEl.textContent = statusLabel(item.status);
     }
     const recheckBtn = document.getElementById("rtw-detail-recheck-btn");
-    if (recheckBtn) recheckBtn.hidden = Boolean(item.superseded);
+    if (recheckBtn) {
+      recheckBtn.hidden = Boolean(item.superseded);
+      recheckBtn.textContent = editing ? "Back" : "Update file";
+    }
     const workerType = item.is_sponsored ? "Sponsored worker" : "Standard worker";
     const fileName = item.filename || item.document_title || "document";
     const currentFileLabel = item.superseded ? "Kept file" : "Current file";
@@ -579,10 +648,11 @@
       )
       .join("");
     const currentReviewId = item.current_review_id || item.superseded_by_id;
-    const previousNote = item.superseded
+    const body = item.superseded
       ? `<button type="button" class="btn primary" data-rtw-open-current="${escapeHtml(String(currentReviewId || ""))}">Open current review</button>`
-      : `${renderUpdateForm(item)}
-      ${renderDocumentHistory(item)}`;
+      : editing
+        ? renderUpdateEditor(item)
+        : `${renderDocumentHistory(item)}`;
 
     content.innerHTML = `
       ${renderDetailAlert(item)}
@@ -596,12 +666,12 @@
         <div><dt>Uploaded by</dt><dd>${escapeHtml(item.checker_user_id || "—")}</dd></div>
         <div class="rtw-detail-meta__wide"><dt>File name</dt><dd>${escapeHtml(item.document_title || fileName)}</dd></div>
       </dl>
-      <div class="rtw-detail-docs">
+      ${editing ? "" : `<div class="rtw-detail-docs">
         <h5>Saved file</h5>
         <ul class="rtw-doc-list">${docs}</ul>
-      </div>
-      ${previousNote}
-      <a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`;
+      </div>`}
+      ${body}
+      ${editing ? "" : `<a class="btn outline rtw-detail-employee-link" href="#employees/${escapeHtml(String(item.employee_id))}/document_store">Open employee file</a>`}`;
 
     content.querySelector("[data-rtw-download]")?.addEventListener("click", () => {
       downloadAuthenticated(downloadPathFor(item), item.filename || `rtw-record-${item.id}`);
@@ -619,14 +689,24 @@
         );
       });
     });
+    content.querySelector("[data-rtw-cancel-edit]")?.addEventListener("click", () => {
+      editingRecord = false;
+      renderDetailPanel(item);
+    });
 
-    if (item.superseded) return;
+    if (!editing) {
+      releaseFilePreview();
+      return;
+    }
 
+    const previewHost = content.querySelector("[data-rtw-file-preview]");
+    void fillFilePreview(item, previewHost);
     const form = content.querySelector("#rtw-update-form");
     let pendingFile = null;
     bindEvidenceDropzone(form, {
       onFile: (file) => {
         pendingFile = file;
+        showPreviewBlob(previewHost, file, file.name || "Replacement file");
       },
     });
     form?.addEventListener("submit", async (event) => {
@@ -640,6 +720,7 @@
       try {
         const updated = await updateThisDocument(item, { startDate, expiryDate, file: pendingFile });
         window.Admin?.showAdminToast?.("This document was updated.", { variant: "ok" });
+        editingRecord = false;
         selectedCheckId = updated?.id || item.id;
         await loadRtwRecords();
       } catch (error) {
@@ -652,6 +733,10 @@
   }
 
   async function selectCheck(checkId) {
+    if (!sameRecordId(selectedCheckId, checkId)) {
+      editingRecord = false;
+      releaseFilePreview();
+    }
     selectedCheckId = checkId;
     renderTable();
     try {
@@ -668,7 +753,9 @@
         item.superseded_by_id = listed.superseded_by_id;
         item.current_review_id = listed.superseded_by_id;
         item.status = "superseded";
+        editingRecord = false;
       }
+      selectedItem = item;
       renderDetailPanel(item);
     } catch {
       const fallback = rtwItems.find((row) => sameRecordId(row.id, checkId));
@@ -855,9 +942,9 @@
 
     document.getElementById("rtw-send-reminder-btn")?.addEventListener("click", sendReminder);
     document.getElementById("rtw-detail-recheck-btn")?.addEventListener("click", () => {
-      const form = document.getElementById("rtw-update-form");
-      form?.scrollIntoView({ behavior: "smooth", block: "start" });
-      form?.querySelector("input[name='start_date']")?.focus();
+      if (!selectedItem || selectedItem.superseded) return;
+      editingRecord = !editingRecord;
+      renderDetailPanel(selectedItem);
     });
     document.getElementById("rtw-detail-close")?.addEventListener("click", closeDetailPanel);
 

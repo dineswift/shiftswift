@@ -14654,6 +14654,66 @@ body.rota-week-readonly .rota-builder-hint {
   flex: 1 1 auto;
 }
 
+.rtw-workspace-layout.is-updating .rtw-detail-panel {
+  flex: 1 1 640px;
+  width: min(720px, 68%);
+  max-width: 780px;
+}
+
+.rtw-file-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rtw-file-preview {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  min-height: 260px;
+  max-height: 460px;
+  overflow: auto;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rtw-file-preview .muted {
+  color: #d4d4d4;
+  padding: 16px;
+}
+
+.rtw-file-preview__img {
+  display: block;
+  width: 100%;
+  max-height: 460px;
+  object-fit: contain;
+  background: #111;
+}
+
+.rtw-file-preview__frame {
+  width: 100%;
+  height: 420px;
+  border: 0;
+  background: #fff;
+}
+
+.rtw-file-preview__fallback {
+  padding: 20px;
+  color: #f5f5f5;
+  text-align: center;
+}
+
+.rtw-update-form--editor {
+  margin-top: 0;
+}
+
+.rtw-update-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .rtw-table-wrap {
   flex: 1;
   min-width: 0;
