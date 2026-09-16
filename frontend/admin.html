@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v158" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v159" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
   </head>
@@ -3298,7 +3298,7 @@
                     <form id="document-upload-form" class="edit-form edit-form--cols-2 settings-doc-form settings-doc-upload-form" enctype="multipart/form-data">
                       <section class="settings-doc-upload-section" aria-labelledby="document-upload-details-title">
                         <h5 class="settings-doc-upload-section__title" id="document-upload-details-title">Document details</h5>
-                        <label class="edit-field" data-span="2">
+                        <div class="edit-field" data-span="2">
                           <span class="edit-label">File</span>
                           <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="document-upload-dropzone">
                             <input name="file" type="file" id="document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
@@ -3307,7 +3307,7 @@
                             <p class="doc-upload-dropzone__hint muted" data-document-upload-hint>PDF, JPEG or PNG · max 10 MB per file</p>
                             <p class="doc-upload-filename" id="document-upload-filename" hidden></p>
                           </div>
-                        </label>
+                        </div>
                         <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Employee handbook 2026" /></label>
                         <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-upload-category"></select></label>
                         <label class="edit-field"><span class="edit-label">Lifecycle stage</span><select name="lifecycle_stage" id="document-upload-stage"></select></label>
@@ -3423,7 +3423,7 @@
 
                   <div id="document-distribute-panel" class="settings-doc-tab-panel" data-doc-panel="distribute" hidden>
                     <form id="document-distribute-form" class="edit-form edit-form--cols-2 settings-doc-form" enctype="multipart/form-data">
-                      <label class="edit-field" data-span="2">
+                      <div class="edit-field" data-span="2">
                         <span class="edit-label">File</span>
                         <div class="doc-upload-dropzone" id="document-distribute-dropzone">
                           <input name="file" type="file" id="document-distribute-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
@@ -3432,7 +3432,7 @@
                           <p class="doc-upload-dropzone__hint muted" data-document-upload-hint>PDF, JPEG or PNG · max 10 MB per file</p>
                           <p class="doc-upload-filename" id="document-distribute-filename" hidden></p>
                         </div>
-                      </label>
+                      </div>
                       <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
                       <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="document-distribute-category"></select></label>
                       <label class="edit-field"><span class="edit-label">Pay period</span><input name="pay_period" id="document-distribute-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
@@ -3620,8 +3620,8 @@
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v33"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-documents.js?v=32"></script>
-    <script src="./admin-employees.js?v=40"></script>
+    <script src="./admin-documents.js?v=33"></script>
+    <script src="./admin-employees.js?v=41"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=5"></script>

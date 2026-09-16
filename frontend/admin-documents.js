@@ -1176,6 +1176,120 @@
     fileInput.files = dt.files;
   }
 
+  function stopPhotoCaptureStream(stream) {
+    stream?.getTracks?.().forEach((track) => track.stop());
+  }
+
+  function captureLiveDocumentPhoto() {
+    return new Promise((resolve) => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        resolve({ unavailable: true });
+        return;
+      }
+
+      document.getElementById("doc-photo-capture")?.remove();
+
+      const overlay = document.createElement("div");
+      overlay.id = "doc-photo-capture";
+      overlay.className = "doc-photo-capture";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-labelledby", "doc-photo-capture-title");
+      overlay.innerHTML = `
+        <div class="doc-photo-capture__panel">
+          <div class="doc-photo-capture__head">
+            <h2 id="doc-photo-capture-title">Take photo</h2>
+            <button type="button" class="btn btn--ghost btn--sm" data-photo-cancel>Cancel</button>
+          </div>
+          <video class="doc-photo-capture__video" autoplay muted playsinline></video>
+          <p class="doc-photo-capture__status muted" data-photo-status>Starting camera…</p>
+          <div class="doc-photo-capture__actions">
+            <button type="button" class="btn" data-photo-shutter disabled>Capture photo</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const video = overlay.querySelector("video");
+      const shutter = overlay.querySelector("[data-photo-shutter]");
+      const cancel = overlay.querySelector("[data-photo-cancel]");
+      const status = overlay.querySelector("[data-photo-status]");
+      let stream = null;
+      let settled = false;
+
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        stopPhotoCaptureStream(stream);
+        if (video) video.srcObject = null;
+        overlay.remove();
+        resolve(result);
+      };
+
+      cancel?.addEventListener("click", () => finish({ cancelled: true }));
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) finish({ cancelled: true });
+      });
+
+      shutter?.addEventListener("click", () => {
+        if (!video?.videoWidth) {
+          if (status) status.textContent = "Wait for the camera preview, then tap Capture photo.";
+          return;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              finish({ unavailable: true });
+              return;
+            }
+            finish({
+              file: new File([blob], `document-photo-${Date.now()}.jpg`, { type: "image/jpeg" }),
+            });
+          },
+          "image/jpeg",
+          0.92
+        );
+      });
+
+      navigator.mediaDevices
+        .getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        })
+        .then(async (media) => {
+          if (settled) {
+            stopPhotoCaptureStream(media);
+            return;
+          }
+          stream = media;
+          video.srcObject = media;
+          video.muted = true;
+          video.setAttribute("playsinline", "");
+          await video.play();
+          if (status) status.textContent = "Frame the document, then tap Capture photo.";
+          if (shutter) shutter.disabled = false;
+        })
+        .catch(() => {
+          finish({ unavailable: true });
+        });
+    });
+  }
+
+  async function captureDocumentPhoto({ fileInput, cameraInput, showFile }) {
+    const result = await captureLiveDocumentPhoto();
+    if (result?.file) {
+      assignFileToInput(fileInput, result.file);
+      showFile(result.file);
+      return;
+    }
+    if (result?.cancelled) return;
+    cameraInput?.click();
+  }
+
   function bindFileDropzone({
     dropzone,
     fileInput,
@@ -1196,11 +1310,19 @@
       filenameEl.textContent = file.name || "Photo capture";
     };
 
-    dropzone.querySelector(browseSelector)?.addEventListener("click", () => fileInput.click());
+    dropzone.querySelector(browseSelector)?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      fileInput.click();
+    });
     fileInput.addEventListener("change", () => showFile(fileInput.files?.[0]));
 
     if (cameraInput) {
-      dropzone.querySelector(".doc-upload-camera")?.addEventListener("click", () => cameraInput.click());
+      dropzone.querySelector(".doc-upload-camera")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void captureDocumentPhoto({ fileInput, cameraInput, showFile });
+      });
       cameraInput.addEventListener("change", () => {
         const file = cameraInput.files?.[0];
         if (!file) return;

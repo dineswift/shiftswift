@@ -28,7 +28,8 @@ const config: CapacitorConfig = {
     preferredContentMode: "mobile",
     infoPlist: {
       NSFaceIDUsageDescription: "Unlock ShiftSwift HR quickly with Face ID after you sign in.",
-      NSCameraUsageDescription: "Scan premises QR codes to clock in at your work site.",
+      NSCameraUsageDescription:
+        "Scan premises QR codes to clock in, and photograph HR documents.",
       NSLocationWhenInUseUsageDescription: "Verify you are at your work site when clocking in.",
       NSLocationAlwaysAndWhenInUseUsageDescription: "Verify you are at your work site when clocking in.",
       NSPhotoLibraryUsageDescription:

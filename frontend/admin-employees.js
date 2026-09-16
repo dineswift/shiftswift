@@ -2272,7 +2272,7 @@
         <details class="employee-record-doc-upload">
           <summary>Upload document</summary>
           <form id="employees-side-doc-upload" class="employee-record-upload-form" enctype="multipart/form-data">
-            <label class="employee-record-field employee-record-field--full">
+            <div class="employee-record-field employee-record-field--full">
               <span class="employee-record-field__label">File</span>
               <div class="doc-upload-dropzone doc-upload-dropzone--compact employee-record-upload-dropzone" id="employees-side-doc-dropzone">
                 <input type="file" name="file" id="employees-side-doc-file" required hidden />
@@ -2281,7 +2281,7 @@
                 <p class="doc-upload-dropzone__hint muted" id="employees-side-doc-upload-hint">${escapeHtml(DEFAULT_DOCUMENT_UPLOAD.hint)}</p>
                 <p class="doc-upload-filename" id="employees-side-doc-filename" hidden></p>
               </div>
-            </label>
+            </div>
             <label class="employee-record-field employee-record-field--full">
               <span class="employee-record-field__label">Title</span>
               <input type="text" name="title" required placeholder="e.g. Signed contract" />
@@ -3085,7 +3085,7 @@
         <h5 class="employee-doc-upload-panel__title">Upload file</h5>
         <form id="employee-document-upload-form" class="edit-form edit-form--cols-2 employee-doc-upload-form" enctype="multipart/form-data">
           <section class="employee-doc-upload-section" aria-label="Document details">
-            <label class="edit-field" data-span="2">
+            <div class="edit-field" data-span="2">
               <span class="edit-label">File</span>
               <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="employee-document-upload-dropzone">
                 <input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
@@ -3094,7 +3094,7 @@
                 <p class="doc-upload-dropzone__hint muted" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</p>
                 <p class="doc-upload-filename" id="employee-document-upload-filename" hidden></p>
               </div>
-            </label>
+            </div>
             <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
             <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
             <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>

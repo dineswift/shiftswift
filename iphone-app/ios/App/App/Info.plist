@@ -48,7 +48,7 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Scan premises QR codes to clock in at your work site.</string>
+	<string>Scan premises QR codes to clock in, and photograph HR documents.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock ShiftSwift HR quickly with Face ID after you sign in.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
