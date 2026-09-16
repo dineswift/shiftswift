@@ -361,6 +361,20 @@ body.punch-app {
   background: rgba(15, 23, 42, 0.45);
 }
 
+@media (max-width: 1366px) {
+  .punch-scan-dialog {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    width: min(420px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 .punch-scan-dialog__inner {
   padding: 1rem;
 }
