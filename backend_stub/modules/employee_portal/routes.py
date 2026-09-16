@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import FileResponse
 
 from auth_service import AuthUser
 from config import load_settings
@@ -20,7 +19,7 @@ from modules.documents.service import (
     portal_document_visible,
     tenant_document_accessible_to_employee,
 )
-from modules.documents.storage import download_filename, resolve_stored_file
+from modules.documents.storage import download_filename, resolve_stored_file, stored_file_response
 from modules.time_punch.service import resolve_employee
 
 router = APIRouter(prefix="/employee/me", tags=["Employee self-service"])
@@ -104,6 +103,7 @@ def download_my_document(
     current_user: Annotated[AuthUser, Depends(get_employee_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     scope: str = "employee",
+    preview: bool = False,
 ):
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
@@ -134,10 +134,11 @@ def download_my_document(
         original_filename=doc.get("original_filename"),
         storage_path=doc.get("storage_path"),
     )
-    return FileResponse(
+    return stored_file_response(
         path,
-        media_type=doc.get("content_type") or "application/octet-stream",
+        media_type=doc.get("content_type"),
         filename=filename,
+        inline=preview,
     )
 
 

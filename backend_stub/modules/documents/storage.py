@@ -226,3 +226,21 @@ def download_filename(*, title: str, original_filename: str | None, storage_path
 
 def document_has_file(doc: dict[str, Any]) -> bool:
     return bool(doc.get("storage_path"))
+
+
+def stored_file_response(
+    path: str | Path,
+    *,
+    media_type: str | None,
+    filename: str,
+    inline: bool = False,
+):
+    """Serve a stored HR file. Preview uses inline so the browser displays it."""
+    from fastapi.responses import FileResponse
+
+    return FileResponse(
+        path,
+        media_type=media_type or "application/octet-stream",
+        filename=filename,
+        content_disposition_type="inline" if inline else "attachment",
+    )

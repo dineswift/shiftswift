@@ -908,11 +908,10 @@ def download_tenant_document_file(
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     scope: str = "tenant",
     employee_id: int | None = None,
+    preview: bool = False,
 ):
-    from fastapi.responses import FileResponse
-
     from modules.documents.service import get_employee_document, get_tenant_document
-    from modules.documents.storage import download_filename, resolve_stored_file
+    from modules.documents.storage import download_filename, resolve_stored_file, stored_file_response
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
@@ -938,10 +937,11 @@ def download_tenant_document_file(
         original_filename=doc.get("original_filename"),
         storage_path=doc.get("storage_path"),
     )
-    return FileResponse(
+    return stored_file_response(
         path,
-        media_type=doc.get("content_type") or "application/octet-stream",
+        media_type=doc.get("content_type"),
         filename=filename,
+        inline=preview,
     )
 
 

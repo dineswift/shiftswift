@@ -439,10 +439,9 @@ def download_employee_document_file(
     document_id: int,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    preview: bool = False,
 ):
-    from fastapi.responses import FileResponse
-
-    from modules.documents.storage import download_filename, resolve_stored_file
+    from modules.documents.storage import download_filename, resolve_stored_file, stored_file_response
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
@@ -463,10 +462,11 @@ def download_employee_document_file(
         original_filename=doc.get("original_filename"),
         storage_path=doc.get("storage_path"),
     )
-    return FileResponse(
+    return stored_file_response(
         path,
-        media_type=doc.get("content_type") or "application/octet-stream",
+        media_type=doc.get("content_type"),
         filename=filename,
+        inline=preview,
     )
 
 

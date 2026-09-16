@@ -46,9 +46,12 @@
     }
   }
 
-  async function fetchDocumentBlob(documentId, scope = "employee") {
-    const scopeQuery = scope && scope !== "employee" ? `?scope=${encodeURIComponent(scope)}` : "";
-    const res = await apiFetch(`/employee/me/documents/${documentId}/file${scopeQuery}`, {
+  async function fetchDocumentBlob(documentId, scope = "employee", { preview = false } = {}) {
+    const params = new URLSearchParams();
+    if (scope && scope !== "employee") params.set("scope", scope);
+    if (preview) params.set("preview", "1");
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await apiFetch(`/employee/me/documents/${documentId}/file${query}`, {
       headers: session.authHeaders({ json: false, tenantId }),
     });
     if (!res.ok) {
@@ -78,7 +81,7 @@
       await downloadDocument(documentId, row?.original_filename, scope);
       return;
     }
-    const { blob, name, contentType } = await fetchDocumentBlob(documentId, scope);
+    const { blob, name, contentType } = await fetchDocumentBlob(documentId, scope, { preview: true });
     window.ShiftSwiftDocumentPreview.open({
       blob,
       title: row?.title,

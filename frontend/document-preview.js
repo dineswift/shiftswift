@@ -20,6 +20,28 @@
     return "other";
   }
 
+  function resolvedMime(contentType, filename, blobType) {
+    const kind = previewKind(contentType || blobType, filename);
+    if (kind === "pdf") return "application/pdf";
+    if (kind === "html") return "text/html;charset=utf-8";
+    if (kind === "image") {
+      const type = String(contentType || blobType || "").toLowerCase().split(";")[0];
+      if (type.startsWith("image/")) return type;
+      const name = String(filename || "").toLowerCase();
+      if (name.endsWith(".png")) return "image/png";
+      if (name.endsWith(".webp")) return "image/webp";
+      if (name.endsWith(".gif")) return "image/gif";
+      return "image/jpeg";
+    }
+    return String(contentType || blobType || "").split(";")[0] || "";
+  }
+
+  function typedBlob(blob, contentType, filename) {
+    const mime = resolvedMime(contentType, filename, blob?.type);
+    if (!blob || !mime || String(blob.type || "").split(";")[0] === mime.split(";")[0]) return blob;
+    return new Blob([blob], { type: mime });
+  }
+
   function canPreview(row) {
     if (!row?.has_file) return false;
     return previewKind(row.content_type, row.original_filename || row.title) !== "other";
@@ -70,9 +92,10 @@
   function open({ blob, title, filename, contentType } = {}) {
     if (!blob) throw new Error("Nothing to preview.");
     const dialog = ensureDialog();
-    const kind = previewKind(contentType || blob.type, filename || title);
+    const previewBlob = typedBlob(blob, contentType, filename || title);
+    const kind = previewKind(contentType || previewBlob.type, filename || title);
     revokePreviewUrl();
-    objectUrl = URL.createObjectURL(blob);
+    objectUrl = URL.createObjectURL(previewBlob);
     const heading = dialog.querySelector("#ss-document-preview-title");
     const body = dialog.querySelector("#ss-document-preview-body");
     const downloadBtn = dialog.querySelector("[data-preview-download]");
@@ -83,7 +106,9 @@
     if (!body) return;
     if (kind === "image") {
       body.innerHTML = `<img class="ss-doc-preview-dialog__image" src="${objectUrl}" alt="${escapeHtml(title || "Document preview")}" />`;
-    } else if (kind === "pdf" || kind === "html") {
+    } else if (kind === "pdf") {
+      body.innerHTML = `<embed class="ss-doc-preview-dialog__frame" type="application/pdf" src="${objectUrl}" title="${escapeHtml(title || "Document preview")}" />`;
+    } else if (kind === "html") {
       body.innerHTML = `<iframe class="ss-doc-preview-dialog__frame" title="${escapeHtml(title || "Document preview")}" src="${objectUrl}"></iframe>`;
     } else {
       body.innerHTML = `<p class="muted">This file type cannot be shown here. Use Download to open it.</p>`;

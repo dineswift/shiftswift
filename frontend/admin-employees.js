@@ -1935,7 +1935,7 @@
         const run = window.ShiftSwiftAction?.runButtonAction;
         const performPreview = async () => {
           const res = await apiFetch(
-            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.previewDoc}/file`
+            `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.previewDoc}/file?preview=1`
           );
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
