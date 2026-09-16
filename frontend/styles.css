@@ -13521,14 +13521,19 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .hr-detail-panel {
-  flex: 0 0 400px;
-  width: 400px;
   border: 1px solid var(--card-border);
   border-radius: var(--radius-md);
   background: var(--card);
   padding: 16px 18px;
   max-height: calc(100vh - 140px);
   overflow-y: auto;
+}
+
+@media (min-width: 1181px) {
+  .hr-detail-panel {
+    flex: 0 0 400px;
+    width: 400px;
+  }
 }
 
 .hr-detail-empty {
