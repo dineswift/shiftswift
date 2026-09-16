@@ -6000,6 +6000,7 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 }
 .employee-doc-add .settings-doc-tabs {
   margin-bottom: 0;
+  justify-self: start;
 }
 .employee-doc-add .settings-doc-tab-panel {
   margin-bottom: 0;
