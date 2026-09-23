@@ -3,7 +3,14 @@
   const SW_URL = "./employee-sw.js?v=14";
   const BLOCKED_SW = ["app-sw.js", "punch-sw.js", "admin-sw.js"];
 
+  function pwaEnabled() {
+    return window.ShiftSwiftBrand?.isPwaEnabled?.() === true;
+  }
+
   function registerEmployeeSw() {
+    if (!pwaEnabled()) {
+      return window.ShiftSwiftBrand?.disablePwaRuntime?.() || Promise.resolve(null);
+    }
     if (window.Capacitor?.isNativePlatform?.()) return Promise.resolve(null);
     if (!("serviceWorker" in navigator)) return Promise.resolve(null);
     window.ShiftSwiftPortalStability?.initServiceWorkerReload?.("employeeSwReloaded");

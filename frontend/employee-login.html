@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Employee" />
-    <script src="./portal-sw-guard.js?v=2"></script>
+    <script src="./portal-sw-guard.js?v=3"></script>
     <script>
       (function () {
         if (/[?&]legacy=1(?:&|$)/.test(location.search)) return;
@@ -35,11 +35,11 @@
         } catch (e) {}
       })();
     </script>
-    <script src="./brand-config.js?v=brand-v7"></script>
+    <script src="./brand-config.js?v=brand-v10"></script>
     <script src="./app-host-guard.js?v=2"></script>
     <script src="./app-icons.js?v=brandkit-v7"></script>
     <script src="./native-app.js?v=6"></script>
-    <script src="./pwa-ios.js?v=1"></script>
+    <script src="./pwa-ios.js?v=2"></script>
     <title>ShiftSwift Employee | Sign in</title>
     <link rel="stylesheet" href="./styles.css?v=brandkit-v7" />
   </head>
@@ -194,13 +194,13 @@
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./native-keyboard.js?v=1"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
-    <script src="./employee-pwa.js?v=7"></script>
+    <script src="./employee-pwa.js?v=9"></script>
     <script src="./login.js?v=brandkit-v26"></script>
     <script>
       window.ShiftSwiftEmployeePwa?.registerEmployeeSw?.();
     </script>
     <script
-      src="./portal-pwa-install.js?v=3"
+      src="./portal-pwa-install.js?v=5"
       data-portal="employee"
       data-app-name="ShiftSwift Employee"
       data-manifest="./employee-manifest.webmanifest?v=8"

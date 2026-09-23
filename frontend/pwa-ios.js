@@ -74,7 +74,9 @@
   }
 
   applyDeviceClasses();
-  injectLaunchSplashes();
+  if (window.ShiftSwiftBrand?.isPwaEnabled?.() === true) {
+    injectLaunchSplashes();
+  }
 
   window.ShiftSwiftPwaIos = {
     isIos,

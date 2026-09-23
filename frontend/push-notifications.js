@@ -30,6 +30,9 @@
   }
 
   async function subscribe(apiBase, token, tenantId, publicKey) {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      return { ok: false, reason: "pwa_disabled" };
+    }
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !publicKey) {
       return { ok: false, reason: "unsupported" };
     }
@@ -169,7 +172,10 @@
     }
 
     const supported =
-      "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+      window.ShiftSwiftBrand?.isPwaEnabled?.() === true &&
+      "Notification" in window &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window;
     if (!supported) {
       return { supported: false, permission: "unsupported", subscribed: false, serverEnabled: false };
     }
@@ -223,6 +229,9 @@
           }
           return { ok: true };
         }
+      }
+      if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+        return { ok: false, reason: "pwa_disabled" };
       }
       if (!token || !tenantId) return { ok: false, reason: "not_signed_in" };
       if (!force && localStorage.getItem(PROMPT_KEY) === "1") {

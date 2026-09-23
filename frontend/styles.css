@@ -12835,7 +12835,14 @@ html.native-app .portal-pwa-install-banner,
 html.native-app .pwa-ios-sheet,
 html.native-app .pwa-ios-sheet-backdrop,
 html.native-app .pwa-install-page .pwa-install-steps-card,
-html.native-app .pwa-install-page .pwa-install-qr-card {
+html.native-app .pwa-install-page .pwa-install-qr-card,
+html.pwa-disabled .portal-pwa-install-banner,
+html.pwa-disabled .pwa-ios-sheet,
+html.pwa-disabled .pwa-ios-sheet-backdrop,
+html.pwa-disabled .pwa-install-page .pwa-install-steps-card,
+html.pwa-disabled .pwa-install-page .pwa-install-qr-card,
+html.pwa-disabled .punch-install-banner,
+html.pwa-disabled .punch-install-help {
   display: none !important;
 }
 

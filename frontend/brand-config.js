@@ -26,6 +26,8 @@ window.ShiftSwiftBrand = {
     hr: "hr@shiftswifthr.co.uk",
     employee: "employee@shiftswifthr.co.uk",
   },
+  /** Native App Store / Play apps are the install path. Set true to restore PWA install + service workers. */
+  pwaEnabled: false,
 };
 
 window.ShiftSwiftBrand.isCapacitorNative = function isCapacitorNative() {
@@ -37,6 +39,47 @@ window.ShiftSwiftBrand.isCapacitorNative = function isCapacitorNative() {
   } catch {
     return false;
   }
+};
+
+window.ShiftSwiftBrand.isPwaEnabled = function isPwaEnabled() {
+  if (this.isCapacitorNative()) return false;
+  return this.pwaEnabled === true;
+};
+
+window.ShiftSwiftBrand.disablePwaRuntime = function disablePwaRuntime() {
+  if (this.isPwaEnabled()) return Promise.resolve();
+  try {
+    document.documentElement.classList.add("pwa-disabled");
+  } catch {
+    /* ignore */
+  }
+  document.querySelectorAll('link[rel="manifest"]').forEach((el) => {
+    if (!el.dataset.sshrDisabledManifest) {
+      el.dataset.sshrDisabledManifest = el.getAttribute("href") || "";
+    }
+    el.remove();
+  });
+  document
+    .querySelectorAll('meta[name="apple-mobile-web-app-capable"], meta[name="mobile-web-app-capable"]')
+    .forEach((el) => {
+      el.setAttribute("content", "no");
+    });
+  const banner = document.getElementById("portal-pwa-install-banner");
+  if (banner) banner.hidden = true;
+  const punchBanner = document.getElementById("pwa-install-banner");
+  if (punchBanner) punchBanner.hidden = true;
+  if (!this._pwaInstallPromptBlocked) {
+    this._pwaInstallPromptBlocked = true;
+    window.addEventListener("beforeinstallprompt", (event) => {
+      if (window.ShiftSwiftBrand?.isPwaEnabled?.()) return;
+      event.preventDefault();
+    });
+  }
+  if (!("serviceWorker" in navigator)) return Promise.resolve();
+  return navigator.serviceWorker
+    .getRegistrations()
+    .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+    .catch(() => null);
 };
 
 window.ShiftSwiftBrand.isLocalDevHost = function isLocalDevHost() {
@@ -248,5 +291,8 @@ window.ShiftSwiftBrand.bootstrapBrand = async function bootstrapBrand() {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
+  void window.ShiftSwiftBrand.disablePwaRuntime();
   void window.ShiftSwiftBrand.bootstrapBrand();
 });
+
+void window.ShiftSwiftBrand.disablePwaRuntime();

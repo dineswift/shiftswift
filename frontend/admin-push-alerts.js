@@ -33,6 +33,9 @@
   }
 
   async function subscribe(publicKey) {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      return { ok: false, reason: "pwa_disabled" };
+    }
     if (!("serviceWorker" in navigator) || !("PushManager" in window) || !publicKey) {
       return { ok: false, reason: "unsupported" };
     }
@@ -63,6 +66,7 @@
 
   async function getStatus() {
     const supported =
+      window.ShiftSwiftBrand?.isPwaEnabled?.() === true &&
       !window.ShiftSwiftBrand?.isCapacitorNative?.() &&
       "Notification" in window &&
       "serviceWorker" in navigator &&
@@ -90,6 +94,9 @@
   }
 
   async function enableAlerts({ force = false } = {}) {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      return { ok: false, reason: "pwa_disabled" };
+    }
     if (!force && localStorage.getItem(PROMPT_KEY) === "1") {
       return { ok: false, reason: "already_prompted" };
     }

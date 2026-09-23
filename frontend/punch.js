@@ -857,6 +857,10 @@
   }
 
   function maybeShowInstallBanner() {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      if (installBanner) installBanner.hidden = true;
+      return;
+    }
     if (!installBanner || isStandalone() || installDismissed()) return;
 
     if (deferredInstallPrompt) {
@@ -889,6 +893,10 @@
   }
 
   function registerServiceWorker() {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      void window.ShiftSwiftBrand?.disablePwaRuntime?.();
+      return;
+    }
     if (!("serviceWorker" in navigator)) return;
 
     navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -926,6 +934,10 @@
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
     deferredInstallPrompt = event;
     maybeShowInstallBanner();
