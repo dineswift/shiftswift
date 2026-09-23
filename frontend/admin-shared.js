@@ -1340,20 +1340,23 @@ window.Admin = (() => {
     if (value == null || value === "") return "—";
     const raw = String(value).trim();
     if (!raw) return "—";
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(raw)
-      ? new Date(`${raw}T12:00:00`)
-      : /^\d{4}-\d{2}-\d{2}T/.test(raw)
-        ? new Date(raw)
-        : /^\d{4}-\d{2}-\d{2}/.test(raw)
-          ? new Date(`${raw.slice(0, 10)}T12:00:00`)
-          : new Date(raw);
+    let iso = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : "";
+    const yearMatch = iso.match(/^(\d{1,4})-(\d{2})-(\d{2})$/);
+    if (yearMatch) {
+      let year = Number(yearMatch[1]);
+      if (year >= 0 && year < 100) year += 2000;
+      iso = `${String(year).padStart(4, "0")}-${yearMatch[2]}-${yearMatch[3]}`;
+    }
+    const date = iso
+      ? new Date(`${iso}T12:00:00`)
+      : new Date(raw);
     if (Number.isNaN(date.getTime())) return "—";
-    return date.toLocaleDateString(
-      "en-GB",
-      weekday
-        ? { weekday: "short", day: "numeric", month: "short", year: "numeric" }
-        : { day: "numeric", month: "short", year: "numeric" }
-    );
+    const year = date.getFullYear() < 100 ? date.getFullYear() + 2000 : date.getFullYear();
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const weekdayLabel = weekday
+      ? `${date.toLocaleDateString("en-GB", { weekday: "short" })} `
+      : "";
+    return `${weekdayLabel}${date.getDate()} ${months[date.getMonth()]} ${year}`;
   }
 
   function syncDateInputEmptyState(input) {

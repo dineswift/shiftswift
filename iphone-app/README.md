@@ -2,7 +2,7 @@
 
 One universal Capacitor **iOS** app (iPhone and iPad). Android lives in `../android-app/`.
 
-**Version:** 1.5 (build 17)  
+**Version:** 1.5.1 (build 24)  
 **Bundle ID:** `co.uk.shiftswifthr.app`
 
 There is no separate iPad app. This build is `TARGETED_DEVICE_FAMILY = 1,2`: iPhone uses bottom tabs; iPad uses a full-screen sidebar layout.

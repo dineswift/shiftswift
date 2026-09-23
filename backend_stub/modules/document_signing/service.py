@@ -364,14 +364,18 @@ def _build_acknowledgment_html(
     signature_name: str,
     reference_code: str,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> str:
     signed_at = _utcnow().strftime("%d %B %Y %H:%M UTC")
     title = html.escape(str(doc.get("title") or "Document"))
     filename = html.escape(str(doc.get("original_filename") or "Uploaded file"))
     sha = html.escape(str(doc.get("content_sha256") or "Not recorded"))
+    from modules.document_signing.signature_image import signature_image_html
+
     signer = html.escape(signature_name)
     ip = html.escape(ip_address or "Not recorded")
     ref = html.escape(reference_code)
+    drawing = signature_image_html(signature_image) if signature_image else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><title>Signed acknowledgment — {title}</title></head>
 <body style="font-family:system-ui,sans-serif;line-height:1.5;max-width:720px;margin:2rem auto;padding:0 1rem;">
@@ -382,6 +386,7 @@ def _build_acknowledgment_html(
   <p><strong>Content hash (SHA-256):</strong> {sha}</p>
   <section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">
     <h2>Signature</h2>
+    {drawing}
     <p><strong>Signed by:</strong> {signer}</p>
     <p><strong>Signed at:</strong> {signed_at}</p>
     <p><strong>IP address:</strong> {ip}</p>
@@ -396,6 +401,7 @@ def sign_document(
     token: str,
     signature_name: str,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
     get_signing_by_token(conn, token)
 
@@ -422,11 +428,16 @@ def sign_document(
     if not source:
         raise LookupError("Document not found")
 
+    from modules.document_signing.signature_image import normalize_signature_image
+
+    normalize_signature_image(signature_image)
+
     signed_html = _build_acknowledgment_html(
         doc=source,
         signature_name=signature_name,
         reference_code=reference_code,
         ip_address=ip_address,
+        signature_image=signature_image,
     )
     signed_bytes = signed_html.encode("utf-8")
     from modules.documents.storage import write_document_file

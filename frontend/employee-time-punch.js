@@ -780,6 +780,12 @@
       if (data.rapid_re_punch) detail += " — flagged for HR review.";
       setMessage(`${detail}.`, "success");
       void window.ShiftSwiftNativeHaptics?.success?.();
+      window.ShiftSwiftNativeShiftAlerts?.showUrgentAlert?.({
+        title: punchType === "out" ? "Clocked out" : punchType === "in" ? "Clocked in" : punchTypeLabel(punchType),
+        body: detail,
+        kind: "success",
+        silent: true,
+      });
       await loadStatus();
       window.EmployeeTimesheet?.reload?.();
     } catch (error) {

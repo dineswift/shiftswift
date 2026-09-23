@@ -1062,8 +1062,15 @@
     renderAll();
   }
 
+  let longPressFired = false;
+  let longPressTimer = null;
+
   function hideContextMenu() {
-    if (contextMenuEl) contextMenuEl.hidden = true;
+    if (contextMenuEl) {
+      contextMenuEl.hidden = true;
+      contextMenuEl.classList.remove("rota-context-menu--sheet");
+    }
+    document.getElementById("rota-context-backdrop")?.remove();
   }
 
   function ensureContextMenu() {
@@ -1079,27 +1086,79 @@
     return contextMenuEl;
   }
 
+  function markShiftLeaveType(shiftIndex, roleLabel) {
+    const shift = shifts[shiftIndex];
+    if (!shift) return;
+    shift.role_label = roleLabel;
+    markDirty();
+    setMessage(`${roleLabel} marked — click Save draft.`, "success");
+    renderAll();
+  }
+
   function showContextMenu(event, shiftIndex) {
     if (isWeekReadOnly()) return;
     event.preventDefault();
+    event.stopPropagation();
+    const shift = shifts[shiftIndex];
+    if (!shift) return;
+    const emp = employees.find((row) => Number(row.id) === Number(shift.employee_id));
     const menu = ensureContextMenu();
+    const useSheet =
+      window.matchMedia("(min-width: 861px)").matches ||
+      window.matchMedia("(pointer: coarse)").matches;
+    const role = shift.role_label || employeeRoleLabel(emp) || "";
+    const time = isDayOffShift(shift) ? "OFF" : formatShiftTimeRange(shift);
+    const dayLabel = new Date(`${shift.shift_date}T12:00:00`).toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
     menu.innerHTML = `
-      <button type="button" data-rota-ctx="copy-days">Copy shift…</button>
-      <button type="button" data-rota-ctx="copy-week">Copy to rest of week</button>
-      <button type="button" data-rota-ctx="edit">Edit shift</button>
-      <button type="button" data-rota-ctx="delete" class="rota-context-menu__danger">Delete shift</button>`;
+      <div class="rota-sheet-head">
+        <strong>${escapeHtml(emp ? employeeShortName(emp) : employeeName(shift.employee_id))}</strong>
+        <span>${escapeHtml(role)}</span>
+        <span>${escapeHtml(time)}${time ? " · " : ""}${escapeHtml(dayLabel)}</span>
+      </div>
+      <button type="button" data-rota-ctx="edit">Move shift</button>
+      <button type="button" data-rota-ctx="copy-days">Copy shift</button>
+      <button type="button" data-rota-ctx="sick">Mark sick</button>
+      <button type="button" data-rota-ctx="leave">Mark leave</button>
+      <button type="button" data-rota-ctx="no-show">Mark no show</button>
+      <button type="button" data-rota-ctx="delete" class="rota-context-menu__danger">Delete</button>
+      <button type="button" data-rota-ctx="cancel" class="rota-sheet-cancel">Cancel</button>`;
     menu.hidden = false;
-    menu.style.left = `${event.clientX}px`;
-    menu.style.top = `${event.clientY}px`;
+    if (useSheet) {
+      menu.classList.add("rota-context-menu--sheet");
+      menu.style.left = "";
+      menu.style.top = "";
+      if (!document.getElementById("rota-context-backdrop")) {
+        const backdrop = document.createElement("div");
+        backdrop.id = "rota-context-backdrop";
+        backdrop.className = "rota-context-backdrop";
+        backdrop.addEventListener("click", hideContextMenu);
+        document.body.appendChild(backdrop);
+      }
+    } else {
+      menu.classList.remove("rota-context-menu--sheet");
+      menu.style.left = `${event.clientX}px`;
+      menu.style.top = `${event.clientY}px`;
+    }
     menu.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", (clickEvent) => {
         clickEvent.stopPropagation();
-        hideContextMenu();
         const action = btn.getAttribute("data-rota-ctx");
+        hideContextMenu();
         if (action === "copy-days") showCopyShiftModal(shiftIndex);
-        else if (action === "copy-week") copyShiftToRestOfWeek(shiftIndex);
         else if (action === "edit") openShiftPanel({ shiftIndex });
-        else if (action === "delete") deleteShift(shiftIndex);
+        else if (action === "sick") markShiftLeaveType(shiftIndex, "Sick leave");
+        else if (action === "leave") markShiftLeaveType(shiftIndex, "Annual leave");
+        else if (action === "no-show") {
+          if (weekMeta?.status !== "published") {
+            setMessage("Publish the rota first, then mark no-shows from Time Clock attendance.", "info");
+            return;
+          }
+          openPunchRecordsForShift(shift.employee_id, shift.shift_date);
+        } else if (action === "delete") deleteShift(shiftIndex);
       });
     });
   }
@@ -1301,16 +1360,39 @@
     dirty = false;
   }
 
-  function renderStatusBadge() {
-    const status = document.getElementById("rota-week-status");
-    if (!status) return;
+  function statusBadgeHtml() {
     if (weekMeta?.status === "published") {
-      status.innerHTML = isWeekReadOnly()
+      return isWeekReadOnly()
         ? '<span class="rota-status-badge rota-status-badge--locked">Locked</span>'
-        : '<span class="rota-status-badge rota-status-badge--published">Published</span>';
-      return;
+        : '<span class="rota-status-badge rota-status-badge--published">Published ✓</span>';
     }
-    status.innerHTML = '<span class="rota-status-badge rota-status-badge--draft">Draft</span>';
+    return '<span class="rota-status-badge rota-status-badge--draft">Draft</span>';
+  }
+
+  function weekCountsCopy() {
+    const staff = activeEmployees();
+    const shiftCount = shifts.length;
+    const scheduledStaff = new Set(shifts.map((s) => s.employee_id)).size;
+    const totalHours = shifts.reduce((sum, shift) => sum + shiftHours(shift), 0);
+    const hoursLabel = totalHours > 0 ? ` · ${Math.round(totalHours)} hrs` : "";
+    if (!staff.length) return "";
+    if (!shiftCount) return `0 shifts · ${staff.length} staff`;
+    return `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff${hoursLabel}`;
+  }
+
+  function renderStatusBadge() {
+    const html = statusBadgeHtml();
+    ["rota-week-status", "rota-workflow-status"].forEach((id) => {
+      const status = document.getElementById(id);
+      if (status) status.innerHTML = html;
+    });
+  }
+
+  function renderWorkflowBanner() {
+    const header = document.querySelector(".rota-builder-header");
+    const published = weekMeta?.status === "published";
+    header?.classList.toggle("rota-builder-header--published", published);
+    header?.classList.toggle("rota-builder-header--draft", !published);
   }
 
   function updateReadOnlyUi() {
@@ -1381,26 +1463,16 @@
         : "Available after the rota is published";
     });
     updateReadOnlyUi();
+    renderWorkflowBanner();
   }
 
   function renderWeekSummary() {
     const el = document.getElementById("rota-week-summary");
-    if (!el) return;
-    const staff = activeEmployees();
-    const shiftCount = shifts.length;
-    const scheduledStaff = new Set(shifts.map((s) => s.employee_id)).size;
-    if (!staff.length) {
-      el.textContent = "";
-      return;
+    if (el) {
+      const staff = activeEmployees();
+      el.textContent = staff.length ? formatWeekLabel(currentWeekStart) : "";
     }
-    const weekLabel = formatWeekLabel(currentWeekStart);
-    const totalHours = shifts.reduce((sum, shift) => sum + shiftHours(shift), 0);
-    const hoursLabel = totalHours > 0 ? ` · ${Math.round(totalHours)} hrs` : "";
-    if (!shiftCount) {
-      el.textContent = `0 shifts · ${staff.length} staff · ${weekLabel}`;
-      return;
-    }
-    el.textContent = `${shiftCount} shift${shiftCount === 1 ? "" : "s"} · ${scheduledStaff} staff${hoursLabel} · ${weekLabel}`;
+    renderWorkflowBanner();
   }
 
   function isRotaSectionActive() {
@@ -1750,21 +1822,22 @@
     const todayIso = todayIsoLocal();
     const staff = activeEmployees();
 
-    let html = `<div class="rota-grid-header"><div class="rota-gh-cell rota-gh-cell--staff">Staff <span class="rota-gh-staff-count">(${staff.length})</span></div>`;
+    let html = `<div class="rota-grid-header"><div class="rota-gh-cell rota-gh-cell--staff">Staff <span class="rota-gh-staff-count">(${staff.length})</span></div><div class="rota-grid-days">`;
     days.forEach((iso) => {
       const date = new Date(`${iso}T12:00:00`);
-      const weekday = date.toLocaleDateString("en-GB", { weekday: "short" }).toUpperCase();
+      const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
       const dayNum = date.getDate();
+      const month = date.toLocaleDateString("en-GB", { month: "short" });
       const count = shiftsOnDate(iso);
       const level = coverageLevelForDay(iso, count);
       const todayClass = iso === todayIso ? " rota-gh-cell--today" : "";
       html += `<div class="rota-gh-cell${todayClass}">
         <span class="rota-day-mark" aria-hidden="true"></span>
-        <span class="rota-day-sub"><span class="rota-day-weekday">${escapeHtml(weekday)}</span> <span class="rota-day-num">${dayNum}</span></span>
+        <span class="rota-day-sub"><span class="rota-day-weekday">${escapeHtml(weekday)}</span> <span class="rota-day-num">${dayNum} ${escapeHtml(month)}</span></span>
         <span class="rota-day-cov"><span class="rota-cov-dot rota-cov-dot--${level}" aria-hidden="true"></span>${count || "—"}</span>
       </div>`;
     });
-    html += "</div>";
+    html += "</div></div>";
 
     staff.forEach((emp) => {
       const palette = avatarPalette(emp.id);
@@ -1772,7 +1845,7 @@
         <div class="rota-staff-name-cell">
           <span class="rota-staff-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(emp))}</span>
           <span><span class="rota-staff-name">${escapeHtml(employeeShortName(emp))}</span><span class="rota-staff-role">${escapeHtml(employeeRoleLabel(emp))}</span></span>
-        </div>`;
+        </div><div class="rota-staff-days">`;
       days.forEach((iso) => {
         const cellShifts = shifts
           .map((s, index) => ({ s, index }))
@@ -1790,7 +1863,7 @@
           const blockClass = shiftBlockClass(s, emp);
           const roleText = escapeHtml(s.role_label || employeeRoleLabel(emp));
           const blockBody = isDayOffShift(s)
-            ? `${escapeHtml(s.role_label || "Leave")}<span class="rota-shift-block-role">All day</span>`
+            ? `<span class="rota-off-label">OFF</span>`
             : `${escapeHtml(formatShiftTimeRange(s))}<span class="rota-shift-block-role">${roleText}</span>`;
           html += `<div class="rota-shift-wrap">
             <button type="button" class="rota-shift-block ${blockClass}${attendClass}" draggable="${readonly ? "false" : "true"}" data-shift-index="${index}" title="${readonly ? "View only" : "Drag to move · Alt+drag to copy"}">${blockBody}</button>
@@ -1811,14 +1884,15 @@
         }
         html += "</div>";
       });
-      html += "</div>";
+      html += "</div></div>";
     });
 
     grid.innerHTML = html;
 
     grid.querySelectorAll(".rota-shift-block").forEach((chip) => {
+      const shiftIndex = Number(chip.getAttribute("data-shift-index"));
       chip.addEventListener("dragstart", (event) => {
-        dragShiftIndex = Number(chip.getAttribute("data-shift-index"));
+        dragShiftIndex = shiftIndex;
         dragCopyMode = Boolean(event.altKey);
         event.dataTransfer?.setData("text/plain", String(dragShiftIndex));
         event.dataTransfer?.setData("application/x-rota-copy", dragCopyMode ? "1" : "0");
@@ -1835,11 +1909,33 @@
       });
       chip.addEventListener("click", (event) => {
         event.stopPropagation();
-        openShiftPanel({ shiftIndex: Number(chip.getAttribute("data-shift-index")) });
+        if (longPressFired) {
+          longPressFired = false;
+          return;
+        }
+        openShiftPanel({ shiftIndex });
       });
       chip.addEventListener("contextmenu", (event) => {
-        showContextMenu(event, Number(chip.getAttribute("data-shift-index")));
+        showContextMenu(event, shiftIndex);
       });
+      const clearLongPress = () => {
+        if (longPressTimer) {
+          window.clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      };
+      chip.addEventListener("pointerdown", (event) => {
+        if (event.pointerType !== "touch") return;
+        longPressFired = false;
+        clearLongPress();
+        longPressTimer = window.setTimeout(() => {
+          longPressFired = true;
+          showContextMenu(event, shiftIndex);
+        }, 500);
+      });
+      chip.addEventListener("pointerup", clearLongPress);
+      chip.addEventListener("pointercancel", clearLongPress);
+      chip.addEventListener("pointermove", clearLongPress);
     });
 
     grid.querySelectorAll("[data-copy-shift]").forEach((btn) => {
@@ -3028,10 +3124,39 @@
     }
   }
 
+  function bindRotaMoreMenu() {
+    const wrap = document.getElementById("rota-more");
+    const btn = document.getElementById("rota-more-btn");
+    const menu = document.getElementById("rota-more-menu");
+    if (!wrap || !btn || !menu || btn.dataset.bound) return;
+    btn.dataset.bound = "1";
+    const close = () => {
+      menu.hidden = true;
+      btn.setAttribute("aria-expanded", "false");
+    };
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const open = menu.hidden;
+      menu.hidden = !open;
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    menu.addEventListener("click", (event) => {
+      if (event.target.closest("label, input")) return;
+      if (event.target.closest("button")) close();
+    });
+    document.addEventListener("click", (event) => {
+      if (!wrap.contains(event.target)) close();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") close();
+    });
+  }
+
   async function initSection() {
     ensureShiftPanelPlacement();
     window.addEventListener("resize", ensureShiftPanelPlacement);
     populateTimeSelects("09:00", "17:00");
+    bindRotaMoreMenu();
 
     document.getElementById("rota-prev-week")?.addEventListener("click", () => changeWeek(-1));
     document.getElementById("rota-next-week")?.addEventListener("click", () => changeWeek(1));

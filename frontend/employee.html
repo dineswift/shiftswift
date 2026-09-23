@@ -85,7 +85,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v176" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v185" />
     <link rel="stylesheet" href="./employee-mobile-polish.css?v=5" />
   </head>
   <body class="employee-portal">
@@ -109,9 +109,9 @@
         <div class="sidebar-head">
           <a class="brand" href="./index.html">
             <img class="brand-logo brand-logo--compact app-mark app-mark--chrome" src="./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6" alt="ShiftSwift Employee" />
+            <span class="sidebar-brand__name">ShiftSwift</span>
           </a>
           <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
-          <button type="button" class="sidebar-collapse" id="sidebar-collapse" hidden>Hide sidebar</button>
           <button type="button" class="sidebar-pin" id="sidebar-pin" hidden>Keep sidebar</button>
         </div>
         <nav class="nav">
@@ -126,6 +126,9 @@
           <a class="nav-link" href="#security" data-section="security">Security</a>
           <button type="button" class="nav-link nav-link--signout" data-sign-out>Sign out</button>
         </nav>
+        <div class="sidebar-foot">
+          <button type="button" class="sidebar-collapse" id="sidebar-collapse" hidden>Collapse</button>
+        </div>
         <div class="badge pill">Employee portal</div>
       </aside>
       <main class="content">
@@ -161,6 +164,9 @@
                 src="./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6"
                 alt=""
               />
+              <span class="topbar-brand__venue" aria-hidden="true">
+                <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/><path d="M9 10h.01M15 10h.01M12 10h.01"/></svg>
+              </span>
               <span class="topbar-brand__text">
                 <span class="topbar-brand__name" id="topbar-employer-name">Employee portal</span>
                 <span class="topbar-brand__app muted">Employee</span>

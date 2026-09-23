@@ -190,18 +190,73 @@
     if (total > 0) {
       badgeEl.hidden = false;
       badgeEl.textContent = total > 99 ? "99+" : String(total);
+      badgeEl.classList.add("topbar-alerts-badge--pulse");
     } else {
       badgeEl.hidden = true;
       badgeEl.textContent = "0";
+      badgeEl.classList.remove("topbar-alerts-badge--pulse");
     }
   }
 
-  async function loadFeed(config) {
+  function seenKey(audience) {
+    return `sshrNotifSeen:${audience || "employee"}`;
+  }
+
+  function readSeenIds(audience) {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(seenKey(audience)) || "[]");
+      return Array.isArray(raw) ? raw.map(String) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeSeenIds(audience, ids) {
+    try {
+      sessionStorage.setItem(seenKey(audience), JSON.stringify([...new Set(ids.map(String))].slice(0, 120)));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function announceNewNotifications(audience, items) {
+    const unread = (items || []).filter((item) => !item.read_at);
+    const seen = new Set(readSeenIds(audience));
+    const currentIds = (items || []).map((item) => String(item.id));
+    if (!seen.size) {
+      writeSeenIds(audience, currentIds);
+      return;
+    }
+    const fresh = unread.filter((item) => !seen.has(String(item.id)));
+    writeSeenIds(audience, [...seen, ...currentIds]);
+    const newest = fresh[0];
+    if (!newest) return;
+    window.ShiftSwiftNativeShiftAlerts?.showUrgentAlert?.({
+      title: newest.title || "Employee update",
+      body: newest.body || "",
+      kind: window.ShiftSwiftNativeShiftAlerts.classifyAlertKind?.({
+        title: newest.title,
+        body: newest.body,
+        alertType: newest.alert_type,
+      }),
+      url: newest.url || "",
+    });
+  }
+
+  async function loadFeed(config, options = {}) {
     const res = await apiFetch(config.listPath);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || "Could not load notifications");
     renderList(config.panel, data.items || []);
     updateBadge(config.badgeEl, data.unread_count);
+    if (options.announce) {
+      announceNewNotifications(config.audience, data.items || []);
+    } else {
+      writeSeenIds(
+        config.audience,
+        (data.items || []).map((item) => String(item.id)),
+      );
+    }
     if (config.audience === "hr") {
       await loadDeliveryFailures(config.panel).catch(() => renderDeliveryFailures(config.panel, []));
     }
@@ -300,10 +355,13 @@
       showFeedError(panel, badgeEl, error.message);
     });
     window.setInterval(() => {
-      loadFeed({ ...config, panel, badgeEl }).catch(() => {
+      loadFeed({ ...config, panel, badgeEl }, { announce: true }).catch(() => {
         updateBadge(badgeEl, 0);
       });
-    }, 60_000);
+    }, config.audience === "employee" ? 20_000 : 45_000);
+    window.addEventListener("sshr:employee-alert", () => {
+      loadFeed({ ...config, panel, badgeEl }, { announce: false }).catch(() => null);
+    });
   }
 
   window.ShiftSwiftPortalNotifications = {

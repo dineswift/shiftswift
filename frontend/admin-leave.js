@@ -1228,6 +1228,7 @@
       btn.addEventListener("click", () => setMobileTab(btn.dataset.leaveMobileTab || "requests"));
     });
     $("leave-mobile-add-btn")?.addEventListener("click", () => openAddLeaveSheet());
+    $("leave-add-btn")?.addEventListener("click", () => openAddLeaveSheet());
     $("leave-mobile-add-close")?.addEventListener("click", () => closeAddLeaveSheet());
     $("leave-mobile-add-backdrop")?.addEventListener("click", () => closeAddLeaveSheet());
     $("leave-mobile-add-form")?.addEventListener("submit", (event) => void submitAddLeave(event));

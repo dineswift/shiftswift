@@ -105,7 +105,7 @@
 
   async function refreshGreeting() {
     const greetingEl = document.getElementById("mobile-greeting");
-    if (!greetingEl) return;
+    const desktopGreeting = document.getElementById("overview-greeting");
     try {
       const token = localStorage.getItem("token");
       if (token && window.Admin?.apiFetch) {
@@ -117,7 +117,9 @@
     } catch {
       /* ignore */
     }
-    greetingEl.textContent = `${timeGreeting()}, ${displayFirstName()}`;
+    const text = `${timeGreeting()}, ${displayFirstName()}`;
+    if (greetingEl) greetingEl.textContent = text;
+    if (desktopGreeting) desktopGreeting.textContent = text;
   }
 
   function closeMorePanel() {

@@ -38,6 +38,7 @@ const jsAndCss = [
   "mobile-shell.js",
   "employee-push-alerts.js",
   "push-notifications.js",
+  "portal-notifications.js",
   "employee.js",
   "app-icons.js",
   "portal-pwa-stability.js",
@@ -58,6 +59,8 @@ const jsAndCss = [
   "styles.css",
   "theme.css",
   "admin-mobile-polish.css",
+  "admin-surface-polish.css",
+  "sign-contract.js",
 ];
 
 const adminBundle = [
@@ -90,6 +93,7 @@ const adminBundle = [
   "app.js",
   "contracts.js",
   "employment-contracts.js",
+  "admin-push-alerts.js",
   "cookie-consent.js",
 ];
 
@@ -480,6 +484,20 @@ resetPasswordHtml = patchForgotPasswordPage(resetPasswordHtml, {
 });
 fs.writeFileSync(path.join(www, "reset-password.html"), resetPasswordHtml);
 console.log("wrote www/reset-password.html");
+
+let signContractHtml = fs.readFileSync(path.join(frontend, "sign-contract.html"), "utf8");
+signContractHtml = signContractHtml.replace(
+  "<html",
+  '<html class="native-app capacitor-native iphone-app"',
+);
+signContractHtml = signContractHtml.replace(
+  "</head>",
+  `    <link rel="stylesheet" href="./iphone-app-ui.css" />
+    ${nativeIpadHead}
+  </head>`,
+);
+fs.writeFileSync(path.join(www, "sign-contract.html"), signContractHtml);
+console.log("wrote www/sign-contract.html");
 
 function stripNativeEmployeeInstallBanner(html) {
   return html

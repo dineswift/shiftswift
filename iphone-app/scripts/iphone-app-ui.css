@@ -4,16 +4,16 @@
  */
 html.native-app.capacitor-native,
 html.native-app.iphone-app {
-  --iphone-pad: max(14px, env(safe-area-inset-left));
-  --iphone-pad-r: max(14px, env(safe-area-inset-right));
+  --iphone-pad: max(16px, env(safe-area-inset-left));
+  --iphone-pad-r: max(16px, env(safe-area-inset-right));
   --iphone-footer: calc(56px + env(safe-area-inset-bottom));
   -webkit-tap-highlight-color: transparent;
 }
 
 /* Android gesture / cutout insets (phones + tablets) */
 html.native-app.native-android {
-  --iphone-pad: max(14px, env(safe-area-inset-left, 0px));
-  --iphone-pad-r: max(14px, env(safe-area-inset-right, 0px));
+  --iphone-pad: max(16px, env(safe-area-inset-left, 0px));
+  --iphone-pad-r: max(16px, env(safe-area-inset-right, 0px));
   --iphone-footer: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -326,7 +326,7 @@ html.native-app.capacitor-native:not(.native-tablet) body.employee-portal #sideb
 }
 
 html.native-app.capacitor-native:not(.native-tablet) body.employee-portal:has(#mobile-tab-bar) main.content {
-  padding: 6px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
+  padding: 12px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
 }
 
 html.native-app.capacitor-native body.employee-portal:has(#mobile-tab-bar) .topbar.app-mobile-header {
@@ -618,8 +618,8 @@ html.native-app.capacitor-native body.employee-portal .mobile-back-btn {
 }
 
 /* Admin portal (production shell in native WebView) */
-html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) main.content {
-  padding: 6px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
+html.native-app.capacitor-native:not(.native-tablet) body.admin-portal:has(#mobile-tab-bar) main.content {
+  padding: 12px var(--iphone-pad-r) var(--iphone-footer) var(--iphone-pad);
 }
 
 html.native-app.capacitor-native body.admin-portal:has(#mobile-tab-bar) .topbar.app-mobile-header {
@@ -775,4 +775,27 @@ html.native-app.native-phone #compliance-adverts .data-table,
 html.native-app.native-phone #compliance-holidays .data-table,
 html.native-app.native-phone #compliance-working-calendar .data-table {
   min-width: 0;
+}
+
+html.native-app .doc-photo-capture {
+  z-index: 12100;
+}
+
+html.native-app.native-phone .doc-photo-capture {
+  padding: max(8px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
+  align-items: stretch;
+}
+
+html.native-app.native-phone .doc-photo-capture__panel {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+}
+
+html.native-app.native-phone .doc-photo-capture__actions .btn {
+  min-height: 48px;
+  width: 100%;
 }

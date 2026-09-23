@@ -1555,6 +1555,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                 "week_start": week_start.isoformat(),
                 "status": rota_status or "none",
                 "shift_count": rota_shifts,
+                "missed_punch_today": missed_punch_today,
             },
             "grievance": {"open_cases": open_grievances},
             "disciplinary": {"open_cases": open_disciplinary},

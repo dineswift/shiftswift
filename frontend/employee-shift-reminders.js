@@ -36,14 +36,24 @@
     return { start, end };
   }
 
-  function showToast(title, body) {
+  function showToast(title, body, kind) {
+    if (window.ShiftSwiftNativeShiftAlerts?.showUrgentAlert) {
+      window.ShiftSwiftNativeShiftAlerts.showUrgentAlert({
+        title,
+        body,
+        kind,
+        hash: "#time-clock",
+        actionLabel: kind === "clock-out" ? "Clock out now" : "Clock in now",
+      });
+      return;
+    }
     let toast = document.getElementById("employee-shift-reminder-toast");
     if (!toast) {
       toast = document.createElement("div");
       toast.id = "employee-shift-reminder-toast";
       toast.className = "employee-shift-reminder-toast";
-      toast.setAttribute("role", "status");
-      toast.setAttribute("aria-live", "polite");
+      toast.setAttribute("role", "alert");
+      toast.setAttribute("aria-live", "assertive");
       document.body.appendChild(toast);
     }
     toast.innerHTML = `<strong>${title}</strong><span>${body}</span>`;
@@ -55,7 +65,7 @@
       window.setTimeout(() => {
         toast.hidden = true;
       }, 220);
-    }, 8000);
+    }, 16000);
   }
 
   function fireReminder(type, shift, minutes, exact = false) {
@@ -66,34 +76,29 @@
       type === "start"
         ? `${String(shift.start_time).slice(0, 5)}`
         : `${String(shift.end_time).slice(0, 5)}`;
-    let title = "Reminder";
+    const kind = type === "start" ? "clock-in" : "clock-out";
+    let title;
     let body;
     if (exact && type === "start") {
-      body = `It's ${timeLabel} and you can clock in now`;
+      title = "Clock in now";
+      body = `It's ${timeLabel} — your shift has started. Clock in now.`;
     } else if (exact && type === "end") {
-      body = `It's ${timeLabel} — remember to clock out`;
+      title = "Clock out now";
+      body = `It's ${timeLabel} — your shift has ended. Clock out now.`;
+    } else if (type === "start") {
+      title = `Shift starts in ${minutes} minutes`;
+      body = `Your shift starts at ${timeLabel}. Get ready to clock in.`;
     } else {
-      title =
-        type === "start"
-          ? `Shift starts in ${minutes} minutes`
-          : `Shift ends in ${minutes} minutes`;
-      body = `Your shift ${type === "start" ? "starts" : "ends"} at ${timeLabel}.`;
+      title = `Shift ends in ${minutes} minutes`;
+      body = `Your shift ends at ${timeLabel}. Don’t forget to clock out.`;
     }
 
     markFired(key);
-    window.ShiftSwiftPush?.playAlertSound?.();
-    if ("vibrate" in navigator) {
-      try {
-        navigator.vibrate([300, 80, 300]);
-      } catch {
-        /* ignore */
-      }
-    }
-    showToast(title, body);
+    showToast(title, body, kind);
 
     if ("Notification" in window && Notification.permission === "granted") {
       try {
-        new Notification(title, { body, tag: key });
+        new Notification(title, { body, tag: key, requireInteraction: true });
       } catch {
         /* ignore */
       }

@@ -12,6 +12,7 @@
     "native-shift-alerts.js",
     "native-remote-push.js",
     "push-notifications.js",
+    "portal-notifications.js",
     "mobile-shell.js",
     "mobile-tables.js",
     "admin-icons.js",

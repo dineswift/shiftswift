@@ -75,9 +75,9 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v176" />
-    <link rel="stylesheet" href="./admin-surface-polish.css?v=1" />
-    <link rel="stylesheet" href="./admin-mobile-polish.css?v=21" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v185" />
+    <link rel="stylesheet" href="./admin-surface-polish.css?v=2" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
   </head>
   <body class="admin-portal">
     <script>
@@ -101,15 +101,15 @@
         <div class="sidebar-head">
           <a class="brand" href="./index.html">
             <img class="brand-logo brand-logo--compact app-mark app-mark--chrome" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6" alt="ShiftSwift HR" />
+            <span class="sidebar-brand__name">ShiftSwift</span>
           </a>
           <button type="button" class="sidebar-close" id="sidebar-close" aria-label="Close menu">×</button>
-          <button type="button" class="sidebar-collapse" id="sidebar-collapse" hidden>Hide sidebar</button>
           <button type="button" class="sidebar-pin" id="sidebar-pin" hidden>Keep sidebar</button>
         </div>
         <nav class="nav" aria-label="Admin sections">
           <a class="nav-link" href="#overview" data-section="overview">
             <span class="nav-link__icon" data-nav-icon="layout" aria-hidden="true"></span>
-            <span class="nav-link__label">Overview</span>
+            <span class="nav-link__label">Dashboard</span>
           </a>
 
           <p class="nav-section-label">People</p>
@@ -162,11 +162,11 @@
           <p class="nav-section-label">Operations</p>
           <a class="nav-link" href="#time-punch" data-section="time-punch" data-requires-clock>
             <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
-            <span class="nav-link__label">Time punch</span>
+            <span class="nav-link__label">Time Clock</span>
           </a>
-          <a class="nav-link nav-link--clock-stub" href="#time-punch" data-section="time-punch" aria-label="Time punch — set up clock-in" title="Set up your punch site and geofence">
+          <a class="nav-link nav-link--clock-stub" href="#time-punch" data-section="time-punch" aria-label="Time Clock — set up clock-in" title="Set up your punch site and geofence">
             <span class="nav-link__icon" data-nav-icon="clock" aria-hidden="true"></span>
-            <span class="nav-link__label">Time punch</span>
+            <span class="nav-link__label">Time Clock</span>
             <span class="nav-link__setup">Set up</span>
           </a>
           <a class="nav-link" href="#rota" data-section="rota">
@@ -202,6 +202,9 @@
             <span class="nav-link__label">Sign out</span>
           </button>
         </nav>
+        <div class="sidebar-foot">
+          <button type="button" class="sidebar-collapse" id="sidebar-collapse" hidden>Collapse</button>
+        </div>
         <a
           class="badge pill sidebar-brand-link"
           href="#"
@@ -248,6 +251,7 @@
                 src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6"
                 alt=""
               />
+              <span class="topbar-brand__venue" data-nav-icon="building" aria-hidden="true"></span>
               <span class="topbar-brand__text">
                 <span class="topbar-brand__name" id="topbar-business-name">ShiftSwift HR</span>
                 <span class="topbar-brand__app muted">Admin</span>
@@ -371,14 +375,14 @@
             <a class="mobile-more-link" href="#time-punch" data-more-icon="clock" data-requires-clock data-more-stat="time-punch">
               <span class="mobile-more-link__icon" aria-hidden="true"></span>
               <span class="mobile-more-link__copy">
-                <span class="mobile-more-link__title">Time punch</span>
+                <span class="mobile-more-link__title">Time Clock</span>
                 <span class="mobile-more-link__sub">Sites, punches and timesheets</span>
               </span>
             </a>
             <a class="mobile-more-link mobile-more-link--clock-stub" href="#time-punch" data-more-icon="clock">
               <span class="mobile-more-link__icon" aria-hidden="true"></span>
               <span class="mobile-more-link__copy">
-                <span class="mobile-more-link__title">Time punch</span>
+                <span class="mobile-more-link__title">Time Clock</span>
                 <span class="mobile-more-link__sub">Set up your punch site</span>
               </span>
             </a>
@@ -444,29 +448,33 @@
             <p class="mobile-business-name" id="mobile-business-name"></p>
             <p class="mobile-home-summary" id="mobile-home-summary"></p>
           </div>
-          <header class="section-header section-header--desktop">
-            <div>
-              <h2>Overview</h2>
-              <p class="muted" id="overview-subtitle">Your HR workspace at a glance.</p>
-            </div>
-          </header>
           <div id="overview-trial-note" hidden></div>
-          <div class="hr-stats-grid overview-stats-grid" id="overview-metrics" aria-label="Workspace summary"></div>
-          <article class="mobile-subscription-card admin-mobile-home-only" id="mobile-subscription-card" hidden aria-label="Subscription"></article>
-          <div id="overview-setup-checklist" class="overview-setup-checklist" hidden aria-label="Workspace setup"></div>
-          <div class="overview-dashboard-layout">
-            <div class="overview-main">
-              <h3 class="overview-section-title overview-section-title--desktop">Modules</h3>
-              <h2 class="mobile-panel-title mobile-panel-title--modules">Modules</h2>
-              <div class="overview-module-grid" id="overview-modules" aria-label="HR modules"></div>
-            </div>
-            <aside class="overview-actions-panel" id="overview-actions-panel">
-              <div class="overview-actions-head">
-                <h3 class="overview-section-title">Open actions</h3>
-                <span class="overview-actions-count" id="overview-actions-count">0</span>
+          <div class="overview-home">
+            <div class="overview-home__main">
+              <header class="overview-greeting section-header--desktop">
+                <h2 id="overview-greeting">Good morning</h2>
+                <p class="muted" id="overview-subtitle">Here's what needs your attention today.</p>
+              </header>
+              <aside class="overview-actions-panel" id="overview-actions-panel">
+                <div class="overview-actions-head">
+                  <div class="overview-actions-head__copy">
+                    <h3 class="overview-section-title" id="overview-actions-title">Actions need your attention</h3>
+                    <p class="overview-actions-lead" id="overview-actions-lead"></p>
+                  </div>
+                  <span class="overview-actions-count" id="overview-actions-count">0</span>
+                </div>
+                <div id="overview-actions" class="overview-actions-list" aria-label="Open actions"></div>
+              </aside>
+              <h3 class="overview-section-title overview-quick-title overview-section-title--desktop">Quick overview</h3>
+              <div class="hr-stats-grid overview-stats-grid" id="overview-metrics" aria-label="Workspace summary"></div>
+              <article class="mobile-subscription-card admin-mobile-home-only" id="mobile-subscription-card" hidden aria-label="Subscription"></article>
+              <div class="overview-main">
+                <h3 class="overview-section-title overview-section-title--desktop">Modules</h3>
+                <h2 class="mobile-panel-title mobile-panel-title--modules">Modules</h2>
+                <div class="overview-module-grid" id="overview-modules" aria-label="HR modules"></div>
               </div>
-              <div id="overview-actions" class="overview-actions-list" aria-label="Open actions"></div>
-            </aside>
+            </div>
+            <aside id="overview-setup-checklist" class="overview-setup-checklist" hidden aria-label="Workspace setup"></aside>
           </div>
         </section>
 
@@ -474,7 +482,10 @@
           <header class="section-header employees-page-header">
             <div>
               <h2 class="employees-page-title">Employees</h2>
-              <p class="muted employees-page-lead">Open the employee register below — click a row to view personal details, emergency contact, and documents on the right (desktop) or open their full record (mobile).</p>
+              <p class="muted employees-page-lead">Manage your team, view details and keep records up to date.</p>
+            </div>
+            <div class="section-actions employees-desktop-only">
+              <button type="button" class="btn primary employees-add-btn" id="employees-add-btn">+ Add employee</button>
             </div>
             <div class="section-actions employees-desktop-only employees-lifecycle-shortcuts" hidden aria-hidden="true">
               <a class="btn ghost" href="#recruitment">Recruitment pipeline</a>
@@ -482,25 +493,43 @@
             </div>
           </header>
 
-          <div class="lifecycle-stage-rail" id="lifecycle-stage-rail" aria-label="Employee lifecycle stages"></div>
+          <dialog class="employees-add-dialog" id="employees-add-dialog" aria-labelledby="employees-add-dialog-title">
+            <form method="dialog" class="employees-add-dialog__bar">
+              <h3 id="employees-add-dialog-title">Add employee</h3>
+              <button type="submit" class="btn ghost btn-sm" value="cancel">Close</button>
+            </form>
+            <p class="muted employees-quick-add-lead">Name and email only — job details, documents, and compliance go in the employee record after you create them.</p>
+            <p class="employees-step-indicator" id="employees-step-indicator" hidden>Quick capture</p>
+            <div id="employee-quick-add-form"></div>
+          </dialog>
+
+          <div class="lifecycle-stage-rail employees-mobile-only" id="lifecycle-stage-rail" aria-label="Employee lifecycle stages"></div>
 
           <div id="employees-list-view">
             <div id="employees-lifecycle-hub" class="employees-lifecycle-hub employees-mobile-only" hidden aria-label="Employee lifecycle overview"></div>
 
             <div class="employees-desktop-layout hr-workspace-layout">
               <div class="hr-main-pane">
-                <article class="hr-surface-panel hr-log-panel employees-quick-add-panel">
-                  <div class="employees-quick-add-head">
-                    <div>
-                      <h4 class="hr-section-title">Add employee</h4>
-                      <p class="employees-step-indicator" id="employees-step-indicator">Quick capture</p>
-                    </div>
-                  </div>
-                  <p class="muted employees-quick-add-lead">Name and email only — job details, documents, and compliance go in the employee record after you create them. Duplicate names or work emails are blocked.</p>
-                  <div id="employee-quick-add-form"></div>
-                </article>
+                <div class="employees-stats-grid employees-desktop-only" id="employees-stats-grid" aria-label="Employee summary"></div>
+                <div class="employees-toolbar employees-desktop-only">
+                  <label class="employees-search">
+                    <span class="visually-hidden">Search employees</span>
+                    <input type="search" id="employees-search" placeholder="Search name, email, job title…" autocomplete="off" />
+                  </label>
+                  <select id="employees-filter-department" aria-label="Filter by department">
+                    <option value="">All departments</option>
+                  </select>
+                  <select id="employees-filter-status" aria-label="Filter by status">
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="on_leave">On leave</option>
+                    <option value="onboarding">Onboarding</option>
+                    <option value="offboarding">Offboarding</option>
+                  </select>
+                  <button type="button" class="employees-toolbar-filter" id="employees-clear-filters" aria-label="Clear filters" title="Clear filters"></button>
+                </div>
                 <div class="employees-register-block">
-                  <div class="employees-register-head">
+                  <div class="employees-register-head employees-mobile-only">
                     <h4 class="hr-section-title">Employee register</h4>
                     <div class="employees-register-actions link-row">
                       <button type="button" class="btn outline" id="employees-bulk-invite-btn">Invite all without portal accounts</button>
@@ -509,14 +538,14 @@
                   </div>
                   <div id="employees-register-filter-banner" class="employees-register-filter-banner" hidden></div>
                   <div class="hr-table-wrap employees-desktop-table">
-                    <table class="data-table">
+                    <table class="data-table employees-register-table">
                       <thead>
                         <tr>
                           <th>Name</th>
                           <th>Department</th>
+                          <th>Role</th>
                           <th>Status</th>
-                          <th>Portal</th>
-                          <th>Progress</th>
+                          <th>Joined</th>
                         </tr>
                       </thead>
                       <tbody id="employees-table-body">
@@ -524,6 +553,7 @@
                       </tbody>
                     </table>
                   </div>
+                  <p class="employees-register-foot employees-desktop-only" id="employees-register-foot" hidden></p>
                   <div id="employees-mobile-cards" class="employees-mobile-cards employees-mobile-only" hidden aria-live="polite"></div>
                 </div>
               </div>
@@ -536,7 +566,7 @@
                     </svg>
                   </div>
                   <h4 class="employees-side-empty__title">No employee selected</h4>
-                  <p class="employees-side-empty__text">Select someone from the register to view and edit their profile, or create a new employee using the form on the left.</p>
+                  <p class="employees-side-empty__text">Select someone from the register to view and edit their profile, or add a new employee.</p>
                 </div>
                 <div id="employees-side-content" hidden></div>
               </aside>
@@ -611,7 +641,7 @@
             </div>
             <div class="section-actions recruitment-page-actions">
               <button type="button" class="btn ghost" id="recruitment-closed-tab-btn">Closed roles</button>
-              <button type="button" class="btn" id="recruitment-new-vacancy-btn">+ New vacancy</button>
+              <button type="button" class="btn primary" id="recruitment-new-vacancy-btn">+ New vacancy</button>
             </div>
           </header>
 
@@ -705,8 +735,8 @@
               <p class="muted">Encrypted investigation notes, ACAS deadlines, and compliance cross-triggers.</p>
             </div>
             <div class="section-actions">
-              <button type="button" class="btn ghost" id="grievance-export-btn">Export all cases</button>
               <a class="btn ghost" href="#settings/documents" id="grievance-policy-link">Grievance policy</a>
+              <button type="button" class="btn outline" id="grievance-export-btn">Export all cases</button>
             </div>
           </header>
 
@@ -911,7 +941,7 @@
                     <input id="offboarding-reason-detail" type="text" placeholder="Brief reason…" maxlength="200" />
                   </label>
                   <div class="offboarding-start-actions">
-                    <button type="button" class="btn" id="offboarding-start-btn">Start workflow</button>
+                    <button type="button" class="btn primary" id="offboarding-start-btn">Start workflow</button>
                   </div>
                 </div>
               </article>
@@ -2195,7 +2225,7 @@
         <section id="time-punch" class="admin-section" hidden>
           <header class="section-header section-header--compact punch-desktop-chrome">
             <div>
-              <h2>Time punch</h2>
+              <h2>Time Clock</h2>
               <p class="muted">Geofenced clock in/out — staff punch via the Time Clock app with GPS outdoors or premises QR indoors.</p>
             </div>
             <div class="section-actions">
@@ -2206,7 +2236,7 @@
 
           <div id="punch-mobile-shell" class="punch-mobile-shell" hidden>
             <header class="punch-mobile-head">
-              <h2 class="punch-mobile-title">Time punch</h2>
+              <h2 class="punch-mobile-title">Time Clock</h2>
               <p class="punch-mobile-date" id="punch-mobile-date"></p>
             </header>
 
@@ -2652,33 +2682,44 @@
 
         <section id="rota" class="admin-section" hidden>
           <header class="section-header rota-builder-header">
-            <div>
-              <div class="rota-builder-title-row">
-                <h2>Rota</h2>
-                <span id="rota-mode-badge" class="rota-mode-badge" hidden></span>
-                <span id="rota-week-status"></span>
+            <div class="rota-builder-header__top">
+              <div>
+                <div class="rota-builder-title-row">
+                  <h2>Rota</h2>
+                  <span id="rota-mode-badge" class="rota-mode-badge" hidden></span>
+                  <span id="rota-week-status" class="rota-mobile-only"></span>
+                </div>
+                <p class="muted rota-builder-lead rota-desktop-only">Build your rota, save as draft, then publish — staff see shifts in the Time Clock app.</p>
+                <p class="muted rota-builder-lead rota-mobile-only">Tap a day, then tap a staff member to add their shift. Save as draft or publish when ready.</p>
               </div>
-              <p class="muted rota-builder-lead rota-desktop-only">Build your rota, save as draft, then publish — staff see shifts in the Time Clock app.</p>
-              <p class="muted rota-builder-lead rota-mobile-only">Tap a day, then tap a staff member to add their shift. Save as draft or publish when ready.</p>
+              <span id="rota-workflow-status" class="rota-desktop-only"></span>
             </div>
-            <div class="section-actions rota-builder-actions rota-desktop-only">
+            <div class="rota-toolbar rota-desktop-only">
               <div class="rota-week-nav">
                 <button type="button" class="btn ghost" id="rota-prev-week" aria-label="Previous week">←</button>
                 <strong id="rota-week-label" class="rota-week-nav__label">Week</strong>
                 <button type="button" class="btn ghost" id="rota-next-week" aria-label="Next week">→</button>
                 <button type="button" class="btn ghost rota-this-week-btn" id="rota-this-week">This week</button>
               </div>
-              <button type="button" class="btn ghost" id="rota-export-csv-btn" title="Weekly grid table (staff rows × day columns)">Grid CSV</button>
-              <button type="button" class="btn ghost" id="rota-export-pdf-btn" title="Weekly grid table matching the rota builder">Grid PDF</button>
-              <button type="button" class="btn ghost" id="rota-copy-prev-btn">Copy prev week</button>
-              <button type="button" class="btn ghost" id="rota-reload-btn">Reload</button>
-              <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
-              <label class="signup-check rota-notify-check">
-                <input type="checkbox" id="rota-notify-staff" checked />
-                <span>Email rota to staff</span>
-              </label>
-              <button type="button" class="btn primary" id="rota-publish-btn">Publish rota</button>
-              <button type="button" class="btn outline" id="rota-resend-btn" hidden>Resend to staff…</button>
+              <div class="rota-toolbar__actions">
+                <button type="button" class="btn outline" id="rota-save-btn">Save draft</button>
+                <button type="button" class="btn primary" id="rota-publish-btn">Publish rota</button>
+                <div class="rota-more" id="rota-more">
+                  <button type="button" class="btn ghost" id="rota-more-btn" aria-expanded="false" aria-haspopup="true" aria-controls="rota-more-menu">More</button>
+                  <div class="rota-more-menu" id="rota-more-menu" hidden role="menu">
+                    <button type="button" class="rota-more-menu__item" id="rota-export-csv-btn" role="menuitem" title="Weekly grid table (staff rows × day columns)">Export CSV</button>
+                    <button type="button" class="rota-more-menu__item" id="rota-export-pdf-btn" role="menuitem" title="Weekly grid table matching the rota builder">Export PDF</button>
+                    <button type="button" class="rota-more-menu__item" id="rota-copy-prev-btn" role="menuitem">Copy previous week</button>
+                    <button type="button" class="rota-more-menu__item" id="rota-reload-btn" role="menuitem">Reload</button>
+                    <label class="rota-more-menu__check" role="menuitemcheckbox">
+                      <input type="checkbox" id="rota-notify-staff" checked />
+                      <span>Email staff</span>
+                    </label>
+                    <button type="button" class="rota-more-menu__item" id="rota-resend-btn" role="menuitem" hidden>Resend to staff</button>
+                    <button type="button" class="rota-more-menu__cancel" id="rota-more-cancel" role="menuitem">Cancel</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </header>
           <div id="rota-admin-message" class="rota-admin-message" aria-live="polite" hidden></div>
@@ -2774,7 +2815,7 @@
               </div>
               <p id="rota-week-summary" class="rota-week-summary"></p>
             </div>
-            <p class="rota-builder-hint muted">Drag to move · Alt+drag to copy · Right-click for options · Click empty cell to add</p>
+            <p class="rota-builder-hint muted">Drag to move · Long press for options · Drag with two fingers to copy</p>
             <button type="button" class="btn btn--ghost btn--danger btn-sm rota-clear-inline" id="rota-clear-btn">Clear rota</button>
             <ul class="rota-attendance-legend" aria-label="Shift colour key">
               <li><span class="rota-legend-swatch rota-legend-swatch--day" aria-hidden="true"></span> Day shift</li>
@@ -2980,6 +3021,9 @@
             <div>
               <h2>Leave</h2>
               <p class="muted">Staff submit requests in the employee portal. Approve or reject here — working days Mon–Fri are counted automatically.</p>
+            </div>
+            <div class="section-actions">
+              <button type="button" class="btn primary" id="leave-add-btn">+ Add leave request</button>
             </div>
           </header>
 
@@ -3222,7 +3266,8 @@
           </div>
 
           <div class="hr-stats-grid leave-stats-grid profile-changes-desktop-chrome" aria-label="Contact update summary">
-            <article class="hr-stat-card">
+            <article class="hr-stat-card hr-stat-card--warn">
+              <span class="hr-stat-card__icon" aria-hidden="true">⏳</span>
               <span class="hr-stat-card__label">Pending</span>
               <span class="hr-stat-card__value" id="profile-change-stat-pending">0</span>
               <span class="hr-stat-card__sub" id="profile-change-stat-pending-sub">Awaiting your decision</span>
@@ -3675,17 +3720,17 @@
     ></script>
     <script src="./mobile-shell.js?v=9"></script>
     <script src="./mobile-tables.js?v=1"></script>
-    <script src="./admin-icons.js?v=8"></script>
-    <script src="./admin-mobile.js?v=24"></script>
+    <script src="./admin-icons.js?v=9"></script>
+    <script src="./admin-mobile.js?v=25"></script>
     <script src="./admin-compliance-mobile.js?v=6"></script>
     <script src="./action-feedback.js?v=4"></script>
-    <script src="./admin-shared.js?v=admin-v51"></script>
+    <script src="./admin-shared.js?v=admin-v52"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
-    <script src="./admin-workspace.js?v=admin-v33"></script>
+    <script src="./admin-workspace.js?v=admin-v36"></script>
     <script src="./admin-address-picker.js?v=4"></script>
-    <script src="./admin-documents.js?v=35"></script>
-    <script src="./admin-employees.js?v=49"></script>
+    <script src="./admin-documents.js?v=36"></script>
+    <script src="./admin-employees.js?v=52"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=6"></script>
@@ -3699,8 +3744,8 @@
     <script src="./admin-global-documents.js?v=3"></script>
     <script src="./native-geolocation.js?v=2"></script>
     <script src="./admin-time-punch.js?v=39"></script>
-    <script src="./admin-rota.js?v=47"></script>
-    <script src="./admin-leave.js?v=admin-v14"></script>
+    <script src="./admin-rota.js?v=49"></script>
+    <script src="./admin-leave.js?v=admin-v15"></script>
     <script src="./admin-profile-changes.js?v=4"></script>
     <script src="./app.js?v=admin-v8"></script>
     <script src="./contracts.js?v=8"></script>

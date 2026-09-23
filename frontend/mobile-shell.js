@@ -36,6 +36,7 @@
     }
 
     toggle?.addEventListener("click", () => {
+      if (document.documentElement.classList.contains("native-tablet")) return;
       if (sidebar?.classList.contains("sidebar--open")) closeSidebar();
       else openSidebar();
     });

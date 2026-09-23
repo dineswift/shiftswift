@@ -134,6 +134,17 @@ def _fcm_app():
 
 
 NOTIFICATION_SOUND = os.getenv("APNS_NOTIFICATION_SOUND", "shiftswift_alert.caf")
+CLOCK_ALERT_TYPES = frozenset(
+    {
+        "shift_reminder",
+        "shift_end_reminder",
+        "clock_in",
+        "clock_out",
+        "missed_clock_in",
+        "missed_clock_in_early",
+        "missed_clock_out",
+    }
+)
 _APNS_JWT_CACHE: dict[str, Any] = {"token": None, "exp": 0}
 
 
@@ -189,6 +200,9 @@ def send_fcm(
                 notification=messaging.AndroidNotification(
                     channel_id="shiftswift_hr_alerts",
                     sound="shiftswift_alert",
+                    visibility="public",
+                    default_vibrate_timings=False,
+                    vibrate_timings_millis=[0, 400, 120, 400, 120, 400],
                 ),
             ),
         )
@@ -222,6 +236,12 @@ def send_apns(
             "aps": {
                 "alert": {"title": title, "body": body},
                 "sound": NOTIFICATION_SOUND,
+                "interruption-level": (
+                    "time-sensitive"
+                    if str(data.get("alert_type") or "") in CLOCK_ALERT_TYPES
+                    else "active"
+                ),
+                "relevance-score": 1 if str(data.get("alert_type") or "") in CLOCK_ALERT_TYPES else 0.7,
             },
             **{str(k): str(v) for k, v in (data or {}).items()},
         }

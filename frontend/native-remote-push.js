@@ -159,10 +159,24 @@
 
       plugin.addListener("pushNotificationReceived", (notification) => {
         try {
-          window.ShiftSwiftPush?.playAlertSound?.();
-          const title = notification?.title || notification?.data?.title || "ShiftSwift HR";
-          const body = notification?.body || notification?.data?.body || "";
-          window.ShiftSwiftNativeShiftAlerts?.showInAppAlertBanner?.(title, body);
+          const data = notification?.data || {};
+          const title = notification?.title || data.title || "ShiftSwift HR";
+          const body = notification?.body || data.body || "";
+          window.ShiftSwiftNativeShiftAlerts?.showUrgentAlert?.({
+            title,
+            body,
+            kind: window.ShiftSwiftNativeShiftAlerts.classifyAlertKind?.({
+              title,
+              body,
+              alertType: data.alert_type,
+              type: data.type,
+            }),
+            url: data.url,
+            hash: data.hash,
+          });
+          window.dispatchEvent(
+            new CustomEvent("sshr:employee-alert", { detail: { title, body, data } }),
+          );
         } catch {
           /* ignore */
         }

@@ -216,6 +216,51 @@ function initNativeLoginStability() {
   syncLoginPanels("signin");
   bindNativeKeyboardInset();
   bindForgotPasswordLink();
+  bindLoginFieldEditing();
+}
+
+function bindLoginFieldEditing() {
+  const form = document.getElementById("portal-login-form");
+  if (!form || form.dataset.easyEditBound === "1") return;
+  form.dataset.easyEditBound = "1";
+
+  const username = form.querySelector('input[name="username"]');
+  const password = form.querySelector('input[name="password"]');
+  const reveal = form.querySelector("[data-login-reveal]");
+
+  if (username) {
+    username.setAttribute("autocorrect", "off");
+    username.setAttribute("autocapitalize", "none");
+    username.setAttribute("spellcheck", "false");
+    username.setAttribute("enterkeyhint", "next");
+    username.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      password?.focus();
+    });
+  }
+
+  if (password) {
+    password.setAttribute("enterkeyhint", "go");
+    password.setAttribute("autocorrect", "off");
+    password.setAttribute("autocapitalize", "none");
+    password.setAttribute("spellcheck", "false");
+  }
+
+  reveal?.addEventListener("click", () => {
+    if (!password) return;
+    const showing = password.type === "text";
+    password.type = showing ? "password" : "text";
+    reveal.setAttribute("aria-pressed", showing ? "false" : "true");
+    reveal.textContent = showing ? "Show" : "Hide";
+    try {
+      password.focus();
+      const end = password.value.length;
+      password.setSelectionRange(end, end);
+    } catch {
+      /* some mobile browsers ignore setSelectionRange on password */
+    }
+  });
 }
 
 async function postJsonAuth(path, body, bearerToken) {
@@ -1023,6 +1068,7 @@ function initDedicatedLogin(mode) {
   bindPortalLogin();
   bindMfaEnrollmentHandlers();
   bindForgotPasswordLink();
+  bindLoginFieldEditing();
   void (async () => {
     let bounced = false;
     try {

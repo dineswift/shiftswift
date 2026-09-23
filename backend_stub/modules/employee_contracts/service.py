@@ -11,6 +11,7 @@ from typing import Any
 
 from modules.documents.service import create_employee_document
 from modules.documents.storage import write_document_file
+from modules.document_signing.signature_image import signature_image_html
 from modules.employees.repository import fetch_employee
 from modules.hr_templates.service import get_template_content
 from modules.hr_templates.versioning import version_lt
@@ -483,11 +484,14 @@ def sign_employment_contract(
     signature_name: str,
     signature_title: str | None,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
     contract = get_contract_by_token(conn, token)
+    drawing = signature_image_html(signature_image)
     signed_block = (
         f'<section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">'
         f"<h2>Electronic signature</h2>"
+        f"{drawing}"
         f"<p><strong>Signed by:</strong> {html.escape(signature_name)}"
         f"{f' ({html.escape(signature_title)})' if signature_title else ''}</p>"
         f"<p><strong>Signed at:</strong> {_utcnow().strftime('%d %B %Y %H:%M UTC')}</p>"

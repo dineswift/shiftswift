@@ -256,8 +256,144 @@ html.native-app.ios-device .portal-login-page--unified {
 }
 
 html.native-app .employee-shift-reminder-toast {
-  bottom: calc(78px + env(safe-area-inset-bottom));
-  z-index: 1200;
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 10040;
+  padding: 18px 18px 16px;
+  border-radius: 18px;
+  background: #9a3412;
+  box-shadow: 0 18px 40px rgba(154, 52, 18, 0.38);
+}
+
+html.native-app .employee-shift-reminder-toast strong {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+html.native-app .employee-shift-reminder-toast span {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.sshr-urgent-alert {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(18px, env(safe-area-inset-top)) 16px 16px;
+  background: rgba(8, 18, 16, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.sshr-urgent-alert.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sshr-urgent-alert__card {
+  width: min(100%, 440px);
+  margin-top: 7vh;
+  padding: 24px 20px 18px;
+  border-radius: 24px;
+  color: #fff;
+  background: #0b3d32;
+  box-shadow: 0 28px 64px rgba(0, 0, 0, 0.38);
+  animation: sshrUrgentPulse 1.5s ease-in-out 4;
+}
+
+.sshr-urgent-alert--clock-in .sshr-urgent-alert__card {
+  background: linear-gradient(180deg, #ea580c 0%, #9a3412 100%);
+}
+
+.sshr-urgent-alert--clock-out .sshr-urgent-alert__card {
+  background: linear-gradient(180deg, #047857 0%, #14532d 100%);
+}
+
+.sshr-urgent-alert--employee-update .sshr-urgent-alert__card {
+  background: linear-gradient(180deg, #0f766e 0%, #134e4a 100%);
+}
+
+.sshr-urgent-alert--success .sshr-urgent-alert__card {
+  background: linear-gradient(180deg, #16a34a 0%, #166534 100%);
+}
+
+.sshr-urgent-alert__kicker {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.92;
+}
+
+.sshr-urgent-alert__title {
+  display: block;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.sshr-urgent-alert__body {
+  margin: 10px 0 0;
+  font-size: 1.08rem;
+  line-height: 1.4;
+  font-weight: 600;
+  opacity: 0.96;
+}
+
+.sshr-urgent-alert__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.sshr-urgent-alert__cta,
+.sshr-urgent-alert__dismiss {
+  flex: 1;
+  min-height: 52px;
+  border: 0;
+  border-radius: 16px;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.sshr-urgent-alert__cta {
+  background: #fff;
+  color: #111827;
+}
+
+.sshr-urgent-alert__dismiss {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+@keyframes sshrUrgentPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+@media (min-width: 768px) {
+  .sshr-urgent-alert {
+    align-items: center;
+  }
+
+  .sshr-urgent-alert__card {
+    margin-top: 0;
+  }
+
+  .sshr-urgent-alert__title {
+    font-size: 1.7rem;
+  }
 }
 
 /* Punch clock — native uses same rules as employee-mobile-polish (bundled via employee.html) */
@@ -272,4 +408,60 @@ html.native-app.employee-portal #time-clock .punch-clock-primary--out.is-active-
 
 html.native-app.employee-portal #time-clock .punch-clock-primary.is-ready:not(:disabled) {
   box-shadow: 0 8px 22px rgba(15, 110, 86, 0.26);
+}
+
+html.native-app .doc-photo-capture {
+  z-index: 10100;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+  background: rgba(11, 18, 32, 0.92);
+  pointer-events: auto;
+}
+
+html.native-app .doc-photo-capture__panel {
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 28px);
+  background: #111827;
+  color: #fff;
+}
+
+html.native-app.native-phone .doc-photo-capture {
+  padding: max(8px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
+  align-items: stretch;
+}
+
+html.native-app.native-phone .doc-photo-capture__panel {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+}
+
+html.native-app.native-phone .doc-photo-capture__stage {
+  width: min(100%, calc((min(64dvh, 100dvh - 210px)) * 210 / 297));
+}
+
+html.native-app.native-phone .doc-photo-capture__actions .btn {
+  min-height: 48px;
+  width: 100%;
+}
+
+html.native-app .doc-photo-capture__head h2 {
+  color: #fff;
+}
+
+html.native-app .doc-photo-capture__sub,
+html.native-app .doc-photo-capture__status {
+  color: #d1d5db;
+}
+
+html.native-app .doc-photo-capture__stage {
+  width: min(100%, calc((min(72dvh, 100dvh - 220px)) * 210 / 297));
+}
+
+html.native-app .doc-photo-capture [data-photo-cancel] {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.28);
 }

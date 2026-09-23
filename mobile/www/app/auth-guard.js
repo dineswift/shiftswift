@@ -35,8 +35,8 @@
       ) {
         return (
           window.ShiftSwiftSession?.unifiedNativeLoginUrl?.() ||
-          window.ShiftSwiftNativeBundledUrl?.assetUrl?.("index.html?build=27&v=40", "45") ||
-          `${window.Capacitor?.config?.server?.iosScheme || window.Capacitor?.config?.ios?.scheme || "App"}://localhost/index.html?build=27&v=40`
+          window.ShiftSwiftNativeBundledUrl?.assetUrl?.("index.html?build=28&v=41", "46") ||
+          `${window.Capacitor?.config?.server?.iosScheme || window.Capacitor?.config?.ios?.scheme || "App"}://localhost/index.html?build=28&v=41`
         );
       }
     } catch {

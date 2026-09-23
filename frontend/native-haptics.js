@@ -41,5 +41,20 @@
     }
   }
 
-  window.ShiftSwiftNativeHaptics = { impact, success, error, canUse };
+  async function warning() {
+    if (!canUse()) return;
+    try {
+      const Haptics = window.Capacitor.Plugins.Haptics;
+      if (Haptics.notification) {
+        await Haptics.notification({ type: "WARNING" });
+        await impact("Heavy");
+        return;
+      }
+      await impact("Heavy");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  window.ShiftSwiftNativeHaptics = { impact, success, error, warning, canUse };
 })();

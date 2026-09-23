@@ -22,6 +22,10 @@
   let lastSyncedTab = null;
 
   function isMobile() {
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
+    if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 860px)").matches;
   }
 
@@ -57,11 +61,14 @@
   function syncClockAvailability(enabled) {
     clockEnabled = Boolean(enabled);
     localStorage.setItem("employeeTimeClockEnabled", clockEnabled ? "true" : "false");
-    document.body.classList.toggle("employee-clock-disabled", !clockEnabled);
+    // Always show Time clock in the employee shell. When HR has not set up punch
+    // sites yet, the clock screen itself explains that — hiding the tab made native
+    // apps look like clock-in/out was missing (especially App Store / Play review demos).
+    document.body.classList.remove("employee-clock-disabled");
   }
 
   function normalizeTab(tab) {
-    if (tab === "clock" && !clockEnabled) return "home";
+    if (tab === "more") return "more";
     if (tab && TAB_SECTIONS[tab]) return tab;
     return "home";
   }
@@ -102,6 +109,7 @@
 
     if (isMobile() && tabChanged) {
       window.MobileShell?.resetPortalScroll?.();
+      window.MobileShell?.pulseContentEnter?.();
     }
   }
 
@@ -133,9 +141,6 @@
 
   function finishStartup(enabled) {
     syncClockAvailability(enabled);
-    if (window.location.hash.replace("#", "").split("/")[0] === "time-clock" && !clockEnabled) {
-      window.location.hash = "overview";
-    }
     if (startupResolved) return;
     const tab = resolveStartupTab();
     startupResolved = true;
@@ -191,6 +196,8 @@
     bar.dataset.sshrMobileBound = "1";
 
     syncClockAvailability(clockEnabled);
+    // Ensure clock chrome is visible immediately on native shells (before /auth/verify).
+    document.body.classList.remove("employee-clock-disabled");
 
     bar.querySelectorAll("[data-mobile-tab]").forEach((tab) => {
       tab.addEventListener("click", (event) => {
@@ -219,10 +226,6 @@
         currentTab = "shifts";
         syncTabUi("shifts");
       } else if (section === "time-clock" && currentTab !== "clock") {
-        if (!clockEnabled) {
-          setTab("home");
-          return;
-        }
         currentTab = "clock";
         syncTabUi("clock");
       } else if (section === "leave" && currentTab !== "leave") {
@@ -235,8 +238,13 @@
       finishStartup(Boolean(event.detail?.user?.time_clock_enabled));
     });
 
-    window.addEventListener("resize", () => {
-      if (!isMobile()) {
+    let lastMobile = isMobile();
+    const mobileMq = window.matchMedia("(max-width: 860px)");
+    const onShellModeChange = () => {
+      const mobile = isMobile();
+      if (mobile === lastMobile) return;
+      lastMobile = mobile;
+      if (!mobile) {
         document.body.classList.remove("employee-mobile-detail", "employee-mobile-more-open");
         delete document.body.dataset.mobileTab;
         const morePanel = document.getElementById("mobile-more-panel");
@@ -247,7 +255,10 @@
       } else {
         syncTabUi(currentTab);
       }
-    });
+    };
+    if (mobileMq.addEventListener) mobileMq.addEventListener("change", onShellModeChange);
+    else mobileMq.addListener?.(onShellModeChange);
+    window.addEventListener("sshr:shell-mode-change", onShellModeChange);
 
     refreshGreeting();
 

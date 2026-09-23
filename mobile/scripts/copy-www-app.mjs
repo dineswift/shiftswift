@@ -56,6 +56,9 @@ const copies = [
   "employee-my-details.js",
   "styles.css",
   "theme.css",
+  "admin-mobile-polish.css",
+  "admin-surface-polish.css",
+  "sign-contract.js",
 ];
 
 const assetCopies = ["assets/shiftswift-employee-app-icon-192.png", "assets/shiftswift-hr-app-icon-192.png"];
@@ -67,6 +70,9 @@ for (const file of copies) {
   fs.copyFileSync(src, dest);
   console.log(`copied ${path.relative(root, dest)}`);
 }
+
+fs.copyFileSync(path.join(frontend, "sign-contract.html"), path.join(wwwApp, "sign-contract.html"));
+console.log("copied www/app/sign-contract.html");
 
 for (const file of assetCopies) {
   const src = path.join(frontend, file);

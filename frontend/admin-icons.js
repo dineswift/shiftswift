@@ -88,6 +88,10 @@
     user:
       '<circle class="admin-icon__fill" cx="12" cy="8" r="3.5"/><circle cx="12" cy="8" r="3.5"/><path d="M5 19.5c.8-3.2 3.2-5 7-5s6.2 1.8 7 5"/>',
     search: '<circle cx="11" cy="11" r="6"/><path d="M16 16l4.2 4.2"/>',
+    pencil:
+      '<path d="M13.2 5.2l5.6 5.6"/><path d="M4.5 19.5l1.6-6.4L15.4 4l4.6 4.6-9.5 9.3z"/><path d="M4.5 19.5H9"/>',
+    sliders:
+      '<path d="M4 8h10"/><path d="M18 8h2"/><circle cx="16" cy="8" r="2"/><path d="M4 16h2"/><path d="M10 16h10"/><circle cx="8" cy="16" r="2"/>',
   };
 
   function svg(name, className) {

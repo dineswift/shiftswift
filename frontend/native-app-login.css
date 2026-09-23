@@ -326,7 +326,8 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
   gap: 0;
 }
 
-.portal-login-page--unified .portal-login-form > label {
+.portal-login-page--unified .portal-login-form > label,
+.portal-login-page--unified .portal-login-field {
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -347,7 +348,8 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 }
 
 .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input,
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input {
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input,
+.portal-login-page--unified .portal-login-field input {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -365,6 +367,8 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
   background: var(--native-field);
   -webkit-appearance: none;
   appearance: none;
+  -webkit-user-select: text;
+  user-select: text;
   transition:
     border-color 0.18s ease,
     background-color 0.18s ease,
@@ -372,13 +376,15 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 }
 
 .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input::placeholder,
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input::placeholder {
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input::placeholder,
+.portal-login-page--unified .portal-login-field input::placeholder {
   color: #a8a7a0;
   font-weight: 400;
 }
 
 .portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) > input:focus,
-.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input:focus {
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device) input:focus,
+.portal-login-page--unified .portal-login-field input:focus {
   outline: none;
   background: var(--native-white);
   border-color: rgba(29, 158, 117, 0.55);

@@ -48,7 +48,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "56";
+    var version = "58";
 
     if (
       /admin\.html$/i.test(path) &&
@@ -478,7 +478,7 @@
           banner.id = "sshr-native-build-banner";
           banner.style.cssText =
             "position:fixed;top:max(6px,env(safe-area-inset-top));right:8px;z-index:99999;padding:4px 8px;border-radius:999px;background:rgba(15,110,86,0.92);color:#fff;font:600 10px/1.2 system-ui,-apple-system,sans-serif";
-          banner.textContent = "Build 43 · prod admin";
+          banner.textContent = "Build 44 · prod admin";
           document.body?.appendChild(banner);
         }
         if (useProductionAdminShell) {

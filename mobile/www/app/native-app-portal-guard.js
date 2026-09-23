@@ -19,7 +19,11 @@
         function bootLegacyLoginRedirect() {
           try {
             var cap = window.Capacitor;
-            var scheme = cap?.config?.ios?.scheme || "App";
+            var scheme =
+              window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+              (cap?.getPlatform?.() === "android"
+                ? cap?.config?.server?.androidScheme || "https"
+                : cap?.config?.ios?.scheme || "App");
             var src = scheme + "://localhost/native-unified-login-redirect.js?v=37";
             if (!document.querySelector('script[data-sshr-unified-login-redirect="1"]')) {
               var boot = document.createElement("script");
@@ -44,7 +48,7 @@
     if (!onPortal) return;
 
     window.__SSHR_PORTAL_GUARD = true;
-    var version = "54";
+    var version = "58";
 
     if (
       /admin\.html$/i.test(path) &&
@@ -60,11 +64,14 @@
       }
       if (!unifiedIphone) {
         try {
-          var iosScheme =
-            window.Capacitor?.config?.server?.iosScheme ||
-            window.Capacitor?.config?.ios?.scheme ||
-            "App";
-          var bundledAdmin = iosScheme + "://localhost/admin.html" + (window.location.search || "") + (window.location.hash || "");
+          var nativeScheme =
+            window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+            (window.Capacitor?.getPlatform?.() === "android"
+              ? window.Capacitor?.config?.server?.androidScheme || "https"
+              : window.Capacitor?.config?.server?.iosScheme ||
+                window.Capacitor?.config?.ios?.scheme ||
+                "App");
+          var bundledAdmin = nativeScheme + "://localhost/admin.html" + (window.location.search || "") + (window.location.hash || "");
           window.location.replace(bundledAdmin);
           return;
         } catch (e) {
@@ -147,8 +154,8 @@
         "#native-startup-loader,.native-startup-loader{display:none!important;visibility:hidden!important;height:0!important;max-height:0!important;overflow:hidden!important;margin:0!important;padding:0!important;border:0!important;pointer-events:none!important;position:absolute!important;left:-9999px!important;top:-9999px!important;width:0!important;}" +
         "#portal-pwa-install-banner,.portal-pwa-install-banner,.pwa-ios-sheet,.pwa-ios-sheet-backdrop{display:none!important;visibility:hidden!important;pointer-events:none!important;}" +
         "html.native-startup-active,html.native-startup-active body,body.native-startup-active{overflow:auto!important;}" +
-        "html.native-app.capacitor-native body.employee-portal .employee-app,html.native-app.capacitor-native body.employee-portal #mobile-tab-bar,html.native-app.capacitor-native body.admin-portal #mobile-tab-bar,html.native-app body.employee-portal.portal-startup-pending .app>main.content,html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,html.native-app body.admin-portal.portal-startup-pending .app>main.content,html.native-app body.admin-portal.portal-startup-pending #mobile-tab-bar,html.native-startup-active body.employee-portal .employee-app,html.native-startup-active body.employee-portal #mobile-tab-bar,html.native-startup-active body.admin-portal #mobile-tab-bar{pointer-events:auto!important;opacity:1!important;visibility:visible!important;}" +
-        "html.native-app.capacitor-native .topbar.app-mobile-header,html.native-app.capacitor-native body.admin-mobile-detail .topbar,html.native-app.capacitor-native body.employee-mobile-detail .topbar{padding-top:max(12px,env(safe-area-inset-top))!important;padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important;}";
+        "html.native-app.capacitor-native body.employee-portal .employee-app,html.native-app.capacitor-native body.employee-portal #mobile-tab-bar,html.native-app.capacitor-native body.admin-portal #mobile-tab-bar,html.native-app body.employee-portal.portal-startup-pending .app>main.content,html.native-app body.employee-portal.portal-startup-pending #mobile-tab-bar,html.native-app body.admin-portal.portal-startup-pending .app>main.content,html.native-app body.admin-portal.portal-startup-pending #mobile-tab-bar{pointer-events:auto!important;}" +
+        "html.native-app.capacitor-native .topbar.app-mobile-header,html.native-app.capacitor-native body.admin-mobile-detail .topbar,html.native-app.capacitor-native body.employee-mobile-detail .topbar{padding-top:max(2px,env(safe-area-inset-top))!important;padding-left:max(10px,env(safe-area-inset-left))!important;padding-right:max(10px,env(safe-area-inset-right))!important;}";
       (document.head || document.documentElement).appendChild(style);
     }
 
@@ -245,9 +252,12 @@
         return window.ShiftSwiftNativeBundledUrl.assetUrl(file, version);
       }
       var scheme =
-        window.Capacitor?.config?.server?.iosScheme ||
-        window.Capacitor?.config?.ios?.scheme ||
-        "App";
+        window.ShiftSwiftNativeBundledUrl?.scheme?.() ||
+        (window.Capacitor?.getPlatform?.() === "android"
+          ? window.Capacitor?.config?.server?.androidScheme || "https"
+          : window.Capacitor?.config?.server?.iosScheme ||
+            window.Capacitor?.config?.ios?.scheme ||
+            "App");
       return String(scheme) + "://localhost/" + file + "?v=" + version;
     }
 
@@ -436,10 +446,12 @@
         var useProductionAdminShell = onProductionAdmin && unifiedIphone;
         var stillParsing = document.readyState === "loading";
         appendStylesheet(assetUrl("iphone-app-ui.css"), "data-sshr-portal-ui");
+        appendStylesheet(assetUrl("iphone-app-ipad.css"), "data-sshr-portal-ipad");
         if (isAdmin) {
           appendStylesheet(assetUrl("admin-mobile-polish.css"), "data-sshr-portal-admin-polish");
         }
         if (stillParsing) {
+          injectSyncScript(assetUrl("native-ipad-layout.js"), "data-sshr-portal-ipad-layout");
           injectSyncScript(assetUrl("native-bundled-url.js"), "data-sshr-portal-bundled-url");
           injectSyncScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
           injectSyncScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");
@@ -449,6 +461,7 @@
             injectSyncScript(assetUrl("admin-portal-boot.js"), "data-sshr-portal-admin-boot");
           }
         }
+        appendScript(assetUrl("native-ipad-layout.js"), "data-sshr-portal-ipad-layout");
         appendScript(assetUrl("native-bundled-url.js"), "data-sshr-portal-bundled-url");
         appendScript(assetUrl("native-api-fetch.js"), "data-sshr-portal-api-fetch");
         appendScript(assetUrl("session-auth.js"), "data-sshr-portal-session-auth");
@@ -465,7 +478,7 @@
           banner.id = "sshr-native-build-banner";
           banner.style.cssText =
             "position:fixed;top:max(6px,env(safe-area-inset-top));right:8px;z-index:99999;padding:4px 8px;border-radius:999px;background:rgba(15,110,86,0.92);color:#fff;font:600 10px/1.2 system-ui,-apple-system,sans-serif";
-          banner.textContent = "Build 43 · prod admin";
+          banner.textContent = "Build 44 · prod admin";
           document.body?.appendChild(banner);
         }
         if (useProductionAdminShell) {
@@ -477,11 +490,18 @@
             window.__SSHR_PORTAL_READY = true;
             window.dispatchEvent(new CustomEvent("shiftswift:portal-ready"));
             window.AdminMobile?.finishStartup?.(localStorage.getItem("adminTimeClockEnabled") === "true");
+            var tab = String(document.body?.dataset?.mobileTab || "");
+            var hash = String(window.location.hash || "");
+            if (tab === "rota" || /#rota/i.test(hash)) {
+              window.dispatchEvent(new CustomEvent("admin:portal-native-retry"));
+              window.dispatchEvent(new CustomEvent("admin:rota-mobile-open"));
+              window.dispatchEvent(new CustomEvent("admin:section", { detail: { section: "rota" } }));
+            }
           }
           bootProductionAdminShell();
           document.addEventListener("DOMContentLoaded", bootProductionAdminShell, { once: true });
           window.addEventListener("load", bootProductionAdminShell, { once: true });
-          [80, 300, 1000, 2500].forEach(function (ms) {
+          [80, 300, 1000, 2500, 5000].forEach(function (ms) {
             window.setTimeout(bootProductionAdminShell, ms);
           });
         }

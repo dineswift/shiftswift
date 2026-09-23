@@ -92,6 +92,157 @@
     return maxSide >= 1194;
   }
 
+  const SIDEBAR_STORAGE_KEY = "sshr-tablet-sidebar-collapsed";
+
+  function sidebarEls() {
+    return {
+      toggle: document.getElementById("sidebar-toggle"),
+      closeBtn: document.getElementById("sidebar-close"),
+      collapseBtn: document.getElementById("sidebar-collapse"),
+      pinBtn: document.getElementById("sidebar-pin"),
+      sidebar: document.getElementById("app-sidebar"),
+      overlay: document.getElementById("sidebar-overlay"),
+    };
+  }
+
+  function updateSidebarToggleLabel() {
+    const { toggle } = sidebarEls();
+    if (!toggle) return;
+    const collapsed = document.documentElement.classList.contains("native-sidebar-collapsed");
+    const open = document.getElementById("app-sidebar")?.classList.contains("sidebar--open");
+    if (!collapsed) {
+      toggle.setAttribute("aria-label", "Hide sidebar");
+      toggle.setAttribute("title", "Hide sidebar for more space");
+      toggle.setAttribute("aria-expanded", "true");
+      return;
+    }
+    toggle.setAttribute("aria-label", open ? "Hide menu" : "Show menu");
+    toggle.setAttribute("title", open ? "Hide menu" : "Show menu");
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function closeSidebarOverlay() {
+    const { sidebar, overlay } = sidebarEls();
+    sidebar?.classList.remove("sidebar--open");
+    overlay?.classList.remove("sidebar-overlay--visible");
+    overlay?.setAttribute("aria-hidden", "true");
+    updateSidebarToggleLabel();
+  }
+
+  function openSidebarOverlay() {
+    const { sidebar, overlay, pinBtn } = sidebarEls();
+    sidebar?.classList.add("sidebar--open");
+    overlay?.classList.add("sidebar-overlay--visible");
+    overlay?.setAttribute("aria-hidden", "false");
+    if (pinBtn) pinBtn.hidden = false;
+    updateSidebarToggleLabel();
+  }
+
+  function setSidebarCollapsed(collapsed) {
+    const root = document.documentElement;
+    const { toggle, pinBtn, collapseBtn } = sidebarEls();
+    if (!root.classList.contains("native-tablet")) {
+      root.classList.remove("native-sidebar-collapsed");
+      closeSidebarOverlay();
+      if (pinBtn) pinBtn.hidden = true;
+      if (collapseBtn) collapseBtn.hidden = true;
+      return;
+    }
+    root.classList.toggle("native-sidebar-collapsed", Boolean(collapsed));
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    closeSidebarOverlay();
+    if (toggle) toggle.hidden = false;
+    if (pinBtn) pinBtn.hidden = !collapsed;
+    if (collapseBtn) collapseBtn.hidden = Boolean(collapsed);
+    updateSidebarToggleLabel();
+  }
+
+  function restoreSidebarCollapsed() {
+    let collapsed = false;
+    try {
+      collapsed = localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
+    } catch {
+      collapsed = false;
+    }
+    document.documentElement.classList.toggle("native-sidebar-collapsed", collapsed);
+    const { toggle, pinBtn, collapseBtn } = sidebarEls();
+    if (toggle) toggle.hidden = false;
+    if (pinBtn) pinBtn.hidden = !collapsed;
+    if (collapseBtn) collapseBtn.hidden = collapsed;
+    updateSidebarToggleLabel();
+  }
+
+  function bindTabletSidebarToggle() {
+    if (window.__SSHR_TABLET_SIDEBAR_BOUND__) return;
+    window.__SSHR_TABLET_SIDEBAR_BOUND__ = true;
+    const { toggle, closeBtn, collapseBtn, pinBtn, overlay, sidebar } = sidebarEls();
+
+    toggle?.addEventListener(
+      "click",
+      (event) => {
+        if (!document.documentElement.classList.contains("native-tablet")) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const collapsed = document.documentElement.classList.contains("native-sidebar-collapsed");
+        if (!collapsed) {
+          setSidebarCollapsed(true);
+          return;
+        }
+        if (sidebar?.classList.contains("sidebar--open")) closeSidebarOverlay();
+        else openSidebarOverlay();
+      },
+      true,
+    );
+
+    closeBtn?.addEventListener(
+      "click",
+      (event) => {
+        if (!document.documentElement.classList.contains("native-tablet")) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (document.documentElement.classList.contains("native-sidebar-collapsed")) {
+          closeSidebarOverlay();
+        } else {
+          setSidebarCollapsed(true);
+        }
+      },
+      true,
+    );
+
+    collapseBtn?.addEventListener("click", (event) => {
+      event.preventDefault();
+      setSidebarCollapsed(true);
+    });
+
+    pinBtn?.addEventListener("click", (event) => {
+      event.preventDefault();
+      setSidebarCollapsed(false);
+    });
+
+    overlay?.addEventListener("click", () => {
+      if (document.documentElement.classList.contains("native-sidebar-collapsed")) {
+        closeSidebarOverlay();
+      }
+    });
+
+    sidebar?.querySelectorAll("a.nav-link").forEach((link) => {
+      link.addEventListener("click", () => {
+        if (document.documentElement.classList.contains("native-sidebar-collapsed")) {
+          closeSidebarOverlay();
+        }
+      });
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (document.documentElement.classList.contains("native-sidebar-collapsed")) closeSidebarOverlay();
+    });
+  }
+
   function syncPlatformClass() {
     const root = document.documentElement;
     let platform = "";
@@ -118,10 +269,15 @@
     root.classList.toggle("native-tablet-large", tablet && isLargeTabletLayout());
     root.classList.toggle("native-phone", !tablet && isNativeShell());
     if (tablet) {
-      clearMobileShellState();
       root.classList.remove("portal-mobile-shell");
-    } else if (isNativeShell() && document.getElementById("mobile-tab-bar")) {
-      root.classList.add("portal-mobile-shell");
+      if (!wasTablet) clearMobileShellState();
+      restoreSidebarCollapsed();
+    } else {
+      root.classList.remove("native-sidebar-collapsed");
+      closeSidebarOverlay();
+      if (isNativeShell() && document.getElementById("mobile-tab-bar")) {
+        root.classList.add("portal-mobile-shell");
+      }
     }
     if (tablet !== wasTablet) {
       window.dispatchEvent(new CustomEvent("sshr:shell-mode-change", { detail: { tablet } }));
@@ -130,11 +286,18 @@
     return tablet;
   }
 
-  syncTabletClass();
-  document.addEventListener("DOMContentLoaded", () => {
+  function bootTabletLayout() {
+    bindTabletSidebarToggle();
     syncTabletClass();
     finalizeTabletPortal();
-  });
+  }
+
+  syncTabletClass();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootTabletLayout);
+  } else {
+    bootTabletLayout();
+  }
   window.addEventListener("resize", syncTabletClass);
   window.addEventListener("orientationchange", () => {
     window.setTimeout(() => {
@@ -158,5 +321,7 @@
     isMobileViewport,
     sync: syncTabletClass,
     finalize: finalizeTabletPortal,
+    isSidebarCollapsed: () => document.documentElement.classList.contains("native-sidebar-collapsed"),
+    setSidebarCollapsed,
   };
 })();

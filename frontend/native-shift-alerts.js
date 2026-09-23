@@ -68,42 +68,185 @@
     }
   }
 
-  function showInAppAlertBanner(title, body) {
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function classifyAlertKind(source = {}) {
+    const type = String(
+      source.kind || source.alertType || source.alert_type || source.type || "",
+    ).toLowerCase();
+    const text = `${source.title || ""} ${source.body || ""}`.toLowerCase();
+    if (/success|confirmed|clock-in-done|clock-out-done/.test(type)) return "success";
+    if (
+      /clock.?in|shift.?start|missed_clock_in|shift_reminder/.test(type) ||
+      /clock in now|you can clock in|shift has started|shift starts in/.test(text)
+    ) {
+      return "clock-in";
+    }
+    if (
+      /clock.?out|shift.?end|missed_clock_out/.test(type) ||
+      /clock out|remember to clock out|shift ends in/.test(text)
+    ) {
+      return "clock-out";
+    }
+    return "employee-update";
+  }
+
+  function kindCopy(kind) {
+    if (kind === "clock-in") {
+      return { kicker: "Clock in", actionLabel: "Clock in now", hash: "#time-clock", durationMs: 18000 };
+    }
+    if (kind === "clock-out") {
+      return { kicker: "Clock out", actionLabel: "Clock out now", hash: "#time-clock", durationMs: 18000 };
+    }
+    if (kind === "success") {
+      return { kicker: "Confirmed", actionLabel: "", hash: "", durationMs: 8000 };
+    }
+    return { kicker: "Employee update", actionLabel: "View update", hash: "", durationMs: 14000 };
+  }
+
+  function playUrgentCue(kind, silent) {
+    if (silent) return;
+    const urgent = kind === "clock-in" || kind === "clock-out" || kind === "employee-update";
     try {
-      if (window.ShiftSwiftActionFeedback?.toast) {
-        window.ShiftSwiftActionFeedback.toast({
-          type: "warn",
-          message: [title, body].filter(Boolean).join(" — "),
-          durationMs: 5200,
-        });
-        return;
+      if (urgent && window.ShiftSwiftPush?.playUrgentAlertSound) {
+        window.ShiftSwiftPush.playUrgentAlertSound();
+      } else {
+        window.ShiftSwiftPush?.playAlertSound?.();
       }
     } catch {
-      /* fall through */
+      /* ignore */
     }
-    let host = document.getElementById("sshr-native-alert-banner");
+    try {
+      if (urgent) window.ShiftSwiftNativeHaptics?.warning?.();
+      else window.ShiftSwiftNativeHaptics?.success?.();
+    } catch {
+      /* ignore */
+    }
+    if ("vibrate" in navigator) {
+      try {
+        navigator.vibrate(urgent ? [420, 90, 420, 90, 420] : [220, 60, 220]);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  function openNotificationsPanel() {
+    const btn =
+      document.getElementById("employee-topbar-alerts-btn") ||
+      document.getElementById("topbar-alerts-btn");
+    if (btn && btn.getAttribute("aria-expanded") !== "true") {
+      btn.click();
+    }
+  }
+
+  function openAlertTarget({ hash, url, kind } = {}) {
+    if (!hash && !url && kind === "employee-update") {
+      openNotificationsPanel();
+      return;
+    }
+    if (url) {
+      try {
+        const parsed = new URL(url, window.location.href);
+        if (parsed.origin === window.location.origin) {
+          const nextHash = (parsed.hash || hash || "").replace(/^#/, "");
+          if (nextHash) window.location.hash = nextHash;
+          if (kind === "clock-in" || kind === "clock-out" || /time-clock|punch/.test(nextHash)) {
+            window.EmployeeMobile?.setTab?.("clock", { skipHash: true });
+          }
+          return;
+        }
+        window.location.href = url;
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    const nextHash = String(hash || "").replace(/^#/, "");
+    if (nextHash) window.location.hash = nextHash;
+    if (kind === "clock-in" || kind === "clock-out" || nextHash === "time-clock") {
+      window.EmployeeMobile?.setTab?.("clock", { skipHash: true });
+    }
+  }
+
+  function hideUrgentAlert(host) {
+    if (!host) return;
+    host.classList.remove("is-visible");
+    window.clearTimeout(showUrgentAlert._t);
+    showUrgentAlert._t = window.setTimeout(() => {
+      if (!host.classList.contains("is-visible")) host.hidden = true;
+    }, 220);
+  }
+
+  function showUrgentAlert(options = {}) {
+    const title = String(options.title || "Reminder");
+    const body = String(options.body || "");
+    const kind = options.kind || classifyAlertKind(options);
+    const copy = kindCopy(kind);
+    const hash = options.hash || copy.hash;
+    const url = options.url || "";
+    const actionLabel = options.actionLabel == null ? copy.actionLabel : options.actionLabel;
+    const durationMs = Number(options.durationMs) || copy.durationMs;
+    const showAction = Boolean(actionLabel && (hash || url || kind === "employee-update"));
+
+    let host = document.getElementById("sshr-urgent-alert");
     if (!host) {
       host = document.createElement("div");
-      host.id = "sshr-native-alert-banner";
-      host.setAttribute("role", "status");
-      host.style.cssText =
-        "position:fixed;left:12px;right:12px;top:max(12px,env(safe-area-inset-top));z-index:1400;" +
-        "padding:12px 14px;border-radius:14px;background:#0f6e56;color:#fff;font:600 0.88rem/1.35 -apple-system,sans-serif;" +
-        "box-shadow:0 12px 28px rgba(18,53,44,0.28);opacity:0;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease;";
+      host.id = "sshr-urgent-alert";
+      host.className = "sshr-urgent-alert";
       document.body.appendChild(host);
+      host.addEventListener("click", (event) => {
+        if (event.target === host) hideUrgentAlert(host);
+      });
     }
-    host.innerHTML =
-      `<strong style="display:block;margin-bottom:2px">${String(title || "Reminder")}</strong>` +
-      `<span style="font-weight:500;opacity:.95">${String(body || "")}</span>`;
-    requestAnimationFrame(() => {
-      host.style.opacity = "1";
-      host.style.transform = "translateY(0)";
+
+    host.className = `sshr-urgent-alert sshr-urgent-alert--${kind}`;
+    host.setAttribute("role", "alertdialog");
+    host.setAttribute("aria-live", "assertive");
+    host.setAttribute("aria-modal", "true");
+    host.hidden = false;
+    host.innerHTML = `
+      <div class="sshr-urgent-alert__card">
+        <p class="sshr-urgent-alert__kicker">${escapeHtml(copy.kicker)}</p>
+        <strong class="sshr-urgent-alert__title">${escapeHtml(title)}</strong>
+        ${body ? `<p class="sshr-urgent-alert__body">${escapeHtml(body)}</p>` : ""}
+        <div class="sshr-urgent-alert__actions">
+          ${
+            showAction
+              ? `<button type="button" class="sshr-urgent-alert__cta" data-sshr-alert-action>${escapeHtml(actionLabel)}</button>`
+              : ""
+          }
+          <button type="button" class="sshr-urgent-alert__dismiss" data-sshr-alert-dismiss>Dismiss</button>
+        </div>
+      </div>`;
+
+    host.querySelector("[data-sshr-alert-dismiss]")?.addEventListener("click", () => hideUrgentAlert(host));
+    host.querySelector("[data-sshr-alert-action]")?.addEventListener("click", () => {
+      hideUrgentAlert(host);
+      openAlertTarget({ hash, url, kind });
     });
-    window.clearTimeout(showInAppAlertBanner._t);
-    showInAppAlertBanner._t = window.setTimeout(() => {
-      host.style.opacity = "0";
-      host.style.transform = "translateY(-8px)";
-    }, 4800);
+
+    requestAnimationFrame(() => host.classList.add("is-visible"));
+    playUrgentCue(kind, options.silent);
+    window.clearTimeout(showUrgentAlert._t);
+    showUrgentAlert._t = window.setTimeout(() => hideUrgentAlert(host), durationMs);
+    return host;
+  }
+
+  function showInAppAlertBanner(title, body, options) {
+    const opts = options && typeof options === "object" ? options : {};
+    showUrgentAlert({
+      title,
+      body,
+      ...opts,
+      kind: opts.kind || classifyAlertKind({ title, body, ...opts }),
+    });
   }
 
   function isEnabled() {
@@ -188,7 +331,11 @@
         /* ignore */
       }
       window.ShiftSwiftPush?.playAlertSound?.();
-      showInAppAlertBanner("Alerts on", "You’ll get sound and banners for shift clock-in and clock-out.");
+      showUrgentAlert({
+        title: "Alerts on",
+        body: "You’ll get a full-screen reminder to clock in and clock out, plus employee updates.",
+        kind: "success",
+      });
       return { ok: true };
     } catch (error) {
       return { ok: false, reason: error?.message || "permission_error" };
@@ -258,8 +405,11 @@
             id: notificationId(shift.id, "start_exact"),
             title: "Clock in now",
             body: `It's ${startClock} — your shift has started. Tap to clock in.`,
+            largeBody: `It's ${startClock} — your shift has started. Open ShiftSwift HR and clock in now.`,
+            threadIdentifier: "shiftswift-clock-in",
+            summaryArgument: "Clock in",
             schedule: { at: start, allowWhileIdle: true },
-            extra: { shiftId: shift.id, type: "shift_start_exact", hash: "#time-clock" },
+            extra: { shiftId: shift.id, type: "shift_start_exact", alert_type: "clock_in", hash: "#time-clock" },
           }),
         );
       }
@@ -272,8 +422,10 @@
               id: notificationId(shift.id, "start"),
               title: `Shift in ${startLead} minutes`,
               body: `Starts at ${startClock}. Get ready to clock in.`,
+              largeBody: `Your shift starts at ${startClock}. Open ShiftSwift HR and get ready to clock in.`,
+              threadIdentifier: "shiftswift-clock-in",
               schedule: { at: startAt, allowWhileIdle: true },
-              extra: { shiftId: shift.id, type: "shift_start", hash: "#time-clock" },
+              extra: { shiftId: shift.id, type: "shift_start", alert_type: "shift_reminder", hash: "#time-clock" },
             }),
           );
         }
@@ -285,8 +437,11 @@
             id: notificationId(shift.id, "end_exact"),
             title: "Clock out now",
             body: `It's ${endClock} — remember to clock out.`,
+            largeBody: `It's ${endClock} — your shift has ended. Open ShiftSwift HR and clock out now.`,
+            threadIdentifier: "shiftswift-clock-out",
+            summaryArgument: "Clock out",
             schedule: { at: end, allowWhileIdle: true },
-            extra: { shiftId: shift.id, type: "shift_end_exact", hash: "#time-clock" },
+            extra: { shiftId: shift.id, type: "shift_end_exact", alert_type: "clock_out", hash: "#time-clock" },
           }),
         );
       }
@@ -299,8 +454,10 @@
               id: notificationId(shift.id, "end"),
               title: `Shift ends in ${endLead} minutes`,
               body: `Ends at ${endClock}. Don’t forget to clock out.`,
+              largeBody: `Your shift ends at ${endClock}. Open ShiftSwift HR and clock out.`,
+              threadIdentifier: "shiftswift-clock-out",
               schedule: { at: endAt, allowWhileIdle: true },
-              extra: { shiftId: shift.id, type: "shift_end", hash: "#time-clock" },
+              extra: { shiftId: shift.id, type: "shift_end", alert_type: "shift_end_reminder", hash: "#time-clock" },
             }),
           );
         }
@@ -324,9 +481,15 @@
   if (isNative() && localNotifications()?.addListener) {
     localNotifications()
       .addListener("localNotificationReceived", (event) => {
-        window.ShiftSwiftPush?.playAlertSound?.();
         const n = event?.notification || event || {};
-        showInAppAlertBanner(n.title || "Reminder", n.body || "");
+        const extra = n.extra || {};
+        showUrgentAlert({
+          title: n.title || "Reminder",
+          body: n.body || "",
+          kind: classifyAlertKind({ title: n.title, body: n.body, ...extra }),
+          hash: extra.hash || "#time-clock",
+          url: extra.url,
+        });
       })
       .catch(() => null);
     localNotifications()
@@ -346,6 +509,8 @@
     scheduleFromShifts,
     cancelScheduled,
     getNotificationsPlugin: localNotifications,
+    classifyAlertKind,
+    showUrgentAlert,
     showInAppAlertBanner,
   };
 })();

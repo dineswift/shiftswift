@@ -2,7 +2,7 @@
 
 Standalone Capacitor Android app. Sibling of `iphone-app/` (iOS). Both sync from `../frontend`.
 
-**Version:** 1.3.8 (versionCode 22) · targetSdk 36  
+**Version:** 1.3.9 (versionCode 23) · targetSdk 36  
 **Package:** `co.uk.shiftswifthr.app`
 
 ## Setup

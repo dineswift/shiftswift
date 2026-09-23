@@ -27,7 +27,7 @@
     <script src="./native-app.js?v=6"></script>
     <script src="./pwa-ios.js?v=1"></script>
     <title>ShiftSwift HR | Business sign in</title>
-    <link rel="stylesheet" href="./styles.css?v=brandkit-v9" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v10" />
     <style>
       .portal-login-page--split {
         --portal-login-hero: url("./assets/screenshots/admin-overview.svg");
@@ -117,28 +117,54 @@
                 </div>
 
                 <form id="portal-login-form" class="portal-login-form portal-login-form--streamlined">
-                  <label>
-                    Work email
-                    <input name="username" required autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="hr@yourcompany.co.uk" />
-                  </label>
-                  <label class="portal-login-password-field">
-                    <span class="portal-login-password-label">
-                      <span id="password-label">Password</span>
+                  <div class="portal-login-field">
+                    <label for="login-username">Work email</label>
+                    <input
+                      id="login-username"
+                      name="username"
+                      type="email"
+                      required
+                      autocomplete="username"
+                      inputmode="email"
+                      enterkeyhint="next"
+                      autocapitalize="none"
+                      autocorrect="off"
+                      spellcheck="false"
+                      placeholder="hr@yourcompany.co.uk"
+                    />
+                  </div>
+                  <div class="portal-login-field portal-login-password-field">
+                    <div class="portal-login-password-label">
+                      <label for="login-password" id="password-label">Password</label>
                       <a
                         class="portal-login-inline-link portal-login-forgot"
                         id="forgot-password-link"
                         href="./forgot-password.html"
                       >Forgot?</a>
-                    </span>
-                    <input
-                      name="password"
-                      type="password"
-                      required
-                      autocomplete="current-password"
-                      placeholder="Enter password"
-                      aria-labelledby="password-label"
-                    />
-                  </label>
+                    </div>
+                    <div class="portal-login-input-wrap">
+                      <input
+                        id="login-password"
+                        name="password"
+                        type="password"
+                        required
+                        autocomplete="current-password"
+                        enterkeyhint="go"
+                        autocapitalize="none"
+                        autocorrect="off"
+                        spellcheck="false"
+                        placeholder="Enter password"
+                        aria-labelledby="password-label"
+                      />
+                      <button
+                        type="button"
+                        class="portal-login-reveal"
+                        data-login-reveal
+                        aria-controls="login-password"
+                        aria-pressed="false"
+                      >Show</button>
+                    </div>
+                  </div>
 
                   <p id="login-status" class="form-error-message" hidden></p>
 
@@ -247,7 +273,7 @@
     <script src="./native-keyboard.js?v=1"></script>
     <script src="./portal-pwa-stability.js?v=1"></script>
     <script src="./admin-pwa.js?v=8"></script>
-    <script src="./login.js?v=brandkit-v26"></script>
+    <script src="./login.js?v=brandkit-v27"></script>
     <script>
       window.ShiftSwiftAdminPwa?.registerAdminSw?.();
     </script>

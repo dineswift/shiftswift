@@ -50,7 +50,9 @@ public class ShiftSwiftHttpPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         if method != "GET" && method != "HEAD" {
-            if let body = call.getString("data"), !body.isEmpty {
+            if let b64 = call.getString("dataBase64"), !b64.isEmpty, let decoded = Data(base64Encoded: b64) {
+                request.httpBody = decoded
+            } else if let body = call.getString("data"), !body.isEmpty {
                 request.httpBody = body.data(using: .utf8)
             } else if let dataObj = call.getObject("data") {
                 if let json = try? JSONSerialization.data(withJSONObject: dataObj, options: []) {

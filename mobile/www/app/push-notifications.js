@@ -62,7 +62,7 @@
     return { ok: true };
   }
 
-  function playAlertSound() {
+  function playAlertSound({ urgent = false } = {}) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
@@ -72,27 +72,36 @@
         void ctx.resume();
       }
       const now = ctx.currentTime;
+      const peak = urgent ? 0.58 : 0.38;
+      const repeats = urgent ? 2 : 1;
       const tones = [
-        { offset: 0, freq: 880 },
-        { offset: 0.28, freq: 988 },
-        { offset: 0.56, freq: 880 },
+        { offset: 0, freq: 784 },
+        { offset: 0.16, freq: 988 },
+        { offset: 0.34, freq: 1174 },
       ];
-      tones.forEach(({ offset, freq }) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "square";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.0001, now + offset);
-        gain.gain.exponentialRampToValueAtTime(0.42, now + offset + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.24);
-      });
+      for (let pass = 0; pass < repeats; pass += 1) {
+        const base = pass * 0.72;
+        tones.forEach(({ offset, freq }) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = urgent ? "triangle" : "sine";
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.0001, now + base + offset);
+          gain.gain.exponentialRampToValueAtTime(peak, now + base + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + base + offset + 0.22);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + base + offset);
+          osc.stop(now + base + offset + 0.24);
+        });
+      }
     } catch {
       /* ignore — device may block audio until user gesture */
     }
+  }
+
+  function playUrgentAlertSound() {
+    playAlertSound({ urgent: true });
   }
 
   async function getNativeLocalStatus() {
@@ -187,6 +196,7 @@
 
   window.ShiftSwiftPush = {
     playAlertSound,
+    playUrgentAlertSound,
 
     async getStatus(opts) {
       return getStatus(opts);

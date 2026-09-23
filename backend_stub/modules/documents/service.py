@@ -320,7 +320,10 @@ def _parse_optional_date(value: Any) -> date | None:
     text = str(value).strip()
     if not text:
         return None
-    return date.fromisoformat(text[:10])
+    parsed = date.fromisoformat(text[:10])
+    if parsed.year < 100:
+        return parsed.replace(year=parsed.year + 2000)
+    return parsed
 
 
 def _minimal_employee_document(

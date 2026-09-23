@@ -1313,9 +1313,7 @@
 
   const A4_ASPECT = 210 / 297;
 
-  function cropVideoFrameToA4(video) {
-    const srcW = video.videoWidth;
-    const srcH = video.videoHeight;
+  function cropSourceToA4(source, srcW, srcH) {
     const srcAspect = srcW / Math.max(srcH, 1);
     let sx = 0;
     let sy = 0;
@@ -1331,21 +1329,54 @@
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(sw));
     canvas.height = Math.max(1, Math.round(sh));
-    canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    canvas.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     return canvas;
+  }
+
+  function cropVideoFrameToA4(video) {
+    return cropSourceToA4(video, video.videoWidth, video.videoHeight);
+  }
+
+  function cropStillImageToA4(file) {
+    return new Promise((resolve) => {
+      if (!file || !String(file.type || "").startsWith("image/")) {
+        resolve(file);
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = cropSourceToA4(img, img.naturalWidth || img.width, img.naturalHeight || img.height);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(url);
+              if (!blob) {
+                resolve(file);
+                return;
+              }
+              resolve(new File([blob], `a4-document-${Date.now()}.jpg`, { type: "image/jpeg" }));
+            },
+            "image/jpeg",
+            0.92
+          );
+        } catch {
+          URL.revokeObjectURL(url);
+          resolve(file);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
   }
 
   async function openDocumentCamera() {
     const attempts = [
-      {
-        video: {
-          facingMode: { ideal: "environment" },
-          aspectRatio: { ideal: A4_ASPECT },
-          width: { ideal: 1654 },
-          height: { ideal: 2339 },
-        },
-        audio: false,
-      },
+      { video: { facingMode: "environment" }, audio: false },
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
       {
         video: {
           facingMode: { ideal: "environment" },
@@ -1354,7 +1385,7 @@
         },
         audio: false,
       },
-      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      { video: true, audio: false },
     ];
     let lastError;
     for (const constraints of attempts) {
@@ -1458,7 +1489,9 @@
           stream = media;
           video.srcObject = media;
           video.muted = true;
+          video.playsInline = true;
           video.setAttribute("playsinline", "");
+          video.setAttribute("webkit-playsinline", "true");
           await video.play();
           if (status) status.textContent = "Line up the A4 page inside the frame, then tap Capture.";
           if (shutter) shutter.disabled = false;
@@ -1525,11 +1558,22 @@
         event.stopPropagation();
         void captureDocumentPhoto({ fileInput, cameraInput, showFile });
       });
-      cameraInput.addEventListener("change", () => {
+      cameraInput.addEventListener("change", async () => {
         const file = cameraInput.files?.[0];
         if (!file) return;
-        assignFileToInput(fileInput, file);
-        showFile(file);
+        let next = file;
+        try {
+          next = (await prepareUploadFile(file)) || file;
+        } catch {
+          next = file;
+        }
+        try {
+          next = (await cropStillImageToA4(next)) || next;
+        } catch {
+          /* keep JPEG rewrite if crop fails */
+        }
+        assignFileToInput(fileInput, next);
+        showFile(next);
         cameraInput.value = "";
       });
     }
