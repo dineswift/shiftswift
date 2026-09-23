@@ -1,7 +1,7 @@
 # Google Play release checklist — ShiftSwift HR Android
 
 Package: `co.uk.shiftswifthr.app`  
-Current target version: **1.3.9** (versionCode **23**, targetSdk **36**). iOS marketing version is **1.5.1** (build 24).
+Current target version: **1.3.9** (versionCode **23**, targetSdk **36**). iOS marketing version is **1.5.3** (build 27).
 
 ## One-time setup
 

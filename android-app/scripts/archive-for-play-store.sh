@@ -62,8 +62,9 @@ node scripts/patch-push-firebase-guard.mjs
 
 node scripts/apply-android-branding.mjs
 # macOS Finder/iCloud duplicates break the Android asset merger
-find "$ANDROID/app/src/main/res" -name '* *' -delete 2>/dev/null || true
-find "$ANDROID/app/src/main/assets" -name '* *' -delete 2>/dev/null || true
+find "$ANDROID/app/src/main/res" -name '* *' -print -delete 2>/dev/null || true
+find "$ANDROID/app/src/main/assets" -name '* *' -print -delete 2>/dev/null || true
+rm -f "$ANDROID/app/src/main/res/xml/"config\ *.xml 2>/dev/null || true
 # Drop empty leftover dirs from deleted "assets N" copies
 find "$ANDROID/app/src/main/assets" -type d -empty -delete 2>/dev/null || true
 

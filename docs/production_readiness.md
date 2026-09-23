@@ -218,7 +218,7 @@ See **[go_to_market_credibility.md](./go_to_market_credibility.md)** for the ful
 | Template customer quotes removed | ✅ |
 | Product previews labelled (not “demo business”) | ✅ |
 | Feature claims match codebase (no fake rota/RTI) | ✅ |
-| Real admin screenshots on homepage | ⚠️ | Product showcase section with SVG placeholders — swap `frontend/assets/screenshots/*.webp` when pilot captures ready |
+| Real admin screenshots on homepage | ✅ | Live captures in `frontend/assets/screenshots/` (Overview, Time Clock, Compliance) |
 | First named case study with permission | ❌ |
 | Stripe live checkout verified | ⚠️ | `scripts/check_stripe_setup.sh` + manual E2E in `docs/stripe_env_verification_checklist.md` |
 

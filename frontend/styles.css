@@ -7942,6 +7942,10 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   border: none;
   background: transparent;
   box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
 }
 
 .overview-greeting h2 {
@@ -8305,6 +8309,11 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
 
   .section-header--desktop {
     display: flex;
+  }
+
+  .overview-greeting.section-header--desktop {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .sidebar-brand__name {
