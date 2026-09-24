@@ -3854,7 +3854,7 @@ a.sponsor-duty-card:focus-visible {
   display: flex;
   align-items: stretch;
   gap: 16px;
-  min-height: 520px;
+  min-height: 0;
 }
 
 .contracts-main-pane {
@@ -4126,6 +4126,57 @@ a.sponsor-duty-card:focus-visible {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+@media (min-width: 1100px) {
+  .employment-contracts-workspace .contracts-main-pane {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.2fr);
+    grid-template-areas:
+      "generate templates"
+      "register register"
+      "foot foot";
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .employment-contracts-workspace .employment-generate-hero {
+    grid-area: generate;
+  }
+
+  .employment-contracts-workspace .employment-template-panel {
+    grid-area: templates;
+  }
+
+  .employment-contracts-workspace .employment-register-panel {
+    grid-area: register;
+  }
+
+  .employment-contracts-workspace .employment-foot-grid {
+    grid-area: foot;
+  }
+
+  .employment-contracts-workspace .employment-contract-generate-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .employment-contracts-workspace .employment-contract-generate-actions .btn {
+    width: 100%;
+  }
+
+  .employment-contracts-workspace .employment-template-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #employment-contracts .employment-stats-grid {
+    margin-bottom: 10px;
+  }
+
+  #employment-contracts .employment-sync-banner {
+    margin-bottom: 10px;
+    padding: 10px 12px;
+  }
 }
 
 .employment-steps {
@@ -8372,10 +8423,15 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
     border-radius: 10px;
   }
 
+  body.admin-portal .app {
+    grid-template-columns: 200px 1fr;
+  }
+
   body.admin-portal .sidebar {
     background: #0d3b32;
     border-right: 0;
     color: rgba(255, 255, 255, 0.88);
+    padding: 10px 8px;
   }
 
   body.admin-portal .sidebar .nav-section-label {
@@ -20644,15 +20700,45 @@ input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
   }
 
   #employees .employees-desktop-layout {
-    gap: 20px;
-    min-height: calc(100vh - 150px);
+    gap: 16px;
+    min-height: calc(100vh - 132px);
+    align-items: stretch;
+  }
+
+  #employees .employees-desktop-layout .hr-main-pane {
+    flex: 0 0 300px;
+    width: 300px;
+    max-width: 32vw;
+    min-width: 260px;
+    padding: 0;
+  }
+
+  #employees .employees-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 0 0 10px;
+  }
+
+  #employees .employees-stat-card {
+    min-height: 56px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  #employees .employees-register-table th:nth-child(2),
+  #employees .employees-register-table th:nth-child(3),
+  #employees .employees-register-table td:nth-child(2),
+  #employees .employees-register-table td:nth-child(3) {
+    display: none;
   }
 
   #employees #employees-side-panel.hr-detail-panel {
-    flex: 0 0 min(560px, 46vw);
-    width: min(560px, 46vw);
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: none;
     max-height: calc(100vh - 110px);
-    padding: 16px 16px 20px;
+    padding: 16px 18px 20px;
     border-radius: 18px;
     background: #fff;
     box-shadow: 0 10px 30px rgba(18, 37, 31, 0.06);
@@ -20661,7 +20747,7 @@ input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
 
   #employees #employees-side-panel .emp-side-body {
     overflow-y: auto;
-    max-height: calc(100vh - 320px);
+    max-height: calc(100vh - 300px);
     padding-right: 2px;
   }
 

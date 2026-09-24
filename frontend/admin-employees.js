@@ -465,7 +465,10 @@
     const selected = Boolean(hasEmployee);
     if (empty) empty.hidden = selected;
     if (content) content.hidden = !selected;
-    if (panel) panel.classList.toggle("employees-side-panel--selected", selected);
+    if (panel) {
+      panel.classList.toggle("employees-side-panel--selected", selected);
+      panel.classList.toggle("employees-side-panel--wide", selected);
+    }
   }
 
   function bucketEmployeesByStage(items = []) {
@@ -3040,7 +3043,8 @@
         if (workspaceCache) renderMobileEmployeeProfile(workspaceCache);
         return;
       }
-      void openEmployee(employeeId, "document_store");
+      sidePanelTab = "documents";
+      paintEmployeeSidePanel(workspace.employee || {}, workspace);
     });
     document.getElementById("employees-side-lifecycle-btn")?.addEventListener("click", () => {
       if (isMobileEmployeesHub()) {
@@ -4693,13 +4697,23 @@
       { id: "documents", label: "Documents" },
       { id: "notes", label: "Notes" },
     ];
-    if (sidePanelTab !== "overview" && sidePanelTab !== "notes") sidePanelTab = "overview";
+    const sectionsHtml = renderEmployeeRecordSectionsHtml(employee, workspace);
     let body = "";
-    if (sidePanelTab === "notes") {
+    if (sidePanelTab === "personal") {
+      body = `<div id="employees-side-personal-tab">${sectionsHtml}</div>`;
+    } else if (sidePanelTab === "employment") {
+      body = `${renderSideEmploymentFields(employee)}`;
+    } else if (sidePanelTab === "documents") {
+      const host = document.createElement("div");
+      host.innerHTML = sectionsHtml;
+      const docs = host.querySelector("#employees-side-documents");
+      body = `<div id="employees-side-docs-tab">${docs ? docs.outerHTML : sectionsHtml}</div>`;
+    } else if (sidePanelTab === "notes") {
       body = `<div class="emp-notes-panel" id="employees-side-notes"><p class="muted">Loading notes…</p></div>`;
     } else {
       body = renderSideOverviewHtml(employee, workspace);
     }
+    $("employees-side-panel")?.classList.add("employees-side-panel--wide");
 
     content.innerHTML = `
       <article class="employee-record-card employee-record-card--sheet">
@@ -4752,16 +4766,7 @@
     const content = $("employees-side-content");
     content?.querySelectorAll("[data-side-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const tab = btn.getAttribute("data-side-tab") || "overview";
-        if (tab === "personal" || tab === "employment") {
-          void openEmployee(employee.id);
-          return;
-        }
-        if (tab === "documents") {
-          void openEmployee(employee.id, "document_store");
-          return;
-        }
-        sidePanelTab = tab;
+        sidePanelTab = btn.getAttribute("data-side-tab") || "overview";
         paintEmployeeSidePanel(employee, workspace);
       });
     });
@@ -4784,6 +4789,21 @@
       if (moreWrap && !moreWrap.contains(event.target) && moreMenu) moreMenu.hidden = true;
     }, { once: true });
 
+    if (sidePanelTab === "personal" || sidePanelTab === "documents" || sidePanelTab === "employment") {
+      bindSidePanelInlineFields(employee, workspace);
+    }
+    if (sidePanelTab === "employment" || sidePanelTab === "personal") {
+      void refreshEmployeeSidePanelKioskPin(employee.id);
+    }
+    if (sidePanelTab === "personal") {
+      content?.querySelector("#employees-side-documents")?.closest("section")?.setAttribute("hidden", "");
+    }
+    if (sidePanelTab === "documents") {
+      content?.querySelector("#employees-side-personal-title")?.closest("section")?.setAttribute("hidden", "");
+      content?.querySelector("#employees-side-emergency-title")?.closest("section")?.setAttribute("hidden", "");
+      const upload = content?.querySelector(".employee-record-doc-upload");
+      if (upload) upload.open = true;
+    }
     if (sidePanelTab === "notes") void loadSidePanelNotes(employee.id);
 
     content?.querySelector("[data-open-lifecycle]")?.addEventListener("click", () => {
