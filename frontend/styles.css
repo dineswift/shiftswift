@@ -19689,6 +19689,119 @@ input[type="datetime-local"] {
   max-width: 100%;
 }
 
+input[type="date"].sshr-date-enhanced {
+  cursor: pointer;
+}
+
+input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.sshr-datepicker {
+  position: fixed;
+  z-index: 240;
+  width: min(320px, calc(100vw - 24px));
+  padding: 12px;
+  background: var(--card, #fff);
+  border: 1px solid var(--card-border, #d3d1c7);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(4, 52, 44, 0.16);
+}
+
+.sshr-datepicker__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sshr-datepicker__month {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--green-900, #04342c);
+}
+
+.sshr-datepicker__nav-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.sshr-datepicker__nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-700, #333);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sshr-datepicker__nav-btn:hover {
+  background: var(--green-100, #e1f5ee);
+}
+
+.sshr-datepicker__weekdays,
+.sshr-datepicker__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.sshr-datepicker__weekdays {
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-500, #5f5e5a);
+}
+
+.sshr-datepicker__day {
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-800, #111);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.sshr-datepicker__day.is-muted {
+  color: var(--ink-400, #9a9893);
+}
+
+.sshr-datepicker__day.is-today:not(.is-selected) {
+  background: #f3e8ee;
+  color: #9b3d6a;
+  font-weight: 700;
+}
+
+.sshr-datepicker__day.is-selected {
+  background: var(--green-700, #0f6e56);
+  color: #fff;
+  font-weight: 700;
+}
+
+.sshr-datepicker__day:hover:not(.is-selected) {
+  background: var(--green-100, #e1f5ee);
+}
+
+.sshr-datepicker__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 @media (max-width: 860px) {
   input[type="date"],
   input[type="datetime-local"] {

@@ -350,6 +350,7 @@ def password_reset_email(*, role_label: str, reset_url: str, reset_hours: int) -
 
 def login_email_mfa_code(*, code: str, minutes: int) -> EmailContent:
     subject = f"{APP_NAME} — your sign-in code"
+    safe_code = _esc(code)
     text = (
         f"Hello,\n\n"
         f"Your {APP_NAME} sign-in code is:\n\n"
@@ -363,8 +364,14 @@ def login_email_mfa_code(*, code: str, minutes: int) -> EmailContent:
         preheader=f"Your sign-in code is {code}.",
         title="Your sign-in code",
         intro="Use this code to finish signing in to ShiftSwift HR.",
+        html_paragraphs=[
+            (
+                f'<strong style="display:inline-block;font-size:28px;letter-spacing:4px;'
+                f"font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;"
+                f'color:{GREEN_900};">{safe_code}</strong>'
+            ),
+        ],
         paragraphs=[
-            f"<strong style=\"font-size:28px;letter-spacing:4px\">{code}</strong>",
             f"This code expires in {minutes} minutes. If you did not try to sign in, you can ignore this email.",
         ],
     )

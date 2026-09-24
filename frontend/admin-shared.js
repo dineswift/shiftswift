@@ -1364,12 +1364,215 @@ window.Admin = (() => {
     input.toggleAttribute("data-empty", !String(input.value || "").trim());
   }
 
+  function isoFromLocalDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseIsoDateValue(value) {
+    const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function todayLocalDate() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  let datePickerState = null;
+
+  function closeDatePicker() {
+    datePickerState?.popover?.remove();
+    datePickerState?.onDocClose && document.removeEventListener("pointerdown", datePickerState.onDocClose, true);
+    datePickerState?.onKey && document.removeEventListener("keydown", datePickerState.onKey, true);
+    window.removeEventListener("resize", closeDatePicker);
+    window.removeEventListener("scroll", closeDatePicker, true);
+    datePickerState = null;
+  }
+
+  function applyDatePickerValue(input, iso) {
+    if (!input || !iso) return;
+    input.value = iso;
+    syncDateInputEmptyState(input);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function positionDatePicker(popover, input) {
+    const rect = input.getBoundingClientRect();
+    const width = popover.offsetWidth || 300;
+    const height = popover.offsetHeight || 320;
+    const gap = 8;
+    let left = rect.left;
+    if (left + width > window.innerWidth - 12) left = Math.max(12, window.innerWidth - width - 12);
+    if (left < 12) left = 12;
+    let top = rect.bottom + gap;
+    if (top + height > window.innerHeight - 12 && rect.top - gap - height > 12) {
+      top = rect.top - gap - height;
+    }
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  }
+
+  function renderDatePickerGrid(state) {
+    const weekdays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    const view = new Date(state.viewYear, state.viewMonth, 1);
+    const firstDow = (view.getDay() + 6) % 7;
+    const start = new Date(state.viewYear, state.viewMonth, 1 - firstDow);
+    const todayIso = isoFromLocalDate(todayLocalDate());
+    const selectedIso = state.pendingIso;
+    const monthLabel = view.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+    const cells = [];
+    for (let index = 0; index < 42; index += 1) {
+      const cell = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+      const iso = isoFromLocalDate(cell);
+      const muted = cell.getMonth() !== state.viewMonth;
+      const classes = ["sshr-datepicker__day"];
+      if (muted) classes.push("is-muted");
+      if (iso === todayIso) classes.push("is-today");
+      if (iso === selectedIso) classes.push("is-selected");
+      cells.push(
+        `<button type="button" class="${classes.join(" ")}" data-iso="${iso}" aria-pressed="${iso === selectedIso ? "true" : "false"}">${cell.getDate()}</button>`
+      );
+    }
+    return `
+      <div class="sshr-datepicker__nav">
+        <p class="sshr-datepicker__month">${escapeHtml(monthLabel)}</p>
+        <div class="sshr-datepicker__nav-btns">
+          <button type="button" class="sshr-datepicker__nav-btn" data-nav="-1" aria-label="Previous month">‹</button>
+          <button type="button" class="sshr-datepicker__nav-btn" data-nav="1" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div class="sshr-datepicker__weekdays">${weekdays.map((day) => `<span>${day}</span>`).join("")}</div>
+      <div class="sshr-datepicker__grid">${cells.join("")}</div>
+      <div class="sshr-datepicker__actions">
+        <button type="button" class="btn ghost" data-today>Today</button>
+        <button type="button" class="btn" data-select>Select</button>
+      </div>`;
+  }
+
+  function refreshDatePicker() {
+    if (!datePickerState?.popover) return;
+    datePickerState.popover.innerHTML = renderDatePickerGrid(datePickerState);
+    positionDatePicker(datePickerState.popover, datePickerState.input);
+  }
+
+  function openDatePicker(input) {
+    if (!input || input.disabled) return;
+    if (datePickerState?.input === input && datePickerState.popover?.isConnected) {
+      closeDatePicker();
+      return;
+    }
+    closeDatePicker();
+    const current = parseIsoDateValue(input.value) || todayLocalDate();
+    const popover = document.createElement("div");
+    popover.className = "sshr-datepicker";
+    popover.setAttribute("role", "dialog");
+    popover.setAttribute("aria-label", "Choose a date");
+    const state = {
+      input,
+      popover,
+      viewYear: current.getFullYear(),
+      viewMonth: current.getMonth(),
+      pendingIso: isoFromLocalDate(current),
+      onDocClose: null,
+      onKey: null,
+    };
+    datePickerState = state;
+    popover.addEventListener("click", (event) => {
+      const nav = event.target.closest("[data-nav]");
+      if (nav) {
+        const delta = Number(nav.getAttribute("data-nav") || "0");
+        const next = new Date(state.viewYear, state.viewMonth + delta, 1);
+        state.viewYear = next.getFullYear();
+        state.viewMonth = next.getMonth();
+        refreshDatePicker();
+        return;
+      }
+      const day = event.target.closest("[data-iso]");
+      if (day) {
+        state.pendingIso = day.getAttribute("data-iso");
+        const picked = parseIsoDateValue(state.pendingIso);
+        if (picked) {
+          state.viewYear = picked.getFullYear();
+          state.viewMonth = picked.getMonth();
+        }
+        refreshDatePicker();
+        return;
+      }
+      if (event.target.closest("[data-today]")) {
+        const today = todayLocalDate();
+        state.pendingIso = isoFromLocalDate(today);
+        state.viewYear = today.getFullYear();
+        state.viewMonth = today.getMonth();
+        applyDatePickerValue(input, state.pendingIso);
+        closeDatePicker();
+        return;
+      }
+      if (event.target.closest("[data-select]")) {
+        applyDatePickerValue(input, state.pendingIso || isoFromLocalDate(todayLocalDate()));
+        closeDatePicker();
+      }
+    });
+    document.body.appendChild(popover);
+    refreshDatePicker();
+    state.onDocClose = (event) => {
+      if (event.target === input || popover.contains(event.target)) return;
+      closeDatePicker();
+    };
+    state.onKey = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDatePicker();
+      }
+      if (event.key === "Enter" && datePickerState?.input === input) {
+        event.preventDefault();
+        applyDatePickerValue(input, state.pendingIso || isoFromLocalDate(todayLocalDate()));
+        closeDatePicker();
+      }
+    };
+    document.addEventListener("pointerdown", state.onDocClose, true);
+    document.addEventListener("keydown", state.onKey, true);
+    window.addEventListener("resize", closeDatePicker);
+    window.addEventListener("scroll", closeDatePicker, true);
+  }
+
+  function enhanceDatePicker(input) {
+    if (!input || input.type !== "date" || input.dataset.sshrDatePicker === "1") return;
+    if (input.disabled) return;
+    input.dataset.sshrDatePicker = "1";
+    input.classList.add("sshr-date-enhanced");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("inputmode", "none");
+    input.readOnly = true;
+    const open = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openDatePicker(input);
+    };
+    input.addEventListener("pointerdown", open);
+    input.addEventListener("click", open);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
+        event.preventDefault();
+        openDatePicker(input);
+      }
+    });
+  }
+
   function bindDateInputs(root = document) {
     const scope = root?.nodeType === 1 ? root : document;
     const inputs = [];
     if (scope.matches?.('input[type="date"]')) inputs.push(scope);
     scope.querySelectorAll?.('input[type="date"]').forEach((input) => inputs.push(input));
-    inputs.forEach(syncDateInputEmptyState);
+    inputs.forEach((input) => {
+      syncDateInputEmptyState(input);
+      enhanceDatePicker(input);
+    });
   }
 
   function observeDateInputs() {
