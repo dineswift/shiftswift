@@ -4693,21 +4693,13 @@
       { id: "documents", label: "Documents" },
       { id: "notes", label: "Notes" },
     ];
-    const sectionsHtml = renderEmployeeRecordSectionsHtml(employee, workspace);
+    if (sidePanelTab !== "overview" && sidePanelTab !== "notes") sidePanelTab = "overview";
     let body = "";
-    if (sidePanelTab === "overview") body = renderSideOverviewHtml(employee, workspace);
-    else if (sidePanelTab === "personal") body = `<div id="employees-side-personal-tab">${sectionsHtml}</div>`;
-    else if (sidePanelTab === "employment") body = `${renderSideEmploymentFields(employee)}<p class="employee-record-lifecycle-link"><button type="button" class="employee-record-link" id="employees-side-lifecycle-btn">Full lifecycle record →</button></p>`;
-    else if (sidePanelTab === "documents") {
-      const docsOnly = (() => {
-        const host = document.createElement("div");
-        host.innerHTML = sectionsHtml;
-        const docs = host.querySelector("#employees-side-documents");
-        return docs ? docs.outerHTML : sectionsHtml;
-      })();
-      body = `<div id="employees-side-docs-tab">${docsOnly}</div>`;
+    if (sidePanelTab === "notes") {
+      body = `<div class="emp-notes-panel" id="employees-side-notes"><p class="muted">Loading notes…</p></div>`;
+    } else {
+      body = renderSideOverviewHtml(employee, workspace);
     }
-    else body = `<div class="emp-notes-panel" id="employees-side-notes"><p class="muted">Loading notes…</p></div>`;
 
     content.innerHTML = `
       <article class="employee-record-card employee-record-card--sheet">
@@ -4732,11 +4724,11 @@
               : `<button type="button" class="btn outline btn-sm" disabled>${iconSvg("mail")} Send message</button>`
           }
           <button type="button" class="btn outline btn-sm" data-side-tab="documents">${iconSvg("document")} Request document</button>
+          <button type="button" class="btn ghost btn-sm" data-open-lifecycle>Open full record</button>
           <div class="employee-record-more" id="employees-side-more">
             <button type="button" class="btn ghost btn-sm" id="employees-side-more-btn" aria-expanded="false">${iconSvg("more")} More</button>
             <div class="employee-record-more-menu" id="employees-side-more-menu" hidden>
               <button type="button" id="employees-side-invite-btn" ${inviteDisabled ? "disabled" : ""}>${escapeHtml(inviteLabel)}</button>
-              <button type="button" data-open-lifecycle>Full lifecycle record</button>
               <button type="button" class="employee-record-remove" id="employees-side-delete-btn">Remove</button>
             </div>
           </div>
@@ -4760,7 +4752,16 @@
     const content = $("employees-side-content");
     content?.querySelectorAll("[data-side-tab]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        sidePanelTab = btn.getAttribute("data-side-tab") || "overview";
+        const tab = btn.getAttribute("data-side-tab") || "overview";
+        if (tab === "personal" || tab === "employment") {
+          void openEmployee(employee.id);
+          return;
+        }
+        if (tab === "documents") {
+          void openEmployee(employee.id, "document_store");
+          return;
+        }
+        sidePanelTab = tab;
         paintEmployeeSidePanel(employee, workspace);
       });
     });
@@ -4783,21 +4784,6 @@
       if (moreWrap && !moreWrap.contains(event.target) && moreMenu) moreMenu.hidden = true;
     }, { once: true });
 
-    if (sidePanelTab === "personal" || sidePanelTab === "documents" || sidePanelTab === "employment") {
-      bindSidePanelInlineFields(employee, workspace);
-    }
-    if (sidePanelTab === "employment" || sidePanelTab === "personal") {
-      void refreshEmployeeSidePanelKioskPin(employee.id);
-    }
-    if (sidePanelTab === "personal") {
-      content?.querySelector("#employees-side-documents")?.closest("section")?.setAttribute("hidden", "");
-    }
-    if (sidePanelTab === "documents") {
-      content?.querySelector("#employees-side-personal-title")?.closest("section")?.setAttribute("hidden", "");
-      content?.querySelector("#employees-side-emergency-title")?.closest("section")?.setAttribute("hidden", "");
-      const upload = content?.querySelector(".employee-record-doc-upload");
-      if (upload) upload.open = true;
-    }
     if (sidePanelTab === "notes") void loadSidePanelNotes(employee.id);
 
     content?.querySelector("[data-open-lifecycle]")?.addEventListener("click", () => {

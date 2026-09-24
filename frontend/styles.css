@@ -20290,6 +20290,11 @@ input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
 
 .employee-record-card--sheet {
   gap: 14px;
+  overflow: visible;
+}
+
+.employee-record-card--sheet .employee-record-actions {
+  overflow: visible;
 }
 
 .employee-record-name-row {
@@ -20349,7 +20354,7 @@ input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 8;
+  z-index: 40;
   min-width: 196px;
   padding: 6px;
   border: 1px solid var(--card-border);
@@ -20644,13 +20649,20 @@ input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
   }
 
   #employees #employees-side-panel.hr-detail-panel {
-    flex: 0 0 min(460px, 38vw);
-    width: min(460px, 38vw);
+    flex: 0 0 min(560px, 46vw);
+    width: min(560px, 46vw);
     max-height: calc(100vh - 110px);
     padding: 16px 16px 20px;
     border-radius: 18px;
     background: #fff;
     box-shadow: 0 10px 30px rgba(18, 37, 31, 0.06);
+    overflow: visible;
+  }
+
+  #employees #employees-side-panel .emp-side-body {
+    overflow-y: auto;
+    max-height: calc(100vh - 320px);
+    padding-right: 2px;
   }
 
   .employees-add-btn {
