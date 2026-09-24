@@ -437,6 +437,7 @@ def _list_identity_rtw_documents(
     conn: Any,
     limit: int = 500,
     document_id: int | None = None,
+    employee_id: int | None = None,
     as_of: date | None = None,
 ) -> list[dict[str, Any]]:
     from core.schema import table_columns
@@ -476,6 +477,9 @@ def _list_identity_rtw_documents(
     if document_id is not None:
         where.append("d.id = %s")
         params.append(document_id)
+    if employee_id is not None:
+        where.append("d.employee_id = %s")
+        params.append(employee_id)
     params.append(limit)
     order_sql = "d.created_at DESC NULLS LAST, d.id DESC" if "created_at" in cols else "d.id DESC"
     query = f"""
@@ -571,7 +575,7 @@ def apply_rtw_followup_state(items: list[dict[str, Any]]) -> list[dict[str, Any]
     return items
 
 
-def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str, Any]:
+def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500, employee_id: int | None = None) -> dict[str, Any]:
     today = date.today()
     query = f"""
         SELECT c.id, c.employee_id, c.check_date, c.check_method, c.checker_user_id,
@@ -584,15 +588,22 @@ def list_rtw_checks(*, tenant_id: int, conn: Any, limit: int = 500) -> dict[str,
         LEFT JOIN employee_sponsor_profiles esp
           ON esp.tenant_id = c.tenant_id AND esp.employee_id = c.employee_id
         WHERE c.tenant_id = %s
+        {"AND c.employee_id = %s" if employee_id is not None else ""}
         ORDER BY c.check_date DESC, c.id DESC
         LIMIT %s
     """
+    params: list[Any] = [tenant_id]
+    if employee_id is not None:
+        params.append(employee_id)
+    params.append(limit)
     with conn.cursor() as cur:
-        cur.execute(query, (tenant_id, limit))
+        cur.execute(query, params)
         rows = cur.fetchall()
     items = [_serialize_rtw_row(row, as_of=today) for row in rows]
     items.extend(
-        _list_identity_rtw_documents(tenant_id=tenant_id, conn=conn, limit=limit, as_of=today)
+        _list_identity_rtw_documents(
+            tenant_id=tenant_id, conn=conn, limit=limit, as_of=today, employee_id=employee_id
+        )
     )
     apply_rtw_followup_state(items)
     items.sort(key=_rtw_list_sort_key)

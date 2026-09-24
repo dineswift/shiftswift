@@ -214,12 +214,13 @@ def rtw_checklist_link() -> dict[str, str]:
 def list_rtw_check_records(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    employee_id: int | None = None,
 ) -> dict[str, Any]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        return list_rtw_checks(tenant_id=tenant_id, conn=conn)
+        return list_rtw_checks(tenant_id=tenant_id, conn=conn, employee_id=employee_id)
     finally:
         conn.close()
 

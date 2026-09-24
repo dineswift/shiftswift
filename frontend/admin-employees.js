@@ -368,7 +368,7 @@
       body: "Mentoring, workplace assistance, and wellbeing resources. Link grievance or compliance workflows when needed.",
       links: [
         { href: "#grievance", label: "Grievance cases" },
-        { href: "#compliance", label: "Sponsor compliance" },
+        { href: "#compliance/rtw", label: "Sponsor compliance" },
       ],
     },
     performance_improvement: {
@@ -499,7 +499,7 @@
     if (item.docCategory) {
       const req = (workspace.document_requirements?.items || []).find((entry) => entry.category === item.docCategory);
       if (req) return Boolean(req.satisfied);
-      return (workspace.documents || []).some(
+      return scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId).some(
         (doc) => String(doc.category || "").toLowerCase() === item.docCategory,
       );
     }
@@ -509,7 +509,9 @@
 
   function checklistItemStarted(workspace, item) {
     if (item.docCategory) {
-      return (workspace.documents || []).some((doc) => doc.category === item.docCategory);
+      return scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId).some(
+        (doc) => doc.category === item.docCategory,
+      );
     }
     const section = (workspace.sections || []).find((entry) => entry.key === item.sectionKey);
     if (!section?.data) return false;
@@ -2225,7 +2227,7 @@
     host.innerHTML = `
       <button type="button" class="btn ghost btn-sm" id="employee-change-history-btn">Change history</button>
       <button type="button" class="btn ghost btn-sm" id="employee-leave-history-btn">Leave history</button>
-      ${sponsored ? '<a href="#compliance" class="btn ghost btn-sm">Sponsor compliance</a>' : ""}
+      ${sponsored ? `<a href="#compliance/rtw/${encodeURIComponent(employeeId)}" class="btn ghost btn-sm">Sponsor compliance</a>` : ""}
       <a href="#grievance" class="btn ghost btn-sm">Grievance cases</a>
       <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost btn-sm">Employment contract</a>
       <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost btn-sm">Off-boarding workflow</a>
@@ -2400,6 +2402,14 @@
       employeesCache[idx] = { ...employeesCache[idx], ...data.employee, completion_pct: data.completion_pct, next_section: data.next_section };
     }
     return data;
+  }
+
+  function scopedEmployeeDocuments(docs, employeeId) {
+    const wanted = Number(employeeId);
+    if (!wanted) return docs || [];
+    const owned = (docs || []).filter((doc) => doc.employee_id != null && doc.employee_id !== "");
+    if (!owned.length) return docs || [];
+    return owned.filter((doc) => Number(doc.employee_id) === wanted);
   }
 
   function splitEmployeeDocuments(docs) {
@@ -2593,7 +2603,9 @@
 
   function fillEmployeeRecordDocumentLists(host, workspace) {
     if (!host) return;
-    const split = splitEmployeeDocuments(workspace.documents || []);
+    const split = splitEmployeeDocuments(
+      scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId),
+    );
     employeeRecordTypeGroups(split).forEach((group) => {
       const count = host.querySelector(`#employees-side-doc-${group.id}-count`);
       const statusEl = host.querySelector(`#employees-side-doc-${group.id}-status`);
@@ -2645,7 +2657,7 @@
   function bindEmployeeRecordDocumentActions(container, workspace) {
     if (!container || !workspace?.employee?.id) return;
     const employeeId = workspace.employee.id;
-    const docs = workspace.documents || [];
+    const docs = scopedEmployeeDocuments(workspace.documents || [], employeeId);
     const statusEl = container.querySelector("#employees-side-doc-status");
 
     container.querySelectorAll("[data-record-delete-doc]").forEach((btn) => {
@@ -2808,7 +2820,7 @@
 
   function renderEmployeeRecordSectionsHtml(employee, workspace) {
     const emp = workspace.employee || employee || {};
-    const split = splitEmployeeDocuments(workspace.documents || []);
+    const split = splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], emp.id));
     const typeGroups = employeeRecordTypeGroups(split);
     const { businessOnly, shared } = split;
     const documentsOnFile =
@@ -3642,6 +3654,7 @@
     }
     const tbody = container.querySelector("#employee-documents-body");
     if (!tbody) return;
+    const docs = scopedEmployeeDocuments(data.documents || [], activeEmployeeId);
     renderTableBody(tbody, {
       emptyMessage: "No documents recorded yet.",
       columns: [
@@ -3662,9 +3675,9 @@
           render: (row) => renderEmployeeDocumentActions(row),
         },
       ],
-      rows: data.documents || [],
+      rows: docs,
     });
-    bindEmployeeDocumentTableActions(container, data.documents || []);
+    bindEmployeeDocumentTableActions(container, docs);
   }
 
   async function resendEmployeeDocumentNotification(documentId, statusEl, button) {
@@ -3882,7 +3895,7 @@
   function renderDocumentStorePanel(workspace, container) {
     const section = (workspace.sections || []).find((item) => item.key === "document_store");
     const requirements = workspace.document_requirements || {};
-    const docs = workspace.documents || [];
+    const docs = scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId);
 
     container.innerHTML = `
       <div class="employee-section-intro">
@@ -4564,7 +4577,9 @@
   }
 
   function visaBrpSummary(workspace, employee) {
-    const visaDocs = (workspace.documents || []).filter((doc) => documentKindFromCategory(doc.category) === "visa" && !doc.superseded);
+    const visaDocs = scopedEmployeeDocuments(workspace.documents || [], employee?.id).filter(
+      (doc) => documentKindFromCategory(doc.category) === "visa" && !doc.superseded,
+    );
     const expiry = employee.sponsorship?.visa_expiry_date || employee.visa_expiry_date;
     if (visaDocs.length && expiry) return `On file · ${formatFriendlyDate(expiry)}`;
     if (visaDocs.length) return "On file";
@@ -4582,7 +4597,7 @@
 
   function renderSideOverviewHtml(employee, workspace) {
     const requirements = workspace.document_requirements || {};
-    const docsOnFile = (workspace.documents || []).filter((doc) => !doc.superseded).length;
+    const docsOnFile = scopedEmployeeDocuments(workspace.documents || [], employee.id).filter((doc) => !doc.superseded).length;
     const missing = Number(requirements.missing_required || 0);
     const joined = formatJoinedDate(employee.start_date);
     const contract = employmentTypeLabel(employee.employment_type) || (employee.employment_type ? String(employee.employment_type) : "—");
@@ -4683,7 +4698,15 @@
     if (sidePanelTab === "overview") body = renderSideOverviewHtml(employee, workspace);
     else if (sidePanelTab === "personal") body = `<div id="employees-side-personal-tab">${sectionsHtml}</div>`;
     else if (sidePanelTab === "employment") body = `${renderSideEmploymentFields(employee)}<p class="employee-record-lifecycle-link"><button type="button" class="employee-record-link" id="employees-side-lifecycle-btn">Full lifecycle record →</button></p>`;
-    else if (sidePanelTab === "documents") body = `<div id="employees-side-docs-tab">${sectionsHtml}</div>`;
+    else if (sidePanelTab === "documents") {
+      const docsOnly = (() => {
+        const host = document.createElement("div");
+        host.innerHTML = sectionsHtml;
+        const docs = host.querySelector("#employees-side-documents");
+        return docs ? docs.outerHTML : sectionsHtml;
+      })();
+      body = `<div id="employees-side-docs-tab">${docsOnly}</div>`;
+    }
     else body = `<div class="emp-notes-panel" id="employees-side-notes"><p class="muted">Loading notes…</p></div>`;
 
     content.innerHTML = `

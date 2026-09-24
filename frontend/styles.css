@@ -7682,6 +7682,20 @@ button.lifecycle-accordion-header .lifecycle-accordion-chevron {
   border-bottom: 1px solid var(--card-border);
 }
 
+.rtw-employee-scope {
+  margin: 0 20px 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #e8f6ef;
+  color: #0f6e56;
+  font-size: 0.92rem;
+}
+
+.rtw-employee-scope a {
+  color: inherit;
+  font-weight: 700;
+}
+
 .rota-builder-header {
   display: flex;
   flex-wrap: wrap;

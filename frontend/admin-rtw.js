@@ -120,7 +120,20 @@
     return "";
   }
 
+  function focusedEmployeeIdFromHash() {
+    const parts = String(window.location.hash || "")
+      .replace("#", "")
+      .split("/")
+      .filter(Boolean);
+    if (parts[0] !== "compliance") return "";
+    if (parts[1] === "employee" && /^\d+$/.test(parts[2] || "")) return parts[2];
+    if (parts[1] === "rtw" && /^\d+$/.test(parts[2] || "")) return parts[2];
+    return "";
+  }
+
   function matchesLiveFilter(item) {
+    const focusId = focusedEmployeeIdFromHash();
+    if (focusId && String(item?.employee_id) !== String(focusId)) return false;
     if (item?.superseded) return false;
     if (KIND_FILTERS.has(activeFilter) && item.document_kind !== activeFilter) return false;
     if (activeFilter === "sponsored" && !item.is_sponsored) return false;
@@ -198,26 +211,63 @@
   function renderKindSummary() {
     const el = document.getElementById("rtw-kind-summary");
     if (!el) return;
-    if (!rtwItems.length) {
+    const focusId = focusedEmployeeIdFromHash();
+    const current = rtwItems.filter(
+      (item) => !item.superseded && (!focusId || String(item.employee_id) === String(focusId)),
+    );
+    if (!current.length) {
       el.hidden = true;
       el.textContent = "";
       return;
     }
-    const passports = rtwStats.passports ?? rtwItems.filter((item) => !item.superseded && item.document_kind === "passport").length;
-    const visas = rtwStats.visa_brp ?? rtwItems.filter((item) => !item.superseded && item.document_kind === "visa").length;
-    const checks = rtwStats.rtw_checks ?? rtwItems.filter((item) => !item.superseded && item.document_kind === "rtw_check").length;
+    const passports = current.filter((item) => item.document_kind === "passport").length;
+    const visas = current.filter((item) => item.document_kind === "visa").length;
+    const checks = current.filter((item) => item.document_kind === "rtw_check").length;
     el.hidden = false;
     el.textContent = `${passports} passport / ID · ${visas} visa / BRP · ${checks} right to work`;
   }
 
+  function renderEmployeeScopeBanner() {
+    const workspace = document.querySelector("#compliance-rtw .rtw-workspace-header") || document.getElementById("compliance-rtw");
+    if (!workspace) return;
+    let banner = document.getElementById("rtw-employee-scope");
+    const focusId = focusedEmployeeIdFromHash();
+    if (!focusId) {
+      if (banner) banner.remove();
+      return;
+    }
+    const sample = rtwItems.find((item) => String(item.employee_id) === String(focusId));
+    const name = sample?.employee_name || `Employee #${focusId}`;
+    if (!banner) {
+      banner = document.createElement("p");
+      banner.id = "rtw-employee-scope";
+      banner.className = "rtw-employee-scope";
+      workspace.insertAdjacentElement("afterend", banner);
+    }
+    banner.innerHTML = `Showing identity and right-to-work files for <strong>${escapeHtml(name)}</strong>. <a href="#compliance/rtw">Show all employees</a>`;
+  }
+
   function renderStats() {
-    document.getElementById("rtw-stat-total").textContent = String(rtwStats.total ?? 0);
-    document.getElementById("rtw-stat-verified").textContent = String(rtwStats.verified ?? 0);
-    document.getElementById("rtw-stat-expiring").textContent = String(rtwStats.expiring_soon ?? 0);
-    document.getElementById("rtw-stat-review").textContent = String(rtwStats.needs_review ?? 0);
-    updateReviewStatTone(rtwStats.needs_review ?? 0);
+    const focusId = focusedEmployeeIdFromHash();
+    const current = focusId
+      ? rtwItems.filter((item) => !item.superseded && String(item.employee_id) === String(focusId))
+      : rtwItems.filter((item) => !item.superseded);
+    const stats = focusId
+      ? {
+          total: current.length,
+          verified: current.filter((item) => item.status === "verified").length,
+          expiring_soon: current.filter((item) => item.status === "expiring_soon").length,
+          needs_review: current.filter((item) => item.status === "needs_review").length,
+        }
+      : rtwStats;
+    document.getElementById("rtw-stat-total").textContent = String(stats.total ?? 0);
+    document.getElementById("rtw-stat-verified").textContent = String(stats.verified ?? 0);
+    document.getElementById("rtw-stat-expiring").textContent = String(stats.expiring_soon ?? 0);
+    document.getElementById("rtw-stat-review").textContent = String(stats.needs_review ?? 0);
+    updateReviewStatTone(stats.needs_review ?? 0);
     renderKindSummary();
-    window.dispatchEvent(new CustomEvent("admin:rtw-stats", { detail: { stats: rtwStats } }));
+    renderEmployeeScopeBanner();
+    window.dispatchEvent(new CustomEvent("admin:rtw-stats", { detail: { stats } }));
   }
 
   function updateReviewStatTone(count) {
@@ -832,13 +882,18 @@
     if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading identity and right-to-work records…</td></tr>`;
     if (cardsHost) cardsHost.innerHTML = `<p class="muted">Loading RTW records…</p>`;
     try {
-      const res = await apiFetch("/compliance/sponsor-licence/rtw-checks");
+      const focusId = focusedEmployeeIdFromHash();
+      const path = focusId
+        ? `/compliance/sponsor-licence/rtw-checks?employee_id=${encodeURIComponent(focusId)}`
+        : "/compliance/sponsor-licence/rtw-checks";
+      const res = await apiFetch(path);
       if (!res.ok) throw new Error(await readApiError(res, "Could not load RTW records"));
       const data = await res.json();
       rtwItems = data.items || [];
       rtwStats = data.stats || rtwStats;
       renderStats();
       renderTable();
+      if (focusId) setAddCheckEmployee(focusId);
       if (selectedCheckId && rtwItems.some((item) => sameRecordId(item.id, selectedCheckId))) {
         await selectCheck(selectedCheckId);
       } else if (selectedCheckId) {
@@ -956,6 +1011,10 @@
 
     window.addEventListener("admin:rtw-refresh", () => loadRtwRecords());
     window.addEventListener("admin:compliance-tools-ready", () => tryLoadRtwRecords());
+    window.addEventListener("hashchange", () => {
+      if (parseHashBaseSection(window.location.hash) !== "compliance") return;
+      void tryLoadRtwRecords();
+    });
   }
 
   async function initRtwSection() {
