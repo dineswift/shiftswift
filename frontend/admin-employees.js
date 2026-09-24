@@ -2456,6 +2456,19 @@
     };
   }
 
+  const DOC_GROUP_META = {
+    id: { icon: "passport", uploadCategory: "id" },
+    visa: { icon: "card", uploadCategory: "visa_brp" },
+    rtw: { icon: "check", uploadCategory: "rtw" },
+    dbs: { icon: "lock", uploadCategory: "dbs" },
+    training: { icon: "clipboard", uploadCategory: "qualification" },
+    contract: { icon: "document", uploadCategory: "contract" },
+    policy: { icon: "file", uploadCategory: "policy" },
+    disciplinary: { icon: "alert", uploadCategory: "disciplinary" },
+    payslip: { icon: "card", uploadCategory: "payslip" },
+  };
+  const CORE_DOC_GROUPS = new Set(["id", "visa", "rtw", "contract"]);
+
   function employeeRecordTypeGroups(split) {
     return [
       { id: "id", title: "ID / passport", docs: split.idDocs, empty: "No ID or passport on file yet." },
@@ -2468,6 +2481,89 @@
       { id: "disciplinary", title: "Disciplinary", docs: split.disciplinaryDocs, empty: "No disciplinary records on file yet." },
       { id: "payslip", title: "Payslips", docs: split.payslipDocs, empty: "No payslips on file yet." },
     ];
+  }
+
+  function requirementForDocGroup(groupId, requirements) {
+    const category = DOC_GROUP_META[groupId]?.uploadCategory;
+    return (requirements?.items || []).find((item) => item.category === category) || null;
+  }
+
+  function visibleEmployeeRecordTypeGroups(split, requirements) {
+    return employeeRecordTypeGroups(split)
+      .filter((group) => {
+        if (group.docs.length || CORE_DOC_GROUPS.has(group.id)) return true;
+        return Boolean(requirementForDocGroup(group.id, requirements)?.required);
+      })
+      .map((group) => {
+        const req = requirementForDocGroup(group.id, requirements);
+        const active = group.docs.filter((doc) => !doc.superseded);
+        return {
+          ...group,
+          uploadCategory: DOC_GROUP_META[group.id]?.uploadCategory || group.id,
+          icon: DOC_GROUP_META[group.id]?.icon || "document",
+          required: Boolean(req?.required),
+          satisfied: req ? Boolean(req.satisfied) : active.length > 0,
+        };
+      });
+  }
+
+  function renderEmployeeDocAlertHtml(requirements, { id = "" } = {}) {
+    const items = requirements?.items || [];
+    const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
+    if (!items.length) return id ? `<div${idAttr}></div>` : "";
+    if (requirements.complete) {
+      return `<div${idAttr} class="employee-doc-alert employee-doc-alert--ok" role="status">
+        <span class="employee-doc-alert__icon" aria-hidden="true">${iconSvg("check")}</span>
+        <div class="employee-doc-alert__body">
+          <strong>Required documents complete</strong>
+          <p>ID, contract and sponsorship files on this record are in place.</p>
+        </div>
+      </div>`;
+    }
+    const missing = items.filter((item) => item.required && !item.satisfied);
+    if (!missing.length) return id ? `<div${idAttr}></div>` : "";
+    const count = missing.length;
+    const chips = missing
+      .map(
+        (item) =>
+          `<button type="button" class="employee-doc-alert__chip" data-doc-add-category="${escapeHtml(item.category)}">${escapeHtml(item.label)}</button>`,
+      )
+      .join("");
+    return `<div${idAttr} class="employee-doc-alert employee-doc-alert--warn" role="alert">
+      <span class="employee-doc-alert__icon" aria-hidden="true">${iconSvg("alert")}</span>
+      <div class="employee-doc-alert__body">
+        <strong>${count} required document${count === 1 ? "" : "s"} still missing</strong>
+        <p>Upload these before the employee file is complete.</p>
+        <div class="employee-doc-alert__chips">${chips}</div>
+      </div>
+      <button type="button" class="employee-doc-alert__action" data-doc-add-category="${escapeHtml(missing[0].category)}">Upload now</button>
+    </div>`;
+  }
+
+  function renderEmployeeDocTypeStripHtml(groups) {
+    if (!groups.length) return `<div id="employees-side-doc-types" hidden></div>`;
+    const buttons = groups
+      .map((group) => {
+        const activeCount = group.docs.filter((doc) => !doc.superseded).length;
+        const expiry = groupExpiryStatus(group.docs).tone;
+        const tone = !activeCount
+          ? group.required && !group.satisfied
+            ? "missing"
+            : "empty"
+          : expiry === "expired"
+            ? "expired"
+            : expiry === "soon"
+              ? "soon"
+              : "ok";
+        const countLabel = activeCount ? String(activeCount) : group.required ? "Need" : "—";
+        return `<button type="button" class="employee-doc-type employee-doc-type--${tone}" data-doc-jump="${group.id}">
+          <span class="employee-doc-type__icon" aria-hidden="true">${iconSvg(group.icon)}</span>
+          <span class="employee-doc-type__label">${escapeHtml(group.title)}</span>
+          <span class="employee-doc-type__count">${escapeHtml(countLabel)}</span>
+        </button>`;
+      })
+      .join("");
+    return `<div id="employees-side-doc-types" class="employee-doc-type-strip" aria-label="Document types">${buttons}</div>`;
   }
 
   function documentExpiryMeta(doc) {
@@ -2545,12 +2641,18 @@
   function renderEmployeeRecordDocItem(doc) {
     const actions = [];
     if (doc.has_file) {
-      actions.push(`<button type="button" class="btn ghost btn-sm" data-record-download-doc="${doc.id}">Download</button>`);
+      actions.push(
+        `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--download" data-record-download-doc="${doc.id}">Download</button>`,
+      );
     } else if (doc.document_url) {
-      actions.push(`<a class="btn ghost btn-sm" href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener">Open</a>`);
+      actions.push(
+        `<a class="employee-record-doc-btn employee-record-doc-btn--download" href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener">Open</a>`,
+      );
     }
     if (!doc.superseded) {
-      actions.push(`<button type="button" class="btn ghost btn-sm" data-record-delete-doc="${doc.id}">Remove</button>`);
+      actions.push(
+        `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--remove" data-record-delete-doc="${doc.id}" data-doc-title="${escapeHtml(doc.title || "this document")}">Remove</button>`,
+      );
     }
     const kept = doc.superseded ? `<span class="employee-record-doc-item__kept">Kept on file</span>` : "";
     const expiry = documentExpiryMeta(doc);
@@ -2569,87 +2671,107 @@
     if (documentTypeDateConfig(doc?.category).expires.show && expiry.text) {
       dateChips.push({ text: expiry.text, tone: expiry.tone });
     }
-    const datesHtml = dateChips.length
-      ? `<span class="employee-record-doc-item__dates">${dateChips
-          .map(
-            (chip) =>
-              `<span class="employee-record-doc-item__date${chip.tone ? ` employee-record-doc-item__expiry--${chip.tone}` : ""}">${escapeHtml(chip.text)}</span>`,
-          )
-          .join("")}</span>`
-      : "";
+    const signing =
+      doc.signing_status === "signed" ? " · Signed" : doc.signing_status === "sent" ? " · Awaiting signature" : "";
+    const metaParts = [
+      `<span>${escapeHtml(categoryLabel(doc.category))}${signing}</span>`,
+      ...dateChips.map(
+        (chip) =>
+          `<span class="employee-record-doc-item__date${chip.tone ? ` employee-record-doc-item__expiry--${chip.tone}` : ""}">${escapeHtml(chip.text)}</span>`,
+      ),
+    ];
     return `<li class="employee-record-doc-item${doc.superseded ? " is-superseded" : ""}">
-      <span class="employee-record-doc-item__title">${escapeHtml(doc.title)}${kept}</span>
-      <span class="employee-record-doc-item__meta muted">${escapeHtml(categoryLabel(doc.category))}${
-        doc.signing_status === "signed" ? " · Signed" : doc.signing_status === "sent" ? " · Awaiting signature" : ""
-      }</span>
-      ${datesHtml}
+      <span class="employee-record-doc-item__mark" aria-hidden="true">${iconSvg("document")}</span>
+      <div class="employee-record-doc-item__body">
+        <span class="employee-record-doc-item__title">${escapeHtml(doc.title || "Untitled document")}${kept}</span>
+        <span class="employee-record-doc-item__meta">${metaParts.join("")}</span>
+      </div>
       <div class="employee-record-doc-item__actions">${actions.join("")}</div>
     </li>`;
   }
 
-  function renderEmployeeRecordDocGroup({ id, title, docs, empty }) {
+  function renderEmployeeRecordDocGroup(group) {
+    const { id, title, docs, empty, uploadCategory, icon, required, satisfied } = group;
     const activeCount = docs.filter((doc) => !doc.superseded).length;
     const status = groupExpiryStatus(docs);
-    return `<div class="employee-record-doc-group" data-doc-group="${id}">
-      <h5 class="employee-record-doc-group__title">${escapeHtml(title)}${
-        status.text
-          ? ` <span class="employee-record-doc-group__status employee-record-doc-group__status--${status.tone}" id="employees-side-doc-${id}-status">${escapeHtml(status.text)}</span>`
-          : ` <span class="employee-record-doc-group__status" id="employees-side-doc-${id}-status" hidden></span>`
-      } <span class="employee-record-block__count" id="employees-side-doc-${id}-count">${activeCount} on file</span></h5>
+    const missing = required && !satisfied && !activeCount;
+    const tone = missing ? "missing" : status.tone === "expired" ? "expired" : activeCount ? "ok" : "empty";
+    const badge = missing ? "Missing" : status.text || (activeCount ? `${activeCount} on file` : "None on file");
+    return `<div class="employee-record-doc-group employee-record-doc-group--${tone}" data-doc-group="${id}">
+      <div class="employee-record-doc-group__head">
+        <span class="employee-record-doc-group__icon" aria-hidden="true">${iconSvg(icon || "document")}</span>
+        <h5 class="employee-record-doc-group__title">${escapeHtml(title)}${
+          required ? ` <span class="employee-record-doc-group__req">Required</span>` : ""
+        }</h5>
+        <span class="employee-record-doc-group__status employee-record-doc-group__status--${tone}" id="employees-side-doc-${id}-status">${escapeHtml(badge)}</span>
+        <button type="button" class="employee-record-doc-group__add" data-doc-add-category="${escapeHtml(uploadCategory || id)}">${activeCount ? "Add another" : "Add"}</button>
+      </div>
       <ul class="employee-record-doc-list" id="employees-side-doc-${id}-list">${
         docs.length
           ? docs.map(renderEmployeeRecordDocItem).join("")
-          : `<li><p class="employee-record-doc-empty muted">${empty}</p></li>`
+          : `<li class="employee-record-doc-empty-row"><p class="employee-record-doc-empty">${escapeHtml(empty)}</p></li>`
       }</ul>
     </div>`;
   }
 
+  function renderEmployeeRecordAuxGroup({ id, title, hint, docs, empty }) {
+    const activeCount = docs.filter((doc) => !doc.superseded).length;
+    return `<div class="employee-record-doc-group employee-record-doc-group--aux" data-doc-group="${id}">
+      <div class="employee-record-doc-group__head">
+        <span class="employee-record-doc-group__icon" aria-hidden="true">${iconSvg("folder")}</span>
+        <h5 class="employee-record-doc-group__title">${escapeHtml(title)}${
+          hint ? ` <span class="employee-record-doc-group__hint">${escapeHtml(hint)}</span>` : ""
+        }</h5>
+        <span class="employee-record-doc-group__status" id="employees-side-doc-${id}-count">${activeCount} on file</span>
+      </div>
+      <ul class="employee-record-doc-list" id="employees-side-doc-${id}-list">${
+        docs.length
+          ? docs.map(renderEmployeeRecordDocItem).join("")
+          : `<li class="employee-record-doc-empty-row"><p class="employee-record-doc-empty">${escapeHtml(empty)}</p></li>`
+      }</ul>
+    </div>`;
+  }
+
+  function renderEmployeeDocumentGroupsHtml(workspace) {
+    const empId = workspace.employee?.id || activeEmployeeId;
+    const split = splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], empId));
+    const typeGroups = visibleEmployeeRecordTypeGroups(split, workspace.document_requirements || {});
+    return `${typeGroups.map(renderEmployeeRecordDocGroup).join("")}
+        ${renderEmployeeRecordAuxGroup({
+          id: "business",
+          title: "Business only",
+          hint: "HR only",
+          docs: split.businessOnly,
+          empty: "No HR-only documents yet.",
+        })}
+        ${renderEmployeeRecordAuxGroup({
+          id: "shared",
+          title: "Employee portal",
+          hint: "",
+          docs: split.shared,
+          empty: "Nothing shared with the employee portal yet.",
+        })}`;
+  }
+
   function fillEmployeeRecordDocumentLists(host, workspace) {
     if (!host) return;
-    const split = splitEmployeeDocuments(
-      scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId),
+    const empId = workspace.employee?.id || activeEmployeeId;
+    const requirements = workspace.document_requirements || {};
+    const typeGroups = visibleEmployeeRecordTypeGroups(
+      splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], empId)),
+      requirements,
     );
-    employeeRecordTypeGroups(split).forEach((group) => {
-      const count = host.querySelector(`#employees-side-doc-${group.id}-count`);
-      const statusEl = host.querySelector(`#employees-side-doc-${group.id}-status`);
-      const list = host.querySelector(`#employees-side-doc-${group.id}-list`);
-      if (count) count.textContent = `${group.docs.filter((doc) => !doc.superseded).length} on file`;
-      if (statusEl) {
-        const status = groupExpiryStatus(group.docs);
-        statusEl.textContent = status.text;
-        statusEl.hidden = !status.text;
-        statusEl.className = `employee-record-doc-group__status${status.tone ? ` employee-record-doc-group__status--${status.tone}` : ""}`;
-      }
-      if (list) {
-        list.innerHTML = group.docs.length
-          ? group.docs.map(renderEmployeeRecordDocItem).join("")
-          : `<li><p class="employee-record-doc-empty muted">${group.empty}</p></li>`;
-      }
-    });
-    const businessCount = host.querySelector("#employees-side-doc-business-count");
-    const sharedCount = host.querySelector("#employees-side-doc-shared-count");
-    const businessList = host.querySelector("#employees-side-doc-business-list");
-    const sharedList = host.querySelector("#employees-side-doc-shared-list");
-    if (businessCount) businessCount.textContent = String(split.businessOnly.filter((doc) => !doc.superseded).length);
-    if (sharedCount) sharedCount.textContent = String(split.shared.filter((doc) => !doc.superseded).length);
-    if (businessList) {
-      businessList.innerHTML = split.businessOnly.length
-        ? split.businessOnly.map(renderEmployeeRecordDocItem).join("")
-        : `<li><p class="employee-record-doc-empty muted">No HR-only documents yet.</p></li>`;
-    }
-    if (sharedList) {
-      sharedList.innerHTML = split.shared.length
-        ? split.shared.map(renderEmployeeRecordDocItem).join("")
-        : `<li><p class="employee-record-doc-empty muted">Nothing shared with the employee portal yet.</p></li>`;
-    }
-    const totalEl = host.querySelector(".employee-record-block__count");
-    if (totalEl) {
-      const onFile =
-        employeeRecordTypeGroups(split).reduce((n, group) => n + group.docs.length, 0) +
-        split.businessOnly.length +
-        split.shared.length;
+    const onFile = scopedEmployeeDocuments(workspace.documents || [], empId).filter((doc) => !doc.superseded).length;
+    const totalEl = host.querySelector("#employees-side-documents-title")?.nextElementSibling;
+    if (totalEl?.classList.contains("employee-record-block__count")) {
       totalEl.textContent = `${onFile} on file`;
     }
+    const alert = host.querySelector("#employees-side-doc-alert");
+    const types = host.querySelector("#employees-side-doc-types");
+    const groupsHost = host.querySelector("#employees-side-doc-groups");
+    if (alert) alert.outerHTML = renderEmployeeDocAlertHtml(requirements, { id: "employees-side-doc-alert" });
+    if (types) types.outerHTML = renderEmployeeDocTypeStripHtml(typeGroups);
+    if (groupsHost) groupsHost.innerHTML = renderEmployeeDocumentGroupsHtml(workspace);
     bindEmployeeRecordDocumentActions(host, workspace);
   }
 
@@ -2657,45 +2779,88 @@
     forEachEmployeeDocumentsHost((host) => fillEmployeeRecordDocumentLists(host, workspace));
   }
 
+  function focusEmployeeDocumentUpload(container, category) {
+    const upload = container?.querySelector(".employee-record-doc-upload");
+    if (upload) upload.open = true;
+    const select = container?.querySelector("#employees-side-doc-category");
+    if (select && category) {
+      const hasOption = Array.from(select.options).some((option) => option.value === category);
+      if (hasOption) {
+        select.value = category;
+        select.dispatchEvent(new Event("change"));
+      }
+    }
+    upload?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    container?.querySelector('#employees-side-doc-upload [name="title"]')?.focus();
+  }
+
+  async function removeEmployeeRecordDocument(container, button) {
+    const workspace = container._sshrDocWorkspace;
+    const employeeId = workspace?.employee?.id;
+    const documentId = button.getAttribute("data-record-delete-doc");
+    const title = button.getAttribute("data-doc-title") || "this document";
+    if (!employeeId || !documentId) return;
+    if (!window.confirm(`Remove “${title}” from this employee’s file?`)) return;
+    const statusEl = container.querySelector("#employees-side-doc-status");
+    button.disabled = true;
+    if (statusEl) statusEl.textContent = "Removing…";
+    try {
+      const res = await apiFetch(`/admin/employees/${employeeId}/documents/${documentId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(employeeApiError(res, data, "Remove failed"));
+      button.closest(".employee-record-doc-item")?.remove();
+      await refreshEmployeeRecordDocuments(employeeId);
+      employeesToast("Document removed", "ok");
+      if (statusEl) statusEl.textContent = "Document removed.";
+    } catch (error) {
+      button.disabled = false;
+      const message = employeeErrorText(error, "Remove failed");
+      if (statusEl) statusEl.textContent = message;
+      employeesToast(message, "error");
+    }
+  }
+
   function bindEmployeeRecordDocumentActions(container, workspace) {
     if (!container || !workspace?.employee?.id) return;
-    const employeeId = workspace.employee.id;
-    const docs = scopedEmployeeDocuments(workspace.documents || [], employeeId);
-    const statusEl = container.querySelector("#employees-side-doc-status");
+    container._sshrDocWorkspace = workspace;
+    if (container.dataset.docActionsBound === "1") return;
+    container.dataset.docActionsBound = "1";
 
-    container.querySelectorAll("[data-record-delete-doc]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!window.confirm("Remove this document?")) return;
-        if (statusEl) statusEl.textContent = "Removing…";
-        try {
-          const res = await apiFetch(`/admin/employees/${employeeId}/documents/${btn.dataset.recordDeleteDoc}`, {
-            method: "DELETE",
-          });
-          if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || "Remove failed");
-          }
-          await refreshEmployeeRecordDocuments(employeeId);
-          if (statusEl) statusEl.textContent = "Document removed.";
-        } catch (error) {
-          if (statusEl) statusEl.textContent = error.message || "Remove failed";
-        }
-      });
-    });
-
-    container.querySelectorAll("[data-record-download-doc]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const row = docs.find((item) => String(item.id) === btn.dataset.recordDownloadDoc);
+    container.addEventListener("click", (event) => {
+      const addBtn = event.target.closest("[data-doc-add-category]");
+      if (addBtn && container.contains(addBtn)) {
+        event.preventDefault();
+        focusEmployeeDocumentUpload(container, addBtn.getAttribute("data-doc-add-category"));
+        return;
+      }
+      const jumpBtn = event.target.closest("[data-doc-jump]");
+      if (jumpBtn && container.contains(jumpBtn)) {
+        event.preventDefault();
+        container
+          .querySelector(`[data-doc-group="${jumpBtn.getAttribute("data-doc-jump")}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        return;
+      }
+      const deleteBtn = event.target.closest("[data-record-delete-doc]");
+      if (deleteBtn && container.contains(deleteBtn)) {
+        event.preventDefault();
+        void removeEmployeeRecordDocument(container, deleteBtn);
+        return;
+      }
+      const downloadBtn = event.target.closest("[data-record-download-doc]");
+      if (downloadBtn && container.contains(downloadBtn)) {
+        event.preventDefault();
+        const docs = scopedEmployeeDocuments(
+          container._sshrDocWorkspace?.documents || [],
+          container._sshrDocWorkspace?.employee?.id,
+        );
+        const row = docs.find((item) => String(item.id) === downloadBtn.getAttribute("data-record-download-doc"));
         const name = row?.original_filename || `${row?.title || "document"}.bin`;
-        try {
-          await downloadAuthenticated(
-            `/admin/employees/${employeeId}/documents/${btn.dataset.recordDownloadDoc}/file`,
-            name,
-          );
-        } catch (error) {
-          employeesToast(error.message || "Download failed", "error");
-        }
-      });
+        void downloadAuthenticated(
+          `/admin/employees/${container._sshrDocWorkspace.employee.id}/documents/${downloadBtn.getAttribute("data-record-download-doc")}/file`,
+          name,
+        ).catch((error) => employeesToast(error.message || "Download failed", "error"));
+      }
     });
   }
 
@@ -2824,16 +2989,11 @@
   function renderEmployeeRecordSectionsHtml(employee, workspace) {
     const emp = workspace.employee || employee || {};
     const split = splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], emp.id));
-    const typeGroups = employeeRecordTypeGroups(split);
-    const { businessOnly, shared } = split;
-    const documentsOnFile =
-      typeGroups.reduce((n, group) => n + group.docs.length, 0) + businessOnly.length + shared.length;
     const requirements = workspace.document_requirements || {};
-    const reqSummary = requirements.complete
-      ? `<p class="employee-doc-status employee-doc-status--ok">Required documents complete.</p>`
-      : requirements.missing_required
-        ? `<p class="employee-doc-status employee-doc-status--warn">${requirements.missing_required} required document(s) still missing.</p>`
-        : "";
+    const typeGroups = visibleEmployeeRecordTypeGroups(split, requirements);
+    const documentsOnFile = scopedEmployeeDocuments(workspace.documents || [], emp.id).filter(
+      (doc) => !doc.superseded,
+    ).length;
 
     return `<div class="employee-record-sections" id="employees-side-sections">
       <section class="employee-record-block" aria-labelledby="employees-side-personal-title">
@@ -2886,23 +3046,10 @@
           <h4 id="employees-side-documents-title">Documents</h4>
           <span class="employee-record-block__count muted">${documentsOnFile} on file</span>
         </div>
-        ${reqSummary}
-        ${typeGroups.map((group) => renderEmployeeRecordDocGroup(group)).join("")}
-        <div class="employee-record-doc-group">
-          <h5 class="employee-record-doc-group__title">Business only <span class="muted">(HR only)</span> <span class="employee-record-block__count" id="employees-side-doc-business-count">${businessOnly.length}</span></h5>
-          <ul class="employee-record-doc-list" id="employees-side-doc-business-list">${
-            businessOnly.length
-              ? businessOnly.map(renderEmployeeRecordDocItem).join("")
-              : `<li><p class="employee-record-doc-empty muted">No HR-only documents yet.</p></li>`
-          }</ul>
-        </div>
-        <div class="employee-record-doc-group">
-          <h5 class="employee-record-doc-group__title">Employee portal <span class="employee-record-block__count" id="employees-side-doc-shared-count">${shared.length}</span></h5>
-          <ul class="employee-record-doc-list" id="employees-side-doc-shared-list">${
-            shared.length
-              ? shared.map(renderEmployeeRecordDocItem).join("")
-              : `<li><p class="employee-record-doc-empty muted">Nothing shared with the employee portal yet.</p></li>`
-          }</ul>
+        ${renderEmployeeDocAlertHtml(requirements, { id: "employees-side-doc-alert" })}
+        ${renderEmployeeDocTypeStripHtml(typeGroups)}
+        <div id="employees-side-doc-groups" class="employee-record-doc-groups">
+          ${renderEmployeeDocumentGroupsHtml(workspace)}
         </div>
         <details class="employee-record-doc-upload">
           <summary>Upload document</summary>
@@ -3294,9 +3441,6 @@
 
   function renderRequirementsChecklist(requirements) {
     if (!requirements?.items?.length) return "";
-    const summary = requirements.complete
-      ? `<p class="employee-doc-status employee-doc-status--ok">All required documents recorded.</p>`
-      : `<p class="employee-doc-status employee-doc-status--warn">${requirements.missing_required} required document(s) still missing.</p>`;
     const list = requirements.items
       .map((item) => {
         const state = item.satisfied ? "complete" : item.required ? "missing" : "optional";
@@ -3304,7 +3448,7 @@
         return `<li class="employee-doc-req employee-doc-req--${state}"><span>${badge}</span> ${escapeHtml(item.label)}${item.required ? "" : " <span class='muted'>(optional)</span>"}</li>`;
       })
       .join("");
-    return `${summary}<ul class="employee-doc-checklist">${list}</ul>`;
+    return `${renderEmployeeDocAlertHtml(requirements)}<ul class="employee-doc-checklist">${list}</ul>`;
   }
 
   function readEmployeeUploadPreferences(form) {
