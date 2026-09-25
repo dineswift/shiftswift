@@ -345,7 +345,7 @@
   };
 
   const SECTION_HINTS = {
-    recruitment: "Set employee type here. Sponsor compliance (step 9) unlocks only for sponsored workers.",
+    recruitment: "Set employee type here. Employer compliance (step 9) unlocks extra tools only for sponsored workers.",
     onboarding: "Set status to <strong>Onboarding</strong> for new starters. Contract hours drive rota over/under warnings — leave blank to use the default for the employment type.",
     induction: "Phone, home address, and emergency contact are required. NI number is validated when provided.",
     job_performance: "Salary is stored here for payroll CSV export. Run probation and annual reviews using HR Templates — file signed forms in Document store.",
@@ -368,7 +368,7 @@
       body: "Mentoring, workplace assistance, and wellbeing resources. Link grievance or compliance workflows when needed.",
       links: [
         { href: "#grievance", label: "Grievance cases" },
-        { href: "#compliance/rtw", label: "Sponsor compliance" },
+        { href: "#compliance/rtw", label: "Employer compliance" },
       ],
     },
     performance_improvement: {
@@ -2239,7 +2239,7 @@
     host.innerHTML = `
       <button type="button" class="btn ghost btn-sm" id="employee-change-history-btn">Change history</button>
       <button type="button" class="btn ghost btn-sm" id="employee-leave-history-btn">Leave history</button>
-      ${sponsored ? `<a href="#compliance/rtw/${encodeURIComponent(employeeId)}" class="btn ghost btn-sm">Sponsor compliance</a>` : ""}
+      ${sponsored ? `<a href="#compliance/rtw/${encodeURIComponent(employeeId)}" class="btn ghost btn-sm">Employer compliance</a>` : ""}
       <a href="#grievance" class="btn ghost btn-sm">Grievance cases</a>
       <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost btn-sm">Employment contract</a>
       <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost btn-sm">Off-boarding workflow</a>

@@ -290,8 +290,6 @@
     const sectionHashes = new Set([
       "compliance-rtw",
       "compliance-absence",
-      "compliance-holidays",
-      "compliance-working-calendar",
       "compliance-adverts",
       "compliance-reporting",
       "compliance-audit-export",

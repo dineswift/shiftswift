@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v195" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v197" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=2" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
   </head>
@@ -138,7 +138,7 @@
           <p class="nav-section-label">Compliance</p>
           <a class="nav-link" href="#compliance" data-section="compliance" data-feature="sponsor-compliance">
             <span class="nav-link__icon" data-nav-icon="passport" aria-hidden="true"></span>
-            <span class="nav-link__label">Sponsor compliance</span>
+            <span class="nav-link__label">Employer compliance</span>
           </a>
           <a class="nav-link" href="#contracts" data-section="contracts">
             <span class="nav-link__icon" data-nav-icon="file-certificate" aria-hidden="true"></span>
@@ -1567,8 +1567,8 @@
           <div id="mobile-compliance-shell" class="compliance-mobile-shell admin-mobile-compliance-only"></div>
           <header class="section-header">
             <div>
-              <h2>Sponsor compliance</h2>
-              <p class="muted">Recording tools and alerts for UK sponsor licence duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.</p>
+              <h2>Employer compliance</h2>
+              <p class="muted">Right to work, absence alerts, and sponsor-licence records for your staff — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.</p>
             </div>
             <a class="btn secondary" id="rtw-checklist-link" href="https://www.gov.uk/government/publications/right-to-work-checks-employers-guide" target="_blank" rel="noopener">GOV.UK: Right to work checks guidance →</a>
           </header>
@@ -1577,7 +1577,7 @@
             <div class="sponsor-enabled-banner__left">
               <span class="sponsor-enabled-dot" aria-hidden="true"></span>
               <div>
-                <p class="sponsor-enabled-banner__title">Sponsor compliance tools active</p>
+                <p class="sponsor-enabled-banner__title">Employer compliance tools active</p>
                 <p class="sponsor-enabled-banner__meta">
                   <span id="sponsor-enabled-meta"></span>
                   · <button type="button" class="sponsor-reread-link" id="sponsor-reread-duties">Re-read duties</button>
@@ -1587,22 +1587,31 @@
             <button type="button" class="btn ghost btn-sm" id="sponsor-banner-export-btn">Export audit pack</button>
           </div>
 
-          <div id="sponsor-duties-section">
-          <article class="card sponsor-setup-card" id="sponsor-setup-checklist" hidden>
-            <h3 class="sponsor-setup-card__title">
-              Setup checklist
-              <span class="sponsor-setup-card__progress" id="sponsor-setup-progress">0 of 5 complete</span>
-            </h3>
-            <ol class="sponsor-setup-steps" id="sponsor-setup-steps"></ol>
+          <div id="sponsor-duties-section" class="sponsor-duties-section">
+          <article class="sponsor-setup-rail" id="sponsor-setup-checklist" hidden>
+            <div class="sponsor-setup-rail__head">
+              <h3 class="sponsor-setup-rail__title">Setup</h3>
+              <span class="sponsor-setup-rail__count" id="sponsor-setup-progress">0 of 5 complete</span>
+            </div>
+            <div class="sponsor-setup-rail__track" aria-hidden="true">
+              <span class="sponsor-setup-rail__fill" id="sponsor-setup-bar"></span>
+            </div>
+            <ol class="sponsor-setup-chips" id="sponsor-setup-steps"></ol>
           </article>
 
+          <div class="sponsor-duty-toolbar">
+            <h3 class="sponsor-duty-toolbar__title">Compliance tools</h3>
+            <button type="button" class="sponsor-duties-toggle" id="sponsor-toggle-duties" aria-pressed="false" aria-controls="sponsor-duty-cards">
+              Show duties &amp; responsibilities
+            </button>
+          </div>
           <div id="sponsor-duty-cards" class="sponsor-duties-grid" hidden aria-label="Compliance duty areas"></div>
           </div>
 
           <article class="card sponsor-ack-card" id="sponsor-licence-ack-panel" hidden>
             <header class="sponsor-ack-card__header">
               <h3>Confirm sponsor licence holder &amp; your duties</h3>
-              <p class="muted">Read carefully — tick all three boxes to enable sponsor compliance tools.</p>
+              <p class="muted">Read carefully — tick all three boxes to enable employer compliance tools.</p>
             </header>
             <div class="sponsor-ack-card__body">
               <div class="sponsor-ack-disclaimer" id="sponsor-licence-ack-disclaimer"></div>
@@ -1623,19 +1632,27 @@
                   </span>
                 </label>
               </div>
-              <button type="button" class="btn sponsor-ack-enable-btn" id="sponsor-licence-ack-btn" disabled>Enable sponsor compliance tools</button>
+              <button type="button" class="btn sponsor-ack-enable-btn" id="sponsor-licence-ack-btn" disabled>Enable employer compliance tools</button>
               <p class="sponsor-ack-progress" id="sponsor-ack-progress">Tick all 3 boxes to continue — 0 of 3 confirmed</p>
               <p class="edit-form-status muted" id="sponsor-licence-ack-status"></p>
             </div>
           </article>
 
           <div id="compliance-tools-content" hidden>
+          <nav class="compliance-subnav" id="compliance-subnav" aria-label="Employer compliance sections">
+            <a class="compliance-subnav__link is-active" href="#compliance" data-compliance-pane="dashboard">Dashboard</a>
+            <a class="compliance-subnav__link" href="#compliance/rtw" data-compliance-pane="rtw">RTW list</a>
+            <a class="compliance-subnav__link" href="#compliance/reporting" data-compliance-pane="reporting">SMS reporting</a>
+            <a class="compliance-subnav__link" href="#compliance/adverts" data-compliance-pane="adverts">Adverts</a>
+            <a class="compliance-subnav__link" href="#compliance/audit-export" data-compliance-pane="audit-export">Audit pack</a>
+          </nav>
+          <div id="sponsor-alert-board" class="sponsor-alert-board" hidden aria-label="Staff compliance alerts"></div>
 
-          <article class="card absence-workspace" id="compliance-absence">
+          <article class="card absence-workspace compliance-pane--active" id="compliance-absence">
             <header class="absence-workspace-header section-header section-header--compact">
               <div>
                 <h3>Absence monitoring</h3>
-                <p class="muted">Track unauthorised absences for sponsored workers — day-9 threshold alerts for Home Office reporting.</p>
+                <p class="muted">Unauthorised absences for sponsored workers — day-9 Home Office alerts. Bank holidays live in <a href="#leave">Leave</a>.</p>
               </div>
               <div class="section-actions absence-workspace-actions">
                 <button type="button" class="btn outline" id="absence-export-log-btn">Export log</button>
@@ -1871,58 +1888,6 @@
             </p>
           </article>
 
-          <article class="card hr-workspace compliance-split-card" id="compliance-holidays">
-            <header class="hr-workspace-header section-header section-header--compact">
-              <div>
-                <h3>Bank holidays &amp; closed days</h3>
-                <p class="muted">Days the site is shut. These dates do not count toward sponsored absence streaks.</p>
-              </div>
-            </header>
-            <div class="hr-workspace-body">
-              <div id="bank-holiday-form"></div>
-              <div class="hr-table-wrap mobile-table-cards">
-                <table class="data-table" aria-label="Bank holidays and closed days">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="holidays-body">
-                    <tr><td colspan="3" class="muted">No holidays added yet. Weekdays still count as working days.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </article>
-
-          <article class="card hr-workspace compliance-split-card" id="compliance-working-calendar">
-            <header class="hr-workspace-header section-header section-header--compact">
-              <div>
-                <h3>Working calendar</h3>
-                <p class="muted">Monday–Friday already count as working days. Add a date only if the business is open on a weekend or public holiday.</p>
-              </div>
-            </header>
-            <div class="hr-workspace-body">
-              <div id="working-calendar-form"></div>
-              <div class="hr-table-wrap mobile-table-cards">
-                <table class="data-table" aria-label="Extra working days">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Status</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="working-calendar-body">
-                    <tr><td colspan="3" class="muted">No extra working days. Weekdays are working days by default.</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </article>
-
           <article class="card hr-workspace hr-workspace--compact feature-gated-panel" id="compliance-audit-export" data-feature="audit-export">
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
@@ -1999,7 +1964,7 @@
             </div>
           </article>
 
-          <article class="card hr-workspace hr-workspace--compact legal-note">
+          <article class="card hr-workspace hr-workspace--compact legal-note compliance-pane--active">
             <div class="hr-workspace-body">
               <h3>Software records — you act on duties</h3>
               <p class="muted legal-note-copy">
@@ -3259,6 +3224,60 @@
               <div id="leave-employee-picker-list" class="leave-employee-picker__list" role="listbox" aria-label="Employees"></div>
             </div>
           </div>
+
+          <div id="leave-sponsor-calendar" class="leave-sponsor-calendar leave-desktop-chrome" hidden>
+            <article class="card hr-workspace compliance-split-card" id="compliance-holidays">
+              <header class="hr-workspace-header section-header section-header--compact">
+                <div>
+                  <h3>Bank holidays &amp; closed days</h3>
+                  <p class="muted">Days the site is shut. These dates do not count toward sponsored absence streaks.</p>
+                </div>
+              </header>
+              <div class="hr-workspace-body">
+                <div id="bank-holiday-form"></div>
+                <div class="hr-table-wrap mobile-table-cards">
+                  <table class="data-table" aria-label="Bank holidays and closed days">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="holidays-body">
+                      <tr><td colspan="3" class="muted">No holidays added yet. Weekdays still count as working days.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </article>
+
+            <article class="card hr-workspace compliance-split-card" id="compliance-working-calendar">
+              <header class="hr-workspace-header section-header section-header--compact">
+                <div>
+                  <h3>Working calendar</h3>
+                  <p class="muted">Monday–Friday already count as working days. Add a date only if the business is open on a weekend or public holiday.</p>
+                </div>
+              </header>
+              <div class="hr-workspace-body">
+                <div id="working-calendar-form"></div>
+                <div class="hr-table-wrap mobile-table-cards">
+                  <table class="data-table" aria-label="Extra working days">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="working-calendar-body">
+                      <tr><td colspan="3" class="muted">No extra working days. Weekdays are working days by default.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
 
         <section id="profile-changes" class="admin-section" hidden>
@@ -3736,20 +3755,20 @@
     <script src="./mobile-shell.js?v=9"></script>
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=9"></script>
-    <script src="./admin-mobile.js?v=25"></script>
-    <script src="./admin-compliance-mobile.js?v=6"></script>
+    <script src="./admin-mobile.js?v=26"></script>
+    <script src="./admin-compliance-mobile.js?v=8"></script>
     <script src="./action-feedback.js?v=4"></script>
-    <script src="./admin-shared.js?v=admin-v54"></script>
+    <script src="./admin-shared.js?v=admin-v55"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v36"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=36"></script>
-    <script src="./admin-employees.js?v=58"></script>
+    <script src="./admin-employees.js?v=59"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=6"></script>
-    <script src="./admin-compliance.js?v=admin-v23"></script>
+    <script src="./admin-compliance.js?v=admin-v26"></script>
     <script src="./admin-absence.js?v=4"></script>
     <script src="./admin-rtw.js?v=21"></script>
     <script src="./admin-grievance.js?v=7"></script>

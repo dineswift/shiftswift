@@ -456,7 +456,7 @@ window.Admin = (() => {
   };
 
   const FEATURE_UPGRADE_LABELS = {
-    "sponsor-compliance": "Sponsor licence compliance is included on Compliance and Multi-site plans.",
+    "sponsor-compliance": "Employer compliance is included on Compliance and Multi-site plans.",
     grievance: "Grievance workflows are included on Compliance and Multi-site plans.",
     disciplinary: "Disciplinary workflows are included on Compliance and Multi-site plans.",
     "audit-export": "Home Office audit export is included on Compliance and Multi-site plans.",

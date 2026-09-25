@@ -3,16 +3,14 @@
   "use strict";
 
     const SECTIONS = [
-    { id: "compliance-rtw", title: "Right to Work records", icon: "passport", openDefault: true },
-    { id: "compliance-absence", title: "Absence monitoring", icon: "medical", badgeId: "compliance-mobile-absence-badge" },
-    { id: "compliance-holidays", title: "Bank holidays", icon: "calendar-off" },
-    { id: "compliance-working-calendar", title: "Working calendar", icon: "calendar" },
-    { id: "compliance-adverts", title: "Advertisements", icon: "sparkles" },
-    { id: "compliance-reporting", title: "Reporting triggers", icon: "mail" },
-    { id: "compliance-audit-export", title: "Home Office audit export", icon: "folder" },
+    { id: "compliance-absence", title: "Absence & alerts", icon: "medical", badgeId: "compliance-mobile-absence-badge", openDefault: true },
+    { id: "compliance-rtw", title: "Employee RTW list", icon: "passport" },
+    { id: "compliance-reporting", title: "SMS reporting", icon: "mail" },
+    { id: "compliance-adverts", title: "Advertisement records", icon: "sparkles" },
+    { id: "compliance-audit-export", title: "Audit pack", icon: "folder" },
   ];
 
-  let openSectionId = "compliance-rtw";
+  let openSectionId = "compliance-absence";
 
   function isMobileViewport() {
     if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
@@ -130,9 +128,9 @@
 
     host.innerHTML = `
       <header class="compliance-mobile-header">
-        <h2 class="compliance-mobile-title">Sponsor compliance</h2>
+        <h2 class="compliance-mobile-title">Employer compliance</h2>
         <p class="compliance-mobile-lead muted">
-          Recording tools and alerts for UK sponsor duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.
+          Right to work, absence alerts, and sponsor-licence records — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.
         </p>
         <a class="btn secondary btn-sm compliance-mobile-gov-link" href="${escapeHtml(safeGovHref)}" target="_blank" rel="noopener">GOV.UK guidance →</a>
       </header>
@@ -211,7 +209,7 @@
       });
     });
 
-    const defaultOpen = SECTIONS.find((s) => s.openDefault)?.id || "compliance-rtw";
+    const defaultOpen = SECTIONS.find((s) => s.openDefault)?.id || "compliance-absence";
     setOpenSection(defaultOpen);
   }
 
