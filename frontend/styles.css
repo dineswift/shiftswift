@@ -6547,7 +6547,8 @@ a.sponsor-duty-card:focus-visible {
     border-right: 1px solid var(--card-border);
     border-bottom: 1px solid var(--card-border);
   }
-  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article.compliance-section--open {
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article.compliance-section--open,
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article.compliance-section--open[hidden] {
     display: block !important;
   }
   body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article.legal-note {
@@ -13830,7 +13831,14 @@ html.native-app .pwa-install-page .pwa-install-actions .btn.ghost {
   min-width: 0;
 }
 
-.compliance-pane-stage > article:not(.compliance-pane--active) {
+.compliance-pane-stage > article:not(.compliance-pane--active),
+.compliance-pane-stage > article[hidden],
+#compliance:not([data-compliance-pane="dashboard"]) #compliance-absence,
+#compliance:not([data-compliance-pane="rtw"]) #compliance-rtw,
+#compliance:not([data-compliance-pane="reporting"]) #compliance-reporting,
+#compliance:not([data-compliance-pane="adverts"]) #compliance-adverts,
+#compliance:not([data-compliance-pane="audit-export"]) #compliance-audit-export,
+#compliance:not([data-compliance-pane="dashboard"]) #compliance-pane-stage > .legal-note {
   display: none !important;
 }
 
@@ -13854,9 +13862,11 @@ html.native-app .pwa-install-page .pwa-install-actions .btn.ghost {
   border-radius: 999px;
   background: var(--white);
   color: var(--ink-700);
+  font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .compliance-subnav__link:hover {

@@ -66,7 +66,9 @@
     });
 
     document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
-      article.classList.toggle("compliance-section--open", article.id === openSectionId);
+      const open = article.id === openSectionId;
+      article.classList.toggle("compliance-section--open", open);
+      if (isMobileComplianceHub()) article.toggleAttribute("hidden", !open);
     });
 
     if (scroll && isMobileComplianceHub()) {

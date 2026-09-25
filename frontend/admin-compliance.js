@@ -129,6 +129,22 @@
     "audit-export": ["compliance-audit-export"],
   };
 
+  const COMPLIANCE_PANE_HASH = {
+    dashboard: "compliance",
+    rtw: "compliance/rtw",
+    reporting: "compliance/reporting",
+    adverts: "compliance/adverts",
+    "audit-export": "compliance/audit-export",
+  };
+
+  const COMPLIANCE_PANE_ARTICLE_IDS = [
+    "compliance-absence",
+    "compliance-rtw",
+    "compliance-reporting",
+    "compliance-adverts",
+    "compliance-audit-export",
+  ];
+
   function compliancePaneFromHash(rawHash = window.location.hash) {
     const raw = String(rawHash || "").replace("#", "");
     const parts = raw.split("/").filter(Boolean);
@@ -246,9 +262,17 @@
       else link.removeAttribute("aria-current");
     });
     const visible = new Set(COMPLIANCE_PANE_IDS[pane] || COMPLIANCE_PANE_IDS.dashboard);
-    document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
-      const show = visible.has(article.id) || (pane === "dashboard" && article.classList.contains("legal-note"));
+    COMPLIANCE_PANE_ARTICLE_IDS.forEach((id) => {
+      const article = document.getElementById(id);
+      if (!article) return;
+      const show = visible.has(id);
       article.classList.toggle("compliance-pane--active", show);
+      article.toggleAttribute("hidden", !show);
+    });
+    document.querySelectorAll("#compliance-pane-stage > .legal-note").forEach((article) => {
+      const show = pane === "dashboard";
+      article.classList.toggle("compliance-pane--active", show);
+      article.toggleAttribute("hidden", !show);
     });
   }
 
@@ -272,13 +296,21 @@
     if (!section || section.dataset.paneNavBound === "true") return;
     section.dataset.paneNavBound = "true";
     section.addEventListener("click", (event) => {
+      const tab = event.target.closest("#compliance-subnav [data-compliance-pane]");
+      if (tab) {
+        event.preventDefault();
+        const pane = tab.dataset.compliancePane || "dashboard";
+        setComplianceHash(COMPLIANCE_PANE_HASH[pane] || "compliance");
+        if (pane === "rtw") window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
+        return;
+      }
       const link = event.target.closest('a[href^="#compliance"]');
       if (!link || link.target === "_blank") return;
       const href = link.getAttribute("href") || "";
       if (!href.startsWith("#compliance")) return;
       event.preventDefault();
       setComplianceHash(href);
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      if (/#compliance\/rtw/i.test(href)) window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
     });
   }
 
@@ -407,7 +439,7 @@
         const sectionId = hash.includes("/") ? hash.replace("/", "-") : hash;
         if (hash) setComplianceHash(hash);
         window.AdminComplianceMobile?.setOpenSection?.(sectionId, { scroll: false, toggle: false });
-        window.dispatchEvent(new HashChangeEvent("hashchange"));
+        if (hash.includes("rtw")) window.dispatchEvent(new CustomEvent("admin:rtw-refresh"));
       };
       card.addEventListener("click", (event) => {
         if (event.target.closest("button, a")) return;

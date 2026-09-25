@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v197" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v198" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=2" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
   </head>
@@ -1563,7 +1563,7 @@
           </article>
         </section>
 
-        <section id="compliance" class="admin-section" hidden data-feature="sponsor-compliance">
+        <section id="compliance" class="admin-section" hidden data-feature="sponsor-compliance" data-compliance-pane="dashboard">
           <div id="mobile-compliance-shell" class="compliance-mobile-shell admin-mobile-compliance-only"></div>
           <header class="section-header">
             <div>
@@ -1619,11 +1619,11 @@
 
           <div id="compliance-tools-content" hidden>
           <nav class="compliance-subnav" id="compliance-subnav" aria-label="Employer compliance sections">
-            <a class="compliance-subnav__link is-active" href="#compliance" data-compliance-pane="dashboard">Dashboard</a>
-            <a class="compliance-subnav__link" href="#compliance/rtw" data-compliance-pane="rtw">RTW list</a>
-            <a class="compliance-subnav__link" href="#compliance/reporting" data-compliance-pane="reporting">SMS reporting</a>
-            <a class="compliance-subnav__link" href="#compliance/adverts" data-compliance-pane="adverts">Adverts</a>
-            <a class="compliance-subnav__link" href="#compliance/audit-export" data-compliance-pane="audit-export">Audit pack</a>
+            <button type="button" class="compliance-subnav__link is-active" data-compliance-pane="dashboard" aria-current="page">Dashboard</button>
+            <button type="button" class="compliance-subnav__link" data-compliance-pane="rtw">RTW list</button>
+            <button type="button" class="compliance-subnav__link" data-compliance-pane="reporting">SMS reporting</button>
+            <button type="button" class="compliance-subnav__link" data-compliance-pane="adverts">Adverts</button>
+            <button type="button" class="compliance-subnav__link" data-compliance-pane="audit-export">Audit pack</button>
           </nav>
 
           <div id="compliance-pane-stage" class="compliance-pane-stage">
@@ -1769,7 +1769,7 @@
             </div>
           </article>
 
-          <article class="card rtw-workspace" id="compliance-rtw">
+          <article class="card rtw-workspace" id="compliance-rtw" hidden>
             <header class="rtw-workspace-header section-header section-header--compact">
               <div>
                 <h3>Right to work</h3>
@@ -1892,7 +1892,7 @@
             </p>
           </article>
 
-          <article class="card hr-workspace hr-workspace--compact feature-gated-panel" id="compliance-audit-export" data-feature="audit-export">
+          <article class="card hr-workspace hr-workspace--compact feature-gated-panel" id="compliance-audit-export" data-feature="audit-export" hidden>
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
                 <h3>Home Office audit export</h3>
@@ -1912,7 +1912,7 @@
             </header>
           </article>
 
-          <article class="card hr-workspace compliance-split-card" id="compliance-reporting">
+          <article class="card hr-workspace compliance-split-card" id="compliance-reporting" hidden>
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
                 <h3>Open reporting triggers</h3>
@@ -1939,7 +1939,7 @@
             </div>
           </article>
 
-          <article class="card hr-workspace compliance-split-card" id="compliance-adverts">
+          <article class="card hr-workspace compliance-split-card" id="compliance-adverts" hidden>
             <header class="hr-workspace-header section-header section-header--compact">
               <div>
                 <h3>Advertisement records</h3>
@@ -3761,9 +3761,9 @@
     <script src="./mobile-tables.js?v=1"></script>
     <script src="./admin-icons.js?v=9"></script>
     <script src="./admin-mobile.js?v=26"></script>
-    <script src="./admin-compliance-mobile.js?v=8"></script>
+    <script src="./admin-compliance-mobile.js?v=9"></script>
     <script src="./action-feedback.js?v=4"></script>
-    <script src="./admin-shared.js?v=admin-v55"></script>
+    <script src="./admin-shared.js?v=admin-v56"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v36"></script>
@@ -3773,7 +3773,7 @@
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=6"></script>
-    <script src="./admin-compliance.js?v=admin-v26"></script>
+    <script src="./admin-compliance.js?v=admin-v27"></script>
     <script src="./admin-absence.js?v=4"></script>
     <script src="./admin-rtw.js?v=21"></script>
     <script src="./admin-grievance.js?v=7"></script>
