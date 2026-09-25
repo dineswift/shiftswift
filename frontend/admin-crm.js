@@ -1,6 +1,15 @@
 /** CRM add-on — pipeline for IT services, HR software, consulting, and B2B sales. */
 (async function initAdminCrm() {
-  const { apiFetch, escapeHtml, isAddonEnabled, parseHashBaseSection, downloadAuthenticated } = window.Admin;
+  const { apiFetch, escapeHtml, isAddonEnabled, parseHashBaseSection, downloadAuthenticated, showAdminToast } =
+    window.Admin;
+
+  function crmToast(message, variant = "info") {
+    if (showAdminToast) {
+      showAdminToast(message, { variant });
+      return;
+    }
+    window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   let pipelineData = null;
   let accounts = [];
@@ -85,8 +94,10 @@
     entityActivityList: document.getElementById("crm-entity-activity-list"),
     entityDocuments: document.getElementById("crm-entity-documents"),
     entityDocumentInput: document.getElementById("crm-entity-document-input"),
+    entityDocumentCamera: document.getElementById("crm-entity-document-camera"),
     dealDocuments: document.getElementById("crm-deal-documents"),
     dealDocumentInput: document.getElementById("crm-deal-document-input"),
+    dealDocumentCamera: document.getElementById("crm-deal-document-camera"),
     dashboardStages: document.getElementById("crm-dashboard-stages"),
     summaryValue: document.getElementById("crm-summary-value"),
     summaryActivity: document.getElementById("crm-summary-activity"),
@@ -258,7 +269,7 @@
           await onRefresh?.();
           await loadSummary();
         } catch (error) {
-          alert(error.message || "Could not delete document");
+          crmToast(error.message || "Could not delete document", "error");
         }
       });
     });
@@ -456,7 +467,7 @@
         try {
           await moveDealToStage(dealId, stageId);
         } catch (error) {
-          alert(error.message || "Could not move deal");
+          crmToast(error.message || "Could not move deal", "error");
         }
       });
     });
@@ -666,7 +677,7 @@
     if (!els.dealDrawer) return;
     const res = await apiFetch(`/admin/crm/deals/${dealId}/activities`);
     if (!res.ok) {
-      alert("Could not load deal details.");
+      crmToast("Could not load deal details.", "error");
       return;
     }
     const data = await res.json();
@@ -707,7 +718,7 @@
     const path = type === "account" ? `/admin/crm/accounts/${id}` : `/admin/crm/contacts/${id}`;
     const res = await apiFetch(path);
     if (!res.ok) {
-      if (!silent) alert(type === "account" ? "Could not load company." : "Could not load contact.");
+      if (!silent) crmToast(type === "account" ? "Could not load company." : "Could not load contact.", "error");
       return;
     }
     const data = await res.json();
@@ -799,7 +810,7 @@
       closeDealDrawer();
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not delete deal");
+      crmToast(error.message || "Could not delete deal", "error");
     }
   });
 
@@ -872,18 +883,43 @@
     }
   });
 
+  async function uploadCrmFile(file, args) {
+    let prepared = file;
+    if (window.AdminDocuments?.prepareUploadFile && file?.type?.startsWith("image/")) {
+      try {
+        prepared = await window.AdminDocuments.prepareUploadFile(file);
+      } catch {
+        prepared = file;
+      }
+    }
+    await uploadDocument({ ...args, file: prepared });
+  }
+
   els.dealDocumentInput?.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !selectedDealId) return;
     try {
-      await uploadDocument({
-        file,
+      await uploadCrmFile(file, {
         dealId: selectedDealId,
         onDone: () => openDealDrawer(selectedDealId),
       });
     } catch (error) {
-      alert(error.message || "Upload failed");
+      crmToast(error.message || "Upload failed", "error");
+    }
+  });
+
+  els.dealDocumentCamera?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedDealId) return;
+    try {
+      await uploadCrmFile(file, {
+        dealId: selectedDealId,
+        onDone: () => openDealDrawer(selectedDealId),
+      });
+    } catch (error) {
+      crmToast(error.message || "Upload failed", "error");
     }
   });
 
@@ -892,14 +928,28 @@
     event.target.value = "";
     if (!file || !selectedEntity) return;
     try {
-      await uploadDocument({
-        file,
+      await uploadCrmFile(file, {
         accountId: selectedEntity.type === "account" ? selectedEntity.id : null,
         contactId: selectedEntity.type === "contact" ? selectedEntity.id : null,
         onDone: () => openEntityDrawer(selectedEntity.type, selectedEntity.id, true),
       });
     } catch (error) {
-      alert(error.message || "Upload failed");
+      crmToast(error.message || "Upload failed", "error");
+    }
+  });
+
+  els.entityDocumentCamera?.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !selectedEntity) return;
+    try {
+      await uploadCrmFile(file, {
+        accountId: selectedEntity.type === "account" ? selectedEntity.id : null,
+        contactId: selectedEntity.type === "contact" ? selectedEntity.id : null,
+        onDone: () => openEntityDrawer(selectedEntity.type, selectedEntity.id, true),
+      });
+    } catch (error) {
+      crmToast(error.message || "Upload failed", "error");
     }
   });
 
@@ -929,7 +979,7 @@
       els.dealDialog?.close();
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not save deal");
+      crmToast(error.message || "Could not save deal", "error");
     }
   });
 
@@ -959,7 +1009,7 @@
       els.accountDialog?.close();
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not save company");
+      crmToast(error.message || "Could not save company", "error");
     }
   });
 
@@ -990,7 +1040,7 @@
       els.contactDialog?.close();
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not save contact");
+      crmToast(error.message || "Could not save contact", "error");
     }
   });
 
@@ -1006,7 +1056,7 @@
       closeEntityDrawer();
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not delete company");
+      crmToast(error.message || "Could not delete company", "error");
     }
   });
 
@@ -1022,7 +1072,7 @@
       closeEntityDrawer();
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not delete contact");
+      crmToast(error.message || "Could not delete contact", "error");
     }
   });
 
@@ -1038,7 +1088,7 @@
       if (!res.ok) throw new Error(data.detail || "Could not update deal type");
       await refreshAll();
     } catch (error) {
-      alert(error.message || "Could not update deal type");
+      crmToast(error.message || "Could not update deal type", "error");
     }
   });
 
@@ -1048,18 +1098,18 @@
     try {
       await moveDealToStage(selectedDealId, stageId);
     } catch (error) {
-      alert(error.message || "Could not move deal");
+      crmToast(error.message || "Could not move deal", "error");
     }
   });
 
   els.emailTemplateSelect?.addEventListener("change", () => {
     if (!selectedDealId || !els.emailTemplateSelect.value) return;
-    void previewDealEmail(selectedDealId).catch((error) => alert(error.message || "Could not load template"));
+    void previewDealEmail(selectedDealId).catch((error) => crmToast(error.message || "Could not load template", "error"));
   });
 
   els.emailCustomInput?.addEventListener("change", () => {
     if (!selectedDealId || !els.emailTemplateSelect?.value) return;
-    void previewDealEmail(selectedDealId).catch((error) => alert(error.message || "Could not load template"));
+    void previewDealEmail(selectedDealId).catch((error) => crmToast(error.message || "Could not load template", "error"));
   });
 
   els.emailForm?.addEventListener("submit", async (event) => {
@@ -1086,11 +1136,11 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Could not send email");
-      alert(data.sent ? "Email sent and logged." : "Email queued (check SMTP delivery).");
+      crmToast(data.sent ? "Email sent and logged." : "Email queued (check SMTP delivery).");
       await openDealDrawer(selectedDealId);
       await loadSummary();
     } catch (error) {
-      alert(error.message || "Could not send email");
+      crmToast(error.message || "Could not send email", "error");
     }
   });
 
@@ -1159,7 +1209,7 @@
       await openDealDrawer(selectedDealId);
       await loadSummary();
     } catch (error) {
-      alert(error.message || "Could not save activity");
+      crmToast(error.message || "Could not save activity", "error");
     }
   });
 
@@ -1186,7 +1236,7 @@
       form.reset();
       await openEntityDrawer(selectedEntity.type, selectedEntity.id, true);
     } catch (error) {
-      alert(error.message || "Could not save activity");
+      crmToast(error.message || "Could not save activity", "error");
     }
   });
 

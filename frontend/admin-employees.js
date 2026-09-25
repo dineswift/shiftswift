@@ -1,6 +1,11 @@
 /** Employee workspace — lifecycle flow aligned to HR chart (recruitment → off-boarding). */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, statusPill, loadFormOptions, isFeatureEnabled, downloadAuthenticated, authHeaders, API_BASE, readApiError, friendlyNativeError, normalizeEmployeeListPayload, verifyAdminSession, getAdminOverviewCache, parseApiJson, fetchEmployeesList, peekEmployeesListCache, showAdminToast } = window.Admin;
+
+  function employeesToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   const DEFAULT_DOCUMENT_UPLOAD = {
     accept: ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
@@ -10,6 +15,213 @@
     max_size_label: "10 MB",
     hint: "PDF, JPEG or PNG · max 10 MB per file",
   };
+
+  const ID_PASSPORT_CATEGORIES = new Set(["id", "passport", "identity"]);
+  const VISA_CATEGORIES = new Set(["visa_brp", "visa"]);
+  const RTW_CHECK_CATEGORIES = new Set(["rtw", "right_to_work"]);
+  const IDENTITY_EXPIRY_CATEGORIES = new Set([
+    ...ID_PASSPORT_CATEGORIES,
+    ...VISA_CATEGORIES,
+    ...RTW_CHECK_CATEGORIES,
+  ]);
+
+  const DBS_CATEGORIES = new Set(["dbs"]);
+  const TRAINING_CATEGORIES = new Set(["qualification", "training"]);
+  const CONTRACT_CATEGORIES = new Set(["contract"]);
+  const POLICY_CATEGORIES = new Set(["policy"]);
+  const DISCIPLINARY_CATEGORIES = new Set(["disciplinary"]);
+  const PAYSLIP_CATEGORIES = new Set(["payslip", "payroll"]);
+
+  function documentKindFromCategory(value) {
+    const category = String(value || "").toLowerCase();
+    if (ID_PASSPORT_CATEGORIES.has(category)) return "passport";
+    if (VISA_CATEGORIES.has(category)) return "visa";
+    if (RTW_CHECK_CATEGORIES.has(category)) return "rtw";
+    if (DBS_CATEGORIES.has(category)) return "dbs";
+    if (TRAINING_CATEGORIES.has(category)) return "training";
+    if (CONTRACT_CATEGORIES.has(category)) return "contract";
+    if (POLICY_CATEGORIES.has(category)) return "policy";
+    if (DISCIPLINARY_CATEGORIES.has(category)) return "disciplinary";
+    if (PAYSLIP_CATEGORIES.has(category)) return "payslip";
+    return "other";
+  }
+
+  function isoDateValue(value) {
+    const raw = String(value || "").trim().slice(0, 10);
+    const match = raw.match(/^(\d{1,4})-(\d{2})-(\d{2})$/);
+    if (!match) return raw;
+    let year = Number(match[1]);
+    if (year >= 0 && year < 100) year += 2000;
+    return `${String(year).padStart(4, "0")}-${match[2]}-${match[3]}`;
+  }
+
+  function todayIsoDate() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
+
+  function documentTypeDateConfig(category) {
+    const kind = documentKindFromCategory(category);
+    if (kind === "passport") {
+      return {
+        kind,
+        issued: { show: true, label: "Issue date", hint: "Date the passport or ID was issued." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Expiry date", hint: "Date the passport or ID expires." },
+      };
+    }
+    if (kind === "visa") {
+      return {
+        kind,
+        issued: { show: true, label: "Visa start date", hint: "Date leave to remain / the visa starts." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Visa end date", hint: "Date the visa or BRP ends." },
+      };
+    }
+    if (kind === "rtw") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: true, label: "Date taken", hint: "Date this right to work check was carried out." },
+        expires: { show: true, label: "RTW expiry date", hint: "Leave blank if this check has no end date." },
+      };
+    }
+    if (kind === "dbs") {
+      return {
+        kind,
+        issued: { show: true, label: "Issue date", hint: "Date the DBS certificate was issued." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Valid until", hint: "Leave blank if you use the DBS Update Service with no end date." },
+      };
+    }
+    if (kind === "training") {
+      return {
+        kind,
+        issued: { show: true, label: "Award date", hint: "Date the certificate was awarded." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "Expiry date", hint: "Leave blank if this certificate does not expire." },
+      };
+    }
+    if (kind === "contract") {
+      return {
+        kind,
+        issued: { show: true, label: "Start / signed date", hint: "Date the contract starts or was signed." },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: true, label: "End date", hint: "Leave blank for a permanent contract." },
+      };
+    }
+    if (kind === "policy") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: true, label: "Date signed", hint: "Date the employee acknowledged this policy." },
+        expires: { show: false, label: "Expiry date", hint: "" },
+      };
+    }
+    if (kind === "disciplinary") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: true, label: "Date of letter", hint: "Date on the disciplinary letter." },
+        expires: { show: false, label: "Expiry date", hint: "" },
+      };
+    }
+    if (kind === "payslip") {
+      return {
+        kind,
+        issued: { show: false, label: "Issue date", hint: "" },
+        recorded: { show: false, label: "Date taken", hint: "" },
+        expires: { show: false, label: "Expiry date", hint: "" },
+      };
+    }
+    return {
+      kind,
+      issued: { show: false, label: "Issue date", hint: "" },
+      recorded: { show: false, label: "Date taken", hint: "" },
+      expires: { show: true, label: "Expiry date", hint: "Leave blank if this document does not expire." },
+    };
+  }
+
+  function pruneEmptyDocumentDates(formData) {
+    const config = documentTypeDateConfig(formData.get("category"));
+    ["expires_at", "issued_at", "recorded_at"].forEach((name) => {
+      if (!String(formData.get(name) || "").trim()) formData.delete(name);
+    });
+    if (!config.issued.show) formData.delete("issued_at");
+    if (!config.recorded.show) formData.delete("recorded_at");
+    if (!config.expires.show) formData.delete("expires_at");
+    return formData;
+  }
+
+  function syncDocumentTypeDateFields(form, { defaultRecorded = false } = {}) {
+    if (!form) return;
+    const category = form.querySelector('[name="category"]')?.value || "";
+    const config = documentTypeDateConfig(category);
+    const issuedInput = form.querySelector('[name="issued_at"]');
+    const recordedInput = form.querySelector('[name="recorded_at"]');
+    const expiresInput = form.querySelector('[name="expires_at"]');
+    const issuedField =
+      form.querySelector("[data-issued-field]") || issuedInput?.closest(".edit-field, .employee-record-field, label");
+    const recordedField =
+      form.querySelector("[data-recorded-field]") || recordedInput?.closest(".edit-field, .employee-record-field, label");
+    const expiresField =
+      form.querySelector("[data-expires-field]") || expiresInput?.closest(".edit-field, .employee-record-field, label");
+    const issuedLabel =
+      form.querySelector("[data-issued-label]") || issuedField?.querySelector(".edit-label, .employee-record-field__label");
+    const recordedLabel =
+      form.querySelector("[data-recorded-label]") || recordedField?.querySelector(".edit-label, .employee-record-field__label");
+    const expiresLabel =
+      form.querySelector("[data-expires-label]") || expiresField?.querySelector(".edit-label, .employee-record-field__label");
+    const issuedHint = issuedField?.querySelector(".edit-hint, .employee-record-field__hint");
+    const recordedHint = recordedField?.querySelector(".edit-hint, .employee-record-field__hint");
+    const expiresHint = form.querySelector("[data-expires-hint]");
+    if (issuedField) issuedField.hidden = !config.issued.show;
+    if (recordedField) recordedField.hidden = !config.recorded.show;
+    if (expiresField) expiresField.hidden = !config.expires.show;
+    if (issuedLabel) issuedLabel.textContent = config.issued.label;
+    if (recordedLabel) recordedLabel.textContent = config.recorded.label;
+    if (expiresLabel) expiresLabel.textContent = config.expires.label;
+    if (issuedHint) issuedHint.textContent = config.issued.hint;
+    if (recordedHint) recordedHint.textContent = config.recorded.hint;
+    if (expiresHint) {
+      expiresHint.hidden = !config.expires.hint;
+      expiresHint.textContent = config.expires.hint;
+    }
+    if (!config.issued.show && issuedInput) issuedInput.value = "";
+    if (!config.recorded.show && recordedInput) recordedInput.value = "";
+    if (!config.expires.show && expiresInput) expiresInput.value = "";
+    if (config.recorded.show && defaultRecorded && recordedInput && !recordedInput.value) {
+      recordedInput.value = todayIsoDate();
+    }
+    const alertField =
+      form.querySelector("[data-alert-field]") ||
+      form.querySelector("#employee-document-upload-alert-field") ||
+      form.querySelector("#employee-document-edit-alert-field") ||
+      form.querySelector("#employees-side-doc-alert-field");
+    if (alertField) alertField.hidden = !(config.expires.show && expiresInput?.value);
+    if (!config.expires.show && alertField) alertField.hidden = true;
+    syncIdentityExpiryFields({
+      categoryValue: category,
+      expiryInput: expiresInput,
+      alertField,
+      hintEl: null,
+    });
+    window.Admin?.bindDateInputs?.(form);
+  }
+
+  function collectDocumentTypeDates(form, category) {
+    const config = documentTypeDateConfig(category);
+    const issued = isoDateValue(form?.querySelector('[name="issued_at"]')?.value);
+    const recorded = isoDateValue(form?.querySelector('[name="recorded_at"]')?.value);
+    const expires = isoDateValue(form?.querySelector('[name="expires_at"]')?.value);
+    return {
+      issued_at: config.issued.show ? issued || null : null,
+      recorded_at: config.recorded.show ? recorded || null : null,
+      expires_at: config.expires.show ? expires || null : null,
+    };
+  }
 
   function documentUploadPolicy() {
     return window.Admin.formOptions?.document_upload || DEFAULT_DOCUMENT_UPLOAD;
@@ -117,6 +329,7 @@
         { name: "share_code", label: "GOV.UK share code", type: "text" },
         { name: "cos_reference", label: "CoS reference", type: "text" },
         { name: "rtw_status", label: "Right to work status", type: "select", optionsKey: "rtw_statuses", defaultValue: "pending" },
+        { name: "rtw_check_expiry_date", label: "Right to work check expiry", type: "date" },
       ],
     },
     offboarding: {
@@ -132,11 +345,11 @@
   };
 
   const SECTION_HINTS = {
-    recruitment: "Set employee type here. Sponsor compliance (step 9) unlocks only for sponsored workers.",
+    recruitment: "Set employee type here. Employer compliance (step 9) unlocks extra tools only for sponsored workers.",
     onboarding: "Set status to <strong>Onboarding</strong> for new starters. Contract hours drive rota over/under warnings — leave blank to use the default for the employment type.",
     induction: "Phone, home address, and emergency contact are required. NI number is validated when provided.",
     job_performance: "Salary is stored here for payroll CSV export. Run probation and annual reviews using HR Templates — file signed forms in Document store.",
-    compliance_reporting: "Visa type plus a GOV.UK share code <em>or</em> CoS reference required.",
+    compliance_reporting: "Visa type plus a GOV.UK share code <em>or</em> CoS reference required. Set visa expiry and right to work check expiry so HR is alerted in time.",
     support: "Add HR-only internal notes or messages the employee will see in their portal.",
     offboarding: "Set employee status to <strong>Terminated</strong> in on-boarding (or off-boarding workflow) to unlock this step.",
   };
@@ -155,7 +368,7 @@
       body: "Mentoring, workplace assistance, and wellbeing resources. Link grievance or compliance workflows when needed.",
       links: [
         { href: "#grievance", label: "Grievance cases" },
-        { href: "#compliance", label: "Sponsor compliance" },
+        { href: "#compliance/rtw", label: "Employer compliance" },
       ],
     },
     performance_improvement: {
@@ -194,7 +407,9 @@
   const SIDE_PANEL_CHECKLIST = [
     { key: "recruitment", sectionKey: "recruitment", label: "Recruitment" },
     { key: "induction", sectionKey: "induction", label: "Personal information" },
-    { key: "rtw", sectionKey: "document_store", docCategory: "rtw", label: "Right to work" },
+    { key: "id", sectionKey: "document_store", docCategory: "id", label: "ID / passport" },
+    { key: "visa", sectionKey: "document_store", docCategory: "visa_brp", label: "Visa / BRP" },
+    { key: "rtw", sectionKey: "document_store", docCategory: "rtw", label: "Right to work check" },
     { key: "contract", sectionKey: "document_store", docCategory: "contract", label: "Contract" },
   ];
 
@@ -204,17 +419,56 @@
   let quickAddMounted = false;
 
   function isMobileEmployeesHub() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    if (document.documentElement.classList.contains("native-tablet")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function employeeDocumentsRoot() {
+    return (
+      document.querySelector("#emp-profile-docs-panel #employees-side-documents") ||
+      document.getElementById("employees-side-documents")
+    );
+  }
+
+  function forEachEmployeeDocumentsHost(callback) {
+    document.querySelectorAll("#employees-side-documents").forEach((host) => callback(host));
   }
 
   function lifecycleStage(row) {
     if (!row) return "recruitment";
     if (row.status === "terminated") return "offboarding";
-    if (row.status === "active" && !row.next_section) return "active";
+    if (row.status === "active") return "active";
+    if (row.status === "onboarding") return "onboarding";
     if (row.next_section === "recruitment") return "recruitment";
-    if (row.status === "active" && (row.completion_pct ?? 0) >= 100) return "active";
-    if (row.status === "onboarding" || row.next_section) return "onboarding";
+    if (row.next_section) return "onboarding";
     return "active";
+  }
+
+  function isoDateInputValue(value) {
+    const raw = String(value || "").trim().slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+  }
+
+  function employeeIdMatches(left, right) {
+    return Number(left) === Number(right);
+  }
+
+  function resolveSelectedEmployeeRow() {
+    if (!selectedEmployeeId) return null;
+    return employeesCache.find((row) => employeeIdMatches(row.id, selectedEmployeeId)) || null;
+  }
+
+  function setEmployeeSidePanelVisible(hasEmployee) {
+    const panel = $("employees-side-panel");
+    const empty = $("employees-side-empty");
+    const content = $("employees-side-content");
+    const selected = Boolean(hasEmployee);
+    if (empty) empty.hidden = selected;
+    if (content) content.hidden = !selected;
+    if (panel) {
+      panel.classList.toggle("employees-side-panel--selected", selected);
+      panel.classList.toggle("employees-side-panel--wide", selected);
+    }
   }
 
   function bucketEmployeesByStage(items = []) {
@@ -247,7 +501,10 @@
   function checklistItemComplete(workspace, item) {
     if (item.docCategory) {
       const req = (workspace.document_requirements?.items || []).find((entry) => entry.category === item.docCategory);
-      return Boolean(req?.satisfied);
+      if (req) return Boolean(req.satisfied);
+      return scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId).some(
+        (doc) => String(doc.category || "").toLowerCase() === item.docCategory,
+      );
     }
     const section = (workspace.sections || []).find((entry) => entry.key === item.sectionKey);
     return Boolean(section?.complete);
@@ -255,7 +512,9 @@
 
   function checklistItemStarted(workspace, item) {
     if (item.docCategory) {
-      return (workspace.documents || []).some((doc) => doc.category === item.docCategory);
+      return scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId).some(
+        (doc) => doc.category === item.docCategory,
+      );
     }
     const section = (workspace.sections || []).find((entry) => entry.key === item.sectionKey);
     if (!section?.data) return false;
@@ -305,11 +564,79 @@
     return `<span class="employee-portal-pill employee-portal-pill--muted">Not invited</span>`;
   }
 
+  function isOnLeaveStatus(status) {
+    const key = String(status || "").toLowerCase().replace(/\s+/g, "_");
+    return key === "on_leave" || key === "leave";
+  }
+
+  function employeeStatusPillHtml(status) {
+    const key = String(status || "active").toLowerCase().replace(/\s+/g, "_");
+    const label = isOnLeaveStatus(key) ? "ON LEAVE" : key.replace(/_/g, " ").toUpperCase();
+    const tone = isOnLeaveStatus(key)
+      ? "leave"
+      : key === "active"
+        ? "active"
+        : key === "onboarding"
+          ? "warn"
+          : "muted";
+    return `<span class="employees-status-pill employees-status-pill--${tone}">${escapeHtml(label)}</span>`;
+  }
+
   function getFilteredEmployees() {
+    let rows = employeesCache;
     if (employeeRegisterFilter === "portal-pending") {
-      return employeesCache.filter((row) => isPortalSetupPending(row));
+      rows = rows.filter((row) => isPortalSetupPending(row));
     }
-    return employeesCache;
+    const query = employeeSearchQuery.trim().toLowerCase();
+    if (query) {
+      rows = rows.filter((row) => {
+        const haystack = [row.first_name, row.last_name, row.email, row.job_title, row.department]
+          .map((value) => String(value || "").toLowerCase())
+          .join(" ");
+        return haystack.includes(query);
+      });
+    }
+    if (employeeDeptFilter) {
+      rows = rows.filter((row) => String(row.department || "") === employeeDeptFilter);
+    }
+    if (employeeStatusFilter) {
+      rows = rows.filter((row) => String(row.status || "active").toLowerCase().replace(/\s+/g, "_") === employeeStatusFilter);
+    }
+    return rows;
+  }
+
+  function autoExpandLifecycleStage(items = employeesCache) {
+    const buckets = bucketEmployeesByStage(items);
+    const order = ["active", "onboarding", "recruitment", "offboarding"];
+    const pick = order.find((key) => (buckets[key] || []).length) || "recruitment";
+    lifecycleHubExpanded = { recruitment: false, onboarding: false, active: false, offboarding: false };
+    lifecycleHubExpanded[pick] = true;
+    lifecycleHubOpenStage = pick;
+  }
+
+  function renderLifecycleHubLoadError(message) {
+    const hub = $("employees-lifecycle-hub");
+    if (!hub || !isMobileEmployeesHub()) return;
+    hub.hidden = false;
+    hub.innerHTML = `<div class="overview-error" style="padding:16px 0;margin-bottom:12px">
+      <p class="muted">${escapeHtml(message)}</p>
+      <button type="button" class="btn outline btn-sm" id="employees-hub-retry-btn">Retry</button>
+    </div>`;
+    hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
+      void initEmployeesSection();
+    });
+  }
+
+  function syncEmployeesPresentation() {
+    if (!employeesCache.length) {
+      renderEmployeeSidePanel(null);
+      renderLifecycleHub([]);
+      renderEmployeeMobileCards([]);
+      return;
+    }
+    autoExpandLifecycleStage(employeesCache);
+    renderLifecycleHub(employeesCache);
+    renderEmployeeMobileCards(getFilteredEmployees());
   }
 
   function renderEmployeeRegisterFilterBanner() {
@@ -339,66 +666,104 @@
   }
 
   function renderEmployeeRegister() {
-    const tbody = $("employees-table-body");
-    if (!tbody) return;
-
     renderEmployeeRegisterFilterBanner();
+    renderEmployeesStats(employeesCache);
+    syncEmployeeFilterControls(employeesCache);
     const rows = getFilteredEmployees();
+    const tbody = $("employees-table-body");
 
     if (!employeesCache.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No employees yet. Add your first team member above.</td></tr>';
-      renderEmployeeSidePanel(null);
-      renderLifecycleHub([]);
+      if (tbody) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="muted">No employees yet. Add your first team member.</td></tr>';
+      }
+      renderEmployeesFoot([]);
+      syncEmployeesPresentation();
       return;
     }
 
     if (!rows.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      if (tbody) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="muted">No employees match this filter.</td></tr>';
+      }
+      renderEmployeesFoot([]);
+      if (!resolveSelectedEmployeeRow()) {
+        renderEmployeeSidePanel(null);
+      }
+      syncEmployeesPresentation();
       return;
     }
 
-    tbody.innerHTML = rows
-      .map((row) => {
-        const selected = selectedEmployeeId === row.id ? " hr-register-row--selected" : "";
-        return `<tr class="hr-register-row${selected}" data-employee-id="${row.id}">
-          <td><strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""}</td>
-          <td>${escapeHtml(row.department || "Not set")}</td>
-          <td>${statusPill(row.status)}</td>
-          <td>${renderPortalStatusCell(row)}</td>
-          <td>${renderRegisterProgressCell(row)}</td>
-        </tr>`;
-      })
-      .join("");
+    if (!tbody) {
+      syncEmployeesPresentation();
+      return;
+    }
+
+    tbody.innerHTML = rows.map(employeeRegisterRowHtml).join("");
+    renderEmployeesFoot(rows);
 
     tbody.querySelectorAll(".hr-register-row").forEach((row) => {
       row.addEventListener("click", () => {
         const newId = Number(row.dataset.employeeId);
         if (selectedEmployeeId !== newId) {
           sidePanelExpandedSection = null;
+          sidePanelTab = "overview";
         }
         selectedEmployeeId = newId;
         tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-          el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+          el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
         });
-        void renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+        void renderEmployeeSidePanel(resolveSelectedEmployeeRow());
       });
     });
 
-    if (selectedEmployeeId && rows.some((row) => row.id === selectedEmployeeId)) {
-      renderEmployeeSidePanel(employeesCache.find((e) => e.id === selectedEmployeeId));
+    const selectedRow = resolveSelectedEmployeeRow();
+    if (selectedRow) {
+      if (!employeeIdMatches(sidePanelEmployeeId, selectedRow.id) || !sidePanelWorkspace) {
+        void renderEmployeeSidePanel(selectedRow);
+      }
     } else if (employeeRegisterFilter === "portal-pending" && rows.length === 1) {
       selectedEmployeeId = rows[0].id;
       tbody.querySelectorAll(".hr-register-row").forEach((el) => {
-        el.classList.toggle("hr-register-row--selected", Number(el.dataset.employeeId) === selectedEmployeeId);
+        el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
       });
       void renderEmployeeSidePanel(rows[0]);
     } else {
       selectedEmployeeId = null;
       renderEmployeeSidePanel(null);
     }
-    renderLifecycleHub(employeesCache);
+    syncEmployeesPresentation();
+  }
+
+  function renderEmployeeMobileCards(rows = getFilteredEmployees()) {
+    const host = $("employees-mobile-cards");
+    const hub = $("employees-lifecycle-hub");
+    if (!host || !isMobileEmployeesHub()) return;
+    if (hub && !hub.hidden && hub.querySelector(".lifecycle-hub-section")) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    if (!employeesCache.length) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+    host.hidden = false;
+    host.innerHTML = rows.length
+      ? rows
+          .map(
+            (row) => `<button type="button" class="lifecycle-employee-card" data-employee-id="${row.id}">
+              <span class="lifecycle-employee-card__name">${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</span>
+              <span class="lifecycle-employee-card__meta muted">${escapeHtml(row.job_title || row.department || "Employee")} · ${escapeHtml(row.status || "active")}</span>
+            </button>`,
+          )
+          .join("")
+      : `<p class="muted">No employees match this filter.</p>`;
+    host.querySelectorAll("[data-employee-id]").forEach((card) => {
+      card.addEventListener("click", () => openEmployee(Number(card.dataset.employeeId)));
+    });
   }
 
   function applyEmployeesListRoute() {
@@ -426,6 +791,107 @@
     return palettes[Math.abs(Number(employeeId)) % palettes.length];
   }
 
+  function dashValue(value) {
+    const text = String(value ?? "").trim();
+    return text || "—";
+  }
+
+  function overviewFieldRow(label, value, extraClass = "", icon = "") {
+    return `<div class="emp-overview-row">
+      ${icon ? `<span class="emp-overview-row__icon" aria-hidden="true">${iconSvg(icon)}</span>` : ""}
+      <span class="emp-overview-row__label">${escapeHtml(label)}</span>
+      <span class="emp-overview-row__value${extraClass ? ` ${extraClass}` : ""}">${value}</span>
+    </div>`;
+  }
+
+  function renderEmployeesStats(items = employeesCache) {
+    const host = $("employees-stats-grid");
+    if (!host) return;
+    const active = items.filter((row) => String(row.status || "active").toLowerCase() === "active").length;
+    const onLeave = items.filter((row) => isOnLeaveStatus(row.status)).length;
+    const overview = window.Admin?.getAdminOverviewCache?.() || {};
+    const pending =
+      Number(overview.modules?.leave?.pending_requests || 0) +
+      Number(overview.modules?.profile_changes?.pending_requests || 0);
+    const expiring =
+      Number(overview.modules?.rtw?.expiring_soon || 0) +
+      Number(overview.modules?.qualifications?.expiring_soon || 0);
+    const card = (icon, value, label, tone) => `<article class="employees-stat-card employees-stat-card--${tone}">
+      <span class="employees-stat-card__icon" aria-hidden="true">${iconSvg(icon)}</span>
+      <span class="employees-stat-card__copy">
+        <span class="employees-stat-card__value">${escapeHtml(String(value))}</span>
+        <span class="employees-stat-card__label">${escapeHtml(label)}</span>
+      </span>
+    </article>`;
+    host.innerHTML = [
+      card("user", active, "Active", "ok"),
+      card("calendar", onLeave, "On leave", "info"),
+      card("clock", pending, "Pending requests", pending ? "warn" : "muted"),
+      card("document", expiring, "Expiring soon", expiring ? "warn" : "muted"),
+    ].join("");
+  }
+
+  function syncEmployeeFilterControls(items = employeesCache) {
+    const deptSelect = $("employees-filter-department");
+    if (deptSelect) {
+      const current = employeeDeptFilter;
+      const departments = [...new Set(items.map((row) => String(row.department || "").trim()).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b),
+      );
+      deptSelect.innerHTML = `<option value="">All departments</option>${departments
+        .map((dept) => `<option value="${escapeHtml(dept)}"${dept === current ? " selected" : ""}>${escapeHtml(dept)}</option>`)
+        .join("")}`;
+    }
+    const search = $("employees-search");
+    if (search && search.value !== employeeSearchQuery) search.value = employeeSearchQuery;
+    const statusSelect = $("employees-filter-status");
+    if (statusSelect) statusSelect.value = employeeStatusFilter;
+  }
+
+  function renderEmployeesFoot(rows) {
+    const foot = $("employees-register-foot");
+    if (!foot) return;
+    if (!rows.length) {
+      foot.hidden = true;
+      foot.textContent = "";
+      foot.innerHTML = "";
+      return;
+    }
+    foot.hidden = false;
+    foot.innerHTML = `<span>Showing 1–${rows.length} of ${rows.length} employee${rows.length === 1 ? "" : "s"}</span>
+      <span class="employees-register-pager"><span class="employees-register-page is-active">1</span></span>`;
+  }
+
+  function employeeFullName(row) {
+    return [row?.first_name, row?.last_name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || "Employee";
+  }
+
+  function employeeRegisterMeta(row) {
+    return row?.job_title || row?.department || row?.email || "";
+  }
+
+  function employeeRegisterRowHtml(row) {
+    const selected = employeeIdMatches(selectedEmployeeId, row.id) ? " hr-register-row--selected" : "";
+    const palette = avatarPalette(row.id);
+    const joined = formatJoinedDate(row.start_date) || "—";
+    const meta = employeeRegisterMeta(row);
+    return `<tr class="hr-register-row employees-register-row${selected}" data-employee-id="${row.id}">
+      <td>
+        <span class="employees-register-person">
+          <span class="employees-register-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(row))}</span>
+          <span class="employees-register-person__copy">
+            <strong class="employees-register-name">${escapeHtml(employeeFullName(row))}</strong>
+            ${meta ? `<span class="muted employees-register-meta">${escapeHtml(meta)}</span>` : ""}
+          </span>
+        </span>
+      </td>
+      <td>${escapeHtml(row.department || "—")}</td>
+      <td>${escapeHtml(row.job_title || "—")}</td>
+      <td class="employees-register-status">${employeeStatusPillHtml(row.status)}</td>
+      <td class="employees-register-joined">${escapeHtml(joined)}</td>
+    </tr>`;
+  }
+
   function renderLifecycleStageRail(buckets, { selectedEmployee = null, totalEmployees = 0 } = {}) {
     const rail = $("lifecycle-stage-rail");
     if (!rail) return;
@@ -451,7 +917,9 @@
         } else if (isCurrent) {
           stateClass = " lifecycle-stage-rail__step--current";
           marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
-          stateLabel = `<span class="lifecycle-stage-rail__state">In progress</span>`;
+          const currentLabel =
+            selectedEmployee?.status === "active" && stage.id === "active" ? "Current" : "In progress";
+          stateLabel = `<span class="lifecycle-stage-rail__state">${currentLabel}</span>`;
         } else {
           marker = `<span class="lifecycle-stage-rail__marker">${index + 1}</span>`;
         }
@@ -496,7 +964,11 @@
       if (index < lines.length) trackParts.push(lines[index]);
     });
 
-    rail.innerHTML = `<div class="lifecycle-stage-rail__track${
+    const caption = selectedEmployee
+      ? `<p class="lifecycle-stage-rail__caption"><span class="lifecycle-stage-rail__caption-label">Lifecycle stage for</span> <strong>${escapeHtml(selectedEmployee.first_name)} ${escapeHtml(selectedEmployee.last_name)}</strong></p>`
+      : `<p class="lifecycle-stage-rail__caption lifecycle-stage-rail__caption--overview muted">Team overview — select an employee to see their lifecycle stage</p>`;
+
+    rail.innerHTML = `${caption}<div class="lifecycle-stage-rail__track${
       selectedEmployee ? "" : " lifecycle-stage-rail__track--neutral"
     }" style="--lifecycle-progress:${progressPct}%">${trackParts.join("")}</div>`;
 
@@ -553,21 +1025,29 @@
   function renderLifecycleHub(items = employeesCache) {
     const hub = $("employees-lifecycle-hub");
     if (!hub) return;
+    try {
+    const overviewActive = Number(getAdminOverviewCache?.()?.modules?.employees?.active ?? 0);
+    const mismatchBanner =
+      !items.length && overviewActive > 0
+        ? `<div class="overview-error" style="margin-bottom:10px"><p class="muted">Your dashboard shows ${overviewActive} active employee${overviewActive === 1 ? "" : "s"}, but the register is still empty. Tap Retry below or pull to refresh.</p><button type="button" class="btn outline btn-sm" id="employees-hub-retry-btn">Retry</button></div>`
+        : "";
     const buckets = bucketEmployeesByStage(items);
     const selected =
-      selectedEmployeeId && items.length ? items.find((row) => row.id === selectedEmployeeId) || null : null;
+      selectedEmployeeId && items.length
+        ? items.find((row) => employeeIdMatches(row.id, selectedEmployeeId)) || null
+        : null;
     renderLifecycleStageRail(buckets, { selectedEmployee: selected, totalEmployees: items.length });
 
     if (!isMobileEmployeesHub()) {
       hub.hidden = true;
-      relocateQuickAddForm(document.querySelector(".employees-quick-add-panel"));
+      relocateQuickAddForm($("employees-add-dialog"));
       return;
     }
 
     hub.hidden = false;
     const icon = (name) => window.AdminIcons?.svg?.(name) || "";
 
-    hub.innerHTML = LIFECYCLE_STAGES.map((stage) => {
+    hub.innerHTML = mismatchBanner + LIFECYCLE_STAGES.map((stage) => {
       const rows = buckets[stage.id] || [];
       const isOpen = Boolean(lifecycleHubExpanded[stage.id]);
       const showAll = Boolean(lifecycleHubShowAll[stage.id]);
@@ -621,8 +1101,12 @@
     if (lifecycleHubExpanded.recruitment) {
       relocateQuickAddForm($("employees-recruitment-form-slot"));
     } else {
-      relocateQuickAddForm(document.querySelector(".employees-quick-add-panel"));
+      relocateQuickAddForm($("employees-add-dialog"));
     }
+
+    hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
+      void initEmployeesSection();
+    });
 
     hub.querySelectorAll("[data-lifecycle-toggle]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -647,6 +1131,15 @@
     hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => focusRecruitmentAddForm());
 
     $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
+    } catch (error) {
+      console.error("Employee lifecycle hub render failed:", error);
+      if (!isMobileEmployeesHub()) return;
+      hub.hidden = false;
+      hub.innerHTML = `<div class="overview-error"><p class="muted">Could not display employees.</p><button type="button" class="btn outline btn-sm" id="employees-hub-render-retry">Retry</button></div>`;
+      hub.querySelector("#employees-hub-render-retry")?.addEventListener("click", () => {
+        void refreshEmployeesTable();
+      });
+    }
   }
 
   function focusRecruitmentAddForm() {
@@ -701,7 +1194,44 @@
   let sidePanelExpandedSection = null;
   let sidePanelRenderRequest = 0;
   let employeesCache = [];
+  let employeesRefreshGeneration = 0;
+  let employeesRefreshInflight = null;
+
+  function employeesFromFormOptions() {
+    const options = window.Admin?.formOptions?.employees || [];
+    return options.map((row) => ({
+      id: row.id,
+      first_name: row.first_name || String(row.label || "").split(",")[0]?.trim() || "Employee",
+      last_name: row.last_name || "",
+      job_title: row.job_title || "",
+      department: row.department || "",
+      status: row.status || "active",
+      email: row.email || "",
+      completion_pct: row.completion_pct ?? 0,
+      next_section: row.next_section ?? null,
+    }));
+  }
+
+  function applyEmployeesCache(items, meta = {}) {
+    employeesCache = items;
+    try {
+      window.__SSHR_LAST_API = {
+        ...(window.__SSHR_LAST_API || {}),
+        path: "/admin/employees",
+        count: items.length,
+        tenantId: meta.tenantId || localStorage.getItem("tenantId"),
+        at: Date.now(),
+      };
+    } catch {
+      /* ignore */
+    }
+    renderEmployeeRegister();
+  }
   let employeeRegisterFilter = null;
+  let employeeSearchQuery = "";
+  let employeeDeptFilter = "";
+  let employeeStatusFilter = "";
+  let sidePanelTab = "overview";
   let activeSection = "recruitment";
   let workspaceCache = null;
   let sectionLoaded = false;
@@ -713,10 +1243,29 @@
   }
 
   function employeeApiError(res, data, fallback = "Request failed") {
+    if (window.Admin?.parseApiDetail) return window.Admin.parseApiDetail(data, fallback);
     const detail = data?.detail;
-    if (typeof detail === "string") return detail;
+    if (typeof detail === "string" && detail.trim() && !/^\[object /i.test(detail)) return detail.trim();
+    if (Array.isArray(detail)) {
+      const parts = detail.map((item) => item?.msg || item?.message || "").filter(Boolean);
+      if (parts.length) return parts.join("; ");
+    }
+    if (detail && typeof detail.msg === "string") return detail.msg;
     if (detail && typeof detail.message === "string") return detail.message;
     return fallback;
+  }
+
+  function employeeErrorText(error, fallback = "Request failed") {
+    if (window.Admin?.formatErrorMessage) return window.Admin.formatErrorMessage(error, fallback);
+    const message = typeof error?.message === "string" ? error.message.trim() : "";
+    if (message && !/^\[object /i.test(message)) return message;
+    return fallback;
+  }
+
+  async function resolveUploadFile(fileInput, form) {
+    const raw = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput?.files?.[0] || form?.querySelector?.('input[name="file"]')?.files?.[0] || null;
+    if (window.AdminDocuments?.prepareUploadFile) return window.AdminDocuments.prepareUploadFile(raw);
+    return raw;
   }
 
   function duplicateEmployeeId(res, data) {
@@ -745,6 +1294,9 @@
     $("employees-detail-view")?.setAttribute("hidden", "");
     activeEmployeeId = null;
     workspaceCache = null;
+    mobileProfileTab = "details";
+    mobileProfileEdit = false;
+    teardownMobileEmployeeProfile();
     setSidebarBreadcrumb(null);
     window.location.hash = "employees";
     renderLifecycleHub(employeesCache);
@@ -756,6 +1308,493 @@
     $("employee-advanced-links")?.removeAttribute("hidden");
   }
 
+  let mobileProfileTab = "details";
+  let mobileProfileEdit = false;
+  let mobileProfileHours = null;
+  let mobileProfileLeave = null;
+
+  function iconSvg(name) {
+    return window.AdminIcons?.svg?.(name) || "";
+  }
+
+  function employmentTypeLabel(type) {
+    const key = String(type || "").toLowerCase();
+    const labels = {
+      full_time: "Full time",
+      part_time: "Part time",
+      zero_hours: "Zero hours",
+      fixed_term: "Fixed term",
+      casual: "Casual",
+    };
+    return labels[key] || (type ? String(type).replace(/_/g, " ") : "");
+  }
+
+  function formatSinceMonth(value) {
+    if (!value) return "";
+    const raw = String(value).trim();
+    const date = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(date.getTime())) return "";
+    return `Since ${date.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`;
+  }
+
+  function formatFriendlyDate(value) {
+    if (!value) return "—";
+    const raw = isoDateValue(value);
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+      ? new Date(`${raw}T12:00:00`)
+      : window.Admin?.formatDisplayDate
+        ? null
+        : new Date(String(value).trim());
+    if (parsed && !Number.isNaN(parsed.getTime())) {
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${parsed.getDate()} ${months[parsed.getMonth()]} ${parsed.getFullYear()}`;
+    }
+    if (window.Admin?.formatDisplayDate) return window.Admin.formatDisplayDate(value);
+    return "—";
+  }
+
+  function statusDisplayLabel(status) {
+    const key = String(status || "active").toLowerCase();
+    return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function rtwDisplayLabel(employee) {
+    const status = String(employee?.sponsorship?.rtw_status || employee?.rtw_status || "").toLowerCase();
+    if (status === "verified" || status === "approved" || status === "complete") return "Verified";
+    if (status === "pending" || status === "in_progress") return "Pending";
+    if (status) return statusDisplayLabel(status);
+    return "Not checked";
+  }
+
+  function profileValueOrDash(value) {
+    const text = String(value ?? "").trim();
+    return text || "—";
+  }
+
+  function profileDetailRow({ icon, label, value, href, tone }) {
+    const display = profileValueOrDash(value);
+    const toneClass = tone ? ` emp-profile-row__value--${tone}` : "";
+    const inner = href && display !== "—"
+      ? `<a class="emp-profile-row__value${toneClass}" href="${escapeHtml(href)}">${escapeHtml(display)}</a>`
+      : `<span class="emp-profile-row__value${toneClass}">${escapeHtml(display)}</span>`;
+    return `<div class="emp-profile-row">
+      <span class="emp-profile-row__icon" aria-hidden="true">${iconSvg(icon)}</span>
+      <span class="emp-profile-row__label">${escapeHtml(label)}</span>
+      ${inner}
+    </div>`;
+  }
+
+  function setDesktopEmployeeChromeVisible(visible) {
+    const detail = $("employees-detail-view");
+    if (!detail) return;
+    detail.classList.toggle("employees-detail-view--mobile-profile", !visible && isMobileEmployeesHub());
+    [
+      ".employee-profile-header",
+      ".employee-workflows-bar",
+      "#employee-lifecycle-accordion",
+      "#employee-kiosk-pin-panel",
+      "#employee-history-panel",
+      ".employee-back-link",
+    ].forEach((sel) => {
+      const el = detail.querySelector(sel);
+      if (!el) return;
+      if (visible) el.removeAttribute("hidden");
+      else el.setAttribute("hidden", "");
+    });
+  }
+
+  function teardownMobileEmployeeProfile() {
+    document.getElementById("emp-mobile-profile")?.remove();
+    document.getElementById("emp-profile-edit-btn")?.remove();
+    const back = document.getElementById("mobile-back-btn");
+    if (back && !back.dataset.defaultLabel) back.dataset.defaultLabel = "← Back";
+    if (back) back.textContent = back.dataset.defaultLabel || "← Back";
+    const brandName = document.getElementById("topbar-business-name");
+    if (brandName?.dataset.profileRestore) {
+      brandName.textContent = brandName.dataset.profileRestore;
+      delete brandName.dataset.profileRestore;
+    }
+    setDesktopEmployeeChromeVisible(true);
+    document.body.classList.remove("emp-profile-open");
+  }
+
+  function ensureMobileProfileEditButton() {
+    let btn = document.getElementById("emp-profile-edit-btn");
+    if (btn) return btn;
+    const tools = document.querySelector(".topbar-tools");
+    if (!tools) return null;
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "emp-profile-edit-btn";
+    btn.className = "btn ghost btn-sm emp-profile-edit-btn";
+    btn.textContent = "Edit";
+    tools.insertBefore(btn, tools.firstChild);
+    btn.addEventListener("click", () => {
+      mobileProfileEdit = !mobileProfileEdit;
+      if (mobileProfileEdit) mobileProfileTab = "details";
+      if (workspaceCache) renderMobileEmployeeProfile(workspaceCache);
+    });
+    return btn;
+  }
+
+  function renderMobileProfileDetails(employee, workspace) {
+    if (mobileProfileEdit) {
+      return `<div class="emp-profile-edit-wrap">
+        <p class="muted emp-profile-edit-lead">Changes save when you leave a field.</p>
+        <div class="employee-record-fields emp-profile-edit-fields">
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Job title</span>
+            <input type="text" id="employees-side-job-title" value="${escapeHtml(employee.job_title || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Department</span>
+            <select id="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Email</span>
+            <input type="email" id="employees-side-email" value="${escapeHtml(employee.email || "")}" placeholder="Not set" />
+          </label>
+        </div>
+        <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
+        ${renderEmployeeRecordSectionsHtml(employee, workspace)}
+        <p class="emp-profile-lifecycle-link">
+          <button type="button" class="employee-record-link" id="employees-side-lifecycle-btn">Open full lifecycle record →</button>
+        </p>
+      </div>`;
+    }
+
+    const contracted = employee.contract_hours_weekly != null ? Number(employee.contract_hours_weekly) : null;
+    const hoursValue = mobileProfileHours?.hours != null ? String(mobileProfileHours.hours) : "–";
+    const hoursSub =
+      contracted != null
+        ? `of ${contracted} contracted`
+        : mobileProfileHours?.loading
+          ? "Loading…"
+          : "This week";
+    const leaveValue = mobileProfileLeave?.remaining_days != null ? String(mobileProfileLeave.remaining_days) : "–";
+    const leaveSub = mobileProfileLeave?.loading
+      ? "Loading…"
+      : mobileProfileLeave?.remaining_days != null
+        ? "days remaining"
+        : "Leave balance";
+    const rtw = rtwDisplayLabel(employee);
+    const rtwTone = rtw === "Verified" ? "ok" : rtw === "Pending" ? "warn" : "";
+    const rtwExpiryRaw = employee.sponsorship?.rtw_check_expiry_date || employee.rtw_check_expiry_date;
+    const visaExpiryRaw = employee.sponsorship?.visa_expiry_date || employee.visa_expiry_date;
+    const contractCopy =
+      contracted != null ? `${contracted} hrs / week` : employmentTypeLabel(employee.employment_type) || "—";
+
+    return `
+      <div class="emp-profile-stats">
+        <article class="emp-profile-stat">
+          <p class="emp-profile-stat__label">Hours this week</p>
+          <p class="emp-profile-stat__value">${escapeHtml(hoursValue)}</p>
+          <p class="emp-profile-stat__sub">${escapeHtml(hoursSub)}</p>
+        </article>
+        <article class="emp-profile-stat">
+          <p class="emp-profile-stat__label">Holiday left</p>
+          <p class="emp-profile-stat__value">${escapeHtml(leaveValue)}</p>
+          <p class="emp-profile-stat__sub">${escapeHtml(leaveSub)}</p>
+        </article>
+      </div>
+
+      <section class="emp-profile-section" aria-labelledby="emp-profile-personal">
+        <h3 class="emp-profile-section__title" id="emp-profile-personal">Personal</h3>
+        <div class="emp-profile-card">
+          ${profileDetailRow({ icon: "mail", label: "Email", value: employee.email, href: employee.email ? `mailto:${employee.email}` : "", tone: employee.email ? "link" : "" })}
+          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.phone, href: employee.phone ? `tel:${String(employee.phone).replace(/\s+/g, "")}` : "" })}
+          ${profileDetailRow({ icon: "map-pin", label: "Address", value: employee.home_address })}
+          ${profileDetailRow({ icon: "cake", label: "Date of birth", value: employee.date_of_birth ? formatFriendlyDate(employee.date_of_birth) : "" })}
+        </div>
+      </section>
+
+      <section class="emp-profile-section" aria-labelledby="emp-profile-employment">
+        <h3 class="emp-profile-section__title" id="emp-profile-employment">Employment</h3>
+        <div class="emp-profile-card">
+          ${profileDetailRow({ icon: "briefcase", label: "Job title", value: employee.job_title })}
+          ${profileDetailRow({ icon: "calendar", label: "Start date", value: employee.start_date ? formatFriendlyDate(employee.start_date) : "" })}
+          ${profileDetailRow({ icon: "clock", label: "Contract", value: contractCopy })}
+          ${profileDetailRow({ icon: "shield", label: "Right to work", value: rtw, tone: rtwTone })}
+          ${profileDetailRow({ icon: "calendar", label: "Visa expiry", value: visaExpiryRaw ? formatFriendlyDate(visaExpiryRaw) : "" })}
+          ${profileDetailRow({ icon: "calendar", label: "RTW check expiry", value: rtwExpiryRaw ? formatFriendlyDate(rtwExpiryRaw) : "" })}
+        </div>
+      </section>
+
+      <section class="emp-profile-section" aria-labelledby="emp-profile-emergency">
+        <h3 class="emp-profile-section__title" id="emp-profile-emergency">Emergency contact</h3>
+        <div class="emp-profile-card">
+          ${profileDetailRow({ icon: "user", label: "Name", value: employee.emergency_contact_name })}
+          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.emergency_contact_phone, href: employee.emergency_contact_phone ? `tel:${String(employee.emergency_contact_phone).replace(/\s+/g, "")}` : "" })}
+          ${profileDetailRow({ icon: "heart", label: "Relation", value: employee.emergency_contact_relationship })}
+        </div>
+      </section>`;
+  }
+
+  function renderMobileEmployeeProfile(workspace) {
+    const detail = $("employees-detail-view");
+    if (!detail || !isMobileEmployeesHub()) return;
+    const employee = workspace.employee || {};
+    const businessName =
+      localStorage.getItem("businessName") ||
+      document.getElementById("topbar-business-name")?.textContent?.trim() ||
+      "ShiftSwift HR";
+    const palette = avatarPalette(employee.id);
+    const initials = employeeInitials(employee);
+    const fullName = `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || "Employee";
+    const roleLine = [employee.job_title || "Team member", businessName].filter(Boolean).join(" · ");
+    const chips = [
+      { label: statusDisplayLabel(employee.status || "active"), tone: employee.status === "active" || !employee.status ? "ok" : "muted" },
+      employmentTypeLabel(employee.employment_type)
+        ? { label: employmentTypeLabel(employee.employment_type), tone: "warm" }
+        : null,
+      formatSinceMonth(employee.start_date) ? { label: formatSinceMonth(employee.start_date), tone: "muted" } : null,
+    ].filter(Boolean);
+
+    setDesktopEmployeeChromeVisible(false);
+    document.body.classList.add("emp-profile-open", "admin-mobile-detail");
+    document.body.dataset.mobileDetail = "employees";
+
+    const back = document.getElementById("mobile-back-btn");
+    if (back) {
+      if (!back.dataset.defaultLabel) back.dataset.defaultLabel = back.textContent || "← Back";
+      back.hidden = false;
+      back.textContent = "← Employees";
+    }
+    document.getElementById("sidebar-toggle") &&
+      !document.documentElement.classList.contains("native-tablet") &&
+      (document.getElementById("sidebar-toggle").hidden = true);
+
+    const brandName = document.getElementById("topbar-business-name");
+    if (brandName) {
+      if (!brandName.dataset.profileRestore) brandName.dataset.profileRestore = brandName.textContent;
+      brandName.textContent = "Profile";
+    }
+
+    const editBtn = ensureMobileProfileEditButton();
+    if (editBtn) {
+      editBtn.hidden = false;
+      editBtn.textContent = mobileProfileEdit ? "Done" : "Edit";
+    }
+
+    let host = document.getElementById("emp-mobile-profile");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "emp-mobile-profile";
+      host.className = "emp-profile";
+      detail.prepend(host);
+    }
+
+    const tabs = [
+      { id: "details", label: "Details" },
+      { id: "shifts", label: "Shifts" },
+      { id: "leave", label: "Leave" },
+      { id: "documents", label: "Documents" },
+    ];
+
+    let panelHtml = "";
+    if (mobileProfileTab === "details") {
+      panelHtml = renderMobileProfileDetails(employee, workspace);
+    } else if (mobileProfileTab === "shifts") {
+      panelHtml = `<div class="emp-profile-panel" id="emp-profile-shifts-panel"><p class="muted">Loading shifts…</p></div>`;
+    } else if (mobileProfileTab === "leave") {
+      panelHtml = `<div class="emp-profile-panel" id="emp-profile-leave-panel"><p class="muted">Loading leave…</p></div>`;
+    } else {
+      const sectionsHtml = renderEmployeeRecordSectionsHtml(employee, workspace);
+      const docsMatch = sectionsHtml.match(
+        /<section class="employee-record-block" id="employees-side-documents"[\s\S]*?<\/section>/,
+      );
+      panelHtml = `<div class="emp-profile-panel" id="emp-profile-docs-panel">
+        <div class="employee-record-sections">${docsMatch?.[0] || '<p class="muted">No documents yet.</p>'}</div>
+      </div>`;
+    }
+
+    host.innerHTML = `
+      <header class="emp-profile-hero">
+        <div class="emp-profile-avatar-wrap">
+          <span class="emp-profile-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+          ${employee.status === "active" || !employee.status ? '<span class="emp-profile-avatar__dot" aria-hidden="true"></span>' : ""}
+        </div>
+        <h2 class="emp-profile-name">${escapeHtml(fullName)}</h2>
+        <p class="emp-profile-role">${escapeHtml(roleLine)}</p>
+        <div class="emp-profile-chips">
+          ${chips.map((chip) => `<span class="emp-profile-chip emp-profile-chip--${chip.tone}">${escapeHtml(chip.label)}</span>`).join("")}
+        </div>
+      </header>
+      <nav class="emp-profile-tabs" aria-label="Profile sections">
+        ${tabs
+          .map(
+            (tab) =>
+              `<button type="button" class="emp-profile-tab${mobileProfileTab === tab.id ? " emp-profile-tab--active" : ""}" data-emp-profile-tab="${tab.id}">${escapeHtml(tab.label)}</button>`,
+          )
+          .join("")}
+      </nav>
+      <div class="emp-profile-body">${panelHtml}</div>`;
+
+    host.querySelectorAll("[data-emp-profile-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        mobileProfileTab = btn.dataset.empProfileTab || "details";
+        if (mobileProfileTab !== "details") mobileProfileEdit = false;
+        renderMobileEmployeeProfile(workspace);
+      });
+    });
+
+    if (mobileProfileTab === "details" && mobileProfileEdit) {
+      void refreshEmployeeSidePanelKioskPin?.(employee.id);
+      bindSidePanelInlineFields(employee, workspace);
+    } else if (mobileProfileTab === "details") {
+      void loadMobileProfileSummaryStats(employee.id, employee);
+    } else if (mobileProfileTab === "shifts") {
+      void loadMobileProfileShifts(employee.id);
+    } else if (mobileProfileTab === "leave") {
+      void loadMobileProfileLeave(employee.id);
+    } else if (mobileProfileTab === "documents") {
+      const docsHost = host.querySelector("#employees-side-documents");
+      const uploadDetails = docsHost?.querySelector(".employee-record-doc-upload");
+      if (uploadDetails) uploadDetails.open = true;
+      const summary = uploadDetails?.querySelector(":scope > summary");
+      if (summary) summary.textContent = "Upload or photograph";
+      const cameraBtn = docsHost?.querySelector(".doc-upload-camera");
+      if (cameraBtn) cameraBtn.textContent = "take photo";
+      const manageBtn = docsHost?.querySelector("#employees-side-doc-manage-btn");
+      if (manageBtn) manageBtn.textContent = "Add another document";
+      bindEmployeeRecordDocumentActions(docsHost, workspace);
+      mountEmployeeRecordDocumentUpload(employee.id, docsHost);
+      manageBtn?.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (uploadDetails) {
+          uploadDetails.open = true;
+          uploadDetails.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    }
+
+    setSidebarBreadcrumb(fullName);
+  }
+
+  function rotaWeekStartForProfile() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function shiftHours(shift) {
+    const start = String(shift.start_time || shift.start || "").slice(0, 5);
+    const end = String(shift.end_time || shift.end || "").slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return 0;
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    let mins = eh * 60 + em - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    return Math.round((mins / 60) * 10) / 10;
+  }
+
+  async function loadMobileProfileSummaryStats(employeeId, employee) {
+    mobileProfileHours = { loading: true };
+    mobileProfileLeave = { loading: true };
+    const hoursEl = document.querySelector(".emp-profile-stats .emp-profile-stat:first-child .emp-profile-stat__value");
+    const leaveEl = document.querySelector(".emp-profile-stats .emp-profile-stat:last-child .emp-profile-stat__value");
+    try {
+      const weekStart = rotaWeekStartForProfile();
+      const [weekRes, leaveRes] = await Promise.all([
+        apiFetch(`/admin/rota/weeks/${weekStart}`, { sshrPriority: true }).catch(() => null),
+        apiFetch(`/admin/leave/employees/${employeeId}/balance`).catch(() => null),
+      ]);
+      if (weekRes?.ok) {
+        const week = await weekRes.json().catch(() => ({}));
+        const shifts = (week.shifts || []).filter((s) => Number(s.employee_id) === Number(employeeId));
+        const hours = shifts.reduce((sum, s) => sum + shiftHours(s), 0);
+        mobileProfileHours = { hours: Math.round(hours * 10) / 10 };
+      } else {
+        mobileProfileHours = { hours: null };
+      }
+      if (leaveRes?.ok) {
+        mobileProfileLeave = await leaveRes.json();
+      } else {
+        mobileProfileLeave = { remaining_days: null };
+      }
+    } catch {
+      mobileProfileHours = { hours: null };
+      mobileProfileLeave = { remaining_days: null };
+    }
+    if (activeEmployeeId !== employeeId) return;
+    // Soft update stats without full re-render when still on details read view
+    if (mobileProfileTab === "details" && !mobileProfileEdit && workspaceCache) {
+      const contracted = employee.contract_hours_weekly != null ? Number(employee.contract_hours_weekly) : null;
+      if (hoursEl) hoursEl.textContent = mobileProfileHours?.hours != null ? String(mobileProfileHours.hours) : "–";
+      if (leaveEl) leaveEl.textContent = mobileProfileLeave?.remaining_days != null ? String(mobileProfileLeave.remaining_days) : "–";
+      const hourSub = document.querySelector(".emp-profile-stats .emp-profile-stat:first-child .emp-profile-stat__sub");
+      const leaveSub = document.querySelector(".emp-profile-stats .emp-profile-stat:last-child .emp-profile-stat__sub");
+      if (hourSub) hourSub.textContent = contracted != null ? `of ${contracted} contracted` : "This week";
+      if (leaveSub) leaveSub.textContent = mobileProfileLeave?.remaining_days != null ? "days remaining" : "Leave balance";
+    }
+  }
+
+  async function loadMobileProfileShifts(employeeId) {
+    const host = document.getElementById("emp-profile-shifts-panel");
+    if (!host) return;
+    try {
+      const weekStart = rotaWeekStartForProfile();
+      const res = await apiFetch(`/admin/rota/weeks/${weekStart}`, { sshrPriority: true });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not load shifts");
+      const shifts = (data.shifts || [])
+        .filter((s) => Number(s.employee_id) === Number(employeeId))
+        .sort((a, b) => String(a.work_date || a.date || "").localeCompare(String(b.work_date || b.date || "")));
+      if (!shifts.length) {
+        host.innerHTML = `<div class="emp-profile-empty">
+          <p class="muted">No shifts scheduled this week.</p>
+          <a class="btn outline btn-sm" href="#rota">Open Rota</a>
+        </div>`;
+        return;
+      }
+      host.innerHTML = `<ul class="emp-profile-list">${shifts
+        .map((s) => {
+          const day = formatFriendlyDate(s.work_date || s.date);
+          const start = String(s.start_time || s.start || "").slice(0, 5);
+          const end = String(s.end_time || s.end || "").slice(0, 5);
+          const role = s.role || s.notes || "Shift";
+          return `<li class="emp-profile-list__item">
+            <strong>${escapeHtml(day)}</strong>
+            <span>${escapeHtml(start && end ? `${start}–${end}` : "Time TBC")}</span>
+            <span class="muted">${escapeHtml(role)}</span>
+          </li>`;
+        })
+        .join("")}</ul>
+        <p class="emp-profile-panel-link"><a href="#rota">Edit on Rota →</a></p>`;
+    } catch (error) {
+      host.innerHTML = `<div class="emp-profile-empty">
+        <p class="muted">${escapeHtml(error.message || "Could not load shifts.")}</p>
+        <a class="btn outline btn-sm" href="#rota">Open Rota</a>
+      </div>`;
+    }
+  }
+
+  async function loadMobileProfileLeave(employeeId) {
+    const host = document.getElementById("emp-profile-leave-panel");
+    if (!host) return;
+    host.innerHTML = `<div id="emp-profile-leave-summary" class="emp-profile-leave-summary"></div><div id="emp-profile-leave-list"></div>`;
+    const list = document.getElementById("emp-profile-leave-list");
+    const summary = document.getElementById("emp-profile-leave-summary");
+    try {
+      const balanceRes = await apiFetch(`/admin/leave/employees/${employeeId}/balance`);
+      if (balanceRes.ok && summary) {
+        const balance = await balanceRes.json();
+        summary.innerHTML = `<article class="emp-profile-stat emp-profile-stat--wide">
+          <p class="emp-profile-stat__label">Holiday left (${escapeHtml(String(balance.year || ""))})</p>
+          <p class="emp-profile-stat__value">${escapeHtml(String(balance.remaining_days ?? "–"))}</p>
+          <p class="emp-profile-stat__sub">${escapeHtml(`Allowance ${balance.allowance_days ?? "–"} · used ${balance.used_days ?? 0} · pending ${balance.pending_days ?? 0}`)}</p>
+        </article>`;
+      }
+      await loadEmployeeLeaveHistory(employeeId, list);
+    } catch (error) {
+      host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load leave.")}</p>`;
+    }
+  }
+
   function employeeInitials(employee) {
     const first = (employee?.first_name || "").trim()[0] || "";
     const last = (employee?.last_name || "").trim()[0] || "";
@@ -764,8 +1803,15 @@
 
   function formatJoinedDate(value) {
     if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return String(value).slice(0, 10);
+    if (window.Admin?.formatDisplayDate) {
+      const text = window.Admin.formatDisplayDate(value);
+      return text === "—" ? null : text;
+    }
+    const raw = String(value).trim();
+    const parsed = /^\d{4}-\d{2}-\d{2}/.test(raw)
+      ? new Date(`${raw.slice(0, 10)}T12:00:00`)
+      : new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
     return parsed.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   }
 
@@ -824,7 +1870,7 @@
       return "Employee portal active";
     }
     if (employee?.portal_setup_pending || employee?.portal_setup_status === "pending") {
-      return "Invite sent — waiting for employee to set password (check junk mail)";
+      return "Portal invite pending — employee has not set a password yet (ask them to check junk mail)";
     }
     if (!employee?.email) return "Add a work email to send a portal invite";
     if (employee?.status !== "active" && employee?.status !== "onboarding") {
@@ -872,6 +1918,18 @@
       if (first) return first;
     }
     return message || "Invite failed.";
+  }
+
+  function formatBulkInviteSummary(data) {
+    const base = data?.message || "Invites sent.";
+    const failed = Array.isArray(data?.failed) ? data.failed : [];
+    if (!failed.length) return base;
+    const details = failed
+      .slice(0, 3)
+      .map((item) => `${item.name || "Employee"}: ${item.reason || "failed"}`)
+      .join("; ");
+    const suffix = failed.length > 3 ? ` (+${failed.length - 3} more)` : "";
+    return `${base} ${details}${suffix}`.trim();
   }
 
   async function sendPortalInvite(employeeId, statusId = "employees-bulk-invite-status") {
@@ -927,7 +1985,7 @@
       });
       data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(formatInviteError(null, data));
-      if (statusEl) statusEl.textContent = data.message || "Invites sent.";
+      if (statusEl) statusEl.textContent = formatBulkInviteSummary(data);
       try {
         await refreshEmployeesTable();
       } catch {
@@ -1004,23 +2062,65 @@
     </ul>`;
   }
 
-  function hideEmployeeHistoryPanels() {
-    $("employee-change-history-panel")?.setAttribute("hidden", "");
-    $("employee-leave-history-panel")?.setAttribute("hidden", "");
+  const HISTORY_PANEL_LEADS = {
+    changes:
+      "Previous values are kept when you update contact details, job information, and other profile fields.",
+    leave: "Holiday and absence requests submitted by this employee, including pending and past decisions.",
+  };
+
+  function hideEmployeeHistoryPanel() {
+    const panel = $("employee-history-panel");
+    if (panel) panel.hidden = true;
+  }
+
+  function setEmployeeHistoryTab(tab) {
+    const lead = $("employee-history-panel-lead");
+    document.querySelectorAll(".employee-history-tab").forEach((btn) => {
+      const active = btn.dataset.historyTab === tab;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    if (lead) lead.textContent = HISTORY_PANEL_LEADS[tab] || "";
+    const summary = $("employee-leave-history-summary");
+    if (summary && tab !== "leave") {
+      summary.hidden = true;
+      summary.innerHTML = "";
+    }
   }
 
   function bindChangeHistoryPanel() {
-    $("employee-change-history-close")?.addEventListener("click", () => {
-      $("employee-change-history-panel")?.setAttribute("hidden", "");
+    $("employee-history-panel-close")?.addEventListener("click", hideEmployeeHistoryPanel);
+    document.getElementById("employee-history-tab-changes")?.addEventListener("click", () => {
+      if (activeEmployeeId) void showEmployeeHistory("changes", activeEmployeeId);
     });
-    $("employee-leave-history-close")?.addEventListener("click", () => {
-      $("employee-leave-history-panel")?.setAttribute("hidden", "");
+    document.getElementById("employee-history-tab-leave")?.addEventListener("click", () => {
+      if (activeEmployeeId) void showEmployeeHistory("leave", activeEmployeeId);
     });
   }
 
+  async function showEmployeeHistory(tab, employeeId) {
+    const panel = $("employee-history-panel");
+    const body = $("employee-history-panel-body");
+    if (!panel || !body || !employeeId) return;
+
+    panel.hidden = false;
+    setEmployeeHistoryTab(tab);
+    body.innerHTML = `<p class="muted employee-history-panel__loading">Loading…</p>`;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    if (tab === "leave") {
+      await loadEmployeeLeaveHistory(employeeId, body);
+      return;
+    }
+    await loadEmployeeChangeHistory(employeeId, body);
+  }
+
   function formatLeaveDate(iso) {
+    if (window.Admin?.formatDisplayDate) return window.Admin.formatDisplayDate(iso);
     if (!iso) return "—";
-    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+    const date = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -1050,14 +2150,8 @@
       </p>`;
   }
 
-  async function loadEmployeeLeaveHistory(employeeId) {
-    const panel = $("employee-leave-history-panel");
-    const list = $("employee-leave-history-list");
-    if (!panel || !list || !employeeId) return;
-
-    hideEmployeeHistoryPanels();
-    panel.hidden = false;
-    list.innerHTML = `<p class="muted">Loading leave history…</p>`;
+  async function loadEmployeeLeaveHistory(employeeId, list = $("employee-history-panel-body")) {
+    if (!list || !employeeId) return;
     renderLeaveHistorySummary(null);
 
     try {
@@ -1105,14 +2199,8 @@
     }
   }
 
-  async function loadEmployeeChangeHistory(employeeId) {
-    const panel = $("employee-change-history-panel");
-    const list = $("employee-change-history-list");
-    if (!panel || !list || !employeeId) return;
-
-    hideEmployeeHistoryPanels();
-    panel.hidden = false;
-    list.innerHTML = `<p class="muted">Loading history…</p>`;
+  async function loadEmployeeChangeHistory(employeeId, list = $("employee-history-panel-body")) {
+    if (!list || !employeeId) return;
 
     try {
       const res = await apiFetch(`/admin/employees/${employeeId}/history`);
@@ -1149,18 +2237,18 @@
     const sponsored = Boolean(employee?.is_sponsored);
     const employeeId = employee?.id || activeEmployeeId;
     host.innerHTML = `
-      <button type="button" class="btn ghost" id="employee-change-history-btn">Change history</button>
-      <button type="button" class="btn ghost" id="employee-leave-history-btn">Leave history</button>
-      ${sponsored ? '<a href="#compliance" class="btn ghost">Sponsor compliance</a>' : ""}
-      <a href="#grievance" class="btn ghost">Grievance cases</a>
-      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost">Employment contract</a>
-      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost">Off-boarding workflow</a>
-      <a href="#time-punch" class="btn ghost">Time punch</a>`;
+      <button type="button" class="btn ghost btn-sm" id="employee-change-history-btn">Change history</button>
+      <button type="button" class="btn ghost btn-sm" id="employee-leave-history-btn">Leave history</button>
+      ${sponsored ? `<a href="#compliance/rtw/${encodeURIComponent(employeeId)}" class="btn ghost btn-sm">Employer compliance</a>` : ""}
+      <a href="#grievance" class="btn ghost btn-sm">Grievance cases</a>
+      <a href="${employeeId ? `#employment-contracts/start/${employeeId}` : "#employment-contracts"}" class="btn ghost btn-sm">Employment contract</a>
+      <a href="${employeeId ? `#offboarding/start/${employeeId}` : "#offboarding"}" class="btn ghost btn-sm">Off-boarding workflow</a>
+      <a href="#time-punch" class="btn ghost btn-sm">Time punch</a>`;
     host.querySelector("#employee-change-history-btn")?.addEventListener("click", () => {
-      if (employeeId) void loadEmployeeChangeHistory(employeeId);
+      if (employeeId) void showEmployeeHistory("changes", employeeId);
     });
     host.querySelector("#employee-leave-history-btn")?.addEventListener("click", () => {
-      if (employeeId) void loadEmployeeLeaveHistory(employeeId);
+      if (employeeId) void showEmployeeHistory("leave", employeeId);
     });
   }
 
@@ -1303,7 +2391,7 @@
       if (status) status.textContent = `Kiosk PIN set to ${pin} — share it with the employee privately.`;
     } catch (error) {
       if (host) host.innerHTML = `<span class="muted">Could not generate PIN</span>`;
-      alert(error.message || "Could not generate PIN");
+      employeesToast(error.message || "Could not generate PIN", "error");
     }
   }
 
@@ -1328,6 +2416,717 @@
     return data;
   }
 
+  function scopedEmployeeDocuments(docs, employeeId) {
+    const wanted = Number(employeeId);
+    if (!wanted) return docs || [];
+    const owned = (docs || []).filter((doc) => doc.employee_id != null && doc.employee_id !== "");
+    if (!owned.length) return docs || [];
+    return owned.filter((doc) => Number(doc.employee_id) === wanted);
+  }
+
+  function splitEmployeeDocuments(docs) {
+    const idDocs = [];
+    const visaDocs = [];
+    const rtwDocs = [];
+    const dbsDocs = [];
+    const trainingDocs = [];
+    const contractDocs = [];
+    const policyDocs = [];
+    const disciplinaryDocs = [];
+    const payslipDocs = [];
+    const businessOnly = [];
+    const shared = [];
+    (docs || []).forEach((doc) => {
+      const kind = documentKindFromCategory(doc.category);
+      if (kind === "passport") idDocs.push(doc);
+      else if (kind === "visa") visaDocs.push(doc);
+      else if (kind === "rtw") rtwDocs.push(doc);
+      else if (kind === "dbs") dbsDocs.push(doc);
+      else if (kind === "training") trainingDocs.push(doc);
+      else if (kind === "contract") contractDocs.push(doc);
+      else if (kind === "policy") policyDocs.push(doc);
+      else if (kind === "disciplinary") disciplinaryDocs.push(doc);
+      else if (kind === "payslip") payslipDocs.push(doc);
+      else if (doc.employee_visible) shared.push(doc);
+      else businessOnly.push(doc);
+    });
+    return {
+      idDocs,
+      visaDocs,
+      rtwDocs,
+      dbsDocs,
+      trainingDocs,
+      contractDocs,
+      policyDocs,
+      disciplinaryDocs,
+      payslipDocs,
+      businessOnly,
+      shared,
+    };
+  }
+
+  const DOC_GROUP_META = {
+    id: { icon: "passport", uploadCategory: "id" },
+    visa: { icon: "card", uploadCategory: "visa_brp" },
+    rtw: { icon: "check", uploadCategory: "rtw" },
+    dbs: { icon: "lock", uploadCategory: "dbs" },
+    training: { icon: "clipboard", uploadCategory: "qualification" },
+    contract: { icon: "document", uploadCategory: "contract" },
+    policy: { icon: "file", uploadCategory: "policy" },
+    disciplinary: { icon: "alert", uploadCategory: "disciplinary" },
+    payslip: { icon: "card", uploadCategory: "payslip" },
+  };
+  const CORE_DOC_GROUPS = new Set(["id", "visa", "rtw", "contract"]);
+
+  function employeeRecordTypeGroups(split) {
+    return [
+      { id: "id", title: "ID / passport", docs: split.idDocs, empty: "No ID or passport on file yet." },
+      { id: "visa", title: "Visa / BRP", docs: split.visaDocs, empty: "No visa or BRP on file yet." },
+      { id: "rtw", title: "Right to work check", docs: split.rtwDocs, empty: "No right to work check on file yet." },
+      { id: "dbs", title: "DBS", docs: split.dbsDocs, empty: "No DBS certificate on file yet." },
+      { id: "training", title: "Training / qualifications", docs: split.trainingDocs, empty: "No training records on file yet." },
+      { id: "contract", title: "Contracts", docs: split.contractDocs, empty: "No contracts on file yet." },
+      { id: "policy", title: "Policies", docs: split.policyDocs, empty: "No policies on file yet." },
+      { id: "disciplinary", title: "Disciplinary", docs: split.disciplinaryDocs, empty: "No disciplinary records on file yet." },
+      { id: "payslip", title: "Payslips", docs: split.payslipDocs, empty: "No payslips on file yet." },
+    ];
+  }
+
+  function requirementForDocGroup(groupId, requirements) {
+    const category = DOC_GROUP_META[groupId]?.uploadCategory;
+    return (requirements?.items || []).find((item) => item.category === category) || null;
+  }
+
+  function visibleEmployeeRecordTypeGroups(split, requirements) {
+    return employeeRecordTypeGroups(split)
+      .filter((group) => {
+        if (group.docs.length || CORE_DOC_GROUPS.has(group.id)) return true;
+        return Boolean(requirementForDocGroup(group.id, requirements)?.required);
+      })
+      .map((group) => {
+        const req = requirementForDocGroup(group.id, requirements);
+        const active = group.docs.filter((doc) => !doc.superseded);
+        return {
+          ...group,
+          uploadCategory: DOC_GROUP_META[group.id]?.uploadCategory || group.id,
+          icon: DOC_GROUP_META[group.id]?.icon || "document",
+          required: Boolean(req?.required),
+          satisfied: req ? Boolean(req.satisfied) : active.length > 0,
+        };
+      });
+  }
+
+  function renderEmployeeDocAlertHtml(requirements, { id = "" } = {}) {
+    const items = requirements?.items || [];
+    const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
+    if (!items.length) return id ? `<div${idAttr}></div>` : "";
+    if (requirements.complete) {
+      return `<div${idAttr} class="employee-doc-alert employee-doc-alert--ok" role="status">
+        <span class="employee-doc-alert__icon" aria-hidden="true">${iconSvg("check")}</span>
+        <div class="employee-doc-alert__body">
+          <strong>Required documents complete</strong>
+          <p>ID, contract and sponsorship files on this record are in place.</p>
+        </div>
+      </div>`;
+    }
+    const missing = items.filter((item) => item.required && !item.satisfied);
+    if (!missing.length) return id ? `<div${idAttr}></div>` : "";
+    const count = missing.length;
+    const chips = missing
+      .map(
+        (item) =>
+          `<button type="button" class="employee-doc-alert__chip" data-doc-add-category="${escapeHtml(item.category)}">${escapeHtml(item.label)}</button>`,
+      )
+      .join("");
+    return `<div${idAttr} class="employee-doc-alert employee-doc-alert--warn" role="alert">
+      <span class="employee-doc-alert__icon" aria-hidden="true">${iconSvg("alert")}</span>
+      <div class="employee-doc-alert__body">
+        <strong>${count} required document${count === 1 ? "" : "s"} still missing</strong>
+        <p>Upload these before the employee file is complete.</p>
+        <div class="employee-doc-alert__chips">${chips}</div>
+      </div>
+      <button type="button" class="employee-doc-alert__action" data-doc-add-category="${escapeHtml(missing[0].category)}">Upload now</button>
+    </div>`;
+  }
+
+  function renderEmployeeDocTypeStripHtml(groups) {
+    if (!groups.length) return `<div id="employees-side-doc-types" hidden></div>`;
+    const buttons = groups
+      .map((group) => {
+        const activeCount = group.docs.filter((doc) => !doc.superseded).length;
+        const expiry = groupExpiryStatus(group.docs).tone;
+        const tone = !activeCount
+          ? group.required && !group.satisfied
+            ? "missing"
+            : "empty"
+          : expiry === "expired"
+            ? "expired"
+            : expiry === "soon"
+              ? "soon"
+              : "ok";
+        const countLabel = activeCount ? String(activeCount) : group.required ? "Need" : "—";
+        return `<button type="button" class="employee-doc-type employee-doc-type--${tone}" data-doc-jump="${group.id}">
+          <span class="employee-doc-type__icon" aria-hidden="true">${iconSvg(group.icon)}</span>
+          <span class="employee-doc-type__label">${escapeHtml(group.title)}</span>
+          <span class="employee-doc-type__count">${escapeHtml(countLabel)}</span>
+        </button>`;
+      })
+      .join("");
+    return `<div id="employees-side-doc-types" class="employee-doc-type-strip" aria-label="Document types">${buttons}</div>`;
+  }
+
+  function documentExpiryMeta(doc) {
+    const kind = documentKindFromCategory(doc?.category);
+    const raw = isoDateValue(doc?.expires_at);
+    const endWord = kind === "visa" ? "Ended" : "Expired";
+    const dueWord = kind === "visa" ? "Ends" : "Expires";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      if (kind === "rtw") return { text: "No RTW expiry date", tone: "none" };
+      if (kind === "visa") return { text: "No visa end date", tone: "none" };
+      if (kind === "contract") return { text: "No end date", tone: "none" };
+      if (kind === "policy" || kind === "disciplinary" || kind === "payslip") return { text: "", tone: "none" };
+      return { text: "No expiry date", tone: "none" };
+    }
+    const today = todayIsoDate();
+    const pretty = formatFriendlyDate(raw);
+    if (raw < today) return { text: `${endWord} ${pretty}`, tone: "expired" };
+    if (raw === today) return { text: `${dueWord} today`, tone: "expired" };
+    const expires = new Date(`${raw}T12:00:00`);
+    const now = new Date(`${today}T12:00:00`);
+    const days = Math.round((expires.getTime() - now.getTime()) / 86400000);
+    const alertDays = Number(doc.expiry_alert_days) || 30;
+    if (Number.isFinite(days) && days <= alertDays) return { text: `${dueWord} ${pretty}`, tone: "soon" };
+    return { text: `${dueWord} ${pretty}`, tone: "ok" };
+  }
+
+  function groupExpiryStatus(docs) {
+    const active = (docs || []).filter((doc) => !doc.superseded);
+    const expired = active.filter((doc) => documentExpiryMeta(doc).tone === "expired").length;
+    const soon = active.filter((doc) => documentExpiryMeta(doc).tone === "soon").length;
+    if (expired) return { text: expired === 1 ? "1 expired" : `${expired} expired`, tone: "expired" };
+    if (soon) return { text: soon === 1 ? "1 due soon" : `${soon} due soon`, tone: "soon" };
+    return { text: "", tone: "" };
+  }
+
+  function isIdentityExpiryCategory(value) {
+    return IDENTITY_EXPIRY_CATEGORIES.has(String(value || "").toLowerCase());
+  }
+
+  function syncIdentityExpiryFields({ expiryInput, alertField }) {
+    const hasDate = Boolean(expiryInput?.value);
+    if (alertField) alertField.hidden = !hasDate;
+  }
+
+  function documentDateSummary(doc) {
+    const kind = documentKindFromCategory(doc?.category);
+    const expiry = documentExpiryMeta(doc);
+    const issued = isoDateValue(doc?.issued_at);
+    const recorded = isoDateValue(doc?.recorded_at);
+    const dateParts = [];
+    if (kind === "passport" && issued) dateParts.push(`Issued ${formatFriendlyDate(issued)}`);
+    if (kind === "visa" && issued) dateParts.push(`Start ${formatFriendlyDate(issued)}`);
+    if (kind === "rtw" && recorded) dateParts.push(`Taken ${formatFriendlyDate(recorded)}`);
+    if (kind === "dbs" && issued) dateParts.push(`Issued ${formatFriendlyDate(issued)}`);
+    if (kind === "training" && issued) dateParts.push(`Awarded ${formatFriendlyDate(issued)}`);
+    if (kind === "contract" && issued) dateParts.push(`Start ${formatFriendlyDate(issued)}`);
+    if (kind === "policy" && recorded) dateParts.push(`Signed ${formatFriendlyDate(recorded)}`);
+    if (kind === "disciplinary" && recorded) dateParts.push(`Letter ${formatFriendlyDate(recorded)}`);
+    if (documentTypeDateConfig(doc?.category).expires.show && expiry.text) dateParts.push(expiry.text);
+    const meta = [categoryLabel(doc.category), ...dateParts];
+    if (doc.signing_status === "signed") meta.push("Signed");
+    else if (doc.signing_status === "sent") meta.push("Awaiting signature");
+    return {
+      text: meta.filter(Boolean).join(" · "),
+      dates: dateParts.filter(Boolean).join(" · "),
+      tone: expiry.tone,
+    };
+  }
+
+  function renderDocumentExpiryCell(row) {
+    const summary = documentDateSummary(row);
+    return `<span class="employee-record-doc-item__expiry--${summary.tone}">${escapeHtml(summary.dates || summary.text)}</span>`;
+  }
+
+  function renderEmployeeRecordDocItem(doc) {
+    const actions = [];
+    if (doc.has_file) {
+      actions.push(
+        `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--download" data-record-download-doc="${doc.id}">Download</button>`,
+      );
+    } else if (doc.document_url) {
+      actions.push(
+        `<a class="employee-record-doc-btn employee-record-doc-btn--download" href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener">Open</a>`,
+      );
+    }
+    if (!doc.superseded) {
+      actions.push(
+        `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--remove" data-record-delete-doc="${doc.id}" data-doc-title="${escapeHtml(doc.title || "this document")}">Remove</button>`,
+      );
+    }
+    const kept = doc.superseded ? `<span class="employee-record-doc-item__kept">Kept on file</span>` : "";
+    const expiry = documentExpiryMeta(doc);
+    const kind = documentKindFromCategory(doc?.category);
+    const issued = isoDateValue(doc?.issued_at);
+    const recorded = isoDateValue(doc?.recorded_at);
+    const dateChips = [];
+    if (kind === "passport" && issued) dateChips.push({ text: `Issued ${formatFriendlyDate(issued)}`, tone: "" });
+    if (kind === "visa" && issued) dateChips.push({ text: `Start ${formatFriendlyDate(issued)}`, tone: "" });
+    if (kind === "rtw" && recorded) dateChips.push({ text: `Taken ${formatFriendlyDate(recorded)}`, tone: "" });
+    if (kind === "dbs" && issued) dateChips.push({ text: `Issued ${formatFriendlyDate(issued)}`, tone: "" });
+    if (kind === "training" && issued) dateChips.push({ text: `Awarded ${formatFriendlyDate(issued)}`, tone: "" });
+    if (kind === "contract" && issued) dateChips.push({ text: `Start ${formatFriendlyDate(issued)}`, tone: "" });
+    if (kind === "policy" && recorded) dateChips.push({ text: `Signed ${formatFriendlyDate(recorded)}`, tone: "" });
+    if (kind === "disciplinary" && recorded) dateChips.push({ text: `Letter ${formatFriendlyDate(recorded)}`, tone: "" });
+    if (documentTypeDateConfig(doc?.category).expires.show && expiry.text) {
+      dateChips.push({ text: expiry.text, tone: expiry.tone });
+    }
+    const signing =
+      doc.signing_status === "signed" ? " · Signed" : doc.signing_status === "sent" ? " · Awaiting signature" : "";
+    const metaParts = [
+      `<span>${escapeHtml(categoryLabel(doc.category))}${signing}</span>`,
+      ...dateChips.map(
+        (chip) =>
+          `<span class="employee-record-doc-item__date${chip.tone ? ` employee-record-doc-item__expiry--${chip.tone}` : ""}">${escapeHtml(chip.text)}</span>`,
+      ),
+    ];
+    return `<li class="employee-record-doc-item${doc.superseded ? " is-superseded" : ""}">
+      <span class="employee-record-doc-item__mark" aria-hidden="true">${iconSvg("document")}</span>
+      <div class="employee-record-doc-item__body">
+        <span class="employee-record-doc-item__title">${escapeHtml(doc.title || "Untitled document")}${kept}</span>
+        <span class="employee-record-doc-item__meta">${metaParts.join("")}</span>
+      </div>
+      <div class="employee-record-doc-item__actions">${actions.join("")}</div>
+    </li>`;
+  }
+
+  function renderEmployeeRecordDocGroup(group) {
+    const { id, title, docs, empty, uploadCategory, icon, required, satisfied } = group;
+    const activeCount = docs.filter((doc) => !doc.superseded).length;
+    const status = groupExpiryStatus(docs);
+    const missing = required && !satisfied && !activeCount;
+    const tone = missing ? "missing" : status.tone === "expired" ? "expired" : activeCount ? "ok" : "empty";
+    const badge = missing ? "Missing" : status.text || (activeCount ? `${activeCount} on file` : "None on file");
+    return `<div class="employee-record-doc-group employee-record-doc-group--${tone}" data-doc-group="${id}">
+      <div class="employee-record-doc-group__head">
+        <span class="employee-record-doc-group__icon" aria-hidden="true">${iconSvg(icon || "document")}</span>
+        <h5 class="employee-record-doc-group__title">${escapeHtml(title)}${
+          required ? ` <span class="employee-record-doc-group__req">Required</span>` : ""
+        }</h5>
+        <span class="employee-record-doc-group__status employee-record-doc-group__status--${tone}" id="employees-side-doc-${id}-status">${escapeHtml(badge)}</span>
+        <button type="button" class="employee-record-doc-group__add" data-doc-add-category="${escapeHtml(uploadCategory || id)}">${activeCount ? "Add another" : "Add"}</button>
+      </div>
+      <ul class="employee-record-doc-list" id="employees-side-doc-${id}-list">${
+        docs.length
+          ? docs.map(renderEmployeeRecordDocItem).join("")
+          : `<li class="employee-record-doc-empty-row"><p class="employee-record-doc-empty">${escapeHtml(empty)}</p></li>`
+      }</ul>
+    </div>`;
+  }
+
+  function renderEmployeeRecordAuxGroup({ id, title, hint, docs, empty }) {
+    const activeCount = docs.filter((doc) => !doc.superseded).length;
+    return `<div class="employee-record-doc-group employee-record-doc-group--aux" data-doc-group="${id}">
+      <div class="employee-record-doc-group__head">
+        <span class="employee-record-doc-group__icon" aria-hidden="true">${iconSvg("folder")}</span>
+        <h5 class="employee-record-doc-group__title">${escapeHtml(title)}${
+          hint ? ` <span class="employee-record-doc-group__hint">${escapeHtml(hint)}</span>` : ""
+        }</h5>
+        <span class="employee-record-doc-group__status" id="employees-side-doc-${id}-count">${activeCount} on file</span>
+      </div>
+      <ul class="employee-record-doc-list" id="employees-side-doc-${id}-list">${
+        docs.length
+          ? docs.map(renderEmployeeRecordDocItem).join("")
+          : `<li class="employee-record-doc-empty-row"><p class="employee-record-doc-empty">${escapeHtml(empty)}</p></li>`
+      }</ul>
+    </div>`;
+  }
+
+  function renderEmployeeDocumentGroupsHtml(workspace) {
+    const empId = workspace.employee?.id || activeEmployeeId;
+    const split = splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], empId));
+    const typeGroups = visibleEmployeeRecordTypeGroups(split, workspace.document_requirements || {});
+    return `${typeGroups.map(renderEmployeeRecordDocGroup).join("")}
+        ${renderEmployeeRecordAuxGroup({
+          id: "business",
+          title: "Business only",
+          hint: "HR only",
+          docs: split.businessOnly,
+          empty: "No HR-only documents yet.",
+        })}
+        ${renderEmployeeRecordAuxGroup({
+          id: "shared",
+          title: "Employee portal",
+          hint: "",
+          docs: split.shared,
+          empty: "Nothing shared with the employee portal yet.",
+        })}`;
+  }
+
+  function fillEmployeeRecordDocumentLists(host, workspace) {
+    if (!host) return;
+    const empId = workspace.employee?.id || activeEmployeeId;
+    const requirements = workspace.document_requirements || {};
+    const typeGroups = visibleEmployeeRecordTypeGroups(
+      splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], empId)),
+      requirements,
+    );
+    const onFile = scopedEmployeeDocuments(workspace.documents || [], empId).filter((doc) => !doc.superseded).length;
+    const totalEl = host.querySelector("#employees-side-documents-title")?.nextElementSibling;
+    if (totalEl?.classList.contains("employee-record-block__count")) {
+      totalEl.textContent = `${onFile} on file`;
+    }
+    const alert = host.querySelector("#employees-side-doc-alert");
+    const types = host.querySelector("#employees-side-doc-types");
+    const groupsHost = host.querySelector("#employees-side-doc-groups");
+    if (alert) alert.outerHTML = renderEmployeeDocAlertHtml(requirements, { id: "employees-side-doc-alert" });
+    if (types) types.outerHTML = renderEmployeeDocTypeStripHtml(typeGroups);
+    if (groupsHost) groupsHost.innerHTML = renderEmployeeDocumentGroupsHtml(workspace);
+    bindEmployeeRecordDocumentActions(host, workspace);
+  }
+
+  function renderEmployeeRecordDocumentLists(workspace) {
+    forEachEmployeeDocumentsHost((host) => fillEmployeeRecordDocumentLists(host, workspace));
+  }
+
+  function focusEmployeeDocumentUpload(container, category) {
+    const upload = container?.querySelector(".employee-record-doc-upload");
+    if (upload) upload.open = true;
+    const select = container?.querySelector("#employees-side-doc-category");
+    if (select && category) {
+      const hasOption = Array.from(select.options).some((option) => option.value === category);
+      if (hasOption) {
+        select.value = category;
+        select.dispatchEvent(new Event("change"));
+      }
+    }
+    upload?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    container?.querySelector('#employees-side-doc-upload [name="title"]')?.focus();
+  }
+
+  async function removeEmployeeRecordDocument(container, button) {
+    const workspace = container._sshrDocWorkspace;
+    const employeeId = workspace?.employee?.id;
+    const documentId = button.getAttribute("data-record-delete-doc");
+    const title = button.getAttribute("data-doc-title") || "this document";
+    if (!employeeId || !documentId) return;
+    if (!window.confirm(`Remove “${title}” from this employee’s file?`)) return;
+    const statusEl = container.querySelector("#employees-side-doc-status");
+    button.disabled = true;
+    if (statusEl) statusEl.textContent = "Removing…";
+    try {
+      const res = await apiFetch(`/admin/employees/${employeeId}/documents/${documentId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(employeeApiError(res, data, "Remove failed"));
+      button.closest(".employee-record-doc-item")?.remove();
+      await refreshEmployeeRecordDocuments(employeeId);
+      employeesToast("Document removed", "ok");
+      if (statusEl) statusEl.textContent = "Document removed.";
+    } catch (error) {
+      button.disabled = false;
+      const message = employeeErrorText(error, "Remove failed");
+      if (statusEl) statusEl.textContent = message;
+      employeesToast(message, "error");
+    }
+  }
+
+  function bindEmployeeRecordDocumentActions(container, workspace) {
+    if (!container || !workspace?.employee?.id) return;
+    container._sshrDocWorkspace = workspace;
+    if (container.dataset.docActionsBound === "1") return;
+    container.dataset.docActionsBound = "1";
+
+    container.addEventListener("click", (event) => {
+      const addBtn = event.target.closest("[data-doc-add-category]");
+      if (addBtn && container.contains(addBtn)) {
+        event.preventDefault();
+        focusEmployeeDocumentUpload(container, addBtn.getAttribute("data-doc-add-category"));
+        return;
+      }
+      const jumpBtn = event.target.closest("[data-doc-jump]");
+      if (jumpBtn && container.contains(jumpBtn)) {
+        event.preventDefault();
+        container
+          .querySelector(`[data-doc-group="${jumpBtn.getAttribute("data-doc-jump")}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        return;
+      }
+      const deleteBtn = event.target.closest("[data-record-delete-doc]");
+      if (deleteBtn && container.contains(deleteBtn)) {
+        event.preventDefault();
+        void removeEmployeeRecordDocument(container, deleteBtn);
+        return;
+      }
+      const downloadBtn = event.target.closest("[data-record-download-doc]");
+      if (downloadBtn && container.contains(downloadBtn)) {
+        event.preventDefault();
+        const docs = scopedEmployeeDocuments(
+          container._sshrDocWorkspace?.documents || [],
+          container._sshrDocWorkspace?.employee?.id,
+        );
+        const row = docs.find((item) => String(item.id) === downloadBtn.getAttribute("data-record-download-doc"));
+        const name = row?.original_filename || `${row?.title || "document"}.bin`;
+        void downloadAuthenticated(
+          `/admin/employees/${container._sshrDocWorkspace.employee.id}/documents/${downloadBtn.getAttribute("data-record-download-doc")}/file`,
+          name,
+        ).catch((error) => employeesToast(error.message || "Download failed", "error"));
+      }
+    });
+  }
+
+  async function refreshEmployeeRecordDocuments(employeeId) {
+    const host = employeeDocumentsRoot();
+    if (!host || !employeeId) return;
+    const res = await apiFetch(`/admin/employees/${employeeId}/workspace`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not refresh documents");
+    sidePanelWorkspace = data;
+    renderEmployeeRecordDocumentLists(data);
+    updateSidePanelProgress(data);
+    const idx = employeesCache.findIndex((item) => item.id === employeeId);
+    if (idx >= 0) {
+      employeesCache[idx] = {
+        ...employeesCache[idx],
+        ...data.employee,
+        completion_pct: data.completion_pct,
+        next_section: data.next_section,
+      };
+      refreshEmployeesTableRowFromCache(employeeId);
+    }
+  }
+
+  function mountEmployeeRecordDocumentUpload(employeeId, root = employeeDocumentsRoot()) {
+    const form = root?.querySelector("#employees-side-doc-upload");
+    const categorySelect = root?.querySelector("#employees-side-doc-category");
+    const payPeriodField = root?.querySelector("#employees-side-doc-pay-period-field");
+    const payPeriodInput = root?.querySelector("#employees-side-doc-pay-period");
+    const shareCheckbox = root?.querySelector("#employees-side-doc-share");
+    const fileInput = root?.querySelector("#employees-side-doc-file");
+    const hint = root?.querySelector("#employees-side-doc-upload-hint");
+    const statusEl = root?.querySelector("#employees-side-doc-status");
+    if (!form || form.dataset.bound || !employeeId) return;
+    form.dataset.bound = "1";
+
+    const uploadPolicy = documentUploadPolicy();
+    if (fileInput) fileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
+    if (hint) hint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: root.querySelector("#employees-side-doc-dropzone"),
+      fileInput,
+      filenameEl: root.querySelector("#employees-side-doc-filename"),
+      cameraInput: root.querySelector("#employees-side-doc-camera"),
+    });
+
+    if (categorySelect) {
+      const categories = window.Admin.formOptions?.employee_document_categories || [];
+      categorySelect.innerHTML = categories
+        .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
+        .join("");
+      const syncCategory = () => {
+        const isPayslip = categorySelect.value === "payslip";
+        if (payPeriodField) payPeriodField.hidden = !isPayslip;
+        if (payPeriodInput) payPeriodInput.required = isPayslip;
+        if (shareCheckbox && isPayslip) shareCheckbox.checked = true;
+        syncDocumentTypeDateFields(form, { defaultRecorded: true });
+      };
+      categorySelect.addEventListener("change", syncCategory);
+      form.querySelector('[name="issued_at"]')?.addEventListener("change", syncCategory);
+      form.querySelector('[name="recorded_at"]')?.addEventListener("change", syncCategory);
+      form.querySelector("#employees-side-doc-expires")?.addEventListener("change", syncCategory);
+      form.querySelector("#employees-side-doc-expires")?.addEventListener("input", syncCategory);
+      syncCategory();
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (categorySelect?.value === "payslip" && !payPeriodInput?.value.trim()) {
+        if (statusEl) statusEl.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      let uploadFile;
+      try {
+        uploadFile = await resolveUploadFile(fileInput, form);
+      } catch (error) {
+        if (statusEl) statusEl.textContent = employeeErrorText(error, "Choose a JPEG or PNG photo.");
+        return;
+      }
+      const fileError = validateDocumentUploadFile(uploadFile);
+      if (fileError) {
+        if (statusEl) statusEl.textContent = fileError;
+        return;
+      }
+
+      const fd = new FormData(form);
+      if (uploadFile) fd.set("file", uploadFile);
+      fd.set("employee_visible", shareCheckbox?.checked ? "true" : "false");
+      fd.set("notify_employee", shareCheckbox?.checked ? "true" : "false");
+      fd.set("send_email", "false");
+      if (categorySelect?.value !== "payslip") fd.delete("pay_period");
+      pruneEmptyDocumentDates(fd);
+      if (!String(fd.get("title") || "").trim() && uploadFile?.name) {
+        fd.set("title", String(uploadFile.name).replace(/\.[^.]+$/, "") || "Document photo");
+      }
+
+      if (statusEl) statusEl.textContent = "Uploading…";
+      try {
+        const res = await fetch(`${API_BASE}/admin/employees/${employeeId}/documents/upload`, {
+          method: "POST",
+          headers: authHeaders(false),
+          body: fd,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(employeeApiError(res, data, "Upload failed"));
+        form.reset();
+        if (fileInput) {
+          fileInput.value = "";
+          fileInput._sshrPendingFile = null;
+        }
+        const filenameEl = root.querySelector("#employees-side-doc-filename");
+        if (filenameEl) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        }
+        if (categorySelect) categorySelect.dispatchEvent(new Event("change"));
+        await refreshEmployeeRecordDocuments(employeeId);
+        if (statusEl) statusEl.textContent = "Document uploaded.";
+      } catch (error) {
+        if (statusEl) statusEl.textContent = employeeErrorText(error, "Upload failed");
+      }
+    });
+  }
+
+  function renderEmployeeRecordSectionsHtml(employee, workspace) {
+    const emp = workspace.employee || employee || {};
+    const split = splitEmployeeDocuments(scopedEmployeeDocuments(workspace.documents || [], emp.id));
+    const requirements = workspace.document_requirements || {};
+    const typeGroups = visibleEmployeeRecordTypeGroups(split, requirements);
+    const documentsOnFile = scopedEmployeeDocuments(workspace.documents || [], emp.id).filter(
+      (doc) => !doc.superseded,
+    ).length;
+
+    return `<div class="employee-record-sections" id="employees-side-sections">
+      <section class="employee-record-block" aria-labelledby="employees-side-personal-title">
+        <div class="employee-record-block__head">
+          <h4 id="employees-side-personal-title">Personal details</h4>
+        </div>
+        <div class="employee-record-grid">
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Mobile phone</span>
+            <input type="tel" id="employees-side-phone" value="${escapeHtml(emp.phone || "")}" placeholder="Not set" autocomplete="tel" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Date of birth</span>
+            <input type="date" id="employees-side-dob" value="${escapeHtml(isoDateInputValue(emp.date_of_birth))}"${isoDateInputValue(emp.date_of_birth) ? "" : ' data-empty="true"'} />
+            ${isoDateInputValue(emp.date_of_birth) ? "" : '<span class="employee-record-field__hint muted">Not set — leave blank until confirmed</span>'}
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">NI number</span>
+            <input type="text" id="employees-side-ni" value="${escapeHtml(emp.ni_number || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field employee-record-field--full">
+            <span class="employee-record-field__label">Home address</span>
+            <textarea id="employees-side-address" rows="2" placeholder="Not set">${escapeHtml(emp.home_address || "")}</textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="employee-record-block" aria-labelledby="employees-side-emergency-title">
+        <div class="employee-record-block__head">
+          <h4 id="employees-side-emergency-title">Emergency contact</h4>
+        </div>
+        <div class="employee-record-grid">
+          <label class="employee-record-field employee-record-field--full">
+            <span class="employee-record-field__label">Contact name</span>
+            <input type="text" id="employees-side-emergency-name" value="${escapeHtml(emp.emergency_contact_name || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Phone</span>
+            <input type="tel" id="employees-side-emergency-phone" value="${escapeHtml(emp.emergency_contact_phone || "")}" placeholder="Not set" />
+          </label>
+          <label class="employee-record-field">
+            <span class="employee-record-field__label">Relationship</span>
+            <input type="text" id="employees-side-emergency-relationship" value="${escapeHtml(emp.emergency_contact_relationship || "")}" placeholder="Not set" />
+          </label>
+        </div>
+      </section>
+
+      <section class="employee-record-block" id="employees-side-documents" aria-labelledby="employees-side-documents-title">
+        <div class="employee-record-block__head">
+          <h4 id="employees-side-documents-title">Documents</h4>
+          <span class="employee-record-block__count muted">${documentsOnFile} on file</span>
+        </div>
+        ${renderEmployeeDocAlertHtml(requirements, { id: "employees-side-doc-alert" })}
+        ${renderEmployeeDocTypeStripHtml(typeGroups)}
+        <div id="employees-side-doc-groups" class="employee-record-doc-groups">
+          ${renderEmployeeDocumentGroupsHtml(workspace)}
+        </div>
+        <details class="employee-record-doc-upload">
+          <summary>Upload document</summary>
+          <form id="employees-side-doc-upload" class="employee-record-upload-form" enctype="multipart/form-data">
+            <div class="employee-record-field employee-record-field--full">
+              <span class="employee-record-field__label">File</span>
+              <div class="doc-upload-dropzone doc-upload-dropzone--compact employee-record-upload-dropzone" id="employees-side-doc-dropzone">
+                <input type="file" name="file" id="employees-side-doc-file" required hidden />
+                <input type="file" id="employees-side-doc-camera" accept="image/*" capture="environment" hidden />
+                <p class="doc-upload-dropzone__lead">Drop file here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+                <p class="doc-upload-dropzone__hint muted" id="employees-side-doc-upload-hint">${escapeHtml(DEFAULT_DOCUMENT_UPLOAD.hint)}</p>
+                <p class="doc-upload-filename" id="employees-side-doc-filename" hidden></p>
+              </div>
+            </div>
+            <label class="employee-record-field employee-record-field--full">
+              <span class="employee-record-field__label">Title</span>
+              <input type="text" name="title" required placeholder="e.g. Signed contract" />
+            </label>
+            <label class="employee-record-field">
+              <span class="employee-record-field__label">Category</span>
+              <select name="category" id="employees-side-doc-category"></select>
+            </label>
+            <label class="employee-record-field" id="employees-side-doc-pay-period-field" hidden>
+              <span class="employee-record-field__label">Pay period</span>
+              <input type="text" name="pay_period" id="employees-side-doc-pay-period" placeholder="e.g. 2026-04" />
+            </label>
+            <label class="employee-record-field" data-issued-field hidden>
+              <span class="employee-record-field__label" data-issued-label>Issue date</span>
+              <input type="date" name="issued_at" id="employees-side-doc-issued" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-recorded-field hidden>
+              <span class="employee-record-field__label" data-recorded-label>Date taken</span>
+              <input type="date" name="recorded_at" id="employees-side-doc-recorded" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-expires-field id="employees-side-doc-expiry-field">
+              <span class="employee-record-field__label" data-expires-label>Expiry date</span>
+              <input type="date" name="expires_at" id="employees-side-doc-expires" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-alert-field id="employees-side-doc-alert-field" hidden>
+              <span class="employee-record-field__label">HR alert</span>
+              <select name="expiry_alert_days" id="employees-side-doc-alert-days">
+                <option value="30">30 days before</option>
+                <option value="60">60 days before</option>
+                <option value="90">90 days before</option>
+              </select>
+            </label>
+            <p class="muted employee-record-field__hint employee-record-field--full" data-expires-hint id="employees-side-doc-expiry-hint" hidden></p>
+            <label class="ss-check-row ss-check-row--compact employee-record-field--full">
+              <input class="ss-check-row__input" type="checkbox" id="employees-side-doc-share" name="employee_visible" value="true" />
+              <span class="ss-check-row__box" aria-hidden="true"></span>
+              <span class="ss-check-row__content">
+                <span class="ss-check-row__title">Employee portal</span>
+                <span class="ss-check-row__hint muted">HR confidential if unchecked — contracts, RTW, disciplinary records, etc.</span>
+              </span>
+            </label>
+            <div class="edit-form-actions employee-record-field--full">
+              <button type="submit" class="btn btn-sm">Upload</button>
+            </div>
+          </form>
+        </details>
+        <p class="muted employee-record-field-status" id="employees-side-doc-status" aria-live="polite"></p>
+        <p class="employee-record-lifecycle-link">
+          <button type="button" class="employee-record-link" id="employees-side-doc-manage-btn">Signing &amp; full document store →</button>
+        </p>
+      </section>
+    </div>`;
+  }
+
   function bindSidePanelInlineFields(employee, workspace) {
     const employeeId = employee.id;
     const statusEl = document.getElementById("employees-side-field-status");
@@ -1347,6 +3146,8 @@
       }
     };
 
+    const saveInduction = (updates) => saveField("induction", updates);
+
     document.getElementById("employees-side-job-title")?.addEventListener("change", (event) => {
       void saveField("onboarding", { job_title: event.target.value.trim() || null });
     });
@@ -1356,6 +3157,60 @@
     document.getElementById("employees-side-email")?.addEventListener("change", (event) => {
       void saveField("recruitment", { email: event.target.value.trim() || null });
     });
+    document.getElementById("employees-side-phone")?.addEventListener("change", (event) => {
+      void saveInduction({ phone: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-dob")?.addEventListener("change", (event) => {
+      const value = event.target.value?.trim() || null;
+      event.target.toggleAttribute("data-empty", !value);
+      void saveInduction({ date_of_birth: value });
+    });
+    document.getElementById("employees-side-ni")?.addEventListener("change", (event) => {
+      void saveInduction({ ni_number: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-address")?.addEventListener("change", (event) => {
+      void saveInduction({ home_address: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-emergency-name")?.addEventListener("change", (event) => {
+      void saveInduction({ emergency_contact_name: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-emergency-phone")?.addEventListener("change", (event) => {
+      void saveInduction({ emergency_contact_phone: event.target.value.trim() || null });
+    });
+    document.getElementById("employees-side-emergency-relationship")?.addEventListener("change", (event) => {
+      void saveInduction({ emergency_contact_relationship: event.target.value.trim() || null });
+    });
+
+    const sideDocs = isMobileEmployeesHub()
+      ? document.querySelector("#emp-mobile-profile #employees-side-documents") ||
+        document.getElementById("employees-side-documents")
+      : document.querySelector("#employees-side-content #employees-side-documents");
+    bindEmployeeRecordDocumentActions(sideDocs, workspace);
+    mountEmployeeRecordDocumentUpload(employeeId, sideDocs);
+    const manageBtn = sideDocs?.querySelector("#employees-side-doc-manage-btn");
+    if (isMobileEmployeesHub()) {
+      if (manageBtn) manageBtn.textContent = "Add another document";
+      document.getElementById("employees-side-lifecycle-btn")?.closest("p")?.setAttribute("hidden", "");
+    }
+    sideDocs?.querySelector("#employees-side-doc-manage-btn")?.addEventListener("click", () => {
+      if (isMobileEmployeesHub()) {
+        mobileProfileTab = "documents";
+        mobileProfileEdit = false;
+        if (workspaceCache) renderMobileEmployeeProfile(workspaceCache);
+        return;
+      }
+      sidePanelTab = "documents";
+      paintEmployeeSidePanel(workspace.employee || {}, workspace);
+    });
+    document.getElementById("employees-side-lifecycle-btn")?.addEventListener("click", () => {
+      if (isMobileEmployeesHub()) {
+        mobileProfileEdit = true;
+        mobileProfileTab = "details";
+        if (workspaceCache) renderMobileEmployeeProfile(workspaceCache);
+        return;
+      }
+      void openEmployee(employeeId, workspace.next_section || "recruitment");
+    });
   }
 
   function updateSidePanelProgress(workspace) {
@@ -1364,77 +3219,10 @@
     const copy = document.getElementById("employees-side-progress-copy");
     if (fill) fill.style.width = `${Math.min(100, meta.pct)}%`;
     if (copy) copy.textContent = `${meta.completed} of ${meta.total} sections done`;
-    renderSidePanelChecklist(workspace);
-  }
-
-  function renderSidePanelChecklist(workspace) {
-    const host = document.getElementById("employees-side-checklist");
-    if (!host) return;
-    host.innerHTML = SIDE_PANEL_CHECKLIST.map((item) => {
-      const complete = checklistItemComplete(workspace, item);
-      const started = checklistItemStarted(workspace, item);
-      const iconClass = complete
-        ? "employee-record-check__icon employee-record-check__icon--done"
-        : started
-          ? "employee-record-check__icon employee-record-check__icon--active"
-          : "employee-record-check__icon";
-      const action = complete
-        ? `<span class="employee-record-check__status">Complete</span>`
-        : `<button type="button" class="employee-record-link" data-side-section="${escapeHtml(item.sectionKey)}">${started ? "Continue" : "Start"} ↗</button>`;
-      return `<div class="employee-record-check">
-        <span class="${iconClass}" aria-hidden="true">${complete ? "✓" : ""}</span>
-        <span class="employee-record-check__label">${escapeHtml(item.label)}</span>
-        ${action}
-      </div>`;
-    }).join("");
-    host.querySelectorAll("[data-side-section]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        openEmployeeSectionFromPanel(workspace.employee?.id, btn.dataset.sideSection);
-      });
-    });
-  }
-
-  function renderSidePanelSectionExpand(workspace) {
-    const host = document.getElementById("employees-side-section-host");
-    if (!host) return;
-    if (!sidePanelExpandedSection) {
-      host.hidden = true;
-      host.innerHTML = "";
-      return;
-    }
-    host.hidden = false;
-    sidePanelEmployeeId = workspace.employee?.id || selectedEmployeeId;
-    host.innerHTML = `<div class="employee-record-section-expand">
-      <div class="employee-record-section-expand__head">
-        <strong>${escapeHtml(sectionLabel(sidePanelExpandedSection))}</strong>
-        <button type="button" class="employee-record-link" id="employees-side-section-close">Close</button>
-      </div>
-      <div id="employees-side-section-content"></div>
-    </div>`;
-    host.querySelector("#employees-side-section-close")?.addEventListener("click", () => {
-      sidePanelExpandedSection = null;
-      sidePanelEmployeeId = null;
-      renderSidePanelSectionExpand(workspace);
-    });
-    const contentHost = host.querySelector("#employees-side-section-content");
-    if (contentHost) {
-      renderSectionContent(workspace, sidePanelExpandedSection, contentHost);
-    }
   }
 
   function openEmployeeSectionFromPanel(employeeId, sectionKey) {
-    if (isMobileEmployeesHub() || sectionKey === "document_store") {
-      void openEmployee(employeeId, sectionKey);
-      return;
-    }
-    sidePanelExpandedSection = sectionKey;
-    if (sidePanelWorkspace?.employee?.id === employeeId) {
-      renderSidePanelSectionExpand(sidePanelWorkspace);
-      document.getElementById("employees-side-section-host")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      return;
-    }
-    selectedEmployeeId = employeeId;
-    void renderEmployeeSidePanel(employeesCache.find((item) => item.id === employeeId));
+    void openEmployee(employeeId, sectionKey);
   }
 
   function refreshEmployeesTableProgressOnly() {
@@ -1450,13 +3238,19 @@
     const row = employeesCache.find((item) => item.id === employeeId);
     const target = rowEl || document.querySelector(`.hr-register-row[data-employee-id="${employeeId}"]`);
     if (!row || !target) return;
-    target.cells[0].innerHTML = `<strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>${
-      row.job_title ? `<div class="muted">${escapeHtml(row.job_title)}</div>` : ""
-    }`;
-    target.cells[1].textContent = row.department || "Not set";
-    target.cells[2].innerHTML = statusPill(row.status);
-    target.cells[3].innerHTML = renderPortalStatusCell(row);
-    target.cells[4].innerHTML = renderRegisterProgressCell(row);
+    target.outerHTML = employeeRegisterRowHtml(row);
+    const next = document.querySelector(`.hr-register-row[data-employee-id="${employeeId}"]`);
+    next?.addEventListener("click", () => {
+      if (selectedEmployeeId !== employeeId) {
+        sidePanelExpandedSection = null;
+        sidePanelTab = "overview";
+      }
+      selectedEmployeeId = employeeId;
+      document.querySelectorAll(".hr-register-row").forEach((el) => {
+        el.classList.toggle("hr-register-row--selected", employeeIdMatches(el.dataset.employeeId, selectedEmployeeId));
+      });
+      void renderEmployeeSidePanel(resolveSelectedEmployeeRow());
+    });
   }
 
   function normalizePayload(section, payload) {
@@ -1656,9 +3450,6 @@
 
   function renderRequirementsChecklist(requirements) {
     if (!requirements?.items?.length) return "";
-    const summary = requirements.complete
-      ? `<p class="employee-doc-status employee-doc-status--ok">All required documents recorded.</p>`
-      : `<p class="employee-doc-status employee-doc-status--warn">${requirements.missing_required} required document(s) still missing.</p>`;
     const list = requirements.items
       .map((item) => {
         const state = item.satisfied ? "complete" : item.required ? "missing" : "optional";
@@ -1666,105 +3457,367 @@
         return `<li class="employee-doc-req employee-doc-req--${state}"><span>${badge}</span> ${escapeHtml(item.label)}${item.required ? "" : " <span class='muted'>(optional)</span>"}</li>`;
       })
       .join("");
-    return `${summary}<ul class="employee-doc-checklist">${list}</ul>`;
+    return `${renderEmployeeDocAlertHtml(requirements)}<ul class="employee-doc-checklist">${list}</ul>`;
   }
 
-  function renderDocumentStorePanel(workspace, container) {
-    const section = (workspace.sections || []).find((item) => item.key === "document_store");
-    const requirements = workspace.document_requirements || {};
-    const docs = workspace.documents || [];
+  function readEmployeeUploadPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector("#employee-document-upload-category")?.value || "",
+      pay_period: form.querySelector("#employee-document-upload-pay-period")?.value || "",
+      expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      issued_at: form.querySelector('[name="issued_at"]')?.value || "",
+      recorded_at: form.querySelector('[name="recorded_at"]')?.value || "",
+      notify_employee: form.querySelector("#employee-document-upload-notify")?.checked ?? true,
+      send_email: form.querySelector("#employee-document-upload-email")?.checked ?? true,
+    };
+  }
 
-    container.innerHTML = `
-      <div class="employee-section-intro">
-        <h4>${escapeHtml(section?.label || "Document store")}</h4>
-        <p class="muted">${escapeHtml(section?.description || "")}</p>
-        ${renderRequirementsChecklist(requirements)}
-      </div>
-      <div id="employee-document-form"></div>
-      <form id="employee-document-upload-form" class="edit-form edit-form--cols-2" enctype="multipart/form-data" style="margin-bottom:1rem;">
-        <label class="edit-field"><span class="edit-label">Upload title</span><input name="title" required placeholder="e.g. April 2026 payslip" /></label>
-        <label class="edit-field"><span class="edit-label">File</span><input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required /><span class="muted edit-hint" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</span></label>
-        <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
-        <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
-        <label class="edit-field"><span class="edit-label">Expiry date</span><input name="expires_at" type="date" /><span class="muted edit-hint">Set for food hygiene, first aid, and other renewable certificates.</span></label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Notify employee when published</span>
-            <span class="ss-check-row__hint muted">Sends a portal alert and optional email.</span>
-          </span>
-        </label>
-        <label class="ss-check-row" data-span="2">
-          <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
-          <span class="ss-check-row__box" aria-hidden="true"></span>
-          <span class="ss-check-row__content">
-            <span class="ss-check-row__title">Email employee when notified</span>
-            <span class="ss-check-row__hint muted">Push alerts are still sent when alerts are enabled in the employee app.</span>
-          </span>
-        </label>
-        <div class="edit-form-actions" data-span="2"><button class="btn secondary" type="submit">Upload file</button><p class="edit-form-status muted" data-upload-status></p></div>
-      </form>
-      <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
-      <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
-      <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Title</th><th>Category</th><th>Expires</th><th>Added</th><th>Signature</th><th></th></tr></thead>
-          <tbody id="employee-documents-body"></tbody>
-        </table>
-      </div>`;
+  function applyEmployeeUploadPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector("#employee-document-upload-category");
+    const payPeriod = form.querySelector("#employee-document-upload-pay-period");
+    const payPeriodField = form.querySelector("#employee-document-upload-pay-period-field");
+    const expiresAt = form.querySelector('[name="expires_at"]');
+    const issuedAt = form.querySelector('[name="issued_at"]');
+    const recordedAt = form.querySelector('[name="recorded_at"]');
+    const notify = form.querySelector("#employee-document-upload-notify");
+    const sendEmail = form.querySelector("#employee-document-upload-email");
+    if (category && prefs.category) category.value = prefs.category;
+    if (payPeriod) payPeriod.value = prefs.pay_period || "";
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (issuedAt) issuedAt.value = prefs.issued_at || "";
+    if (recordedAt) recordedAt.value = prefs.recorded_at || "";
+    if (notify) notify.checked = prefs.notify_employee;
+    if (sendEmail) sendEmail.checked = prefs.send_email;
+    const isPayslip = category?.value === "payslip";
+    if (payPeriodField) payPeriodField.hidden = !isPayslip;
+    if (payPeriod) payPeriod.required = isPayslip;
+    syncDocumentTypeDateFields(form);
+  }
 
-    mountEditForm(container.querySelector("#employee-document-form"), {
-      id: "employee-document",
-      columns: 2,
-      submitLabel: "Add document",
-      successMessage: "Document added.",
-      fields: [
-        { name: "title", label: "Title", type: "text", required: true },
-        {
-          name: "category",
-          label: "Category",
-          type: "select",
-          optionsKey: "employee_document_categories",
-          defaultValue: "contract",
-        },
-        { name: "document_url", label: "Document URL", type: "url", placeholder: "https://..." },
-        { name: "expires_at", label: "Expiry date", type: "date" },
-        { name: "notes", label: "Notes", type: "textarea", span: 2 },
-      ],
-    }, {
-      onSubmit: async (payload) => {
-        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents`, {
-          method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            lifecycle_stage: "document_store",
-            document_url: payload.document_url || null,
-            notes: payload.notes || null,
-            expires_at: payload.expires_at || null,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Save failed");
-        await openEmployee(activeEmployeeId, "document_store");
-        if (workspaceCache?.document_requirements?.complete && workspaceCache.next_section) {
-          const next = workspaceCache.next_section;
-          if (next !== "document_store") {
-            activeSection = next;
-            window.location.hash = `employees/${activeEmployeeId}/${next}`;
-            renderLifecycleAccordion(workspaceCache);
+  function resetEmployeeUploadFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readEmployeeUploadPreferences(form);
+    form.reset();
+    applyEmployeeUploadPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#employee-document-upload-file");
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput._sshrPendingFile = null;
+    }
+    const filenameEl = form.querySelector("#employee-document-upload-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function renderEmployeeDocumentCategoryOptions(selected = "") {
+    const categories = window.Admin.formOptions?.employee_document_categories || [];
+    return categories
+      .map(
+        (item) =>
+          `<option value="${escapeHtml(item.value)}"${item.value === selected ? " selected" : ""}>${escapeHtml(item.label)}</option>`,
+      )
+      .join("");
+  }
+
+  function closeEmployeeDocumentEditPanel(container) {
+    const panel = container?.querySelector("#employee-document-edit-panel");
+    if (panel) panel.hidden = true;
+  }
+
+  function syncEmployeeDocumentEditPayPeriod(form) {
+    const categorySelect = form?.querySelector("#employee-document-edit-category");
+    const payPeriodField = form?.querySelector("#employee-document-edit-pay-period-field");
+    const payPeriodInput = form?.querySelector("#employee-document-edit-pay-period");
+    const isPayslip = categorySelect?.value === "payslip";
+    if (payPeriodField) payPeriodField.hidden = !isPayslip;
+    if (payPeriodInput) payPeriodInput.required = isPayslip;
+    syncDocumentTypeDateFields(form);
+  }
+
+  function openEmployeeDocumentEditPanel(row, container) {
+    if (!row || !container) return;
+    const panel = container.querySelector("#employee-document-edit-panel");
+    const form = container.querySelector("#employee-document-edit-form");
+    if (!panel || !form) return;
+
+    const categorySelect = form.querySelector("#employee-document-edit-category");
+    if (categorySelect) {
+      categorySelect.innerHTML = renderEmployeeDocumentCategoryOptions(row.category);
+    }
+    const titleInput = form.querySelector('[name="title"]');
+    if (titleInput) titleInput.value = row.title || "";
+    const payPeriodInput = form.querySelector("#employee-document-edit-pay-period");
+    if (payPeriodInput) payPeriodInput.value = row.pay_period || "";
+    const expiresInput = form.querySelector('[name="expires_at"]');
+    if (expiresInput) expiresInput.value = isoDateValue(row.expires_at);
+    const issuedInput = form.querySelector('[name="issued_at"]');
+    if (issuedInput) issuedInput.value = isoDateValue(row.issued_at);
+    const recordedInput = form.querySelector('[name="recorded_at"]');
+    if (recordedInput) recordedInput.value = isoDateValue(row.recorded_at);
+    const alertSelect = form.querySelector('[name="expiry_alert_days"]');
+    if (alertSelect) alertSelect.value = String(row.expiry_alert_days || 30);
+    const visibleInput = form.querySelector("#employee-document-edit-visible");
+    if (visibleInput) visibleInput.checked = Boolean(row.employee_visible);
+    syncEmployeeDocumentEditPayPeriod(form);
+
+    form.dataset.documentId = String(row.id);
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    titleInput?.focus();
+  }
+
+  async function bindEmployeeExtraDocumentForm(container) {
+    const form = container?.querySelector("#employee-document-extra-form");
+    if (!form) return;
+    const categorySelect = form.querySelector("#employee-document-extra-category");
+    const fileInput = form.querySelector("#employee-document-extra-file");
+    const hint = form.querySelector("#employee-document-extra-hint");
+    const uploadPolicy = documentUploadPolicy();
+    if (fileInput) fileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
+    if (hint) hint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    if (categorySelect && form.dataset.bound !== "true") {
+      categorySelect.innerHTML = renderEmployeeDocumentCategoryOptions("contract");
+    }
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: form.querySelector("#employee-document-extra-dropzone"),
+      fileInput,
+      filenameEl: form.querySelector("#employee-document-extra-filename"),
+      cameraInput: form.querySelector("#employee-document-extra-camera"),
+    });
+    const syncExtra = () => syncDocumentTypeDateFields(form, { defaultRecorded: true });
+    if (form.dataset.bound !== "true") {
+      form.dataset.bound = "true";
+      categorySelect?.addEventListener("change", syncExtra);
+      form.querySelector('[name="expires_at"]')?.addEventListener("change", syncExtra);
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const status = form.querySelector("[data-extra-status]");
+        const raw = window.AdminDocuments?.readSelectedFile?.(fileInput) || fileInput?.files?.[0] || null;
+        let uploadFile = raw;
+        if (raw) {
+          try {
+            uploadFile = await resolveUploadFile(fileInput, form);
+          } catch (error) {
+            if (status) status.textContent = employeeErrorText(error, "Choose a JPEG or PNG photo.");
+            return;
           }
         }
-      },
-    });
+        const url = String(form.querySelector('[name="document_url"]')?.value || "").trim();
+        if (!uploadFile && !url) {
+          if (status) status.textContent = "Choose a file, take a photo, or add a document link.";
+          return;
+        }
+        if (uploadFile) {
+          const fileError = validateDocumentUploadFile(uploadFile);
+          if (fileError) {
+            if (status) status.textContent = fileError;
+            return;
+          }
+        }
+        const performSave = async () => {
+          if (uploadFile) {
+            const fd = new FormData(form);
+            fd.set("file", uploadFile);
+            fd.set("notify_employee", "false");
+            fd.set("send_email", "false");
+            fd.set("employee_visible", "false");
+            pruneEmptyDocumentDates(fd);
+            if (!String(fd.get("title") || "").trim() && uploadFile.name) {
+              fd.set("title", String(uploadFile.name).replace(/\.[^.]+$/, "") || "Document photo");
+            }
+            const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
+              method: "POST",
+              headers: authHeaders(false),
+              body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(employeeApiError(res, data, "Upload failed"));
+            return "Document uploaded.";
+          }
+          const dates = collectDocumentTypeDates(form, categorySelect?.value || "");
+          const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents`, {
+            method: "POST",
+            body: JSON.stringify({
+              title: form.querySelector('[name="title"]')?.value?.trim(),
+              category: categorySelect?.value || "general",
+              lifecycle_stage: "document_store",
+              document_url: url,
+              issued_at: dates.issued_at,
+              recorded_at: dates.recorded_at,
+              expires_at: dates.expires_at,
+              expiry_alert_days: Number(form.querySelector('[name="expiry_alert_days"]')?.value || 30),
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Save failed");
+          return "Document saved.";
+        };
+        const run = window.ShiftSwiftAction?.runFormSubmit;
+        if (run) {
+          await run(form, status, {
+            loadingLabel: "Saving…",
+            successMessage: "Document saved.",
+            errorMessage: "Save failed.",
+            successLabel: "Saved",
+            onAction: performSave,
+          });
+        } else {
+          if (status) status.textContent = "Saving…";
+          try {
+            const message = await performSave();
+            if (status) status.textContent = message;
+          } catch (error) {
+            if (status) status.textContent = error.message || "Save failed";
+            return;
+          }
+        }
+        form.reset();
+        if (fileInput) {
+          fileInput.value = "";
+          fileInput._sshrPendingFile = null;
+        }
+        const filenameEl = form.querySelector("#employee-document-extra-filename");
+        if (filenameEl) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        }
+        syncExtra();
+        await refreshEmployeeDocumentStoreList(container);
+      });
+    }
+    syncExtra();
+  }
 
-    renderTableBody(container.querySelector("#employee-documents-body"), {
+  function bindEmployeeDocumentEditForm(container) {
+    const form = container?.querySelector("#employee-document-edit-form");
+    if (!form || form.dataset.bound === "true") return;
+    form.dataset.bound = "true";
+
+    form.querySelector("#employee-document-edit-category")?.addEventListener("change", () => {
+      syncEmployeeDocumentEditPayPeriod(form);
+    });
+    form.querySelector('[name="expires_at"]')?.addEventListener("change", () => {
+      syncEmployeeDocumentEditPayPeriod(form);
+    });
+    form.querySelector("[data-cancel-doc-edit]")?.addEventListener("click", () => {
+      closeEmployeeDocumentEditPanel(container);
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const docId = form.dataset.documentId;
+      if (!docId || !activeEmployeeId) return;
+      const status = form.querySelector("[data-edit-status]");
+      const category = form.querySelector("#employee-document-edit-category")?.value || "";
+      const payPeriod = form.querySelector("#employee-document-edit-pay-period")?.value?.trim() || "";
+      if (category === "payslip" && !payPeriod) {
+        if (status) status.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      const dates = collectDocumentTypeDates(form, category);
+      const payload = {
+        title: form.querySelector('[name="title"]')?.value?.trim(),
+        category,
+        expires_at: dates.expires_at,
+        issued_at: dates.issued_at,
+        recorded_at: dates.recorded_at,
+        expiry_alert_days: Number(form.querySelector('[name="expiry_alert_days"]')?.value || 30),
+        employee_visible: form.querySelector("#employee-document-edit-visible")?.checked ?? false,
+      };
+      if (category === "payslip") payload.pay_period = payPeriod;
+
+      const performSave = async () => {
+        const res = await apiFetch(`/admin/employees/${activeEmployeeId}/documents/${docId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        closeEmployeeDocumentEditPanel(container);
+        await refreshEmployeeDocumentStoreList(container);
+        if (workspaceCache) renderEmployeeRecordDocumentLists(workspaceCache);
+        return "Document updated.";
+      };
+
+      const run = window.ShiftSwiftAction?.runFormSubmit;
+      if (run) {
+        await run(form, status, {
+          loadingLabel: "Saving…",
+          successMessage: "Document updated.",
+          errorMessage: "Update failed.",
+          successLabel: "Saved",
+          onAction: performSave,
+        });
+        return;
+      }
+      if (status) status.textContent = "Saving…";
+      try {
+        const message = await performSave();
+        if (status) status.textContent = message;
+      } catch (error) {
+        if (status) status.textContent = error.message || "Update failed";
+      }
+    });
+  }
+
+  function renderEmployeeDocumentActions(row) {
+    const canSign =
+      row.has_file &&
+      row.category !== "payslip" &&
+      row.signing_status !== "signed";
+    const parts = [];
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}">Edit</button>`);
+    if (row.has_file) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
+      parts.push(
+        `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}">Resend notify</button>`,
+      );
+    }
+    if (canSign) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-send-sign-doc="${row.id}">E-sign</button>`);
+    }
+    if (row.signing_status === "sent") {
+      parts.push(
+        `<button type="button" class="btn ghost btn-sm" data-resend-sign-email="${row.id}">Resend signing email</button>`,
+      );
+    }
+    if (row.document_url) {
+      parts.push(
+        `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`,
+      );
+    }
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}">Remove</button>`);
+    return `<div class="table-actions">${parts.join("")}</div>`;
+  }
+
+  async function refreshEmployeeDocumentStoreList(container) {
+    if (!container || !activeEmployeeId) return;
+    const res = await apiFetch(`/admin/employees/${activeEmployeeId}/workspace`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Could not refresh documents");
+    workspaceCache = data;
+    const intro = container.querySelector(".employee-section-intro");
+    if (intro) {
+      const section = (data.sections || []).find((item) => item.key === "document_store");
+      intro.innerHTML = `
+        <h4>${escapeHtml(section?.label || "Document store")}</h4>
+        <p class="muted">${escapeHtml(section?.description || "")}</p>
+        ${renderRequirementsChecklist(data.document_requirements || {})}`;
+    }
+    const tbody = container.querySelector("#employee-documents-body");
+    if (!tbody) return;
+    const docs = scopedEmployeeDocuments(data.documents || [], activeEmployeeId);
+    renderTableBody(tbody, {
       emptyMessage: "No documents recorded yet.",
       columns: [
-        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>` },
+        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>${row.superseded ? ` <span class="muted">Kept on file</span>` : ""}` },
         { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
-        { key: "expires_at", render: (row) => escapeHtml((row.expires_at || "").slice(0, 10) || "Not set") },
+        { key: "expires_at", render: (row) => renderDocumentExpiryCell(row) },
         { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
         {
           key: "signing_status",
@@ -1776,21 +3829,99 @@
         },
         {
           key: "actions",
-          render: (row) => {
-            const canSign =
-              row.has_file &&
-              row.category !== "payslip" &&
-              row.signing_status !== "signed";
-            return `<div class="table-actions">
-              ${row.has_file ? `<button type="button" class="btn ghost" data-download-doc="${row.id}">Download</button>` : ""}
-              ${canSign ? `<button type="button" class="btn ghost" data-send-sign-doc="${row.id}">Send for signature</button>` : ""}
-              ${row.document_url ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>` : ""}
-              <button type="button" class="btn ghost" data-delete-doc="${row.id}">Remove</button>
-            </div>`;
-          },
+          render: (row) => renderEmployeeDocumentActions(row),
         },
       ],
       rows: docs,
+    });
+    bindEmployeeDocumentTableActions(container, docs);
+  }
+
+  async function resendEmployeeDocumentNotification(documentId, statusEl, button) {
+    if (!activeEmployeeId) return;
+    const performResend = async () => {
+      const res = await apiFetch(
+        `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-notification`,
+        { method: "POST", body: JSON.stringify({ send_email: true }) },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      const message =
+        window.Admin?.formatDocumentNotificationSummary?.(data, { uploadedLabel: "Resent" }) ||
+        data.message ||
+        "Notification resent.";
+      return message;
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notification resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Resending notification…";
+    try {
+      const message = await performResend();
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message);
+    } catch (error) {
+      const message = error.message || "Resend failed.";
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message, { variant: "error" });
+    }
+  }
+
+  async function resendEmployeeSigningEmail(documentId, statusEl, button) {
+    if (!activeEmployeeId) return;
+    const performResend = async () => {
+      const res = await apiFetch(
+        `/admin/employees/${activeEmployeeId}/documents/${documentId}/resend-signature-email`,
+        {
+          method: "POST",
+          body: JSON.stringify({ frontend_base: window.location.origin }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      return data.message || "Signing email resent.";
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Signing email resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Resending signing email…";
+    try {
+      const message = await performResend();
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message);
+    } catch (error) {
+      const message = error.message || "Resend failed.";
+      if (statusEl) statusEl.textContent = message;
+      showAdminToast?.(message, { variant: "error" });
+    }
+  }
+
+  function bindEmployeeDocumentTableActions(container, docs) {
+    container.querySelectorAll("[data-edit-doc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = docs.find((item) => String(item.id) === btn.dataset.editDoc);
+        if (row) openEmployeeDocumentEditPanel(row, container);
+      });
     });
 
     container.querySelectorAll("[data-delete-doc]").forEach((btn) => {
@@ -1806,7 +3937,7 @@
             const err = await res.json();
             throw new Error(err.detail || "Delete failed");
           }
-          await openEmployee(activeEmployeeId, "document_store");
+          await refreshEmployeeDocumentStoreList(container);
           return "Removed.";
         };
         if (run) {
@@ -1838,7 +3969,7 @@
         const performDownload = async () => {
           await downloadAuthenticated(
             `/admin/employees/${activeEmployeeId}/documents/${btn.dataset.downloadDoc}/file`,
-            name
+            name,
           );
           return "Download started.";
         };
@@ -1871,15 +4002,18 @@
             {
               method: "POST",
               body: JSON.stringify({ frontend_base: window.location.origin }),
-            }
+            },
           );
           const data = await res.json();
           if (!res.ok) throw new Error(data.detail || "Send failed");
-          pendingDocumentSigningUi = {
-            signing_url: data.signing_url,
-            reference_code: data.reference_code,
-          };
-          await openEmployee(activeEmployeeId, "document_store");
+          const linkBox = container.querySelector("#employee-document-signing-link");
+          if (linkBox && data.signing_url) {
+            linkBox.hidden = false;
+            const emailed = data.email_sent !== false;
+            linkBox.innerHTML = `<p><strong>Signing link</strong>${emailed ? " (emailed to employee)" : ""}:</p>
+              <input type="text" readonly value="${escapeHtml(data.signing_url)}" style="width:100%;" onclick="this.select()" />`;
+          }
+          await refreshEmployeeDocumentStoreList(container);
           return `Sent for signature · ${data.reference_code}`;
         };
         if (run) {
@@ -1902,6 +4036,226 @@
       });
     });
 
+    const actionStatus = container.querySelector("#employee-document-action-status");
+    container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void resendEmployeeDocumentNotification(btn.dataset.resendDocNotify, actionStatus, btn);
+      });
+    });
+    container.querySelectorAll("[data-resend-sign-email]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        void resendEmployeeSigningEmail(btn.dataset.resendSignEmail, actionStatus, btn);
+      });
+    });
+  }
+
+  function renderDocumentStorePanel(workspace, container) {
+    const section = (workspace.sections || []).find((item) => item.key === "document_store");
+    const requirements = workspace.document_requirements || {};
+    const docs = scopedEmployeeDocuments(workspace.documents || [], workspace.employee?.id || activeEmployeeId);
+
+    container.innerHTML = `
+      <div class="employee-section-intro">
+        <h4>${escapeHtml(section?.label || "Document store")}</h4>
+        <p class="muted">${escapeHtml(section?.description || "")}</p>
+        ${renderRequirementsChecklist(requirements)}
+      </div>
+      <div id="employee-document-form"></div>
+      <article class="employee-doc-upload-panel">
+        <h5 class="employee-doc-upload-panel__title">Upload file</h5>
+        <form id="employee-document-upload-form" class="edit-form edit-form--cols-2 employee-doc-upload-form" enctype="multipart/form-data">
+          <section class="employee-doc-upload-section" aria-label="Document details">
+            <div class="edit-field" data-span="2">
+              <span class="edit-label">File</span>
+              <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="employee-document-upload-dropzone">
+                <input name="file" type="file" id="employee-document-upload-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required hidden />
+                <input type="file" id="employee-document-upload-camera" accept="image/*" capture="environment" hidden />
+                <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+                <p class="doc-upload-dropzone__hint muted" id="employee-document-upload-hint">PDF, JPEG or PNG · max 10 MB per file</p>
+                <p class="doc-upload-filename" id="employee-document-upload-filename" hidden></p>
+              </div>
+            </div>
+            <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. Skilled Worker visa" /></label>
+            <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-upload-category"></select></label>
+            <label class="edit-field" id="employee-document-upload-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-upload-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+            <label class="edit-field" data-issued-field hidden>
+              <span class="edit-label" data-issued-label>Issue date</span>
+              <input name="issued_at" type="date" data-empty="true" />
+            </label>
+            <label class="edit-field" data-recorded-field hidden>
+              <span class="edit-label" data-recorded-label>Date taken</span>
+              <input name="recorded_at" type="date" data-empty="true" />
+            </label>
+            <label class="edit-field" data-expires-field id="employee-document-upload-expiry-field">
+              <span class="edit-label" data-expires-label>Expiry date</span>
+              <input name="expires_at" type="date" data-empty="true" />
+              <span class="muted edit-hint" data-expires-hint id="employee-document-upload-expiry-hint"></span>
+            </label>
+            <label class="edit-field" data-alert-field id="employee-document-upload-alert-field" hidden>
+              <span class="edit-label">HR alert window</span>
+              <select name="expiry_alert_days" id="employee-document-upload-alert-days">
+                <option value="30">30 days before</option>
+                <option value="60">60 days before</option>
+                <option value="90">90 days before</option>
+              </select>
+              <span class="muted edit-hint">ShiftSwift will alert HR before this document expires.</span>
+            </label>
+          </section>
+          <section class="employee-doc-upload-section employee-doc-upload-section--delivery" aria-label="Employee notification">
+            <h6 class="employee-doc-upload-section__title">Employee notification</h6>
+            <div class="employee-doc-upload-notify">
+              <label class="ss-check-row ss-check-row--compact">
+                <input class="ss-check-row__input" type="checkbox" name="notify_employee" id="employee-document-upload-notify" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Portal alert</span>
+                  <span class="ss-check-row__hint muted">In-app alert in the employee portal.</span>
+                </span>
+              </label>
+              <label class="ss-check-row ss-check-row--compact">
+                <input class="ss-check-row__input" type="checkbox" name="send_email" id="employee-document-upload-email" value="true" checked />
+                <span class="ss-check-row__box" aria-hidden="true"></span>
+                <span class="ss-check-row__content">
+                  <span class="ss-check-row__title">Email copy</span>
+                  <span class="ss-check-row__hint muted">Secure link by email.</span>
+                </span>
+              </label>
+            </div>
+          </section>
+          <div class="edit-form-actions employee-doc-upload-actions" data-span="2">
+            <button class="btn" type="submit">Upload file</button>
+            <p class="edit-form-status muted" data-upload-status></p>
+          </div>
+        </form>
+      </article>
+      <details class="employee-doc-link-add">
+        <summary>Add another file, photo or link</summary>
+        <form id="employee-document-extra-form" class="edit-form edit-form--cols-2 employee-doc-upload-form" enctype="multipart/form-data">
+          <div class="edit-field" data-span="2">
+            <span class="edit-label">File or photo</span>
+            <div class="doc-upload-dropzone doc-upload-dropzone--compact" id="employee-document-extra-dropzone">
+              <input name="file" type="file" id="employee-document-extra-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" hidden />
+              <input type="file" id="employee-document-extra-camera" accept="image/*" capture="environment" hidden />
+              <p class="doc-upload-dropzone__lead">Drag &amp; drop here, or <button type="button" class="doc-upload-browse">browse</button><span class="doc-upload-dropzone__or" aria-hidden="true"> · </span><button type="button" class="doc-upload-camera">take photo</button></p>
+              <p class="doc-upload-dropzone__hint muted" id="employee-document-extra-hint">PDF, JPEG or PNG · max 10 MB per file</p>
+              <p class="doc-upload-filename" id="employee-document-extra-filename" hidden></p>
+            </div>
+          </div>
+          <label class="edit-field"><span class="edit-label">Title</span><input name="title" required placeholder="e.g. DBS certificate" /></label>
+          <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-extra-category"></select></label>
+          <label class="edit-field" data-issued-field hidden>
+            <span class="edit-label" data-issued-label>Issue date</span>
+            <input name="issued_at" type="date" data-empty="true" />
+            <span class="muted edit-hint"></span>
+          </label>
+          <label class="edit-field" data-recorded-field hidden>
+            <span class="edit-label" data-recorded-label>Date taken</span>
+            <input name="recorded_at" type="date" data-empty="true" />
+            <span class="muted edit-hint"></span>
+          </label>
+          <label class="edit-field" data-expires-field>
+            <span class="edit-label" data-expires-label>Expiry date</span>
+            <input name="expires_at" type="date" data-empty="true" />
+            <span class="muted edit-hint" data-expires-hint></span>
+          </label>
+          <label class="edit-field" data-alert-field hidden>
+            <span class="edit-label">HR alert window</span>
+            <select name="expiry_alert_days">
+              <option value="30">30 days before</option>
+              <option value="60">60 days before</option>
+              <option value="90">90 days before</option>
+            </select>
+          </label>
+          <label class="edit-field" data-span="2"><span class="edit-label">External link <span class="muted">(optional)</span></span><input name="document_url" type="url" placeholder="https://…" /></label>
+          <div class="edit-form-actions" data-span="2">
+            <button class="btn" type="submit">Save document</button>
+            <p class="edit-form-status muted" data-extra-status></p>
+          </div>
+        </form>
+      </details>
+      <div id="employee-document-signing-link" class="signing-link-box" hidden></div>
+      <div id="employee-document-edit-panel" class="employee-doc-edit-panel" hidden>
+        <div class="employee-doc-edit-panel__head">
+          <h5>Amend document</h5>
+          <p class="muted employee-doc-edit-panel__lead">Correct the category, title, or visibility if a file was filed incorrectly.</p>
+        </div>
+        <form id="employee-document-edit-form" class="edit-form edit-form--cols-2 employee-doc-edit-form">
+          <label class="edit-field"><span class="edit-label">Title</span><input name="title" required /></label>
+          <label class="edit-field"><span class="edit-label">Category</span><select name="category" id="employee-document-edit-category"></select></label>
+          <label class="edit-field" id="employee-document-edit-pay-period-field" hidden><span class="edit-label">Pay period</span><input name="pay_period" id="employee-document-edit-pay-period" type="text" placeholder="e.g. 2026-04 or April 2026" /></label>
+          <label class="edit-field" data-issued-field hidden>
+            <span class="edit-label" data-issued-label>Issue date</span>
+            <input name="issued_at" type="date" data-empty="true" />
+          </label>
+          <label class="edit-field" data-recorded-field hidden>
+            <span class="edit-label" data-recorded-label>Date taken</span>
+            <input name="recorded_at" type="date" data-empty="true" />
+          </label>
+          <label class="edit-field" data-expires-field>
+            <span class="edit-label" data-expires-label>Expiry date</span>
+            <input name="expires_at" type="date" data-empty="true" />
+            <span class="muted edit-hint" data-expires-hint></span>
+          </label>
+          <label class="edit-field" data-alert-field id="employee-document-edit-alert-field" hidden>
+            <span class="edit-label">HR alert window</span>
+            <select name="expiry_alert_days">
+              <option value="30">30 days before</option>
+              <option value="60">60 days before</option>
+              <option value="90">90 days before</option>
+            </select>
+          </label>
+          <label class="ss-check-row ss-check-row--compact" data-span="2">
+            <input class="ss-check-row__input" type="checkbox" name="employee_visible" id="employee-document-edit-visible" value="true" />
+            <span class="ss-check-row__box" aria-hidden="true"></span>
+            <span class="ss-check-row__content">
+              <span class="ss-check-row__title">Employee portal</span>
+              <span class="ss-check-row__hint muted">Visible in the employee portal when checked.</span>
+            </span>
+          </label>
+          <div class="edit-form-actions employee-doc-edit-actions" data-span="2">
+            <button class="btn" type="submit">Save changes</button>
+            <button class="btn ghost" type="button" data-cancel-doc-edit>Cancel</button>
+            <p class="edit-form-status muted" data-edit-status></p>
+          </div>
+        </form>
+      </div>
+      <p class="edit-form-status muted" id="employee-document-action-status" aria-live="polite"></p>
+      <p class="edit-form-status muted" id="employee-document-signing-status" aria-live="polite"></p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Category</th><th>Dates</th><th>Added</th><th>Signature</th><th>Actions</th></tr></thead>
+          <tbody id="employee-documents-body"></tbody>
+        </table>
+      </div>`;
+
+    bindEmployeeExtraDocumentForm(container);
+
+    renderTableBody(container.querySelector("#employee-documents-body"), {
+      emptyMessage: "No documents recorded yet.",
+      columns: [
+        { key: "title", render: (row) => `<strong>${escapeHtml(row.title)}</strong>${row.superseded ? ` <span class="muted">Kept on file</span>` : ""}` },
+        { key: "category", render: (row) => escapeHtml(categoryLabel(row.category)) },
+        { key: "expires_at", render: (row) => renderDocumentExpiryCell(row) },
+        { key: "created_at", render: (row) => escapeHtml((row.created_at || "").slice(0, 10) || "Not set") },
+        {
+          key: "signing_status",
+          render: (row) => {
+            if (row.signing_status === "signed") return '<span class="badge">Signed</span>';
+            if (row.signing_status === "sent") return '<span class="badge pill">Awaiting signature</span>';
+            return "";
+          },
+        },
+        {
+          key: "actions",
+          render: (row) => renderEmployeeDocumentActions(row),
+        },
+      ],
+      rows: docs,
+    });
+
+    bindEmployeeDocumentTableActions(container, docs);
+    bindEmployeeDocumentEditForm(container);
+
     const uploadForm = container.querySelector("#employee-document-upload-form");
     const uploadCategory = container.querySelector("#employee-document-upload-category");
     const payPeriodField = container.querySelector("#employee-document-upload-pay-period-field");
@@ -1911,19 +4265,33 @@
     const uploadPolicy = documentUploadPolicy();
     if (uploadFileInput) uploadFileInput.accept = uploadPolicy.accept || DEFAULT_DOCUMENT_UPLOAD.accept;
     if (uploadHint) uploadHint.textContent = uploadPolicy.hint || DEFAULT_DOCUMENT_UPLOAD.hint;
+    window.AdminDocuments?.bindFileDropzone?.({
+      dropzone: container.querySelector("#employee-document-upload-dropzone"),
+      fileInput: uploadFileInput,
+      filenameEl: container.querySelector("#employee-document-upload-filename"),
+      cameraInput: container.querySelector("#employee-document-upload-camera"),
+    });
     if (uploadCategory) {
       const categories = window.Admin.formOptions?.employee_document_categories || [];
       uploadCategory.innerHTML = categories
         .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
         .join("");
+      if (categories.some((item) => item.value === "payslip")) {
+        uploadCategory.value = "payslip";
+      }
       if (!uploadCategory.dataset.ready) {
-        const syncPayPeriod = () => {
+        const syncUploadCategory = () => {
           const isPayslip = uploadCategory.value === "payslip";
           if (payPeriodField) payPeriodField.hidden = !isPayslip;
           if (payPeriodInput) payPeriodInput.required = isPayslip;
+          syncDocumentTypeDateFields(uploadForm, { defaultRecorded: true });
         };
-        uploadCategory.addEventListener("change", syncPayPeriod);
-        syncPayPeriod();
+        uploadCategory.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="issued_at"]')?.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="recorded_at"]')?.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("change", syncUploadCategory);
+        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("input", syncUploadCategory);
+        syncUploadCategory();
         uploadCategory.dataset.ready = "true";
       }
     }
@@ -1938,7 +4306,18 @@
         }
         return;
       }
-      const uploadFile = uploadForm.querySelector('input[name="file"]')?.files?.[0];
+      let uploadFile;
+      try {
+        uploadFile = await resolveUploadFile(uploadFileInput, uploadForm);
+      } catch (error) {
+        const message = employeeErrorText(error, "Choose a JPEG or PNG photo.");
+        if (window.ShiftSwiftAction?.setActionStatus) {
+          window.ShiftSwiftAction.setActionStatus(status, message, "error");
+        } else if (status) {
+          status.textContent = message;
+        }
+        return;
+      }
       const fileError = validateDocumentUploadFile(uploadFile);
       if (fileError) {
         if (window.ShiftSwiftAction?.setActionStatus) {
@@ -1951,25 +4330,33 @@
 
       const performUpload = async () => {
         const fd = new FormData(uploadForm);
+        if (uploadFile) fd.set("file", uploadFile);
         const notify = uploadForm.querySelector("#employee-document-upload-notify")?.checked ?? true;
         const sendEmail = uploadForm.querySelector("#employee-document-upload-email")?.checked ?? true;
         fd.set("notify_employee", notify ? "true" : "false");
         fd.set("send_email", sendEmail ? "true" : "false");
+        fd.set("employee_visible", notify ? "true" : "false");
         if (uploadCategory?.value !== "payslip") fd.delete("pay_period");
+        pruneEmptyDocumentDates(fd);
+        if (!String(fd.get("title") || "").trim() && uploadFile?.name) {
+          fd.set("title", String(uploadFile.name).replace(/\.[^.]+$/, "") || "Document photo");
+        }
         const res = await fetch(`${API_BASE}/admin/employees/${activeEmployeeId}/documents/upload`, {
           method: "POST",
           headers: authHeaders(false),
           body: fd,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Upload failed");
-        uploadForm.reset();
-        if (uploadCategory) {
-          uploadCategory.dispatchEvent(new Event("change"));
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(employeeApiError(res, data, "Upload failed"));
+        resetEmployeeUploadFormKeepingPreferences(uploadForm);
+        await refreshEmployeeDocumentStoreList(container);
+        const summary = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
+          uploadedLabel: "Uploaded",
+        });
+        if (window.Admin?.documentNotificationNeedsResend?.(data.notifications) && data.id) {
+          return `${summary} Use Resend notify on the document row if needed.`;
         }
-        const notified = data?.notifications?.notified_count;
-        await openEmployee(activeEmployeeId, "document_store");
-        return notified != null ? "Uploaded. Employee notified." : "Uploaded.";
+        return summary || "Uploaded.";
       };
 
       const run = window.ShiftSwiftAction?.runFormSubmit;
@@ -1989,7 +4376,7 @@
         const message = await performUpload();
         if (status) status.textContent = message;
       } catch (error) {
-        if (status) status.textContent = error.message;
+        if (status) status.textContent = employeeErrorText(error, "Upload failed");
       }
     });
 
@@ -2023,8 +4410,40 @@
     }
   }
 
+  function localDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function formatNoteDayHeading(iso) {
+    const key = localDateKey(iso);
+    if (!key) return "Undated";
+    const today = localDateKey(new Date());
+    const yesterday = localDateKey(new Date(Date.now() - 86400000));
+    if (key === today) return "Today";
+    if (key === yesterday) return "Yesterday";
+    return formatFriendlyDate(iso);
+  }
+
+  function formatNoteTime(iso) {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+
+  function noteAuthorLabel(note) {
+    const raw = String(note?.created_by || "HR").trim();
+    if (!raw) return "HR";
+    if (raw.includes("@")) return raw.split("@")[0];
+    return raw;
+  }
+
   function noteVisibilityLabel(visibility) {
-    return visibility === "employee_visible" ? "Shared with employee" : "HR only";
+    return visibility === "employee_visible" ? "Employee portal" : "HR confidential";
   }
 
   async function loadEmployeeNotesList(container) {
@@ -2045,7 +4464,7 @@
           (note) => `
           <article class="employee-note-card employee-note-card--${escapeHtml(note.visibility)}">
             <header class="employee-note-card__head">
-              <span class="employee-note-badge">${escapeHtml(noteVisibilityLabel(note.visibility))}</span>
+              <span class="employee-note-badge">${note.visibility === "employee_visible" ? "" : iconSvg("lock")}${escapeHtml(noteVisibilityLabel(note.visibility))}</span>
               <span class="muted">${escapeHtml(formatNoteWhen(note.created_at))}</span>
             </header>
             <p class="employee-note-card__body">${escapeHtml(note.body || "")}</p>
@@ -2069,8 +4488,8 @@
         <label class="edit-field">
           <span class="edit-label">Visibility</span>
           <select name="visibility">
-            <option value="hr_internal">HR only (encrypted)</option>
-            <option value="employee_visible">Shared with employee</option>
+            <option value="hr_internal">HR confidential (encrypted)</option>
+            <option value="employee_visible">Employee portal</option>
           </select>
         </label>
         <div class="edit-form-actions" data-span="2">
@@ -2184,7 +4603,8 @@
           if (sidePanelEmployeeId && !activeEmployeeId) {
             sidePanelExpandedSection = null;
             sidePanelEmployeeId = null;
-            renderSidePanelSectionExpand(sidePanelWorkspace || workspace);
+            const row = employeesCache.find((item) => item.id === (sidePanelWorkspace || workspace).employee?.id);
+            if (row) void renderEmployeeSidePanel(row);
             return;
           }
           collapseLifecycleSection(workspace);
@@ -2219,7 +4639,8 @@
           }
           updateSidePanelProgress(data);
           refreshEmployeesTableProgressOnly();
-          renderSidePanelSectionExpand(data);
+          const row = employeesCache.find((item) => item.id === employeeId);
+          if (row) void renderEmployeeSidePanel(row);
           return;
         }
         const next = data.next_section;
@@ -2234,6 +4655,12 @@
 
   function renderWorkspace(workspace) {
     workspaceCache = workspace;
+    if (isMobileEmployeesHub()) {
+      showDetailView();
+      renderMobileEmployeeProfile(workspace);
+      return;
+    }
+    teardownMobileEmployeeProfile();
     renderEmployeeHeader(workspace);
     renderAdvancedLinks(workspace.employee || {});
     renderKioskPinPanel(workspace.employee?.id);
@@ -2253,7 +4680,7 @@
       window.location.hash = desired;
     }
     activeEmployeeId = employeeId;
-    hideEmployeeHistoryPanels();
+    hideEmployeeHistoryPanel();
     showDetailView();
     const accordion = lifecycleAccordionHost();
     if (accordion) accordion.innerHTML = `<p class="muted lifecycle-accordion-content">Loading employee lifecycle…</p>`;
@@ -2262,56 +4689,455 @@
     if (requestId !== openEmployeeRequest) return;
     const data = await res.json();
     if (!res.ok) {
-      alert(data.detail || "Could not load employee");
+      employeesToast(data.detail || "Could not load employee", "error");
       showListView();
       return;
     }
 
     activeSection = section || data.next_section || "recruitment";
+    if (isMobileEmployeesHub()) {
+      if (section === "document_store") mobileProfileTab = "documents";
+      else if (!section) {
+        mobileProfileTab = "details";
+        mobileProfileEdit = false;
+      }
+    }
     renderWorkspace(data);
   }
 
-  async function refreshEmployeesTable() {
+  async function refreshEmployeesTable(options = {}) {
+    const force = Boolean(options.force);
+    if (!force && employeesRefreshInflight) {
+      return employeesRefreshInflight;
+    }
+    const requestId = ++employeesRefreshGeneration;
     const tbody = $("employees-table-body");
-    if (!tbody) return;
+    const mobileCards = $("employees-mobile-cards");
 
-    try {
-      const res = await apiFetch("/admin/employees");
-      if (!res.ok) {
-        let detail = "Load failed";
-        try {
-          const err = await res.json();
-          detail = err.detail || err.message || detail;
-        } catch {
-          /* ignore */
+    const run = async () => {
+      try {
+        const tenantId = window.ShiftSwiftSession?.readTokenTenantId?.() || localStorage.getItem("tenantId");
+        const items = await fetchEmployeesList({ force: Boolean(options.force) });
+        if (requestId !== employeesRefreshGeneration) return;
+        applyEmployeesCache(items, { tenantId, status: 200 });
+
+        const overview = getAdminOverviewCache?.();
+        const activeCount = Number(overview?.modules?.employees?.active ?? 0);
+        if (!items.length && activeCount > 0) {
+          const hub = $("employees-lifecycle-hub");
+          if (hub && isMobileEmployeesHub()) {
+            hub.insertAdjacentHTML(
+              "afterbegin",
+              `<div class="overview-error" style="margin-bottom:10px"><p class="muted">Your dashboard shows ${activeCount} active employee${activeCount === 1 ? "" : "s"}, but the register returned none (tenant ${escapeHtml(tenantId || "?")}). Tap Retry or sign out and sign in again.</p></div>`,
+            );
+          }
         }
-        throw new Error(typeof detail === "string" ? detail : "Load failed");
+      } catch (error) {
+        if (requestId !== employeesRefreshGeneration) return;
+        const fallback = employeesFromFormOptions();
+        if (fallback.length) {
+          applyEmployeesCache(fallback);
+          return;
+        }
+        if (employeesCache.length) {
+          renderEmployeeRegister();
+          return;
+        }
+        employeesCache = [];
+        const message = friendlyNativeError(error, "Could not load employees.");
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(message)} Try again or check your connection.</td></tr>`;
+        }
+        if (mobileCards) {
+          mobileCards.hidden = false;
+          mobileCards.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(message)}</p><button type="button" class="btn outline btn-sm" id="employees-retry-btn">Retry</button></div>`;
+          mobileCards.querySelector("#employees-retry-btn")?.addEventListener("click", () => {
+            void initEmployeesSection();
+          });
+        }
+        renderLifecycleHubLoadError(`${message} Try again or check your connection.`);
       }
-      const data = await res.json();
-      employeesCache = data.items || [];
-      renderEmployeeRegister();
+    };
+
+    employeesRefreshInflight = run().finally(() => {
+      employeesRefreshInflight = null;
+    });
+    return employeesRefreshInflight;
+  }
+
+  function visaBrpSummary(workspace, employee) {
+    const visaDocs = scopedEmployeeDocuments(workspace.documents || [], employee?.id).filter(
+      (doc) => documentKindFromCategory(doc.category) === "visa" && !doc.superseded,
+    );
+    const expiry = employee.sponsorship?.visa_expiry_date || employee.visa_expiry_date;
+    if (visaDocs.length && expiry) return `On file · ${formatFriendlyDate(expiry)}`;
+    if (visaDocs.length) return "On file";
+    if (expiry) return formatFriendlyDate(expiry);
+    return "No visa or BRP on file";
+  }
+
+  function rtwOverviewValue(employee) {
+    const label = rtwDisplayLabel(employee);
+    if (label === "Verified") {
+      return `<span class="emp-overview-valid">${iconSvg("check")} Valid</span>`;
+    }
+    return escapeHtml(label);
+  }
+
+  function renderSideOverviewHtml(employee, workspace) {
+    const requirements = workspace.document_requirements || {};
+    const docsOnFile = scopedEmployeeDocuments(workspace.documents || [], employee.id).filter((doc) => !doc.superseded).length;
+    const missing = Number(requirements.missing_required || 0);
+    const joined = formatJoinedDate(employee.start_date);
+    const contract = employmentTypeLabel(employee.employment_type) || (employee.employment_type ? String(employee.employment_type) : "—");
+    return `
+      <section class="emp-overview-card">
+        <div class="emp-overview-card__head">
+          <h4>${iconSvg("mail")} Contact details</h4>
+          <button type="button" class="emp-overview-edit" data-side-tab="personal" aria-label="Edit contact details">${iconSvg("pencil")}</button>
+        </div>
+        ${overviewFieldRow("Email", escapeHtml(dashValue(employee.email)), "", "mail")}
+        ${overviewFieldRow("Mobile", escapeHtml(dashValue(employee.phone)), "", "phone")}
+        ${overviewFieldRow("Address", escapeHtml(dashValue(employee.home_address)), "", "map-pin")}
+      </section>
+      <section class="emp-overview-card">
+        <div class="emp-overview-card__head">
+          <h4>${iconSvg("briefcase")} Employment details</h4>
+          <button type="button" class="emp-overview-edit" data-side-tab="employment" aria-label="Edit employment details">${iconSvg("pencil")}</button>
+        </div>
+        ${overviewFieldRow("Department", escapeHtml(dashValue(employee.department)), "", "briefcase")}
+        ${overviewFieldRow("Role", escapeHtml(dashValue(employee.job_title)), "", "user")}
+        ${overviewFieldRow("Employment type", escapeHtml(dashValue(contract)), "", "clipboard")}
+        ${overviewFieldRow("Start date", escapeHtml(joined || "—"), "", "calendar")}
+        ${overviewFieldRow("Contract", escapeHtml(employee.contract_hours_weekly != null ? `${employee.contract_hours_weekly} hrs / week` : contract === "Full time" ? "Permanent" : dashValue(contract)), "", "file")}
+      </section>
+      <div class="emp-overview-split">
+        <section class="emp-overview-card">
+          <div class="emp-overview-card__head"><h4>${iconSvg("card")} Payroll &amp; visa</h4></div>
+          ${overviewFieldRow("NI number", escapeHtml(dashValue(employee.ni_number)), "", "card")}
+          ${overviewFieldRow("Tax code", escapeHtml(dashValue(employee.tax_code)), "", "file")}
+          ${overviewFieldRow("Right to work", rtwOverviewValue(employee), "", "shield")}
+          ${overviewFieldRow("Visa / BRP", escapeHtml(visaBrpSummary(workspace, employee)), "", "passport")}
+        </section>
+        <section class="emp-overview-card">
+          <div class="emp-overview-card__head"><h4>${iconSvg("user")} Personal details</h4></div>
+          ${overviewFieldRow("Date of birth", escapeHtml(employee.date_of_birth ? formatFriendlyDate(employee.date_of_birth) : "—"), "", "cake")}
+          ${overviewFieldRow("Nationality", escapeHtml(dashValue(employee.nationality)), "", "users")}
+          ${overviewFieldRow("Gender", escapeHtml(dashValue(employee.gender)), "", "user")}
+          ${overviewFieldRow("Phone (home)", escapeHtml(dashValue(employee.home_phone)), "", "phone")}
+        </section>
+      </div>
+      <section class="emp-overview-card emp-overview-card--docs">
+        <div class="emp-overview-card__head">
+          <h4>${iconSvg("document")} Documents &amp; notes</h4>
+          <button type="button" class="emp-overview-edit" data-side-tab="documents" aria-label="Open documents">${iconSvg("chevron")}</button>
+        </div>
+        ${
+          missing
+            ? `<button type="button" class="emp-overview-missing" data-side-tab="documents"><span class="emp-overview-missing__icon" aria-hidden="true">${iconSvg("alert")}</span><span>${missing} required document(s) still missing</span><span class="emp-overview-missing__chevron" aria-hidden="true">${iconSvg("chevron")}</span></button>`
+            : `<p class="muted">Required documents complete.</p>`
+        }
+        <button type="button" class="emp-overview-docs-link" data-side-tab="documents">View documents (${docsOnFile} on file)</button>
+      </section>`;
+  }
+
+  function renderSideEmploymentFields(employee) {
+    return `<div class="employee-record-fields">
+      <label class="employee-record-field">
+        <span class="employee-record-field__label">Job title</span>
+        <input type="text" id="employees-side-job-title" value="${escapeHtml(employee.job_title || "")}" placeholder="Not set" />
+      </label>
+      <label class="employee-record-field">
+        <span class="employee-record-field__label">Department</span>
+        <select id="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
+      </label>
+      <label class="employee-record-field">
+        <span class="employee-record-field__label">Email</span>
+        <input type="email" id="employees-side-email" value="${escapeHtml(employee.email || "")}" placeholder="Not set" />
+      </label>
+      <div class="employee-record-field">
+        <span class="employee-record-field__label">Kiosk PIN</span>
+        <div class="employee-record-kiosk" id="employees-side-kiosk-pin">Loading…</div>
+      </div>
+    </div>
+    <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>`;
+  }
+
+  function paintEmployeeSidePanel(employee, workspace) {
+    const content = $("employees-side-content");
+    if (!content) return;
+    const palette = avatarPalette(employee.id);
+    const initials = employeeInitials(employee);
+    const joined = formatJoinedDate(employee.start_date);
+    const meta = [employee.job_title, employee.department, joined ? `Joined ${joined}` : ""].filter(Boolean).join(" · ");
+    const inviteDisabled = !(employee.email && employee.portal_setup_status !== "complete");
+    const inviteLabel =
+      employee.portal_setup_pending || employee.portal_setup_status === "pending"
+        ? "Resend portal link"
+        : "Send portal invite";
+    const tabs = [
+      { id: "overview", label: "Overview" },
+      { id: "personal", label: "Personal" },
+      { id: "employment", label: "Employment" },
+      { id: "documents", label: "Documents" },
+      { id: "notes", label: "Notes" },
+    ];
+    const sectionsHtml = renderEmployeeRecordSectionsHtml(employee, workspace);
+    let body = "";
+    if (sidePanelTab === "personal") {
+      body = `<div id="employees-side-personal-tab">${sectionsHtml}</div>`;
+    } else if (sidePanelTab === "employment") {
+      body = `${renderSideEmploymentFields(employee)}`;
+    } else if (sidePanelTab === "documents") {
+      const host = document.createElement("div");
+      host.innerHTML = sectionsHtml;
+      const docs = host.querySelector("#employees-side-documents");
+      body = `<div id="employees-side-docs-tab">${docs ? docs.outerHTML : sectionsHtml}</div>`;
+    } else if (sidePanelTab === "notes") {
+      body = `<div class="emp-notes-panel" id="employees-side-notes"><p class="muted">Loading notes…</p></div>`;
+    } else {
+      body = renderSideOverviewHtml(employee, workspace);
+    }
+    $("employees-side-panel")?.classList.add("employees-side-panel--wide");
+
+    content.innerHTML = `
+      <article class="employee-record-card employee-record-card--sheet">
+        <header class="employee-record-head">
+          <div class="employee-record-identity">
+            <span class="employee-record-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+            <div>
+              <div class="employee-record-name-row">
+                <h3 class="employee-record-name">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
+                ${employeeStatusPillHtml(employee.status)}
+              </div>
+              <p class="muted employee-record-meta">${escapeHtml(meta)}</p>
+            </div>
+          </div>
+          <button type="button" class="employee-record-close" id="employees-side-close" aria-label="Close profile">×</button>
+        </header>
+        <div class="employee-record-actions">
+          <button type="button" class="btn primary btn-sm" data-side-tab="employment" id="employees-side-edit-btn">${iconSvg("pencil")} Edit</button>
+          ${
+            employee.email
+              ? `<a class="btn outline btn-sm" href="mailto:${escapeHtml(employee.email)}">${iconSvg("mail")} Send message</a>`
+              : `<button type="button" class="btn outline btn-sm" disabled>${iconSvg("mail")} Send message</button>`
+          }
+          <button type="button" class="btn outline btn-sm" data-side-tab="documents">${iconSvg("document")} Request document</button>
+          <button type="button" class="btn ghost btn-sm" data-open-lifecycle>Open full record</button>
+          <div class="employee-record-more" id="employees-side-more">
+            <button type="button" class="btn ghost btn-sm" id="employees-side-more-btn" aria-expanded="false">${iconSvg("more")} More</button>
+            <div class="employee-record-more-menu" id="employees-side-more-menu" hidden>
+              <button type="button" id="employees-side-invite-btn" ${inviteDisabled ? "disabled" : ""}>${escapeHtml(inviteLabel)}</button>
+              <button type="button" class="employee-record-remove" id="employees-side-delete-btn">Remove</button>
+            </div>
+          </div>
+        </div>
+        <nav class="emp-side-tabs" aria-label="Employee record">
+          ${tabs
+            .map(
+              (tab) =>
+                `<button type="button" class="emp-side-tab${sidePanelTab === tab.id ? " emp-side-tab--active" : ""}" data-side-tab="${tab.id}">${escapeHtml(tab.label)}</button>`,
+            )
+            .join("")}
+        </nav>
+        <div class="emp-side-body">${body}</div>
+        <p class="muted" id="employees-side-invite-status" aria-live="polite"></p>
+      </article>`;
+
+    bindPaintedEmployeeSidePanel(employee, workspace);
+  }
+
+  function bindPaintedEmployeeSidePanel(employee, workspace) {
+    const content = $("employees-side-content");
+    content?.querySelectorAll("[data-side-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        sidePanelTab = btn.getAttribute("data-side-tab") || "overview";
+        paintEmployeeSidePanel(employee, workspace);
+      });
+    });
+    content?.querySelector("#employees-side-close")?.addEventListener("click", () => {
+      selectedEmployeeId = null;
+      sidePanelTab = "overview";
+      document.querySelectorAll(".hr-register-row").forEach((el) => el.classList.remove("hr-register-row--selected"));
+      void renderEmployeeSidePanel(null);
+    });
+    const moreWrap = content?.querySelector("#employees-side-more");
+    const moreBtn = content?.querySelector("#employees-side-more-btn");
+    const moreMenu = content?.querySelector("#employees-side-more-menu");
+    moreBtn?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const open = moreMenu?.hidden;
+      if (moreMenu) moreMenu.hidden = !open;
+      moreBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    document.addEventListener("click", (event) => {
+      if (moreWrap && !moreWrap.contains(event.target) && moreMenu) moreMenu.hidden = true;
+    }, { once: true });
+
+    if (sidePanelTab === "personal" || sidePanelTab === "documents" || sidePanelTab === "employment") {
+      bindSidePanelInlineFields(employee, workspace);
+    }
+    if (sidePanelTab === "employment" || sidePanelTab === "personal") {
+      void refreshEmployeeSidePanelKioskPin(employee.id);
+    }
+    if (sidePanelTab === "personal") {
+      content?.querySelector("#employees-side-documents")?.closest("section")?.setAttribute("hidden", "");
+    }
+    if (sidePanelTab === "documents") {
+      content?.querySelector("#employees-side-personal-title")?.closest("section")?.setAttribute("hidden", "");
+      content?.querySelector("#employees-side-emergency-title")?.closest("section")?.setAttribute("hidden", "");
+      const upload = content?.querySelector(".employee-record-doc-upload");
+      if (upload) upload.open = true;
+    }
+    if (sidePanelTab === "notes") void loadSidePanelNotes(employee.id);
+
+    content?.querySelector("[data-open-lifecycle]")?.addEventListener("click", () => {
+      void openEmployee(employee.id, workspace.next_section || "recruitment");
+    });
+    content?.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
+      void sendPortalInvite(employee.id, "employees-side-invite-status");
+    });
+    content?.querySelector("#employees-side-delete-btn")?.addEventListener("click", async () => {
+      if (!window.confirm("Remove this employee record?")) return;
+      const deleteRes = await apiFetch(`/admin/employees/${employee.id}`, { method: "DELETE" });
+      if (!deleteRes.ok) {
+        const err = await deleteRes.json();
+        employeesToast(err.detail || "Delete failed", "error");
+        return;
+      }
+      selectedEmployeeId = null;
+      sidePanelExpandedSection = null;
+      sidePanelWorkspace = null;
+      sidePanelTab = "overview";
+      await refreshEmployeesTable();
+    });
+  }
+
+  function renderSidePanelNotesList(items) {
+    if (!items.length) {
+      return `<div class="emp-notes-empty">
+        <span class="emp-notes-empty__icon" aria-hidden="true">${iconSvg("lock")}</span>
+        <p class="emp-notes-empty__title">No notes yet</p>
+        <p class="emp-notes-empty__text">HR notes are dated and locked after save. They stay confidential unless you share them with the employee.</p>
+      </div>`;
+    }
+    let lastDay = null;
+    const rows = [];
+    items.forEach((note) => {
+      const day = localDateKey(note.created_at);
+      if (day !== lastDay) {
+        lastDay = day;
+        rows.push(`<h5 class="emp-notes-day">${escapeHtml(formatNoteDayHeading(note.created_at))}</h5>`);
+      }
+      const locked = note.visibility !== "employee_visible";
+      rows.push(`<article class="emp-note emp-note--${locked ? "locked" : "shared"}">
+        <header class="emp-note__head">
+          <span class="emp-note__badge">${locked ? `${iconSvg("lock")} Locked · HR only` : `${iconSvg("users")} Shared with employee`}</span>
+          <time class="emp-note__time" datetime="${escapeHtml(note.created_at || "")}">${escapeHtml(formatNoteTime(note.created_at))}</time>
+        </header>
+        <p class="emp-note__body">${escapeHtml(note.body || note.text || "")}</p>
+        <footer class="emp-note__foot">Added by ${escapeHtml(noteAuthorLabel(note))}</footer>
+      </article>`);
+    });
+    return `<div class="emp-notes-timeline">${rows.join("")}</div>`;
+  }
+
+  async function loadSidePanelNotes(employeeId) {
+    const host = document.getElementById("employees-side-notes");
+    if (!host) return;
+    try {
+      const res = await apiFetch(`/admin/employees/${employeeId}/notes`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not load notes");
+      const items = data.items || [];
+      const countLabel = items.length === 1 ? "1 note" : `${items.length} notes`;
+      host.innerHTML = `
+        <header class="emp-notes-board__head">
+          <span class="emp-notes-board__lock" aria-hidden="true">${iconSvg("lock")}</span>
+          <div>
+            <h4>HR notes</h4>
+            <p>Dated record · locked after save</p>
+          </div>
+          <span class="emp-notes-board__count">${escapeHtml(countLabel)}</span>
+        </header>
+        <form class="emp-notes-composer" id="employees-side-notes-form">
+          <label class="employee-record-field employee-record-field--full">
+            <span class="employee-record-field__label">Add a note</span>
+            <textarea name="body" rows="3" maxlength="4000" required placeholder="Write an HR note. It is dated and cannot be edited after save."></textarea>
+          </label>
+          <div class="emp-notes-composer__bar">
+            <fieldset class="emp-notes-visibility">
+              <legend class="visually-hidden">Who can see this note</legend>
+              <label class="emp-notes-choice">
+                <input type="radio" name="visibility" value="hr_internal" checked />
+                <span>${iconSvg("lock")} Locked · HR only</span>
+              </label>
+              <label class="emp-notes-choice">
+                <input type="radio" name="visibility" value="employee_visible" />
+                <span>${iconSvg("users")} Share to employee</span>
+              </label>
+            </fieldset>
+            <button type="submit" class="btn primary btn-sm" id="employees-side-notes-save">Save note</button>
+          </div>
+          <p class="muted emp-notes-composer__status" id="employees-side-notes-status" aria-live="polite"></p>
+        </form>
+        ${renderSidePanelNotesList(items)}`;
+      host.querySelector("#employees-side-notes-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.target;
+        const body = form.body?.value?.trim();
+        const visibility = form.visibility?.value || "hr_internal";
+        const statusEl = host.querySelector("#employees-side-notes-status");
+        const saveBtn = host.querySelector("#employees-side-notes-save");
+        if (!body) return;
+        if (saveBtn) saveBtn.disabled = true;
+        if (statusEl) statusEl.textContent = "Saving…";
+        try {
+          const saveRes = await apiFetch(`/admin/employees/${employeeId}/notes`, {
+            method: "POST",
+            body: JSON.stringify({ body, visibility }),
+          });
+          const saveData = await saveRes.json().catch(() => ({}));
+          if (!saveRes.ok) throw new Error(employeeApiError(saveRes, saveData, "Could not save note"));
+          employeesToast(visibility === "employee_visible" ? "Note shared with employee" : "Locked HR note saved", "ok");
+          void loadSidePanelNotes(employeeId);
+        } catch (error) {
+          if (saveBtn) saveBtn.disabled = false;
+          const message = employeeErrorText(error, "Could not save note");
+          if (statusEl) statusEl.textContent = message;
+          employeesToast(message, "error");
+        }
+      });
     } catch (error) {
-      const message = escapeHtml(error?.message || "Could not load employees.");
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">${message} Try refreshing the page — your saved employees are still in the database.</td></tr>`;
+      host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load notes.")}</p>`;
     }
   }
 
   async function renderEmployeeSidePanel(row) {
-    const empty = $("employees-side-empty");
     const content = $("employees-side-content");
     if (!content) return;
+    if (isMobileEmployeesHub()) {
+      sidePanelRenderRequest += 1;
+      sidePanelWorkspace = null;
+      sidePanelExpandedSection = null;
+      sidePanelEmployeeId = row?.id || null;
+      setEmployeeSidePanelVisible(false);
+      content.innerHTML = "";
+      if (!row) renderLifecycleHub(employeesCache);
+      return;
+    }
     if (!row) {
+      sidePanelRenderRequest += 1;
       sidePanelWorkspace = null;
       sidePanelExpandedSection = null;
       sidePanelEmployeeId = null;
-      empty?.removeAttribute("hidden");
-      content.hidden = true;
+      setEmployeeSidePanelVisible(false);
       content.innerHTML = "";
       renderLifecycleHub(employeesCache);
       return;
     }
-    empty?.setAttribute("hidden", "");
-    content.hidden = false;
+    setEmployeeSidePanelVisible(true);
+    sidePanelEmployeeId = row.id;
 
     const requestId = ++sidePanelRenderRequest;
     content.innerHTML = `<p class="muted employee-record-loading">Loading profile…</p>`;
@@ -2324,97 +5150,16 @@
 
       sidePanelWorkspace = workspace;
       const employee = workspace.employee || row;
-      const palette = avatarPalette(employee.id);
-      const initials = employeeInitials(employee);
-      const progress = sectionProgressMeta(workspace);
-      const inviteDisabled = !(employee.email && employee.portal_setup_status !== "complete");
-      const inviteLabel =
-        employee.portal_setup_pending || employee.portal_setup_status === "pending"
-          ? "Resend portal link"
-          : "Send portal invite";
-
-      content.innerHTML = `
-        <article class="employee-record-card">
-          <header class="employee-record-head">
-            <div class="employee-record-identity">
-              <span class="employee-record-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
-              <div>
-                <h3 class="employee-record-name">${escapeHtml(employee.first_name)} ${escapeHtml(employee.last_name)}</h3>
-                ${statusPill(employee.status)}
-              </div>
-            </div>
-            <div class="employee-record-actions">
-              <button type="button" class="btn outline btn-sm" id="employees-side-invite-btn" ${inviteDisabled ? "disabled" : ""}>${escapeHtml(inviteLabel)}</button>
-              <button type="button" class="btn outline btn-sm employee-record-remove" id="employees-side-delete-btn">Remove</button>
-            </div>
-          </header>
-
-          <div class="employee-record-progress">
-            <div class="employee-record-progress__meta">
-              <span>Profile completeness</span>
-              <span id="employees-side-progress-copy">${progress.completed} of ${progress.total} sections done</span>
-            </div>
-            <div class="employee-record-progress__bar"><span id="employees-side-progress-fill" style="width:${Math.min(100, progress.pct)}%"></span></div>
-          </div>
-
-          <div class="employee-record-fields">
-            <label class="employee-record-field">
-              <span class="employee-record-field__label">Job title</span>
-              <input type="text" id="employees-side-job-title" value="${escapeHtml(employee.job_title || "")}" placeholder="Not set" />
-            </label>
-            <label class="employee-record-field">
-              <span class="employee-record-field__label">Department</span>
-              <select id="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
-            </label>
-            <label class="employee-record-field">
-              <span class="employee-record-field__label">Email</span>
-              <input type="email" id="employees-side-email" value="${escapeHtml(employee.email || "")}" placeholder="Not set" />
-            </label>
-            <div class="employee-record-field">
-              <span class="employee-record-field__label">Kiosk PIN</span>
-              <div class="employee-record-kiosk" id="employees-side-kiosk-pin">Loading…</div>
-            </div>
-          </div>
-          <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
-
-          <div class="employee-record-checklist-wrap">
-            <h4 class="employee-record-checklist-title">Lifecycle sections</h4>
-            <div class="employee-record-checklist" id="employees-side-checklist"></div>
-          </div>
-
-          <div id="employees-side-section-host" hidden></div>
-
-          <footer class="employee-record-foot muted">
-            <span class="employee-record-portal-icon" aria-hidden="true"></span>
-            ${escapeHtml(portalStatusCopy(employee))}
-          </footer>
-          <p class="muted" id="employees-side-invite-status" aria-live="polite"></p>
-        </article>`;
-
-      renderSidePanelChecklist(workspace);
-      renderSidePanelSectionExpand(workspace);
-      void refreshEmployeeSidePanelKioskPin(employee.id);
-      bindSidePanelInlineFields(employee, workspace);
+      if (!window.Admin.formOptions?.employee_document_categories) {
+        await loadFormOptions();
+      }
+      paintEmployeeSidePanel(employee, workspace);
       renderLifecycleHub(employeesCache);
-
-      content.querySelector("#employees-side-invite-btn")?.addEventListener("click", () => {
-        void sendPortalInvite(employee.id, "employees-side-invite-status");
-      });
-      content.querySelector("#employees-side-delete-btn")?.addEventListener("click", async () => {
-        if (!window.confirm("Remove this employee record?")) return;
-        const deleteRes = await apiFetch(`/admin/employees/${employee.id}`, { method: "DELETE" });
-        if (!deleteRes.ok) {
-          const err = await deleteRes.json();
-          alert(err.detail || "Delete failed");
-          return;
-        }
-        selectedEmployeeId = null;
-        sidePanelExpandedSection = null;
-        sidePanelWorkspace = null;
-        await refreshEmployeesTable();
-      });
+      setEmployeeSidePanelVisible(true);
+      sidePanelEmployeeId = employee.id;
     } catch (error) {
       if (requestId !== sidePanelRenderRequest) return;
+      setEmployeeSidePanelVisible(true);
       content.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load employee profile.")}</p>`;
     }
   }
@@ -2447,6 +5192,8 @@
         }
         selectedEmployeeId = data.id;
         sidePanelExpandedSection = null;
+        sidePanelTab = "overview";
+        document.getElementById("employees-add-dialog")?.close?.();
         await refreshEmployeesTable();
         if (isMobileEmployeesHub()) {
           await openEmployee(data.id, "recruitment");
@@ -2457,23 +5204,108 @@
     });
   }
 
+  function bindEmployeesDesktopChrome() {
+    if (document.body.dataset.employeesDesktopBound === "true") return;
+    document.body.dataset.employeesDesktopBound = "true";
+    document.getElementById("employees-add-btn")?.addEventListener("click", () => {
+      const dialog = document.getElementById("employees-add-dialog");
+      if (typeof dialog?.showModal === "function") dialog.showModal();
+    });
+    document.getElementById("employees-search")?.addEventListener("input", (event) => {
+      employeeSearchQuery = event.target.value || "";
+      renderEmployeeRegister();
+    });
+    document.getElementById("employees-filter-department")?.addEventListener("change", (event) => {
+      employeeDeptFilter = event.target.value || "";
+      renderEmployeeRegister();
+    });
+    document.getElementById("employees-filter-status")?.addEventListener("change", (event) => {
+      employeeStatusFilter = event.target.value || "";
+      renderEmployeeRegister();
+    });
+    const filterBtn = document.getElementById("employees-clear-filters");
+    if (filterBtn && !filterBtn.innerHTML.trim()) filterBtn.innerHTML = iconSvg("sliders");
+    filterBtn?.addEventListener("click", () => {
+      employeeSearchQuery = "";
+      employeeDeptFilter = "";
+      employeeStatusFilter = "";
+      renderEmployeeRegister();
+    });
+  }
+
+  function showEmployeesLoadingState() {
+    if (!isMobileEmployeesHub()) return;
+    const hub = $("employees-lifecycle-hub");
+    const cards = $("employees-mobile-cards");
+    if (hub) {
+      hub.hidden = false;
+      hub.innerHTML = '<p class="muted" style="padding:12px 0">Loading employees…</p>';
+    }
+    if (cards) {
+      cards.hidden = false;
+      cards.innerHTML = '<p class="muted">Loading employees…</p>';
+    }
+    const tbody = $("employees-table-body");
+    if (tbody && !employeesCache.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">Loading employees…</td></tr>';
+    }
+  }
+
   async function initEmployeesSection() {
+    const warmed = peekEmployeesListCache?.();
+    if (warmed?.length && !employeesCache.length) {
+      applyEmployeesCache(warmed);
+    }
+    showEmployeesLoadingState();
     if (!sectionLoaded) {
       sectionLoaded = true;
-      await loadFormOptions();
       mountQuickAddForm();
       mountKioskPinForm();
       bindChangeHistoryPanel();
+      bindEmployeesDesktopChrome();
       document.getElementById("employees-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites());
-      window.addEventListener("resize", () => renderLifecycleHub(employeesCache));
+      window.addEventListener("resize", () => {
+        renderLifecycleHub(employeesCache);
+        renderEmployeeMobileCards(getFilteredEmployees());
+      });
     }
-    await refreshEmployeesTable();
+    try {
+      const warmed = peekEmployeesListCache?.();
+      const needsForce = !warmed?.length && !employeesCache.length;
+      await Promise.race([
+        refreshEmployeesTable({ force: needsForce }),
+        new Promise((_, reject) =>
+          window.setTimeout(() => reject(new Error("Request timed out")), 45000),
+        ),
+      ]);
+    } catch (error) {
+      if (!employeesCache.length) {
+        renderLifecycleHubLoadError(
+          `${friendlyNativeError(error, "Could not load employees.")} Tap Retry or check your connection.`,
+        );
+      }
+    }
+    if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+      void loadFormOptions().catch(() => null);
+    }
+  }
+
+  async function prefetchEmployeesTable() {
+    try {
+      await refreshEmployeesTable();
+    } catch {
+      /* warm cache — section open will retry */
+    }
   }
 
   $("employee-back-btn")?.addEventListener("click", showListView);
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section !== "employees") return;
+    showEmployeesLoadingState();
+    if (employeesCache.length) {
+      renderEmployeeRegister();
+    }
     void (async () => {
       await initEmployeesSection();
 
@@ -2486,6 +5318,19 @@
         applyEmployeesListRoute();
       }
     })();
+  });
+
+  window.addEventListener("admin:employees-cache-ready", () => {
+    const warmed = peekEmployeesListCache?.();
+    if (warmed?.length && !employeesCache.length) {
+      applyEmployeesCache(warmed);
+    }
+  });
+
+  window.addEventListener("admin:deferred-ready", () => {
+    const active = document.getElementById("employees")?.classList.contains("admin-section--active");
+    const onEmployees = /#employees/i.test(window.location.hash) || active;
+    if (onEmployees) void initEmployeesSection();
   });
 
   window.addEventListener("hashchange", () => {
@@ -2515,4 +5360,40 @@
     }
     void openEmployee(id, section);
   });
+
+  window.addEventListener("admin:portal-native-retry", () => {
+    const active =
+      document.getElementById("employees")?.classList.contains("admin-section--active") ||
+      /#employees/i.test(window.location.hash);
+    if (active) void initEmployeesSection();
+  });
+
+  window.addEventListener("admin:overview-loaded", () => {
+    void prefetchEmployeesTable();
+  });
+
+  window.addEventListener("shiftswift:portal-ready", () => {
+    if (/#employees/i.test(window.location.hash)) void initEmployeesSection();
+  });
+
+  if (
+    /#employees/i.test(window.location.hash) ||
+    document.getElementById("employees")?.classList.contains("admin-section--active")
+  ) {
+    void initEmployeesSection();
+  }
+
+  if (window.AdminDocuments) {
+    window.AdminDocuments.documentTypeDateConfig = documentTypeDateConfig;
+    window.AdminDocuments.syncDocumentTypeDateFields = syncDocumentTypeDateFields;
+    window.AdminDocuments.pruneEmptyDocumentDates = pruneEmptyDocumentDates;
+  }
+
+  window.ShiftSwiftAdminEmployees = {
+    initEmployeesSection,
+    refreshEmployeesTable,
+    prefetchEmployeesTable,
+    showListView,
+    getEmployeesCount: () => employeesCache.length,
+  };
 })();

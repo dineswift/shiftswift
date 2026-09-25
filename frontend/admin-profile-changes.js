@@ -52,6 +52,100 @@
     return changes.map((c) => escapeHtml(c.label || c.field)).join(", ");
   }
 
+  const AVATAR_PALETTES = [
+    { bg: "#E1F5EE", color: "#0F6E56" },
+    { bg: "#E6F1FB", color: "#185FA5" },
+    { bg: "#FAEEDA", color: "#854F0B" },
+    { bg: "#FBEAF0", color: "#993556" },
+  ];
+
+  function avatarPalette(seed) {
+    return AVATAR_PALETTES[Math.abs(Number(seed) || 0) % AVATAR_PALETTES.length];
+  }
+
+  function employeeInitials(name) {
+    const parts = String(name || "").trim().split(/\s+/);
+    return ((parts[0]?.[0] || "") + (parts[parts.length - 1]?.[0] || "")).toUpperCase() || "?";
+  }
+
+  function isMobileProfileChangesUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function renderMobileProfileChangesShell() {
+    const shell = $("profile-changes-mobile-shell");
+    if (!shell) return;
+    const detailOpen = document.getElementById("profile-changes")?.classList.contains("profile-changes-mobile-detail-open");
+    if (!isMobileProfileChangesUi() || detailOpen) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = false;
+    renderMobileProfileChangesCards();
+  }
+
+  function renderMobilePendingCard(item) {
+    const palette = avatarPalette(item.employee_id || item.id);
+    const initials = employeeInitials(item.employee_name);
+    const fields = (item.changes || []).map((c) => c.label || c.field).join(", ") || "Contact details";
+    return `<article class="leave-mobile-request-card" data-profile-change-id="${item.id}">
+      <div class="leave-mobile-request-card__head admin-mobile-case-card__tap" data-profile-change-open="${item.id}" role="button" tabindex="0">
+        <span class="leave-mobile-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(initials)}</span>
+        <div class="leave-mobile-request-card__who">
+          <strong>${escapeHtml(item.employee_name || "Employee")}</strong>
+          <span>${escapeHtml(fields)}</span>
+        </div>
+        <span class="leave-mobile-badge leave-mobile-badge--pending">Pending</span>
+      </div>
+      <div class="leave-mobile-request-card__meta">
+        <span>${escapeHtml(formatDateTime(item.created_at))}</span>
+      </div>
+      <div class="leave-mobile-request-card__actions">
+        <button type="button" class="leave-mobile-action leave-mobile-action--decline" data-profile-change-decline="${item.id}">Decline</button>
+        <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-profile-change-approve="${item.id}">Approve</button>
+      </div>
+    </article>`;
+  }
+
+  function renderMobileProfileChangesCards() {
+    const host = $("profile-changes-mobile-pending");
+    const heading = $("profile-changes-mobile-pending-heading");
+    if (!host) return;
+
+    const pending = allRequests.filter((item) => item.status === "pending");
+    if (heading) heading.textContent = `Pending approval (${pending.length})`;
+
+    if (!pending.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No contact updates waiting for approval.</p>`;
+      return;
+    }
+
+    host.innerHTML = pending.map((item) => renderMobilePendingCard(item)).join("");
+    host.querySelectorAll("[data-profile-change-open]").forEach((el) => {
+      const open = () => selectRequest(Number(el.dataset.profileChangeOpen));
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+    host.querySelectorAll("[data-profile-change-approve]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void reviewRequest(Number(btn.dataset.profileChangeApprove), "approved");
+      });
+    });
+    host.querySelectorAll("[data-profile-change-decline]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void reviewRequest(Number(btn.dataset.profileChangeDecline), "rejected");
+      });
+    });
+  }
+
   function renderChangesList(changes) {
     if (!changes?.length) return `<p class="muted">No field changes recorded.</p>`;
     return `<dl class="hr-detail-grid profile-change-diff">
@@ -101,6 +195,14 @@
     workspace?.classList.toggle("leave-workspace-layout--detail-open", hasSelection);
     if (panel) panel.hidden = !hasSelection;
     if (guide) guide.hidden = hasSelection;
+    const section = document.getElementById("profile-changes");
+    if (section) {
+      section.classList.toggle(
+        "profile-changes-mobile-detail-open",
+        isMobileProfileChangesUi() && hasSelection,
+      );
+    }
+    renderMobileProfileChangesShell();
   }
 
   function clearSelection() {
@@ -221,6 +323,7 @@
     tbody.querySelectorAll("[data-profile-change-id]").forEach((row) => {
       row.addEventListener("click", () => selectRequest(Number(row.dataset.profileChangeId)));
     });
+    renderMobileProfileChangesShell();
   }
 
   function setFilter(status) {
@@ -252,6 +355,7 @@
         else clearSelection();
       }
       syncDetailLayout();
+      renderMobileProfileChangesShell();
     } catch {
       allRequests = [];
       if (tbody) {
@@ -265,6 +369,7 @@
         })}</td></tr>`;
         document.getElementById("profile-change-retry-btn")?.addEventListener("click", () => loadRequests());
       }
+      renderMobileProfileChangesShell();
     }
   }
 
@@ -325,16 +430,23 @@
     });
 
     $("profile-change-detail-close")?.addEventListener("click", () => clearSelection());
+
+    window.addEventListener("resize", () => {
+      if (!sectionReady) return;
+      syncDetailLayout();
+    });
   }
 
   window.addEventListener("admin:section", (event) => {
     if (parseHashBaseSection() !== "profile-changes" && event.detail?.section !== "profile-changes") return;
     bindSection();
     loadRequests();
+    renderMobileProfileChangesShell();
   });
 
   if (parseHashBaseSection(window.location.hash) === "profile-changes") {
     bindSection();
     loadRequests();
+    renderMobileProfileChangesShell();
   }
 })();

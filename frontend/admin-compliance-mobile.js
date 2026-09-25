@@ -2,18 +2,27 @@
 (function initAdminComplianceMobile() {
   "use strict";
 
-  const SECTIONS = [
-    { id: "compliance-rtw", title: "Right to Work records", icon: "passport", openDefault: true },
-    { id: "compliance-absence", title: "Absence monitoring", icon: "medical", badgeId: "compliance-mobile-absence-badge" },
-    { id: "compliance-working-calendar", title: "Working calendar", icon: "calendar" },
-    { id: "compliance-audit-export", title: "Home Office audit export", icon: "folder" },
+    const SECTIONS = [
+    { id: "compliance-absence", title: "Absence & alerts", icon: "medical", badgeId: "compliance-mobile-absence-badge", openDefault: true },
+    { id: "compliance-rtw", title: "Employee RTW list", icon: "passport" },
+    { id: "compliance-reporting", title: "SMS reporting", icon: "mail" },
+    { id: "compliance-adverts", title: "Advertisement records", icon: "sparkles" },
+    { id: "compliance-audit-export", title: "Audit pack", icon: "folder" },
   ];
 
-  let openSectionId = "compliance-rtw";
+  let openSectionId = "compliance-absence";
+
+  function isMobileViewport() {
+    if (window.ShiftSwiftNativeLayout?.isMobileViewport) {
+      return window.ShiftSwiftNativeLayout.isMobileViewport();
+    }
+    if (document.documentElement.classList.contains("native-tablet")) return false;
+    return window.matchMedia("(max-width: 860px)").matches;
+  }
 
   function isMobileComplianceHub() {
     return (
-      window.matchMedia("(max-width: 860px)").matches &&
+      isMobileViewport() &&
       document.body.dataset.mobileTab === "compliance" &&
       !document.body.classList.contains("compliance-mobile-drill")
     );
@@ -40,7 +49,7 @@
         btn.classList.remove("is-open");
         btn.setAttribute("aria-expanded", "false");
       });
-      document.querySelectorAll("#compliance-tools-content > article").forEach((article) => {
+      document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
         article.classList.remove("compliance-section--open");
       });
       return;
@@ -56,8 +65,10 @@
       btn.setAttribute("aria-expanded", active ? "true" : "false");
     });
 
-    document.querySelectorAll("#compliance-tools-content > article").forEach((article) => {
-      article.classList.toggle("compliance-section--open", article.id === openSectionId);
+    document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
+      const open = article.id === openSectionId;
+      article.classList.toggle("compliance-section--open", open);
+      if (isMobileComplianceHub()) article.toggleAttribute("hidden", !open);
     });
 
     if (scroll && isMobileComplianceHub()) {
@@ -111,15 +122,19 @@
     const rtw = overviewData?.modules?.rtw || {};
     const absence = overviewData?.modules?.absence || {};
     const day9 = Number(absence.day9_alerts) || 0;
-    const govLink = document.getElementById("rtw-checklist-link")?.href || "#";
+    const rawGov = document.getElementById("rtw-checklist-link")?.getAttribute("href") || "";
+    const safeGovHref =
+      rawGov && rawGov !== "#" && !/#$/.test(rawGov)
+        ? rawGov
+        : "https://www.gov.uk/government/publications/right-to-work-checks-employers-guide";
 
     host.innerHTML = `
       <header class="compliance-mobile-header">
-        <h2 class="compliance-mobile-title">Sponsor compliance</h2>
+        <h2 class="compliance-mobile-title">Employer compliance</h2>
         <p class="compliance-mobile-lead muted">
-          Recording tools and alerts for UK sponsor duties — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.
+          Right to work, absence alerts, and sponsor-licence records — your organisation remains legally responsible for checks, SMS reporting, and Home Office submissions.
         </p>
-        <a class="btn secondary btn-sm compliance-mobile-gov-link" href="${escapeHtml(govLink)}" target="_blank" rel="noopener">GOV.UK guidance →</a>
+        <a class="btn secondary btn-sm compliance-mobile-gov-link" href="${escapeHtml(safeGovHref)}" target="_blank" rel="noopener">GOV.UK guidance →</a>
       </header>
 
       ${
@@ -196,14 +211,16 @@
       });
     });
 
-    const defaultOpen = SECTIONS.find((s) => s.openDefault)?.id || "compliance-rtw";
+    const defaultOpen = SECTIONS.find((s) => s.openDefault)?.id || "compliance-absence";
     setOpenSection(defaultOpen);
   }
 
   function openSectionFromHash() {
-    const hash = window.location.hash.replace("#", "").split("/")[0];
-    const match = SECTIONS.find((s) => s.id === hash);
-    if (match) setOpenSection(match.id, { scroll: true, toggle: false });
+    const raw = window.location.hash.replace("#", "");
+    const parts = raw.split("/").filter(Boolean);
+    const candidates = [raw, parts.join("-"), parts[parts.length - 1]].filter(Boolean);
+    const match = SECTIONS.find((s) => candidates.includes(s.id));
+    if (match) setOpenSection(match.id, { scroll: false, toggle: false });
   }
 
   window.AdminComplianceMobile = {

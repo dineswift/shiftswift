@@ -27,6 +27,7 @@ from modules.master.platform_ops import (
     soft_delete_tenant,
     suspend_tenant,
     unsuspend_tenant,
+    update_tenant_workspace,
 )
 from modules.master.tenant_provision import (
     create_tenant_manually,
@@ -46,7 +47,6 @@ from modules.master.service import FilterStatus, get_tenant_detail, list_tenants
 router = APIRouter(prefix="/master", tags=["Platform Master"])
 settings = load_settings()
 logger = logging.getLogger(__name__)
-
 
 def _db_conn() -> Any:
     import psycopg2
@@ -94,9 +94,20 @@ class InternalNotesRequest(BaseModel):
     notes: str = Field(default="", max_length=8000)
 
 
+class UpdateTenantWorkspaceRequest(BaseModel):
+    business_name: str = Field(min_length=2, max_length=200)
+    trading_name: str | None = Field(default=None, max_length=200)
+    registered_address: str | None = Field(default=None, max_length=500)
+
+
 class EmailTenantRequest(BaseModel):
     subject: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=8000)
+
+
+class ResetHrPasswordRequest(BaseModel):
+    send_email: bool = True
+    set_temporary_password: bool = False
 
 
 class ChangePasswordRequest(BaseModel):
@@ -735,6 +746,46 @@ def master_extend_trial(
         conn.close()
 
 
+@router.put("/tenants/{tenant_id}/workspace")
+def master_update_tenant_workspace(
+    tenant_id: int,
+    payload: UpdateTenantWorkspaceRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    conn = _db_conn()
+    try:
+        try:
+            result = update_tenant_workspace(
+                conn=conn,
+                tenant_id=tenant_id,
+                master_tenant_id=int(settings.master_customer_id),
+                business_name=payload.business_name,
+                trading_name=payload.trading_name,
+                registered_address=payload.registered_address,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Tenant not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _audit(
+            request=request,
+            current_user=current_user,
+            action="UPDATE_TENANT_WORKSPACE",
+            conn=conn,
+            target_tenant_id=tenant_id,
+            detail={
+                "name": result.get("name"),
+                "trading_name": result.get("trading_name"),
+                "registered_address": result.get("registered_address"),
+            },
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
 @router.put("/tenants/{tenant_id}/notes")
 def master_save_notes(
     tenant_id: int,
@@ -799,6 +850,59 @@ def master_email_tenant(
             conn=conn,
             target_tenant_id=tenant_id,
             detail={"subject": payload.subject},
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.post("/tenants/{tenant_id}/reset-hr-password")
+def master_reset_hr_password(
+    tenant_id: int,
+    payload: ResetHrPasswordRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    if tenant_id == int(settings.master_customer_id):
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    if not payload.send_email and not payload.set_temporary_password:
+        raise HTTPException(
+            status_code=400,
+            detail="Choose send email, temporary password, or both",
+        )
+    conn = _db_conn()
+    try:
+        from modules.master.hr_credentials import reset_hr_password
+
+        try:
+            result = reset_hr_password(
+                conn=conn,
+                tenant_id=tenant_id,
+                master_tenant_id=int(settings.master_customer_id),
+                settings=settings,
+                send_email=payload.send_email,
+                set_temporary_password=payload.set_temporary_password,
+                ip_address=client_ip(request),
+                user_agent=request.headers.get("User-Agent"),
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Tenant not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        _audit(
+            request=request,
+            current_user=current_user,
+            action="RESET_HR_PASSWORD",
+            conn=conn,
+            target_tenant_id=tenant_id,
+            detail={
+                "hr_username": result.get("hr_username"),
+                "send_email": payload.send_email,
+                "set_temporary_password": payload.set_temporary_password,
+            },
         )
         conn.commit()
         return result

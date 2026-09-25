@@ -1,6 +1,6 @@
 /** Settings document store — upload, filters, export, edit and delete. */
 (function () {
-  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, downloadAuthenticated, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, mountEditForm, renderTableBody, downloadAuthenticated, authHeaders, API_BASE, showAdminToast } = window.Admin;
 
   const FILTER_IDS = {
     category: "document-filter-category",
@@ -11,9 +11,9 @@
   const STRIP_LIST_ID = "documents-strip-list";
 
   const TAB_DESCRIPTIONS = {
-    upload: "Store a file for all staff (handbooks, policies) or one employee. Choose HR only to keep it off the employee portal.",
-    distribute: "Push a file to one or all employees — it appears in their portal and can trigger an email notification.",
-    link: "Register an external URL (SharePoint, Google Drive, etc.) without uploading the file to ShiftSwift.",
+    upload: "File for all staff, one employee, or HR confidential storage.",
+    distribute: "Send a payslip or personal document to one or all employees.",
+    link: "Register an external link (SharePoint, Google Drive, etc.) without uploading the file.",
   };
 
   const DEFAULT_DOCUMENT_UPLOAD = {
@@ -66,7 +66,11 @@
   }
 
   function friendlyError(error, fallback) {
-    const message = error?.message || "";
+    const message = window.Admin?.formatErrorMessage
+      ? window.Admin.formatErrorMessage(error, "")
+      : typeof error?.message === "string" && !/^\[object /i.test(error.message)
+        ? error.message
+        : "";
     if (message === "Load failed" || message === "Failed to fetch") {
       const apiBase = window.Admin?.getApiBase?.() || window.ShiftSwiftBrand?.resolveApiBase?.() || "";
       console.warn("ShiftSwift document API request failed", { apiBase, error });
@@ -91,6 +95,176 @@
     document.querySelectorAll("#document-upload-form [data-status], #document-distribute-form [data-status]").forEach((el) => {
       setFormStatus(el, "");
     });
+  }
+
+  function readUploadFormPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector('[name="category"]')?.value || "",
+      lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      doc_audience: form.querySelector('input[name="doc_audience"]:checked')?.value || "company",
+      employee_id: form.querySelector("#document-upload-employee-id")?.value || "",
+      employee_search: form.querySelector("#document-upload-employee-search")?.value || "",
+      expires_at: form.querySelector("#document-upload-expires-at")?.value || "",
+      issued_at: form.querySelector("#document-upload-issued-at")?.value || "",
+      recorded_at: form.querySelector("#document-upload-recorded-at")?.value || "",
+      expiry_alert_days: form.querySelector("#document-upload-alert-days")?.value || "30",
+      employee_visible: form.querySelector("#document-upload-visible")?.checked ?? true,
+      notify: form.querySelector("#document-upload-notify")?.checked ?? true,
+      notify_email: form.querySelector("#document-upload-notify-email")?.checked ?? true,
+      notify_scope: form.querySelector('input[name="notify_scope"]:checked')?.value || "all",
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyUploadFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector('[name="category"]');
+    const stage = form.querySelector('[name="lifecycle_stage"]');
+    if (category && prefs.category) category.value = prefs.category;
+    if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    const audienceInput = form.querySelector(`input[name="doc_audience"][value="${prefs.doc_audience}"]`);
+    if (audienceInput) audienceInput.checked = true;
+    const employeeId = form.querySelector("#document-upload-employee-id");
+    const employeeSearch = form.querySelector("#document-upload-employee-search");
+    if (employeeId) employeeId.value = prefs.employee_id || "";
+    if (employeeSearch) employeeSearch.value = prefs.employee_search || "";
+    const expiresAt = form.querySelector("#document-upload-expires-at");
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    const issuedAt = form.querySelector("#document-upload-issued-at");
+    if (issuedAt) issuedAt.value = prefs.issued_at || "";
+    const recordedAt = form.querySelector("#document-upload-recorded-at");
+    if (recordedAt) recordedAt.value = prefs.recorded_at || "";
+    const alertDays = form.querySelector("#document-upload-alert-days");
+    if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
+    const visible = form.querySelector("#document-upload-visible");
+    if (visible) visible.checked = prefs.employee_visible;
+    const notify = form.querySelector("#document-upload-notify");
+    if (notify) notify.checked = prefs.notify;
+    const notifyEmail = form.querySelector("#document-upload-notify-email");
+    if (notifyEmail) notifyEmail.checked = prefs.notify_email;
+    const notifyScope = form.querySelector(`input[name="notify_scope"][value="${prefs.notify_scope}"]`);
+    if (notifyScope) notifyScope.checked = true;
+    const notes = form.querySelector('[name="notes"]');
+    if (notes) notes.value = prefs.notes || "";
+    syncUploadAudience(form);
+    syncExpiryFields();
+    syncUploadNotify(form);
+  }
+
+  function resetUploadFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readUploadFormPreferences(form);
+    form.reset();
+    applyUploadFormPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#document-upload-file");
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput._sshrPendingFile = null;
+    }
+    const cameraInput = form.querySelector("#document-upload-camera");
+    if (cameraInput) cameraInput.value = "";
+    const filenameEl = document.getElementById("document-upload-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function readDistributeFormPreferences(form) {
+    if (!form) return null;
+    return {
+      category: form.querySelector('[name="category"]')?.value || "",
+      employee_id: form.querySelector('[name="employee_id"]')?.value || "",
+      pay_period: form.querySelector("#document-distribute-pay-period")?.value || "",
+      send_email: form.querySelector('[name="send_email"]')?.checked ?? true,
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyDistributeFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const category = form.querySelector('[name="category"]');
+    const employee = form.querySelector('[name="employee_id"]');
+    const payPeriod = form.querySelector("#document-distribute-pay-period");
+    const sendEmail = form.querySelector('[name="send_email"]');
+    const notes = form.querySelector('[name="notes"]');
+    if (category && prefs.category) category.value = prefs.category;
+    if (employee) employee.value = prefs.employee_id || "";
+    if (payPeriod) payPeriod.value = prefs.pay_period || "";
+    if (sendEmail) sendEmail.checked = prefs.send_email;
+    if (notes) notes.value = prefs.notes || "";
+    const syncPayPeriodRequired = () => {
+      if (!payPeriod) return;
+      const isPayslip = category?.value === "payslip";
+      payPeriod.required = isPayslip;
+      payPeriod.closest(".edit-field")?.classList.toggle("edit-field--required", isPayslip);
+    };
+    syncPayPeriodRequired();
+  }
+
+  function resetDistributeFormKeepingPreferences(form) {
+    if (!form) return;
+    const prefs = readDistributeFormPreferences(form);
+    form.reset();
+    applyDistributeFormPreferences(form, prefs);
+    const title = form.querySelector('[name="title"]');
+    if (title) title.value = "";
+    const fileInput = form.querySelector("#document-distribute-file");
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput._sshrPendingFile = null;
+    }
+    const cameraInput = form.querySelector("#document-distribute-camera");
+    if (cameraInput) cameraInput.value = "";
+    const filenameEl = document.getElementById("document-distribute-filename");
+    if (filenameEl) {
+      filenameEl.hidden = true;
+      filenameEl.textContent = "";
+    }
+  }
+
+  function readLinkFormPreferences(form) {
+    if (!form) return null;
+    return {
+      employee_id: form.querySelector('[name="employee_id"]')?.value || "",
+      category: form.querySelector('[name="category"]')?.value || "",
+      lifecycle_stage: form.querySelector('[name="lifecycle_stage"]')?.value || "",
+      issued_at: form.querySelector('[name="issued_at"]')?.value || "",
+      recorded_at: form.querySelector('[name="recorded_at"]')?.value || "",
+      expires_at: form.querySelector('[name="expires_at"]')?.value || "",
+      expiry_alert_days: form.querySelector('[name="expiry_alert_days"]')?.value || "30",
+      employee_visible: form.querySelector('[name="employee_visible"]')?.checked ?? false,
+      notes: form.querySelector('[name="notes"]')?.value || "",
+    };
+  }
+
+  function applyLinkFormPreferences(form, prefs) {
+    if (!form || !prefs) return;
+    const employee = form.querySelector('[name="employee_id"]');
+    const category = form.querySelector('[name="category"]');
+    const stage = form.querySelector('[name="lifecycle_stage"]');
+    const issuedAt = form.querySelector('[name="issued_at"]');
+    const recordedAt = form.querySelector('[name="recorded_at"]');
+    const expiresAt = form.querySelector('[name="expires_at"]');
+    const alertDays = form.querySelector('[name="expiry_alert_days"]');
+    const visible = form.querySelector('[name="employee_visible"]');
+    const notes = form.querySelector('[name="notes"]');
+    if (employee) employee.value = prefs.employee_id || "";
+    if (category && prefs.category) category.value = prefs.category;
+    if (stage && prefs.lifecycle_stage) stage.value = prefs.lifecycle_stage;
+    if (issuedAt) issuedAt.value = prefs.issued_at || "";
+    if (recordedAt) recordedAt.value = prefs.recorded_at || "";
+    if (expiresAt) expiresAt.value = prefs.expires_at || "";
+    if (alertDays && prefs.expiry_alert_days) alertDays.value = prefs.expiry_alert_days;
+    if (visible) visible.checked = prefs.employee_visible;
+    if (notes) notes.value = prefs.notes || "";
+    const title = form.querySelector('[name="title"]');
+    const url = form.querySelector('[name="document_url"]');
+    if (title) title.value = "";
+    if (url) url.value = "";
   }
 
   function setDocumentsPanelAlert(options) {
@@ -215,9 +389,9 @@
     host.innerHTML = rows
       .map((row) => {
         const fileAction = row.has_file
-          ? `<button type="button" class="btn ghost" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
+          ? `<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}" data-doc-scope="${escapeHtml(row.scope || "tenant")}" data-doc-employee-id="${escapeHtml(row.employee_id ? String(row.employee_id) : "")}">Download</button>`
           : row.document_url
-            ? `<a class="btn ghost" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open link</a>`
+            ? `<a class="btn ghost btn-sm" href="${escapeHtml(row.document_url)}" target="_blank" rel="noopener">Open</a>`
             : "";
         return `<article class="settings-doc-strip">
           <div class="settings-doc-strip__main">
@@ -251,6 +425,8 @@
         category: row.category,
         lifecycle_stage: row.lifecycle_stage || "active",
         document_url: row.document_url || "",
+        issued_at: (row.issued_at || "").slice(0, 10),
+        recorded_at: (row.recorded_at || "").slice(0, 10),
         expires_at: (row.expires_at || "").slice(0, 10),
         expiry_alert_days: row.expiry_alert_days || 30,
         employee_visible: row.employee_visible,
@@ -263,6 +439,8 @@
           ...payload,
           document_url: payload.document_url || null,
           notes: payload.notes || null,
+          issued_at: payload.issued_at || null,
+          recorded_at: payload.recorded_at || null,
           expires_at: payload.expires_at || null,
           original_filename: payload.original_filename || null,
           pay_period: payload.pay_period || null,
@@ -283,6 +461,54 @@
         await refreshExpiringDocuments();
       },
     });
+    bindMountedDocumentDateFields(host.querySelector("form"));
+  }
+
+  async function resendDocumentNotification(row, button, statusEl) {
+    if (!row?.id) return;
+    const performResend = async () => {
+      let res;
+      if (row.scope === "employee" && row.employee_id) {
+        res = await apiFetch(
+          `/admin/employees/${row.employee_id}/documents/${row.id}/resend-notification`,
+          { method: "POST", body: JSON.stringify({ send_email: true }) },
+        );
+      } else {
+        res = await apiFetch(`/admin/documents/${row.id}/resend-notification`, {
+          method: "POST",
+          body: JSON.stringify({
+            send_email: true,
+            employee_ids: row.employee_id ? [Number(row.employee_id)] : null,
+          }),
+        });
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(window.Admin?.parseApiDetail?.(data, "Resend failed") || data.detail || "Resend failed");
+      }
+      return (
+        window.Admin?.formatDocumentNotificationSummary?.(data, { uploadedLabel: "Resent" }) ||
+        data.message ||
+        "Notification resent."
+      );
+    };
+    const run = window.ShiftSwiftAction?.runButtonAction;
+    if (run && button) {
+      await run(button, statusEl, {
+        loadingLabel: "Resending…",
+        successMessage: "Notification resent.",
+        errorMessage: "Resend failed.",
+        successLabel: "Sent",
+        onAction: performResend,
+      });
+      return;
+    }
+    try {
+      const message = await performResend();
+      showAdminToast?.(message);
+    } catch (error) {
+      showAdminToast?.(error.message || "Resend failed", { variant: "error" });
+    }
   }
 
   function bindDocumentRowActions(container, rows) {
@@ -312,7 +538,7 @@
         const res = await apiFetch(`/admin/documents/${row.id}?${documentApiQuery(row)}`, { method: "DELETE" });
         if (!res.ok) {
           const err = await res.json();
-          alert(err.detail || "Delete failed");
+          showAdminToast?.(err.detail || "Delete failed", { variant: "error" });
           return;
         }
         await refreshDocuments();
@@ -328,6 +554,17 @@
           employeeId: btn.dataset.docEmployeeId,
         });
         openDocumentEditPanel(row);
+      });
+    });
+
+    container.querySelectorAll("[data-resend-doc-notify]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = findDocumentRow(rows, {
+          id: btn.dataset.resendDocNotify,
+          scope: btn.dataset.docScope,
+          employeeId: btn.dataset.docEmployeeId,
+        });
+        if (row) void resendDocumentNotification(row, btn, document.getElementById("document-upload-status"));
       });
     });
   }
@@ -353,12 +590,14 @@
   }
 
   function parseApiDetail(data, fallback) {
+    if (window.Admin?.parseApiDetail) return window.Admin.parseApiDetail(data, fallback);
     if (!data || typeof data !== "object") return fallback;
     const detail = data.detail;
-    if (typeof detail === "string") return detail;
+    if (typeof detail === "string" && detail.trim() && !/^\[object /i.test(detail)) return detail.trim();
+    if (detail && typeof detail.msg === "string") return detail.msg;
     if (detail && typeof detail.message === "string") return detail.message;
     if (Array.isArray(detail)) {
-      return detail.map((item) => item.msg || item.message || String(item)).join("; ");
+      return detail.map((item) => item.msg || item.message || "").filter(Boolean).join("; ") || fallback;
     }
     return fallback;
   }
@@ -502,9 +741,14 @@
   }
 
   function documentActionsMarkup(row) {
+    const resendBtn =
+      row.employee_visible && documentHasAttachment(row)
+        ? `<button type="button" class="btn ghost btn-sm" data-resend-doc-notify="${row.id}" ${documentActionAttrs(row)}>Resend notify</button>`
+        : "";
     return `<div class="table-actions">
-      <button type="button" class="btn ghost" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
-      <button type="button" class="btn ghost" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
+      <button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}" ${documentActionAttrs(row)}>Edit</button>
+      ${resendBtn}
+      <button type="button" class="btn ghost btn-sm" data-delete-doc="${row.id}" ${documentActionAttrs(row)}>Remove</button>
     </div>`;
   }
 
@@ -562,19 +806,19 @@
 
     if (audienceCaption) {
       if (audience === "company") {
-        audienceCaption.textContent = "Company handbooks and policies for every staff member.";
+        audienceCaption.textContent = "Company-wide — handbooks, policies, and shared HR documents.";
       } else if (audience === "employee") {
-        audienceCaption.textContent = "Personal file on one employee profile only.";
+        audienceCaption.textContent = "Stored on the selected employee's record.";
       } else {
-        audienceCaption.textContent = "Stored for HR audits — never shown in the employee portal.";
+        audienceCaption.textContent = "HR confidential — not visible in the employee portal.";
       }
     }
 
     if (visibleHint) {
       if (audience === "company") {
-        visibleHint.textContent = "All staff will see this under Company documents.";
+        visibleHint.textContent = "Listed under Company documents for all staff.";
       } else if (audience === "employee") {
-        visibleHint.textContent = "Only the selected employee sees this in their portal.";
+        visibleHint.textContent = "Visible in this employee's portal only.";
       } else {
         visibleHint.textContent = "";
       }
@@ -582,8 +826,7 @@
 
     const notifyTitle = document.getElementById("document-upload-notify-title");
     if (notifyTitle) {
-      notifyTitle.textContent =
-        audience === "employee" ? "Notify employee when published" : "Notify employees when published";
+      notifyTitle.textContent = audience === "employee" ? "Portal alert" : "Portal alert (all staff)";
     }
 
     syncUploadNotify(form);
@@ -666,6 +909,11 @@
   }
 
   function syncExpiryFieldsInner() {
+    const form = document.getElementById("document-upload-form");
+    if (form && typeof window.AdminDocuments?.syncDocumentTypeDateFields === "function") {
+      window.AdminDocuments.syncDocumentTypeDateFields(form, { defaultRecorded: true });
+      return;
+    }
     const expiryEl = document.getElementById("document-upload-expires-at");
     const alertField = document.getElementById("document-upload-alert-field");
     const alertHint = document.getElementById("document-upload-alert-hint");
@@ -827,6 +1075,8 @@
           defaultValue: "active",
         },
         { name: "document_url", label: "Document URL", type: "url", placeholder: "https://...", required: true },
+        { name: "issued_at", label: "Issue / start date", type: "date" },
+        { name: "recorded_at", label: "Date taken", type: "date" },
         { name: "expires_at", label: "Expiry date", type: "date" },
         {
           name: "expiry_alert_days",
@@ -837,7 +1087,7 @@
         },
         {
           name: "employee_visible",
-          label: "Visible to employee in their portal",
+          label: "Employee portal",
           type: "checkbox",
           span: 2,
         },
@@ -881,6 +1131,8 @@
         type: "url",
         placeholder: row.has_file ? "Optional external link" : "https://...",
       },
+      { name: "issued_at", label: "Issue / start date", type: "date" },
+      { name: "recorded_at", label: "Date taken", type: "date" },
       { name: "expires_at", label: "Expiry date", type: "date" },
       {
         name: "expiry_alert_days",
@@ -891,7 +1143,7 @@
       },
       {
         name: "employee_visible",
-        label: "Visible to employee in their portal",
+        label: "Employee portal",
         type: "checkbox",
         span: 2,
       },
@@ -930,7 +1182,6 @@
       panel.hidden = panel.dataset.docPanel !== target;
     });
     updateTabDescription(target);
-    clearDocumentFormStatuses();
     if (target === "link") {
       mountLinkForm();
     }
@@ -958,9 +1209,308 @@
 
   function assignFileToInput(fileInput, file) {
     if (!fileInput || !file) return;
-    const dt = new DataTransfer();
-    dt.items.add(file);
-    fileInput.files = dt.files;
+    fileInput._sshrPendingFile = file;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+    } catch {
+      /* WKWebView often rejects DataTransfer assignment on iOS. */
+    }
+  }
+
+  function readSelectedFile(fileInput) {
+    return fileInput?._sshrPendingFile || fileInput?.files?.[0] || null;
+  }
+
+  function looksLikeHeic(file) {
+    const name = String(file?.name || "").toLowerCase();
+    const type = String(file?.type || "").toLowerCase();
+    return type.includes("heic") || type.includes("heif") || /\.hei[cf]$/.test(name);
+  }
+
+  function needsJpegRewrite(file) {
+    if (!file) return false;
+    const name = String(file.name || "").toLowerCase();
+    const type = String(file.type || "").toLowerCase();
+    if (type.includes("pdf") || /\.pdf$/.test(name)) return false;
+    const nativeIos = String(window.Capacitor?.getPlatform?.() || "").toLowerCase() === "ios";
+    if (looksLikeHeic(file)) return true;
+    if (nativeIos && (type.startsWith("image/") || !type || name === "image" || name === "blob")) return true;
+    if (type === "image/jpeg" || type === "image/jpg" || type === "image/png") return file.size > 2.5 * 1024 * 1024;
+    if (/\.(jpe?g|png)$/.test(name)) return file.size > 2.5 * 1024 * 1024;
+    if (type.startsWith("image/")) return true;
+    return !name || name === "image" || name === "blob";
+  }
+
+  function canvasToJpegFile(source, width, height, filename) {
+    const maxDim = 2000;
+    const scale = Math.min(1, maxDim / Math.max(width, height, 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    canvas.getContext("2d").drawImage(source, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(null);
+            return;
+          }
+          resolve(new File([blob], filename, { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.86
+      );
+    });
+  }
+
+  async function rewriteImageAsJpeg(file) {
+    const base = String(file.name || "photo").replace(/\.[^.]+$/, "").trim() || "photo";
+    const filename = `${base}.jpg`;
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const converted = await canvasToJpegFile(bitmap, bitmap.width, bitmap.height, filename);
+        bitmap.close?.();
+        if (converted) return converted;
+      } catch {
+        /* fall through to <img> decode */
+      }
+    }
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Could not read this photo"));
+        image.src = objectUrl;
+      });
+      return await canvasToJpegFile(img, img.naturalWidth || img.width, img.naturalHeight || img.height, filename);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function prepareUploadFile(file) {
+    if (!file) return file;
+    if (!needsJpegRewrite(file)) return file;
+    try {
+      const converted = await rewriteImageAsJpeg(file);
+      if (converted) return converted;
+    } catch {
+      /* keep original unless HEIC, which the API rejects */
+    }
+    if (looksLikeHeic(file)) {
+      throw new Error("This iPhone photo is HEIC. Choose JPEG or PNG, or retake the photo.");
+    }
+    return file;
+  }
+
+  function stopPhotoCaptureStream(stream) {
+    stream?.getTracks?.().forEach((track) => track.stop());
+  }
+
+  const A4_ASPECT = 210 / 297;
+
+  function cropSourceToA4(source, srcW, srcH) {
+    const srcAspect = srcW / Math.max(srcH, 1);
+    let sx = 0;
+    let sy = 0;
+    let sw = srcW;
+    let sh = srcH;
+    if (srcAspect > A4_ASPECT) {
+      sw = srcH * A4_ASPECT;
+      sx = (srcW - sw) / 2;
+    } else if (srcAspect < A4_ASPECT) {
+      sh = srcW / A4_ASPECT;
+      sy = (srcH - sh) / 2;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sw));
+    canvas.height = Math.max(1, Math.round(sh));
+    canvas.getContext("2d").drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function cropVideoFrameToA4(video) {
+    return cropSourceToA4(video, video.videoWidth, video.videoHeight);
+  }
+
+  function cropStillImageToA4(file) {
+    return new Promise((resolve) => {
+      if (!file || !String(file.type || "").startsWith("image/")) {
+        resolve(file);
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = cropSourceToA4(img, img.naturalWidth || img.width, img.naturalHeight || img.height);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(url);
+              if (!blob) {
+                resolve(file);
+                return;
+              }
+              resolve(new File([blob], `a4-document-${Date.now()}.jpg`, { type: "image/jpeg" }));
+            },
+            "image/jpeg",
+            0.92
+          );
+        } catch {
+          URL.revokeObjectURL(url);
+          resolve(file);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    });
+  }
+
+  async function openDocumentCamera() {
+    const attempts = [
+      { video: { facingMode: "environment" }, audio: false },
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1080 },
+          height: { ideal: 1920 },
+        },
+        audio: false,
+      },
+      { video: true, audio: false },
+    ];
+    let lastError;
+    for (const constraints of attempts) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error("camera unavailable");
+  }
+
+  function captureLiveDocumentPhoto() {
+    return new Promise((resolve) => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        resolve({ unavailable: true });
+        return;
+      }
+
+      document.getElementById("doc-photo-capture")?.remove();
+
+      const overlay = document.createElement("div");
+      overlay.id = "doc-photo-capture";
+      overlay.className = "doc-photo-capture";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-labelledby", "doc-photo-capture-title");
+      overlay.innerHTML = `
+        <div class="doc-photo-capture__panel">
+          <div class="doc-photo-capture__head">
+            <div>
+              <h2 id="doc-photo-capture-title">Scan A4 document</h2>
+              <p class="doc-photo-capture__sub">Portrait A4 · 210 × 297 mm</p>
+            </div>
+            <button type="button" class="btn btn--ghost btn--sm" data-photo-cancel>Cancel</button>
+          </div>
+          <div class="doc-photo-capture__stage">
+            <video class="doc-photo-capture__video" autoplay muted playsinline></video>
+            <div class="doc-photo-capture__guide" aria-hidden="true">
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--tl"></span>
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--tr"></span>
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--bl"></span>
+              <span class="doc-photo-capture__corner doc-photo-capture__corner--br"></span>
+            </div>
+          </div>
+          <p class="doc-photo-capture__status muted" data-photo-status>Starting camera…</p>
+          <div class="doc-photo-capture__actions">
+            <button type="button" class="btn" data-photo-shutter disabled>Capture A4 photo</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const video = overlay.querySelector("video");
+      const shutter = overlay.querySelector("[data-photo-shutter]");
+      const cancel = overlay.querySelector("[data-photo-cancel]");
+      const status = overlay.querySelector("[data-photo-status]");
+      let stream = null;
+      let settled = false;
+
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        stopPhotoCaptureStream(stream);
+        if (video) video.srcObject = null;
+        overlay.remove();
+        resolve(result);
+      };
+
+      cancel?.addEventListener("click", () => finish({ cancelled: true }));
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) finish({ cancelled: true });
+      });
+
+      shutter?.addEventListener("click", () => {
+        if (!video?.videoWidth) {
+          if (status) status.textContent = "Wait for the A4 preview, then tap Capture A4 photo.";
+          return;
+        }
+        cropVideoFrameToA4(video).toBlob(
+          (blob) => {
+            if (!blob) {
+              finish({ unavailable: true });
+              return;
+            }
+            finish({
+              file: new File([blob], `a4-document-${Date.now()}.jpg`, { type: "image/jpeg" }),
+            });
+          },
+          "image/jpeg",
+          0.92
+        );
+      });
+
+      openDocumentCamera()
+        .then(async (media) => {
+          if (settled) {
+            stopPhotoCaptureStream(media);
+            return;
+          }
+          stream = media;
+          video.srcObject = media;
+          video.muted = true;
+          video.playsInline = true;
+          video.setAttribute("playsinline", "");
+          video.setAttribute("webkit-playsinline", "true");
+          await video.play();
+          if (status) status.textContent = "Line up the A4 page inside the frame, then tap Capture.";
+          if (shutter) shutter.disabled = false;
+        })
+        .catch(() => {
+          finish({ unavailable: true });
+        });
+    });
+  }
+
+  async function captureDocumentPhoto({ fileInput, cameraInput, showFile }) {
+    const result = await captureLiveDocumentPhoto();
+    if (result?.file) {
+      assignFileToInput(fileInput, result.file);
+      showFile(result.file);
+      return;
+    }
+    if (result?.cancelled) return;
+    cameraInput?.click();
   }
 
   function bindFileDropzone({
@@ -969,30 +1519,61 @@
     filenameEl,
     browseSelector = ".doc-upload-browse",
     cameraInput,
+    onFile,
   }) {
     if (!dropzone || !fileInput || dropzone.dataset.ready === "true") return;
 
     const showFile = (file) => {
-      if (!filenameEl) return;
-      if (!file) {
-        filenameEl.hidden = true;
-        filenameEl.textContent = "";
-        return;
+      if (filenameEl) {
+        if (!file) {
+          filenameEl.hidden = true;
+          filenameEl.textContent = "";
+        } else {
+          filenameEl.hidden = false;
+          filenameEl.textContent = file.name || "Photo capture";
+        }
       }
-      filenameEl.hidden = false;
-      filenameEl.textContent = file.name || "Photo capture";
+      const titleInput = fileInput.form?.querySelector('[name="title"]');
+      if (file && titleInput && !String(titleInput.value || "").trim()) {
+        const fromName = String(file.name || "").replace(/\.[^.]+$/, "").trim();
+        titleInput.value = /^a4-document-\d+$/i.test(fromName) ? "A4 document photo" : fromName || "Document photo";
+      }
+      if (file) onFile?.(file);
     };
 
-    dropzone.querySelector(browseSelector)?.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", () => showFile(fileInput.files?.[0]));
+    dropzone.querySelector(browseSelector)?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0] || null;
+      fileInput._sshrPendingFile = file;
+      showFile(file);
+    });
 
     if (cameraInput) {
-      dropzone.querySelector(".doc-upload-camera")?.addEventListener("click", () => cameraInput.click());
-      cameraInput.addEventListener("change", () => {
+      dropzone.querySelector(".doc-upload-camera")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void captureDocumentPhoto({ fileInput, cameraInput, showFile });
+      });
+      cameraInput.addEventListener("change", async () => {
         const file = cameraInput.files?.[0];
         if (!file) return;
-        assignFileToInput(fileInput, file);
-        showFile(file);
+        let next = file;
+        try {
+          next = (await prepareUploadFile(file)) || file;
+        } catch {
+          next = file;
+        }
+        try {
+          next = (await cropStillImageToA4(next)) || next;
+        } catch {
+          /* keep JPEG rewrite if crop fails */
+        }
+        assignFileToInput(fileInput, next);
+        showFile(next);
         cameraInput.value = "";
       });
     }
@@ -1032,7 +1613,10 @@
     const form = document.getElementById("document-upload-form");
     if (!form) return;
     const categories = window.Admin.formOptions?.document_categories || [];
-    if (form.dataset.ready === "true" && categories.length) return;
+    if (form.dataset.ready === "true" && categories.length) {
+      window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
+      return;
+    }
     if (form.dataset.ready === "true") form.dataset.ready = "false";
     if (form.dataset.ready === "true") return;
     const stages = formLifecycleStages();
@@ -1058,6 +1642,7 @@
 
     document.getElementById("document-upload-category")?.addEventListener("change", (event) => {
       event.target.dataset.userPicked = "true";
+      window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
     });
 
     form.querySelectorAll('input[name="doc_audience"]').forEach((input) => {
@@ -1080,6 +1665,7 @@
       syncExpiryFields();
     });
     syncExpiryFields();
+    window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
 
     bindUploadDropzone();
 
@@ -1094,13 +1680,23 @@
         }
         return;
       }
+      const fileInput = form.querySelector("#document-upload-file");
       const fd = new FormData(form);
-      const file = fd.get("file");
-      if (!file || (file instanceof File && !file.size)) {
+      let file = readSelectedFile(fileInput) || fd.get("file");
+      try {
+        file = await prepareUploadFile(file);
+      } catch (error) {
+        if (status) setFormStatus(status, friendlyError(error, "Choose a JPEG or PNG photo."), "error");
+        return;
+      }
+      if (file) fd.set("file", file);
+      if (!file || ((file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)) && !file.size)) {
         if (status) setFormStatus(status, "Choose a file to upload.", "error");
         return;
       }
-      const fileError = file instanceof File ? validateDocumentUploadFile(file) : null;
+      const fileError = file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)
+        ? validateDocumentUploadFile(file)
+        : null;
       if (fileError) {
         if (status) setFormStatus(status, fileError, "error");
         return;
@@ -1109,10 +1705,8 @@
       const visible = audience === "hr" ? false : form.querySelector("#document-upload-visible")?.checked ?? false;
       fd.set("employee_visible", visible ? "true" : "false");
       if (audience !== "employee" || !fd.get("employee_id")) fd.delete("employee_id");
-      if (!fd.get("expires_at")) {
-        fd.delete("expires_at");
-        fd.delete("expiry_alert_days");
-      }
+      window.AdminDocuments?.pruneEmptyDocumentDates?.(fd);
+      if (!fd.get("expires_at")) fd.delete("expiry_alert_days");
 
       const notify = visible && (form.querySelector("#document-upload-notify")?.checked ?? false);
       fd.set("notify_employees", notify ? "true" : "false");
@@ -1138,16 +1732,13 @@
 
       try {
         const data = await uploadMultipart("/admin/documents/upload", fd);
-        form.reset();
-        document.getElementById("document-upload-employee-id").value = "";
-        document.getElementById("document-upload-filename")?.setAttribute("hidden", "");
-        syncExpiryFields();
-        syncUploadAudience(form);
-        const notified = data?.notifications?.notified_count;
-        const successText =
-          notified != null
-            ? `Uploaded ✓ ${notified} employee${notified === 1 ? "" : "s"} notified`
-            : "Uploaded ✓";
+        resetUploadFormKeepingPreferences(form);
+        let successText = window.Admin?.formatDocumentNotificationSummary?.(data.notifications, {
+          uploadedLabel: "Uploaded ✓",
+        }) || "Uploaded ✓";
+        if (window.Admin?.documentNotificationNeedsResend?.(data.notifications)) {
+          successText += " Use Resend notify on the document row if needed.";
+        }
         if (status) setFormStatus(status, successText, "success");
         window.AdminSettings?.showSettingsToast?.(successText);
         await refreshDocumentViews(status);
@@ -1202,13 +1793,23 @@
 
     guardFormSubmit(form, async () => {
       const status = form.querySelector("[data-status]");
+      const fileInput = form.querySelector("#document-distribute-file");
       const fd = new FormData(form);
-      const file = fd.get("file");
-      if (!file || (file instanceof File && !file.size)) {
+      let file = readSelectedFile(fileInput) || fd.get("file");
+      try {
+        file = await prepareUploadFile(file);
+      } catch (error) {
+        if (status) setFormStatus(status, friendlyError(error, "Choose a JPEG or PNG photo."), "error");
+        return;
+      }
+      if (file) fd.set("file", file);
+      if (!file || ((file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)) && !file.size)) {
         if (status) setFormStatus(status, "Choose a file to upload.", "error");
         return;
       }
-      const fileError = file instanceof File ? validateDocumentUploadFile(file) : null;
+      const fileError = file instanceof File || (typeof Blob !== "undefined" && file instanceof Blob)
+        ? validateDocumentUploadFile(file)
+        : null;
       if (fileError) {
         if (status) setFormStatus(status, fileError, "error");
         return;
@@ -1230,12 +1831,7 @@
       }
       try {
         const data = await uploadMultipart("/admin/documents/distribute", fd);
-        form.reset();
-        if (filenameEl) {
-          filenameEl.hidden = true;
-          filenameEl.textContent = "";
-        }
-        syncPayPeriodRequired();
+        resetDistributeFormKeepingPreferences(form);
         if (status) {
           const emailNote =
             data.emails_sent > 0
@@ -1331,8 +1927,13 @@
     const filtersHost = document.getElementById("document-filters");
     if (!tbody && !formHost) return;
 
-    clearDocumentFormStatuses();
-    setDocumentsPanelAlert({});
+    const firstLoad = document.body.dataset.documentsReady !== "true";
+    if (firstLoad) {
+      clearDocumentFormStatuses();
+      setDocumentsPanelAlert({});
+      resetDocumentTabs();
+      document.body.dataset.documentsReady = "true";
+    }
 
     if (window.Admin.loadFormOptions) {
       await window.Admin.loadFormOptions();
@@ -1478,6 +2079,8 @@
             ...payload,
             document_url: payload.document_url || null,
             notes: payload.notes || null,
+            issued_at: payload.issued_at || null,
+            recorded_at: payload.recorded_at || null,
             expires_at: payload.expires_at || null,
             employee_id: payload.employee_id || null,
             employee_visible: Boolean(payload.employee_visible),
@@ -1486,14 +2089,26 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Save failed");
+        const linkPrefs = readLinkFormPreferences(formHost.querySelector("form"));
         formHost.querySelector("form")?.reset();
+        applyLinkFormPreferences(formHost.querySelector("form"), linkPrefs);
         window.AdminSettings?.showSettingsToast?.("Document link saved ✓");
         await refreshDocuments();
         await refreshExpiringDocuments();
       },
     });
+    bindMountedDocumentDateFields(formHost.querySelector("form"));
     formHost.dataset.ready = "1";
   }
 
-  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm };
+  function bindMountedDocumentDateFields(form) {
+    if (!form || form.dataset.dateFieldsBound === "true") return;
+    form.dataset.dateFieldsBound = "true";
+    const sync = () => window.AdminDocuments?.syncDocumentTypeDateFields?.(form, { defaultRecorded: true });
+    form.querySelector('[name="category"]')?.addEventListener("change", sync);
+    form.querySelector('[name="expires_at"]')?.addEventListener("change", sync);
+    sync();
+  }
+
+  window.AdminDocuments = { loadSettingsDocuments, resetDocumentTabs, mountLinkForm, bindFileDropzone, readSelectedFile, prepareUploadFile };
 })();

@@ -1,8 +1,10 @@
 # Secrets and local env
 .env
 backend_stub/.env
+backend_stub/secrets/
 *.pem
 *.key
+*.p8
 
 # Python
 __pycache__/
@@ -29,6 +31,11 @@ backend_stub/storage/contracts/
 
 # Logs
 *.log
+
+# E2E
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
 
 # Local strategy docs (not for repo)
 ShiftSwift_HR_Strategy_Copy.docx

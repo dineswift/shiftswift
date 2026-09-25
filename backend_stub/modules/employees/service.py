@@ -21,21 +21,25 @@ def sync_sponsor_profile(
     visa_expiry_date: str | None = None,
     share_code: str | None = None,
     cos_reference: str | None = None,
+    rtw_check_expiry_date: str | None = None,
 ) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO employee_sponsor_profiles (
               tenant_id, employee_id, is_sponsored_worker, visa_type,
-              visa_expiry_date, share_code, cos_reference, updated_at
+              visa_expiry_date, share_code, cos_reference, rtw_check_expiry_date, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (tenant_id, employee_id) DO UPDATE SET
               is_sponsored_worker = EXCLUDED.is_sponsored_worker,
               visa_type = COALESCE(EXCLUDED.visa_type, employee_sponsor_profiles.visa_type),
               visa_expiry_date = COALESCE(EXCLUDED.visa_expiry_date, employee_sponsor_profiles.visa_expiry_date),
               share_code = COALESCE(EXCLUDED.share_code, employee_sponsor_profiles.share_code),
               cos_reference = COALESCE(EXCLUDED.cos_reference, employee_sponsor_profiles.cos_reference),
+              rtw_check_expiry_date = COALESCE(
+                EXCLUDED.rtw_check_expiry_date, employee_sponsor_profiles.rtw_check_expiry_date
+              ),
               updated_at = NOW()
             """,
             (
@@ -46,8 +50,48 @@ def sync_sponsor_profile(
                 visa_expiry_date,
                 share_code,
                 cos_reference,
+                rtw_check_expiry_date,
             ),
         )
+    conn.commit()
+
+
+def apply_visa_document_expiry(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    category: str | None,
+    expires_at: Any,
+    conn: Any,
+) -> None:
+    """Keep visa / RTW-check expiry dates in sync with uploaded identity documents."""
+    category_key = str(category or "").strip().lower()
+    if category_key in {"visa_brp", "visa"}:
+        column = "visa_expiry_date"
+    elif category_key in {"rtw", "right_to_work"}:
+        column = "rtw_check_expiry_date"
+    else:
+        return
+    if not expires_at:
+        return
+    expiry = expires_at.isoformat()[:10] if hasattr(expires_at, "isoformat") else str(expires_at)[:10]
+    if len(expiry) < 10:
+        return
+    sql = (
+        """
+        UPDATE employee_sponsor_profiles
+        SET visa_expiry_date = %s, updated_at = NOW()
+        WHERE tenant_id = %s AND employee_id = %s
+        """
+        if column == "visa_expiry_date"
+        else """
+        UPDATE employee_sponsor_profiles
+        SET rtw_check_expiry_date = %s, updated_at = NOW()
+        WHERE tenant_id = %s AND employee_id = %s
+        """
+    )
+    with conn.cursor() as cur:
+        cur.execute(sql, (expiry, tenant_id, employee_id))
     conn.commit()
 
 
@@ -75,6 +119,7 @@ def after_employee_created(
         visa_expiry_date=data.get("visa_expiry_date"),
         share_code=data.get("share_code"),
         cos_reference=data.get("cos_reference"),
+        rtw_check_expiry_date=data.get("rtw_check_expiry_date"),
     )
 
 

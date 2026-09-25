@@ -721,3 +721,8 @@ body.punch-app {
     max-width: 420px;
   }
 }
+
+html.pwa-disabled .punch-install-banner,
+html.pwa-disabled .punch-install-help {
+  display: none !important;
+}

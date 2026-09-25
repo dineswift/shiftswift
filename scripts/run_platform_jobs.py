@@ -13,10 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend_stub"))
 
 from core.events import process_pending_events  # noqa: E402
-from modules.compliance.audit_export import (  # noqa: E402
-    evaluate_rtw_expiry_alerts,
-    evaluate_visa_expiry_alerts,
-)
 from sponsor_licence_compliance import (  # noqa: E402
     evaluate_day9_absence_alerts,
     refresh_sms_change_alert_statuses,
@@ -77,6 +73,8 @@ def main() -> int:
         "missed_punch_alerts": 0,
         "push_reminders": 0,
         "signin_reminders": 0,
+        "document_expiry_alerts": 0,
+        "sms_login_reminders": 0,
     }
     try:
         job_now = datetime.now(timezone.utc)
@@ -94,10 +92,22 @@ def main() -> int:
             summary["sms_statuses_updated"] += refresh_sms_change_alert_statuses(
                 tenant_id=tenant_id, as_of=as_of, conn=conn
             )
-            visa_alerts = evaluate_visa_expiry_alerts(tenant_id=tenant_id, as_of=as_of, conn=conn)
+            from modules.compliance.expiry_notify_jobs import (
+                dispatch_document_expiry_alerts,
+                dispatch_rtw_expiry_alerts,
+                dispatch_sms_login_reminder,
+                dispatch_visa_expiry_alerts,
+            )
+
+            visa_alerts = dispatch_visa_expiry_alerts(tenant_id=tenant_id, as_of=as_of, conn=conn)
             summary["visa_expiry_alerts"] += len(visa_alerts)
-            rtw_alerts = evaluate_rtw_expiry_alerts(tenant_id=tenant_id, as_of=as_of, conn=conn)
+            rtw_alerts = dispatch_rtw_expiry_alerts(tenant_id=tenant_id, as_of=as_of, conn=conn)
             summary["rtw_expiry_alerts"] += len(rtw_alerts)
+            doc_alerts = dispatch_document_expiry_alerts(tenant_id=tenant_id, as_of=as_of, conn=conn)
+            summary["document_expiry_alerts"] += len(doc_alerts)
+            sms_login = dispatch_sms_login_reminder(tenant_id=tenant_id, now=job_now, conn=conn)
+            if sms_login.get("sent"):
+                summary["sms_login_reminders"] += 1
             missed = evaluate_missed_punch_alerts(tenant_id=tenant_id, conn=conn, now=job_now)
             summary["missed_punch_alerts"] += len(missed)
             from modules.push.shift_reminders import evaluate_shift_push_reminders

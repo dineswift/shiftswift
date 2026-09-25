@@ -25,8 +25,11 @@
   }
 
   function formatDate(iso) {
+    if (window.Admin?.formatDisplayDate) return window.Admin.formatDisplayDate(iso);
     if (!iso) return "—";
-    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+    const date = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
       year: "numeric",
@@ -79,7 +82,7 @@
   }
 
   function isMobileView() {
-    return window.matchMedia("(max-width: 860px)").matches;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
   }
 
   function renderMobileAbsenceCards(items) {

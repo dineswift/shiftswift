@@ -1,25 +1,52 @@
 /** Admin workspace sections — overview, employees, staff export, settings. */
 (async function initAdminWorkspace() {
+  async function ensureNativeAdminSession() {
+    if (!window.Capacitor?.isNativePlatform?.()) return;
+    if (!/\/admin\.html$/i.test(String(window.location.pathname || ""))) return;
+    window.ShiftSwiftSession?.consumeNativeSessionHandoff?.();
+    window.ShiftSwiftNativeApiFetch?.bootWhenReady?.();
+    if (window.ShiftSwiftSession?.waitForNativeSession) {
+      await window.ShiftSwiftSession.waitForNativeSession({ maxMs: 12000 });
+      return;
+    }
+    await window.ShiftSwiftSession?.hydrateNativeSession?.({ force: true });
+  }
+
+  if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
+    await ensureNativeAdminSession();
+  }
+
   const {
     apiFetch,
     loadFormOptions,
     loadTenantFeatures,
+    fetchAdminOverview,
+    applyOverviewToTenantFeatures,
     applyFeatureGates,
+    friendlyNativeError,
     isFeatureEnabled,
     mountEditForm,
     renderTableBody,
     FORM_SCHEMAS,
     escapeHtml,
     statusPill,
+    showAdminToast,
   } = window.Admin;
 
-  try {
-    await loadFormOptions();
-    await loadTenantFeatures();
-    applyFeatureGates();
-  } catch (error) {
-    console.warn("Form metadata unavailable:", error.message);
+  function workspaceToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
   }
+
+  void (async () => {
+    try {
+      await loadFormOptions();
+      await loadTenantFeatures();
+      applyFeatureGates();
+    } catch (error) {
+      console.warn("Form metadata unavailable:", error.message);
+    }
+  })();
 
   window.addEventListener("admin:features-refresh", async () => {
     await loadTenantFeatures();
@@ -101,9 +128,9 @@
         window.location.href = data.checkout_url;
         return;
       }
-      alert(data.message || data.detail || "Direct Debit setup unavailable");
+      workspaceToast(data.message || data.detail || "Direct Debit setup unavailable", "error");
     } catch (error) {
-      alert(error.message || "Direct Debit setup failed");
+      workspaceToast(error.message || "Direct Debit setup failed", "error");
     }
   }
 
@@ -119,9 +146,9 @@
         return;
       }
       const support = window.ShiftSwiftBrand?.supportEmail?.() || "support";
-      alert(data.message || data.detail || `Upgrade is not available yet. Contact ${support} for billing help.`);
+      workspaceToast(data.message || data.detail || `Upgrade is not available yet. Contact ${support} for billing help.`, "error");
     } catch (error) {
-      alert(error.message || "Upgrade request failed");
+      workspaceToast(error.message || "Upgrade request failed", "error");
     }
   }
 
@@ -134,8 +161,10 @@
     }
   }
 
-  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub }) {
+  function moduleCard({ icon, title, value, sub, href, tone, requiresClock, feature, lockedSub, empty, valueAsLabel }) {
+    const isEmpty = Boolean(empty);
     const toneClass = tone ? ` overview-module-card--${tone}` : "";
+    const emptyClass = isEmpty && !tone ? " overview-module-card--empty" : "";
     const iconSvg = window.AdminIcons?.svg?.(icon) || "";
     const clockAttr = requiresClock ? " data-requires-clock" : "";
     const enabled = !feature || isFeatureEnabled(feature);
@@ -145,17 +174,20 @@
     const lockBadge = enabled
       ? ""
       : `<span class="overview-module-card__lock">${window.AdminIcons?.svg?.("lock") || "🔒"}</span>`;
+    const rawValue = String(value ?? "");
+    const displayValue = isEmpty && /^\d+$/.test(rawValue) && Number(rawValue) === 0 ? "–" : rawValue;
+    const valueClass = valueAsLabel ? " overview-module-card__value--label" : "";
     return `
-      <a class="overview-module-card${toneClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
+      <a class="overview-module-card${toneClass}${emptyClass}${lockedClass}" href="${escapeHtml(cardHref)}"${clockAttr}${feature ? ` data-feature="${escapeHtml(feature)}"` : ""}>
         <span class="overview-module-card__head">
-          <span class="overview-module-card__icon" aria-hidden="true">${iconSvg}</span>
+          <span class="overview-module-card__icon" data-icon-tone="${escapeHtml(icon || "")}" aria-hidden="true">${iconSvg}</span>
           <span class="overview-module-card__head-meta">
             ${lockBadge}
             <span class="overview-module-card__chevron" aria-hidden="true">${window.AdminIcons?.svg?.("chevron") || "›"}</span>
           </span>
         </span>
         <span class="overview-module-card__title">${escapeHtml(title)}</span>
-        <span class="overview-module-card__value">${escapeHtml(value)}</span>
+        <span class="overview-module-card__value${valueClass}">${escapeHtml(displayValue)}</span>
         <span class="overview-module-card__sub">${escapeHtml(cardSub)}</span>
       </a>`;
   }
@@ -188,36 +220,63 @@
 
   function updateTopbarMeta(data) {
     const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
+    localStorage.setItem("businessName", businessName);
+    document.title = `${businessName} | Admin Console`;
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
-    const avatar = document.querySelector(".topbar-user-menu__avatar");
+    const avatars = document.querySelectorAll(".topbar-user-menu__avatar, #topbar-mobile-avatar-initials");
     const displayName =
       localStorage.getItem("adminDisplayName") ||
       localStorage.getItem("adminFirstName") ||
       localStorage.getItem("adminUsername") ||
       "Admin";
-    if (topbarName) topbarName.textContent = businessName;
-    if (userLabel) userLabel.textContent = displayName;
-    if (avatar) {
-      const initials = String(displayName)
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0])
-        .join("")
-        .toUpperCase();
-      avatar.textContent = initials || "HR";
+    if (topbarName && !document.body.classList.contains("emp-profile-open")) {
+      topbarName.textContent = businessName;
     }
-    const badge = document.getElementById("topbar-alerts-badge");
-    const count = Number(data.open_actions_count) || 0;
-    if (badge) {
-      if (count > 0) {
-        badge.hidden = false;
-        badge.textContent = String(count);
-      } else {
-        badge.hidden = true;
-        badge.textContent = "0";
-      }
+    if (userLabel) userLabel.textContent = displayName;
+    const initials = String(displayName)
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+    avatars.forEach((avatar) => {
+      avatar.textContent = initials || "HR";
+    });
+  }
+
+  function formatHomeBannerDate(date = new Date()) {
+    return date.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+    });
+  }
+
+  function homeBannerSummary(data) {
+    const rota = data?.modules?.rota || {};
+    const shifts = Number(rota.shift_count ?? 0);
+    const actions = Number(data?.open_actions_count ?? 0);
+    if (shifts > 0 && rota.status === "published") {
+      return `${shifts} shift${shifts === 1 ? "" : "s"} this week · published`;
+    }
+    if (shifts > 0) {
+      return `${shifts} shift${shifts === 1 ? "" : "s"} drafted this week`;
+    }
+    if (actions > 0) {
+      return `${actions} open action${actions === 1 ? "" : "s"} to review`;
+    }
+    return "You're all set for today";
+  }
+
+  function updateMobileHomeBanner(data) {
+    const businessEl = document.getElementById("mobile-business-name");
+    const summaryEl = document.getElementById("mobile-home-summary");
+    const businessName = data?.trading_name || data?.tenant_name || localStorage.getItem("businessName") || "";
+    if (businessEl && businessName) businessEl.textContent = businessName;
+    if (summaryEl) {
+      summaryEl.textContent = `${formatHomeBannerDate()} · ${homeBannerSummary(data || {})}`;
     }
   }
 
@@ -259,6 +318,20 @@
       </a>`;
   }
 
+  function setOverviewRailVisible(visible) {
+    document.getElementById("overview")?.classList.toggle("overview--with-rail", Boolean(visible));
+  }
+
+  function workspaceGreetingText() {
+    const hour = new Date().getHours();
+    const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    const name =
+      (localStorage.getItem("adminFirstName") || "").trim() ||
+      (localStorage.getItem("adminDisplayName") || "").trim().split(/\s+/)[0] ||
+      "";
+    return name ? `${part}, ${name}` : part;
+  }
+
   function renderSetupChecklist(data) {
     const host = document.getElementById("overview-setup-checklist");
     if (!host) return;
@@ -266,37 +339,38 @@
     if (!checklist || data.setup_complete) {
       host.hidden = true;
       host.innerHTML = "";
+      setOverviewRailVisible(false);
       return;
     }
     const clockEnabled = Boolean(data.time_clock_enabled);
     const steps = [
       {
         key: "business_address",
-        label: "Sync business address",
+        label: "Business address",
         href: "#settings/business",
         detail: "Pins your premises for geofenced clock-in",
       },
       {
         key: "first_employee",
-        label: "Add your first employee",
+        label: "First employee",
         href: "#employees",
         detail: "Name and email — details come later",
       },
       {
-        key: "rtw_started",
-        label: "Record a right-to-work check",
-        href: "#compliance-rtw",
-        detail: "Upload evidence for audit trail",
-      },
-      {
         key: "punch_site",
-        label: "Set up time punch site",
+        label: "Time punch site",
         href: "#time-punch",
         detail: "Geofence radius + premises QR",
       },
       {
+        key: "rtw_started",
+        label: "Right to work",
+        href: "#compliance-rtw",
+        detail: "Upload evidence for audit trail",
+      },
+      {
         key: "rota_published",
-        label: "Publish this week's rota",
+        label: "Set up rota",
         href: "#rota",
         detail: "Staff see shifts in the portal",
       },
@@ -307,7 +381,7 @@
         detail: "Optional auto-send of monthly hours PDF",
       },
     ].filter((step) => {
-      if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
+      if (step.key === "accountant_email" && !clockEnabled) return false;
       return true;
     });
     const visibleSteps = steps;
@@ -315,14 +389,16 @@
     if (doneCount >= visibleSteps.length) {
       host.hidden = true;
       host.innerHTML = "";
+      setOverviewRailVisible(false);
       return;
     }
     host.hidden = false;
+    setOverviewRailVisible(true);
     host.innerHTML = `
       <div class="overview-setup-checklist__head">
         <div>
-          <h3 class="overview-section-title">Get your workspace ready</h3>
-          <p class="muted overview-setup-checklist__lead">${doneCount} of ${visibleSteps.length} complete — follow these steps before your first payroll week.</p>
+          <h3 class="overview-section-title">Your workspace</h3>
+          <p class="muted overview-setup-checklist__lead">${doneCount} of ${visibleSteps.length} complete</p>
         </div>
         <span class="overview-setup-checklist__progress" aria-hidden="true">${doneCount}/${visibleSteps.length}</span>
       </div>
@@ -343,7 +419,18 @@
       </ol>`;
   }
 
-  async function loadOverview() {
+  let overviewRequestId = 0;
+
+  function overviewRenderIncomplete() {
+    const modulesHost = document.getElementById("overview-modules");
+    const grid = document.getElementById("overview-metrics");
+    const hasStats = Boolean(grid?.querySelector(".hr-stat-card"));
+    const hasModules = Boolean(modulesHost?.querySelector(".overview-module-card"));
+    const hasActions = Boolean(document.getElementById("overview-actions")?.querySelector(".overview-action"));
+    return hasStats && (!hasModules || !hasActions);
+  }
+
+  async function loadOverview(options = {}) {
     const grid = document.getElementById("overview-metrics");
     const modulesHost = document.getElementById("overview-modules");
     const actionsHost = document.getElementById("overview-actions");
@@ -351,24 +438,24 @@
     const subtitle = document.getElementById("overview-subtitle");
     const trialNote = document.getElementById("overview-trial-note");
     if (!grid) return;
+    const requestId = ++overviewRequestId;
     try {
-      await window.ShiftSwiftSession?.hydrateNativeSession?.();
-      const res = await apiFetch("/admin/overview");
-      if (!res.ok) throw new Error("Overview unavailable");
-      const data = await res.json();
-      await loadTenantFeatures();
-      applyFeatureGates();
+      const data = await fetchAdminOverview(Boolean(options.force));
+      if (requestId !== overviewRequestId) return;
       applyNavBadges(data.nav_badges);
 
       const businessName = data.trading_name || data.tenant_name || "your business";
+      const greetingEl = document.getElementById("overview-greeting");
+      if (greetingEl) greetingEl.textContent = workspaceGreetingText();
       if (subtitle) {
-        subtitle.textContent = `Welcome back — ${businessName} at a glance.`;
+        subtitle.textContent = "Here's what needs your attention today.";
       }
       const mobileBusiness = document.getElementById("mobile-business-name");
       if (mobileBusiness) mobileBusiness.textContent = businessName;
       applyAdminIdentityFromOverview(data);
       window.AdminMobile?.refreshGreeting?.();
       updateTopbarMeta(data);
+      updateMobileHomeBanner(data);
 
       const openActions = data.open_actions || [];
       const actionPreview =
@@ -378,6 +465,8 @@
               .map((item) => item.title)
               .join(" · ")
           : "";
+
+      if (requestId !== overviewRequestId) return;
 
       if (trialNote) {
         if (data.trial_active) {
@@ -393,29 +482,46 @@
       const m = data.modules || {};
       const employees = m.employees || {};
       const punch = m.time_punch || {};
+      const rota = m.rota || {};
+      const leave = m.leave || {};
       const actions = data.open_actions_count || 0;
       const critical = openActions.filter((a) => a.severity === "critical").length;
+      const compactHome =
+        window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+      const missedPunchAction = openActions.find((item) => /missed clock-in/i.test(item.title || ""));
+      const noShows = missedPunchAction
+        ? Number(String(missedPunchAction.title).match(/\d+/)?.[0] || 1)
+        : Number(rota.missed_punch_today ?? 0);
 
-      grid.innerHTML = `
+      grid.innerHTML = compactHome
+        ? `
         ${statCard({
           icon: "users",
-          label: "Active employees",
+          label: "Employees",
           value: String(employees.active ?? 0),
-          sub: `Limit ${employees.limit ?? data.max_employees ?? "—"} on ${data.plan_display_name || "current"} plan`,
+          sub:
+            (employees.active ?? 0) > 0
+              ? `Limit ${employees.limit ?? data.max_employees ?? "—"}`
+              : "Add your first employee →",
           href: "#employees",
+          tone: (employees.active ?? 0) > 0 ? "ok" : "",
         })}
         ${statCard({
           icon: "clock",
-          label: "Today's punches",
+          label: "Punches",
           value: String(punch.today_punches ?? 0),
-          sub: punch.last_punch_at ? `Last punch ${formatOverviewTime(punch.last_punch_at)}` : "No punches yet",
+          sub: punch.last_punch_at
+            ? `Last punch ${formatOverviewTime(punch.last_punch_at)}`
+            : punch.sites
+              ? "None yet — open clock →"
+              : "Set up a punch site →",
           href: punch.today_punches ? "#time-punch/today" : "#time-punch",
-          tone: "ok",
+          tone: punch.today_punches ? "ok" : "",
           requiresClock: true,
         })}
         ${statCard({
           icon: critical ? "alert" : "check",
-          label: "Open actions",
+          label: "Actions",
           value: String(actions),
           sub: critical
             ? `${critical} need immediate attention`
@@ -423,7 +529,7 @@
               ? actionPreview || "Tap to review"
               : "All clear",
           href: "#overview-actions",
-          tone: critical || actions ? "warn" : "",
+          tone: critical || actions ? "warn" : "ok",
         })}
         ${statCard({
           icon: "card",
@@ -433,6 +539,48 @@
           href: "#settings/billing",
           valueText: true,
           extraClass: "hr-stat-card--subscription",
+          tone: "ok",
+        })}`
+        : `
+        ${statCard({
+          icon: "calendar",
+          label: "Shifts this week",
+          value: String(rota.shift_count ?? 0),
+          sub:
+            rota.status === "published"
+              ? "Published"
+              : (rota.shift_count ?? 0) > 0
+                ? "Draft — publish when ready"
+                : "None scheduled yet",
+          href: "#rota",
+          tone: rota.status === "published" ? "ok" : (rota.shift_count ?? 0) > 0 ? "warn" : "",
+        })}
+        ${statCard({
+          icon: "users",
+          label: "Active employees",
+          value: String(employees.active ?? 0),
+          sub:
+            (employees.active ?? 0) > 0
+              ? `Limit ${employees.limit ?? data.max_employees ?? "—"}`
+              : "Add your first employee →",
+          href: "#employees",
+          tone: (employees.active ?? 0) > 0 ? "ok" : "",
+        })}
+        ${statCard({
+          icon: noShows ? "alert" : "check",
+          label: "No shows",
+          value: String(noShows),
+          sub: noShows ? "Needs follow-up" : "None today",
+          href: "#rota",
+          tone: noShows ? "warn" : "ok",
+        })}
+        ${statCard({
+          icon: "beach",
+          label: "Pending requests",
+          value: String(leave.pending_requests ?? 0),
+          sub: leave.pending_requests ? "Awaiting HR approval" : "No pending requests",
+          href: "#leave",
+          tone: (leave.pending_requests ?? 0) > 0 ? "warn" : "ok",
         })}`;
 
       const subscriptionCard = document.getElementById("mobile-subscription-card");
@@ -442,30 +590,30 @@
           <div class="mobile-subscription-card__head">
             ${window.AdminIcons?.svg?.("card") || ""}
             <span class="mobile-subscription-card__label">Subscription</span>
+            <span class="mobile-subscription-card__value">${escapeHtml(data.subscription_status || "Not set")}</span>
           </div>
-          <p class="mobile-subscription-card__value">${escapeHtml(data.subscription_status || "Not set")}</p>
           <p class="mobile-subscription-card__sub muted">${escapeHtml(data.plan_display_name || data.subscription_plan || "No plan")} plan</p>
-          <a class="mobile-subscription-card__link" href="#settings/billing">Manage plan ›</a>`;
+          <a class="btn secondary btn-sm mobile-subscription-card__btn" href="#settings/billing">Manage plan</a>`;
       }
 
       if (modulesHost) {
         const rtw = m.rtw || {};
         const absence = m.absence || {};
         const recruitment = m.recruitment || {};
-        const rota = m.rota || {};
         const grievance = m.grievance || {};
         const disciplinary = m.disciplinary || {};
         const offboarding = m.offboarding || {};
         const contracts = m.contracts || {};
+        const employmentContracts = m.employment_contracts || {};
         const docs = m.documents || {};
-        const leave = m.leave || {};
         const qualifications = m.qualifications || {};
+        const rotaEmpty = !(rota.shift_count ?? 0);
         const rotaLabel =
           rota.status === "published"
             ? "Published this week"
             : rota.shift_count
               ? "Draft — not published"
-              : "No shifts yet";
+              : "Add your first shift →";
 
         modulesHost.innerHTML = [
           moduleCard({
@@ -480,8 +628,11 @@
                   ? `${qualifications.expiring_soon} cert(s) expiring soon`
                   : employees.onboarding
                     ? `${employees.onboarding} onboarding`
-                    : "Active register",
+                    : (employees.active ?? 0) > 0
+                      ? "Active register"
+                      : "Add your first employee →",
             href: employees.portal_setup_pending ? "#employees/portal-pending" : "#employees",
+            empty: !(employees.active ?? 0),
             tone:
               (qualifications.expired ?? 0) > 0
                 ? "danger"
@@ -495,15 +646,24 @@
             value: String(recruitment.open_vacancies ?? 0),
             sub: recruitment.pending_applicants
               ? `${recruitment.pending_applicants} pending applicants`
-              : "Open vacancies",
+              : (recruitment.open_vacancies ?? 0) > 0
+                ? "Open vacancies"
+                : "Post a vacancy →",
             href: "#recruitment",
+            empty: !(recruitment.open_vacancies ?? 0) && !(recruitment.pending_applicants ?? 0),
           }),
           moduleCard({
             icon: "passport",
             title: "Right to work",
             value: String(rtw.verified ?? 0),
-            sub: `${rtw.expiring_soon ?? 0} expiring · ${rtw.needs_review ?? 0} need review`,
+            sub:
+              (rtw.needs_review ?? 0) > 0 || (rtw.expiring_soon ?? 0) > 0
+                ? `${rtw.expiring_soon ?? 0} expiring · ${rtw.needs_review ?? 0} need review`
+                : (rtw.verified ?? 0) > 0
+                  ? `${rtw.expiring_soon ?? 0} expiring · ${rtw.needs_review ?? 0} need review`
+                  : "Record a right-to-work check →",
             href: "#compliance-rtw",
+            empty: !(rtw.verified ?? 0) && !(rtw.needs_review ?? 0),
             tone: (rtw.needs_review ?? 0) > 0 ? "danger" : (rtw.expiring_soon ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -513,22 +673,26 @@
             sub:
               (absence.day9_alerts ?? 0) > 0
                 ? "Day-9 alerts need action"
-                : `${absence.active_this_month ?? 0} absence days this month`,
+                : (absence.active_this_month ?? 0) > 0
+                  ? `${absence.active_this_month ?? 0} absence days this month`
+                  : "No absences logged yet",
             href: "#compliance",
+            empty: !(absence.day9_alerts ?? 0) && !(absence.active_this_month ?? 0),
             tone: (absence.day9_alerts ?? 0) > 0 ? "danger" : "",
             feature: "sponsor-compliance",
             lockedSub: "Compliance plan — day-9 alerts",
           }),
           moduleCard({
             icon: "map-pin",
-            title: "Time punch",
+            title: "Time Clock",
             value: String(punch.sites ?? 0),
             sub: punch.today_punches
               ? `${punch.today_punches} punch${punch.today_punches === 1 ? "" : "es"} today`
               : punch.sites
                 ? "No punches today"
-                : "Set up geofence sites",
+                : "Set up a punch site →",
             href: punch.today_punches ? "#time-punch/today" : "#time-punch",
+            empty: !(punch.sites ?? 0),
             tone: !punch.sites ? "warn" : "",
             requiresClock: true,
           }),
@@ -538,6 +702,7 @@
             value: String(rota.shift_count ?? 0),
             sub: rotaLabel,
             href: "#rota",
+            empty: rotaEmpty,
             tone: rota.status !== "published" && rota.shift_count ? "warn" : "",
           }),
           moduleCard({
@@ -546,6 +711,7 @@
             value: String(grievance.open_cases ?? 0),
             sub: grievance.open_cases ? "Open cases" : "No open cases",
             href: "#grievance",
+            empty: !(grievance.open_cases ?? 0),
             tone: (grievance.open_cases ?? 0) > 0 ? "warn" : "",
             feature: "grievance",
             lockedSub: "Compliance plan",
@@ -556,6 +722,7 @@
             value: String(disciplinary.open_cases ?? 0),
             sub: disciplinary.open_cases ? "Open cases" : "No open cases",
             href: "#disciplinary",
+            empty: !(disciplinary.open_cases ?? 0),
             tone: (disciplinary.open_cases ?? 0) > 0 ? "warn" : "",
             feature: "disciplinary",
             lockedSub: "Compliance plan",
@@ -563,10 +730,11 @@
           moduleCard({
             icon: "file-text",
             title: "Employment templates",
-            value: String(contracts.pending_signature ?? 0),
-            sub: contracts.pending_signature ? "Awaiting signature" : "Offer letters for new hires",
+            value: String(employmentContracts.pending_signature ?? 0),
+            sub: employmentContracts.pending_signature ? "Awaiting signature" : "Send an offer letter →",
             href: "#employment-contracts",
-            tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
+            empty: !(employmentContracts.pending_signature ?? 0),
+            tone: (employmentContracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
             icon: "user-minus",
@@ -574,13 +742,15 @@
             value: String(offboarding.in_progress ?? 0),
             sub: offboarding.in_progress ? "In progress" : "No active leavers",
             href: "#offboarding",
+            empty: !(offboarding.in_progress ?? 0),
           }),
           moduleCard({
-            icon: "calendar-off",
+            icon: "beach",
             title: "Leave",
             value: String(leave.pending_requests ?? 0),
             sub: leave.pending_requests ? "Awaiting HR approval" : "No pending requests",
             href: "#leave",
+            empty: !(leave.pending_requests ?? 0),
             tone: (leave.pending_requests ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -589,6 +759,7 @@
             value: String(contracts.pending_signature ?? 0),
             sub: contracts.pending_signature ? "Awaiting signature" : "ShiftSwift MSA — not employee contracts",
             href: "#contracts",
+            empty: !(contracts.pending_signature ?? 0),
             tone: (contracts.pending_signature ?? 0) > 0 ? "warn" : "",
           }),
           moduleCard({
@@ -597,6 +768,7 @@
             value: "Tools",
             sub: "Documents & AI assistant",
             href: "#templates",
+            valueAsLabel: true,
           }),
           moduleCard({
             icon: "folder",
@@ -604,23 +776,55 @@
             value: "Free",
             sub: "Word & Excel HR forms",
             href: "#global-documents",
+            valueAsLabel: true,
           }),
           moduleCard({
             icon: "folder",
             title: "Documents",
             value: String(docs.count ?? data.document_count ?? 0),
-            sub: "In tenant document store",
+            sub:
+              (docs.count ?? data.document_count ?? 0) > 0
+                ? "In tenant document store"
+                : "Upload your first document →",
             href: "#settings/documents",
+            empty: !(docs.count ?? data.document_count ?? 0),
           }),
         ].join("");
-        if (!window.matchMedia("(max-width: 860px)").matches) {
+        if (!(window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches)) {
           modulesHost.closest(".overview-main")?.removeAttribute("hidden");
         }
       }
 
+      if (requestId !== overviewRequestId) return;
+
       if (actionsHost) {
         const items = data.open_actions || [];
+        const actionsPanel = document.getElementById("overview-actions-panel");
+        const actionsLead = document.getElementById("overview-actions-lead");
+        const actionsTitle = document.getElementById("overview-actions-title");
         if (actionsCount) actionsCount.textContent = String(items.length);
+        actionsPanel?.classList.toggle("overview-actions-panel--active", items.length > 0);
+        if (actionsPanel) {
+          actionsPanel.hidden = !compactHome && items.length === 0;
+        }
+        if (actionsTitle) {
+          actionsTitle.textContent = compactHome
+            ? "Open actions"
+            : items.length
+              ? "Actions need your attention"
+              : "You're up to date";
+        }
+        if (actionsLead) {
+          if (compactHome) {
+            actionsLead.hidden = false;
+            actionsLead.textContent = items.length
+              ? `${items.length} thing${items.length === 1 ? "" : "s"} need${items.length === 1 ? "s" : ""} your attention`
+              : "Nothing waiting — you're up to date.";
+          } else {
+            actionsLead.hidden = true;
+            actionsLead.textContent = "";
+          }
+        }
         actionsHost.innerHTML = items.length
           ? items.map(actionItem).join("")
           : `<p class="overview-actions-empty muted">No open actions — your workspace looks good.</p>`;
@@ -630,16 +834,20 @@
 
       window.dispatchEvent(new CustomEvent("admin:overview-loaded", { detail: { data } }));
       window.AdminMobile?.renderMobileCompliance?.(data);
-    } catch (error) {
-      let message = error.message || "Could not load overview.";
-      if (message === "Load failed" || message === "Failed to fetch") {
-        message = "Cannot reach the API. Check your connection and try again.";
+
+      if (window.__SSHR_BUNDLED_NATIVE_BOOT && overviewRenderIncomplete() && !options._retryScheduled) {
+        window.setTimeout(() => loadOverview({ force: true, _retryScheduled: true }), 1500);
       }
+    } catch (error) {
+      if (requestId !== overviewRequestId) return;
+      if (grid.querySelector(".hr-stat-card")) return;
+      let message = friendlyNativeError(error, "Could not load overview.");
       grid.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(message)}</p><button type="button" class="btn outline btn-sm" id="overview-retry-btn">Retry</button></div>`;
       document.getElementById("overview-retry-btn")?.addEventListener("click", () => loadOverview());
       if (modulesHost) modulesHost.innerHTML = "";
       if (actionsHost) actionsHost.innerHTML = "";
       document.getElementById("overview-setup-checklist")?.setAttribute("hidden", "");
+      setOverviewRailVisible(false);
       window.dispatchEvent(
         new CustomEvent("admin:overview-loaded", {
           detail: {
@@ -669,6 +877,7 @@
       if (feature && window.Admin?.featureUpgradeMessage) {
         window.Admin.showAdminToast?.(window.Admin.featureUpgradeMessage(feature));
       }
+      window.location.hash = "settings/billing";
     });
   }
 
@@ -677,11 +886,28 @@
   });
 
   window.addEventListener("shiftswift:native-session-ready", () => {
+    if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
     loadOverview();
     loadTrialBanner();
   });
 
-  loadOverview();
-  loadTrialBanner();
+  async function bootWorkspace() {
+    if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
+    await ensureNativeAdminSession();
+    loadOverview();
+    loadTrialBanner();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootWorkspace, { once: true });
+  } else {
+    bootWorkspace();
+  }
   bindOverviewModuleLocks();
+
+  window.ShiftSwiftAdminWorkspace = {
+    loadOverview,
+    loadTrialBanner,
+    overviewRenderIncomplete,
+  };
 })();

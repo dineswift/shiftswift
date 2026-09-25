@@ -11,6 +11,7 @@ from typing import Any
 
 from modules.documents.service import create_employee_document
 from modules.documents.storage import write_document_file
+from modules.document_signing.signature_image import signature_image_html
 from modules.employees.repository import fetch_employee
 from modules.hr_templates.service import get_template_content
 from modules.hr_templates.versioning import version_lt
@@ -406,7 +407,10 @@ def send_for_signature(
         _log_event(cur, contract_id, tenant_id, "sent", actor, signing_url)
 
     from core.email_templates import contract_signing_email
-    from core.notifications import queue_email_notification
+    from core.notifications import require_email_delivered, send_email_content, smtp_configured
+
+    if not smtp_configured():
+        raise ValueError("SMTP is not configured — cannot send contract signing email")
 
     content = contract_signing_email(
         signatory_name=employee_name,
@@ -414,22 +418,22 @@ def send_for_signature(
         contract_number=contract_number,
         signing_url=signing_url,
     )
-    queue_email_notification(
+    delivery = send_email_content(
         conn=conn,
         tenant_id=tenant_id,
-        subject=content.subject.replace("agreement", "employment contract"),
-        body=content.text,
-        purpose="employment_contract",
         to=employee_email,
+        content=content,
+        purpose="employment_contract",
+        audience="employee",
         payload={
             "employment_contract_id": contract_id,
             "signing_url": signing_url,
             "type": "employment_contract_signing",
-            "audience": "employee",
-            "html_body": content.html,
         },
+        deliver_now=True,
         commit=False,
     )
+    require_email_delivered(delivery)
     conn.commit()
     return {
         "contract_id": contract_id,
@@ -480,11 +484,14 @@ def sign_employment_contract(
     signature_name: str,
     signature_title: str | None,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
     contract = get_contract_by_token(conn, token)
+    drawing = signature_image_html(signature_image)
     signed_block = (
         f'<section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">'
         f"<h2>Electronic signature</h2>"
+        f"{drawing}"
         f"<p><strong>Signed by:</strong> {html.escape(signature_name)}"
         f"{f' ({html.escape(signature_title)})' if signature_title else ''}</p>"
         f"<p><strong>Signed at:</strong> {_utcnow().strftime('%d %B %Y %H:%M UTC')}</p>"
