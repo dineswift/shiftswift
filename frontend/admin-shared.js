@@ -1711,6 +1711,7 @@ window.Admin = (() => {
       if (!raw) return;
       const parts = raw.split("/").filter(Boolean);
       if (parts.length <= 1) return;
+      if (parts[0] === "compliance") return;
 
       const candidates = [parts[parts.length - 1], parts.join("-"), raw.replace(/\//g, "-")];
       const anchorAliases = { accountant: "punch-accountant-settings" };

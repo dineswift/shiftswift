@@ -6537,7 +6537,7 @@ a.sponsor-duty-card:focus-visible {
     display: grid !important;
     gap: 0;
   }
-  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-tools-content > article {
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article {
     display: none !important;
     margin-top: 0;
     border-top: none;
@@ -6547,10 +6547,10 @@ a.sponsor-duty-card:focus-visible {
     border-right: 1px solid var(--card-border);
     border-bottom: 1px solid var(--card-border);
   }
-  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-tools-content > article.compliance-section--open {
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article.compliance-section--open {
     display: block !important;
   }
-  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-tools-content > article.legal-note {
+  body[data-mobile-tab="compliance"]:not(.compliance-mobile-drill) #compliance-pane-stage > article.legal-note {
     display: none !important;
   }
   body[data-mobile-tab="compliance"] #compliance-holidays .hr-workspace-body,
@@ -13826,19 +13826,24 @@ html.native-app .pwa-install-page .pwa-install-actions .btn.ghost {
   gap: 14px;
 }
 
-#compliance-tools-content > #compliance-absence { order: 1; }
-#compliance-tools-content > #compliance-rtw { order: 2; }
-#compliance-tools-content > #compliance-reporting { order: 3; }
-#compliance-tools-content > #compliance-adverts { order: 4; }
-#compliance-tools-content > #compliance-audit-export { order: 5; }
-#compliance-tools-content > article { order: 10; }
-#compliance-tools-content > .legal-note { order: 20; }
+.compliance-pane-stage {
+  min-width: 0;
+}
+
+.compliance-pane-stage > article:not(.compliance-pane--active) {
+  display: none !important;
+}
 
 .compliance-subnav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
   margin: 0 20px;
+  padding: 4px 0 10px;
+  background: var(--page-bg, #f3f6f4);
 }
 
 .compliance-subnav__link {
@@ -13864,11 +13869,30 @@ html.native-app .pwa-install-page .pwa-install-actions .btn.ghost {
   color: var(--white);
 }
 
+.compliance-dashboard-alerts {
+  margin: 0 0 18px;
+}
+
+.compliance-dashboard-alerts:has(#sponsor-alert-board[hidden]) {
+  display: none;
+}
+
+.compliance-dashboard-alerts__title {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+}
+
 .sponsor-alert-board {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
-  margin: 0 20px;
+  margin: 0;
+}
+
+.compliance-dashboard-pane .sponsor-duties-section {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
 }
 
 .sponsor-alert-card {
@@ -13926,27 +13950,15 @@ html.native-app .pwa-install-page .pwa-install-actions .btn.ghost {
   }
 }
 
-@media (min-width: 861px) {
-  #compliance:not([data-compliance-pane="dashboard"]) #sponsor-duties-section,
-  #compliance:not([data-compliance-pane="dashboard"]) #sponsor-alert-board {
-    display: none !important;
-  }
-  #compliance-tools-content > article:not(.compliance-pane--active) {
-    display: none !important;
-  }
-}
-
-html.native-tablet #compliance:not([data-compliance-pane="dashboard"]) #sponsor-duties-section,
-html.native-tablet #compliance:not([data-compliance-pane="dashboard"]) #sponsor-alert-board {
+html.native-tablet .compliance-pane-stage > article:not(.compliance-pane--active) {
   display: none !important;
 }
 
-html.native-tablet #compliance-tools-content > article:not(.compliance-pane--active) {
+body[data-mobile-tab="compliance"] #compliance-subnav {
   display: none !important;
 }
 
-body[data-mobile-tab="compliance"] #compliance-subnav,
-body[data-mobile-tab="compliance"] #sponsor-alert-board {
+body[data-mobile-tab="compliance"] .compliance-dashboard-pane .sponsor-duties-section {
   display: none !important;
 }
 

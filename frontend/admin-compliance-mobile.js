@@ -49,7 +49,7 @@
         btn.classList.remove("is-open");
         btn.setAttribute("aria-expanded", "false");
       });
-      document.querySelectorAll("#compliance-tools-content > article").forEach((article) => {
+      document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
         article.classList.remove("compliance-section--open");
       });
       return;
@@ -65,7 +65,7 @@
       btn.setAttribute("aria-expanded", active ? "true" : "false");
     });
 
-    document.querySelectorAll("#compliance-tools-content > article").forEach((article) => {
+    document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
       article.classList.toggle("compliance-section--open", article.id === openSectionId);
     });
 
@@ -218,7 +218,7 @@
     const parts = raw.split("/").filter(Boolean);
     const candidates = [raw, parts.join("-"), parts[parts.length - 1]].filter(Boolean);
     const match = SECTIONS.find((s) => candidates.includes(s.id));
-    if (match) setOpenSection(match.id, { scroll: true, toggle: false });
+    if (match) setOpenSection(match.id, { scroll: false, toggle: false });
   }
 
   window.AdminComplianceMobile = {

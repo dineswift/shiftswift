@@ -39,7 +39,7 @@
     <script src="./app-icons.js?v=brandkit-v7"></script>
     <script>
       if (!window.__SSHR_BUNDLED_NATIVE_BOOT) {
-        document.write('<script src="./native-app.js?v=6"><\/script>');
+        document.write('<script src="./native-app.js?v=7"><\/script>');
       }
     </script>
     <script src="./pwa-ios.js?v=2"></script>
@@ -1587,27 +1587,6 @@
             <button type="button" class="btn ghost btn-sm" id="sponsor-banner-export-btn">Export audit pack</button>
           </div>
 
-          <div id="sponsor-duties-section" class="sponsor-duties-section">
-          <article class="sponsor-setup-rail" id="sponsor-setup-checklist" hidden>
-            <div class="sponsor-setup-rail__head">
-              <h3 class="sponsor-setup-rail__title">Setup</h3>
-              <span class="sponsor-setup-rail__count" id="sponsor-setup-progress">0 of 5 complete</span>
-            </div>
-            <div class="sponsor-setup-rail__track" aria-hidden="true">
-              <span class="sponsor-setup-rail__fill" id="sponsor-setup-bar"></span>
-            </div>
-            <ol class="sponsor-setup-chips" id="sponsor-setup-steps"></ol>
-          </article>
-
-          <div class="sponsor-duty-toolbar">
-            <h3 class="sponsor-duty-toolbar__title">Compliance tools</h3>
-            <button type="button" class="sponsor-duties-toggle" id="sponsor-toggle-duties" aria-pressed="false" aria-controls="sponsor-duty-cards">
-              Show duties &amp; responsibilities
-            </button>
-          </div>
-          <div id="sponsor-duty-cards" class="sponsor-duties-grid" hidden aria-label="Compliance duty areas"></div>
-          </div>
-
           <article class="card sponsor-ack-card" id="sponsor-licence-ack-panel" hidden>
             <header class="sponsor-ack-card__header">
               <h3>Confirm sponsor licence holder &amp; your duties</h3>
@@ -1646,9 +1625,13 @@
             <a class="compliance-subnav__link" href="#compliance/adverts" data-compliance-pane="adverts">Adverts</a>
             <a class="compliance-subnav__link" href="#compliance/audit-export" data-compliance-pane="audit-export">Audit pack</a>
           </nav>
-          <div id="sponsor-alert-board" class="sponsor-alert-board" hidden aria-label="Staff compliance alerts"></div>
 
-          <article class="card absence-workspace compliance-pane--active" id="compliance-absence">
+          <div id="compliance-pane-stage" class="compliance-pane-stage">
+          <article class="card absence-workspace compliance-dashboard-pane compliance-pane--active" id="compliance-absence">
+            <div class="compliance-dashboard-alerts">
+              <h3 class="compliance-dashboard-alerts__title">Staff alerts</h3>
+              <div id="sponsor-alert-board" class="sponsor-alert-board" hidden aria-label="Staff compliance alerts"></div>
+            </div>
             <header class="absence-workspace-header section-header section-header--compact">
               <div>
                 <h3>Absence monitoring</h3>
@@ -1762,6 +1745,27 @@
                 <button type="button" class="absence-log-panel__close" id="absence-log-panel-close" aria-label="Close">×</button>
               </header>
               <div id="absence-day-form"></div>
+            </div>
+
+            <div id="sponsor-duties-section" class="sponsor-duties-section">
+              <article class="sponsor-setup-rail" id="sponsor-setup-checklist" hidden>
+                <div class="sponsor-setup-rail__head">
+                  <h3 class="sponsor-setup-rail__title">Setup</h3>
+                  <span class="sponsor-setup-rail__count" id="sponsor-setup-progress">0 of 5 complete</span>
+                </div>
+                <div class="sponsor-setup-rail__track" aria-hidden="true">
+                  <span class="sponsor-setup-rail__fill" id="sponsor-setup-bar"></span>
+                </div>
+                <ol class="sponsor-setup-chips" id="sponsor-setup-steps"></ol>
+              </article>
+
+              <div class="sponsor-duty-toolbar">
+                <h3 class="sponsor-duty-toolbar__title">Compliance tools</h3>
+                <button type="button" class="sponsor-duties-toggle" id="sponsor-toggle-duties" aria-pressed="false" aria-controls="sponsor-duty-cards">
+                  Show duties &amp; responsibilities
+                </button>
+              </div>
+              <div id="sponsor-duty-cards" class="sponsor-duties-grid" hidden aria-label="Compliance duty areas"></div>
             </div>
           </article>
 
@@ -1975,6 +1979,7 @@
               <a class="btn ghost" href="./eula.html" target="_blank" rel="noopener">View HR Module EULA</a>
             </div>
           </article>
+          </div>
           </div>
         </section>
 

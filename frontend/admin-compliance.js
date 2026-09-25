@@ -240,12 +240,45 @@
     const section = document.getElementById("compliance");
     section?.setAttribute("data-compliance-pane", pane);
     document.querySelectorAll("#compliance-subnav [data-compliance-pane]").forEach((link) => {
-      link.classList.toggle("is-active", link.dataset.compliancePane === pane);
+      const active = link.dataset.compliancePane === pane;
+      link.classList.toggle("is-active", active);
+      if (active) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
     });
     const visible = new Set(COMPLIANCE_PANE_IDS[pane] || COMPLIANCE_PANE_IDS.dashboard);
-    document.querySelectorAll("#compliance-tools-content > article").forEach((article) => {
+    document.querySelectorAll("#compliance-pane-stage > article").forEach((article) => {
       const show = visible.has(article.id) || (pane === "dashboard" && article.classList.contains("legal-note"));
       article.classList.toggle("compliance-pane--active", show);
+    });
+  }
+
+  function setComplianceHash(hash) {
+    const next = String(hash || "compliance").replace(/^#/, "");
+    const target = `#${next}`;
+    const subnav = document.getElementById("compliance-subnav");
+    const pin = subnav?.getBoundingClientRect().top;
+    if ((window.location.hash || "#") !== target) {
+      history.replaceState(null, "", target);
+    }
+    syncCompliancePane(target);
+    if (pin != null && subnav) {
+      const delta = subnav.getBoundingClientRect().top - pin;
+      if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+    }
+  }
+
+  function bindCompliancePaneNav() {
+    const section = document.getElementById("compliance");
+    if (!section || section.dataset.paneNavBound === "true") return;
+    section.dataset.paneNavBound = "true";
+    section.addEventListener("click", (event) => {
+      const link = event.target.closest('a[href^="#compliance"]');
+      if (!link || link.target === "_blank") return;
+      const href = link.getAttribute("href") || "";
+      if (!href.startsWith("#compliance")) return;
+      event.preventDefault();
+      setComplianceHash(href);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
   }
 
@@ -372,9 +405,9 @@
         const href = card.getAttribute("data-href") || "";
         const hash = href.replace(/^#/, "");
         const sectionId = hash.includes("/") ? hash.replace("/", "-") : hash;
-        if (hash) window.location.hash = hash;
-        window.AdminComplianceMobile?.setOpenSection?.(sectionId, { scroll: true, toggle: false });
-        syncCompliancePane(hash.startsWith("#") ? hash : `#${hash}`);
+        if (hash) setComplianceHash(hash);
+        window.AdminComplianceMobile?.setOpenSection?.(sectionId, { scroll: false, toggle: false });
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
       };
       card.addEventListener("click", (event) => {
         if (event.target.closest("button, a")) return;
@@ -587,6 +620,7 @@
   function bindSponsorOverviewActions() {
     if (document.body.dataset.sponsorOverviewBound === "true") return;
     document.body.dataset.sponsorOverviewBound = "true";
+    bindCompliancePaneNav();
 
     document.getElementById("sponsor-toggle-duties")?.addEventListener("click", () => {
       setDutiesExpanded(!dutiesExpanded());
