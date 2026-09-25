@@ -862,24 +862,33 @@
       <span class="employees-register-pager"><span class="employees-register-page is-active">1</span></span>`;
   }
 
+  function employeeFullName(row) {
+    return [row?.first_name, row?.last_name].filter(Boolean).join(" ").replace(/\s+/g, " ").trim() || "Employee";
+  }
+
+  function employeeRegisterMeta(row) {
+    return row?.job_title || row?.department || row?.email || "";
+  }
+
   function employeeRegisterRowHtml(row) {
     const selected = employeeIdMatches(selectedEmployeeId, row.id) ? " hr-register-row--selected" : "";
     const palette = avatarPalette(row.id);
     const joined = formatJoinedDate(row.start_date) || "—";
+    const meta = employeeRegisterMeta(row);
     return `<tr class="hr-register-row employees-register-row${selected}" data-employee-id="${row.id}">
       <td>
         <span class="employees-register-person">
           <span class="employees-register-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(row))}</span>
           <span class="employees-register-person__copy">
-            <strong>${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}</strong>
-            <span class="muted">${escapeHtml(row.email || "No email")}</span>
+            <strong class="employees-register-name">${escapeHtml(employeeFullName(row))}</strong>
+            ${meta ? `<span class="muted employees-register-meta">${escapeHtml(meta)}</span>` : ""}
           </span>
         </span>
       </td>
       <td>${escapeHtml(row.department || "—")}</td>
       <td>${escapeHtml(row.job_title || "—")}</td>
-      <td>${employeeStatusPillHtml(row.status)}</td>
-      <td>${escapeHtml(joined)}</td>
+      <td class="employees-register-status">${employeeStatusPillHtml(row.status)}</td>
+      <td class="employees-register-joined">${escapeHtml(joined)}</td>
     </tr>`;
   }
 
@@ -4401,6 +4410,38 @@
     }
   }
 
+  function localDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  function formatNoteDayHeading(iso) {
+    const key = localDateKey(iso);
+    if (!key) return "Undated";
+    const today = localDateKey(new Date());
+    const yesterday = localDateKey(new Date(Date.now() - 86400000));
+    if (key === today) return "Today";
+    if (key === yesterday) return "Yesterday";
+    return formatFriendlyDate(iso);
+  }
+
+  function formatNoteTime(iso) {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+
+  function noteAuthorLabel(note) {
+    const raw = String(note?.created_by || "HR").trim();
+    if (!raw) return "HR";
+    if (raw.includes("@")) return raw.split("@")[0];
+    return raw;
+  }
+
   function noteVisibilityLabel(visibility) {
     return visibility === "employee_visible" ? "Employee portal" : "HR confidential";
   }
@@ -4423,7 +4464,7 @@
           (note) => `
           <article class="employee-note-card employee-note-card--${escapeHtml(note.visibility)}">
             <header class="employee-note-card__head">
-              <span class="employee-note-badge">${escapeHtml(noteVisibilityLabel(note.visibility))}</span>
+              <span class="employee-note-badge">${note.visibility === "employee_visible" ? "" : iconSvg("lock")}${escapeHtml(noteVisibilityLabel(note.visibility))}</span>
               <span class="muted">${escapeHtml(formatNoteWhen(note.created_at))}</span>
             </header>
             <p class="employee-note-card__body">${escapeHtml(note.body || "")}</p>
@@ -4972,6 +5013,35 @@
     });
   }
 
+  function renderSidePanelNotesList(items) {
+    if (!items.length) {
+      return `<div class="emp-notes-empty">
+        <span class="emp-notes-empty__icon" aria-hidden="true">${iconSvg("lock")}</span>
+        <p class="emp-notes-empty__title">No notes yet</p>
+        <p class="emp-notes-empty__text">HR notes are dated and locked after save. They stay confidential unless you share them with the employee.</p>
+      </div>`;
+    }
+    let lastDay = null;
+    const rows = [];
+    items.forEach((note) => {
+      const day = localDateKey(note.created_at);
+      if (day !== lastDay) {
+        lastDay = day;
+        rows.push(`<h5 class="emp-notes-day">${escapeHtml(formatNoteDayHeading(note.created_at))}</h5>`);
+      }
+      const locked = note.visibility !== "employee_visible";
+      rows.push(`<article class="emp-note emp-note--${locked ? "locked" : "shared"}">
+        <header class="emp-note__head">
+          <span class="emp-note__badge">${locked ? `${iconSvg("lock")} Locked · HR only` : `${iconSvg("users")} Shared with employee`}</span>
+          <time class="emp-note__time" datetime="${escapeHtml(note.created_at || "")}">${escapeHtml(formatNoteTime(note.created_at))}</time>
+        </header>
+        <p class="emp-note__body">${escapeHtml(note.body || note.text || "")}</p>
+        <footer class="emp-note__foot">Added by ${escapeHtml(noteAuthorLabel(note))}</footer>
+      </article>`);
+    });
+    return `<div class="emp-notes-timeline">${rows.join("")}</div>`;
+  }
+
   async function loadSidePanelNotes(employeeId) {
     const host = document.getElementById("employees-side-notes");
     if (!host) return;
@@ -4980,37 +5050,63 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Could not load notes");
       const items = data.items || [];
+      const countLabel = items.length === 1 ? "1 note" : `${items.length} notes`;
       host.innerHTML = `
-        <form class="emp-notes-form" id="employees-side-notes-form">
+        <header class="emp-notes-board__head">
+          <span class="emp-notes-board__lock" aria-hidden="true">${iconSvg("lock")}</span>
+          <div>
+            <h4>HR notes</h4>
+            <p>Dated record · locked after save</p>
+          </div>
+          <span class="emp-notes-board__count">${escapeHtml(countLabel)}</span>
+        </header>
+        <form class="emp-notes-composer" id="employees-side-notes-form">
           <label class="employee-record-field employee-record-field--full">
             <span class="employee-record-field__label">Add a note</span>
-            <textarea name="body" rows="3" required placeholder="Visible to HR only unless you share it"></textarea>
+            <textarea name="body" rows="3" maxlength="4000" required placeholder="Write an HR note. It is dated and cannot be edited after save."></textarea>
           </label>
-          <button type="submit" class="btn primary btn-sm">Save note</button>
+          <div class="emp-notes-composer__bar">
+            <fieldset class="emp-notes-visibility">
+              <legend class="visually-hidden">Who can see this note</legend>
+              <label class="emp-notes-choice">
+                <input type="radio" name="visibility" value="hr_internal" checked />
+                <span>${iconSvg("lock")} Locked · HR only</span>
+              </label>
+              <label class="emp-notes-choice">
+                <input type="radio" name="visibility" value="employee_visible" />
+                <span>${iconSvg("users")} Share to employee</span>
+              </label>
+            </fieldset>
+            <button type="submit" class="btn primary btn-sm" id="employees-side-notes-save">Save note</button>
+          </div>
+          <p class="muted emp-notes-composer__status" id="employees-side-notes-status" aria-live="polite"></p>
         </form>
-        <ul class="emp-notes-list">${
-          items.length
-            ? items
-                .map(
-                  (note) =>
-                    `<li><p>${escapeHtml(note.body || note.text || "")}</p><span class="muted">${escapeHtml(note.created_at ? formatFriendlyDate(note.created_at) : "")}</span></li>`,
-                )
-                .join("")
-            : `<li class="muted">No notes yet.</li>`
-        }</ul>`;
+        ${renderSidePanelNotesList(items)}`;
       host.querySelector("#employees-side-notes-form")?.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const body = event.target.body?.value?.trim();
+        const form = event.target;
+        const body = form.body?.value?.trim();
+        const visibility = form.visibility?.value || "hr_internal";
+        const statusEl = host.querySelector("#employees-side-notes-status");
+        const saveBtn = host.querySelector("#employees-side-notes-save");
         if (!body) return;
-        const saveRes = await apiFetch(`/admin/employees/${employeeId}/notes`, {
-          method: "POST",
-          body: JSON.stringify({ body, visibility: "hr_internal" }),
-        });
-        if (!saveRes.ok) {
-          employeesToast("Could not save note", "error");
-          return;
+        if (saveBtn) saveBtn.disabled = true;
+        if (statusEl) statusEl.textContent = "Saving…";
+        try {
+          const saveRes = await apiFetch(`/admin/employees/${employeeId}/notes`, {
+            method: "POST",
+            body: JSON.stringify({ body, visibility }),
+          });
+          const saveData = await saveRes.json().catch(() => ({}));
+          if (!saveRes.ok) throw new Error(employeeApiError(saveRes, saveData, "Could not save note"));
+          employeesToast(visibility === "employee_visible" ? "Note shared with employee" : "Locked HR note saved", "ok");
+          void loadSidePanelNotes(employeeId);
+        } catch (error) {
+          if (saveBtn) saveBtn.disabled = false;
+          const message = employeeErrorText(error, "Could not save note");
+          if (statusEl) statusEl.textContent = message;
+          employeesToast(message, "error");
         }
-        void loadSidePanelNotes(employeeId);
       });
     } catch (error) {
       host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load notes.")}</p>`;

@@ -1386,12 +1386,30 @@ window.Admin = (() => {
   let datePickerState = null;
 
   function closeDatePicker() {
-    datePickerState?.popover?.remove();
-    datePickerState?.onDocClose && document.removeEventListener("pointerdown", datePickerState.onDocClose, true);
-    datePickerState?.onKey && document.removeEventListener("keydown", datePickerState.onKey, true);
-    window.removeEventListener("resize", closeDatePicker);
-    window.removeEventListener("scroll", closeDatePicker, true);
+    const state = datePickerState;
     datePickerState = null;
+    state?.input?.classList.remove("sshr-date-open");
+    state?.popover?.remove();
+    if (state?.onDocClose) document.removeEventListener("pointerdown", state.onDocClose, true);
+    if (state?.onKey) document.removeEventListener("keydown", state.onKey, true);
+    if (state?.onReposition) {
+      window.removeEventListener("resize", state.onReposition);
+      window.removeEventListener("scroll", state.onReposition, true);
+    }
+  }
+
+  function repositionOrCloseDatePicker() {
+    if (!datePickerState?.popover || !datePickerState.input?.isConnected) {
+      closeDatePicker();
+      return;
+    }
+    const rect = datePickerState.input.getBoundingClientRect();
+    const visible = rect.width > 0 && rect.bottom > 8 && rect.top < window.innerHeight - 8;
+    if (!visible) {
+      closeDatePicker();
+      return;
+    }
+    positionDatePicker(datePickerState.popover, datePickerState.input);
   }
 
   function applyDatePickerValue(input, iso) {
@@ -1463,10 +1481,7 @@ window.Admin = (() => {
 
   function openDatePicker(input) {
     if (!input || input.disabled) return;
-    if (datePickerState?.input === input && datePickerState.popover?.isConnected) {
-      closeDatePicker();
-      return;
-    }
+    if (datePickerState?.input === input && datePickerState.popover?.isConnected) return;
     closeDatePicker();
     const current = parseIsoDateValue(input.value) || todayLocalDate();
     const popover = document.createElement("div");
@@ -1481,8 +1496,11 @@ window.Admin = (() => {
       pendingIso: isoFromLocalDate(current),
       onDocClose: null,
       onKey: null,
+      onReposition: null,
     };
     datePickerState = state;
+    input.classList.add("sshr-date-open");
+    popover.addEventListener("pointerdown", (event) => event.stopPropagation());
     popover.addEventListener("click", (event) => {
       const nav = event.target.closest("[data-nav]");
       if (nav) {
@@ -1535,10 +1553,14 @@ window.Admin = (() => {
         closeDatePicker();
       }
     };
+    state.onReposition = (event) => {
+      if (event?.target && state.popover.contains(event.target)) return;
+      repositionOrCloseDatePicker();
+    };
     document.addEventListener("pointerdown", state.onDocClose, true);
     document.addEventListener("keydown", state.onKey, true);
-    window.addEventListener("resize", closeDatePicker);
-    window.addEventListener("scroll", closeDatePicker, true);
+    window.addEventListener("resize", state.onReposition);
+    window.addEventListener("scroll", state.onReposition, true);
   }
 
   function enhanceDatePicker(input) {
@@ -1549,13 +1571,18 @@ window.Admin = (() => {
     input.setAttribute("autocomplete", "off");
     input.setAttribute("inputmode", "none");
     input.readOnly = true;
+    const suppressNative = (event) => {
+      event.preventDefault();
+    };
     const open = (event) => {
       event.preventDefault();
       event.stopPropagation();
       openDatePicker(input);
     };
     input.addEventListener("pointerdown", open);
-    input.addEventListener("click", open);
+    input.addEventListener("mousedown", suppressNative);
+    input.addEventListener("click", suppressNative);
+    input.addEventListener("focus", () => openDatePicker(input));
     input.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
         event.preventDefault();

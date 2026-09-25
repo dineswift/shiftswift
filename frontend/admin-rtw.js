@@ -1,6 +1,6 @@
 /** Right to Work workspace — stats, filters, table, detail panel. */
 (function initAdminRtwWorkspace() {
-  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, parseApiDetail, readApiError, authHeaders, API_BASE } = window.Admin;
+  const { apiFetch, escapeHtml, downloadAuthenticated, parseHashBaseSection, parseApiDetail, readApiError, authHeaders, API_BASE, fetchEmployeesList } = window.Admin;
 
   let sectionReady = false;
   let rtwItems = [];
@@ -11,6 +11,9 @@
   let selectedItem = null;
   let editingRecord = false;
   let previewObjectUrl = null;
+  let employeeDirectory = [];
+  let peopleQuery = "";
+  let peopleFilter = "all";
 
   const AVATAR_PALETTES = [
     { bg: "#E1F5EE", color: "#0F6E56" },
@@ -232,19 +235,122 @@
     if (!workspace) return;
     let banner = document.getElementById("rtw-employee-scope");
     const focusId = focusedEmployeeIdFromHash();
+    const subtitle = document.getElementById("rtw-workspace-subtitle");
+    const layout = document.querySelector("#compliance-rtw .rtw-workspace-layout");
+    layout?.classList.toggle("rtw-workspace-layout--person", Boolean(focusId));
     if (!focusId) {
       if (banner) banner.remove();
+      if (subtitle) subtitle.textContent = "Passports, visas, BRP, and right-to-work checks for all staff — with expiry and status in one place.";
+      renderPeopleList();
       return;
     }
     const sample = rtwItems.find((item) => String(item.employee_id) === String(focusId));
-    const name = sample?.employee_name || `Employee #${focusId}`;
+    const person = peopleRows().find((row) => String(row.id) === String(focusId));
+    const name = sample?.employee_name || person?.name || `Employee #${focusId}`;
     if (!banner) {
       banner = document.createElement("p");
       banner.id = "rtw-employee-scope";
       banner.className = "rtw-employee-scope";
       workspace.insertAdjacentElement("afterend", banner);
     }
-    banner.innerHTML = `Showing identity and right-to-work files for <strong>${escapeHtml(name)}</strong>. <a href="#compliance/rtw">Show all employees</a>`;
+    banner.innerHTML = `Showing identity and right-to-work files for <strong>${escapeHtml(name)}</strong>. <button type="button" class="rtw-employee-scope__clear" data-rtw-clear-person>Show all employees</button>`;
+    banner.querySelector("[data-rtw-clear-person]")?.addEventListener("click", () => selectCompliancePerson(""));
+    if (subtitle) subtitle.textContent = `${name} — passport, visa, BRP and right-to-work checks.`;
+    renderPeopleList();
+  }
+
+  function peopleRows() {
+    const byId = new Map();
+    (employeeDirectory || []).forEach((emp) => {
+      const name = `${emp.first_name || ""} ${emp.last_name || ""}`.replace(/\s+/g, " ").trim() || "Employee";
+      byId.set(String(emp.id), {
+        id: emp.id,
+        name,
+        role: emp.job_title || emp.department || "",
+        sponsored: Boolean(emp.is_sponsored || emp.sponsorship?.is_sponsored_worker),
+        status: emp.status || "active",
+        needsReview: false,
+        expiring: false,
+        recordCount: 0,
+      });
+    });
+    rtwItems.forEach((item) => {
+      const id = String(item.employee_id || "");
+      if (!id) return;
+      const existing = byId.get(id) || {
+        id: item.employee_id,
+        name: item.employee_short_name || item.employee_name || "Employee",
+        role: item.employee_role || "",
+        sponsored: false,
+        status: "active",
+        needsReview: false,
+        expiring: false,
+        recordCount: 0,
+      };
+      existing.name = item.employee_short_name || item.employee_name || existing.name;
+      existing.role = item.employee_role || existing.role;
+      existing.sponsored = existing.sponsored || Boolean(item.is_sponsored);
+      byId.set(id, existing);
+    });
+    byId.forEach((row, id) => {
+      const live = rtwItems.filter((item) => String(item.employee_id) === String(id) && !item.superseded);
+      row.recordCount = live.length;
+      row.needsReview = live.some((item) => item.status === "needs_review");
+      row.expiring = live.some((item) => item.status === "expiring_soon");
+    });
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+  }
+
+  function visiblePeopleRows() {
+    const query = peopleQuery.trim().toLowerCase();
+    return peopleRows().filter((row) => {
+      if (peopleFilter === "sponsored" && !row.sponsored) return false;
+      if (!query) return true;
+      return `${row.name} ${row.role}`.toLowerCase().includes(query);
+    });
+  }
+
+  function selectCompliancePerson(employeeId) {
+    const id = String(employeeId || "").trim();
+    window.location.hash = id ? `compliance/rtw/${encodeURIComponent(id)}` : "compliance/rtw";
+  }
+
+  function renderPeopleList() {
+    const list = document.getElementById("rtw-people-list");
+    if (!list) return;
+    const focusId = focusedEmployeeIdFromHash();
+    const rows = visiblePeopleRows();
+    const allActive = !focusId ? " is-selected" : "";
+    const items = [
+      `<li>
+        <button type="button" class="rtw-people-item rtw-people-item--all${allActive}" data-rtw-person="">
+          <span class="rtw-people-item__copy">
+            <strong>All employees</strong>
+            <span class="muted">${peopleRows().length} on file</span>
+          </span>
+        </button>
+      </li>`,
+    ];
+    rows.forEach((row) => {
+      const palette = avatarStyle(row.id);
+      const selected = String(row.id) === String(focusId) ? " is-selected" : "";
+      const tone = row.needsReview ? "review" : row.expiring ? "soon" : row.recordCount ? "ok" : "empty";
+      const countLabel = row.recordCount ? `${row.recordCount} file${row.recordCount === 1 ? "" : "s"}` : "No files";
+      items.push(`<li>
+        <button type="button" class="rtw-people-item rtw-people-item--${tone}${selected}" data-rtw-person="${escapeHtml(String(row.id))}">
+          <span class="rtw-people-avatar" style="background:${palette.bg};color:${palette.color}">${escapeHtml(employeeInitials(row.name))}</span>
+          <span class="rtw-people-item__copy">
+            <strong>${escapeHtml(row.name)}</strong>
+            <span class="muted">${escapeHtml([row.sponsored ? "Sponsored" : "", row.role].filter(Boolean).join(" · ") || countLabel)}</span>
+          </span>
+          <span class="rtw-people-item__count">${escapeHtml(countLabel)}</span>
+        </button>
+      </li>`);
+    });
+    if (!rows.length) {
+      items.push(`<li class="rtw-people-empty muted">No matching employees.</li>`);
+    }
+    list.innerHTML = items.join("");
   }
 
   function renderStats() {
@@ -893,6 +999,7 @@
       rtwStats = data.stats || rtwStats;
       renderStats();
       renderTable();
+      renderPeopleList();
       if (focusId) setAddCheckEmployee(focusId);
       if (selectedCheckId && rtwItems.some((item) => sameRecordId(item.id, selectedCheckId))) {
         await selectCheck(selectedCheckId);
@@ -973,6 +1080,23 @@
     if (document.body.dataset.rtwWorkspaceBound === "true") return;
     document.body.dataset.rtwWorkspaceBound = "true";
 
+    document.getElementById("rtw-people-list")?.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-rtw-person]");
+      if (!btn) return;
+      selectCompliancePerson(btn.getAttribute("data-rtw-person"));
+    });
+    document.getElementById("rtw-people-search")?.addEventListener("input", (event) => {
+      peopleQuery = event.target.value || "";
+      renderPeopleList();
+    });
+    document.querySelectorAll("[data-people-filter]").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        peopleFilter = tab.getAttribute("data-people-filter") || "all";
+        document.querySelectorAll("[data-people-filter]").forEach((el) => el.classList.toggle("is-active", el === tab));
+        renderPeopleList();
+      });
+    });
+
     document.getElementById("rtw-export-all-btn")?.addEventListener("click", exportAllRecords);
     document.getElementById("rtw-add-check-btn")?.addEventListener("click", () => {
       const item = rtwItems.find((row) => sameRecordId(row.id, selectedCheckId));
@@ -1017,8 +1141,18 @@
     });
   }
 
+  async function loadEmployeeDirectory() {
+    try {
+      employeeDirectory = (await fetchEmployeesList?.()) || [];
+    } catch {
+      employeeDirectory = [];
+    }
+    renderPeopleList();
+  }
+
   async function initRtwSection() {
     bindRtwWorkspace();
+    await loadEmployeeDirectory();
     await tryLoadRtwRecords();
   }
 

@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v191" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v195" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=2" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
   </head>
@@ -1752,7 +1752,7 @@
             <header class="rtw-workspace-header section-header section-header--compact">
               <div>
                 <h3>Right to work</h3>
-                <p class="muted">Passports, visas, BRP, and right-to-work checks for all staff — with expiry and status in one place.</p>
+                <p class="muted" id="rtw-workspace-subtitle">Passports, visas, BRP, and right-to-work checks for all staff — with expiry and status in one place.</p>
               </div>
               <div class="section-actions rtw-workspace-actions">
                 <button type="button" class="btn outline" id="rtw-export-all-btn">Export all records</button>
@@ -1804,6 +1804,21 @@
             </div>
 
             <div class="rtw-workspace-layout">
+              <aside class="rtw-people-pane" id="rtw-people-pane" aria-label="Select employee">
+                <div class="rtw-people-pane__head">
+                  <h4>Employees</h4>
+                  <p class="muted">Select a person to view their sponsor file</p>
+                </div>
+                <label class="rtw-people-search">
+                  <span class="sr-only">Search employees</span>
+                  <input type="search" id="rtw-people-search" placeholder="Search name…" autocomplete="off" />
+                </label>
+                <div class="rtw-people-toggles" role="tablist" aria-label="Employee list filter">
+                  <button type="button" class="rtw-people-toggle is-active" data-people-filter="all">All</button>
+                  <button type="button" class="rtw-people-toggle" data-people-filter="sponsored">Sponsored</button>
+                </div>
+                <ul class="rtw-people-list" id="rtw-people-list"></ul>
+              </aside>
               <div class="rtw-table-wrap rtw-desktop-table">
                 <table class="rtw-table" aria-label="Right to work checks">
                   <thead>
@@ -3724,19 +3739,19 @@
     <script src="./admin-mobile.js?v=25"></script>
     <script src="./admin-compliance-mobile.js?v=6"></script>
     <script src="./action-feedback.js?v=4"></script>
-    <script src="./admin-shared.js?v=admin-v53"></script>
+    <script src="./admin-shared.js?v=admin-v54"></script>
     <script src="./passkey-auth.js?v=7"></script>
     <script src="./admin-settings.js?v=43"></script>
     <script src="./admin-workspace.js?v=admin-v36"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=36"></script>
-    <script src="./admin-employees.js?v=56"></script>
+    <script src="./admin-employees.js?v=58"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=6"></script>
     <script src="./admin-compliance.js?v=admin-v23"></script>
     <script src="./admin-absence.js?v=4"></script>
-    <script src="./admin-rtw.js?v=20"></script>
+    <script src="./admin-rtw.js?v=21"></script>
     <script src="./admin-grievance.js?v=7"></script>
     <script src="./admin-disciplinary.js?v=4"></script>
     <script src="./admin-offboarding.js?v=admin-v8"></script>
