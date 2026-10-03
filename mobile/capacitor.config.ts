@@ -43,14 +43,20 @@ const sharedPlist = {
   UIBackgroundModes: ["remote-notification"],
 };
 
+const bundledServer = {
+  allowNavigation,
+  iosScheme: "App",
+  hostname: "localhost",
+};
+
 const apps: Record<AppVariant, CapacitorConfig> = {
   app: {
     appId: "co.uk.shiftswifthr.app",
     appName: "ShiftSwift HR",
     webDir: "www/app",
     server: devServer
-      ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation }
-      : { allowNavigation },
+      ? { url: devServer, cleartext: devServer.startsWith("http://"), allowNavigation, iosScheme: "App", hostname: "localhost" }
+      : bundledServer,
     ios: {
       path: "ios-app",
       contentInset: "automatic",

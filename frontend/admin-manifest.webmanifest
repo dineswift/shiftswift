@@ -1,9 +1,9 @@
 {
-  "id": "/business-login.html",
+  "id": "/sign-in.html",
   "name": "ShiftSwift HR Admin",
   "short_name": "HR Admin",
   "description": "Manage employees, compliance, rotas, and HR for your business.",
-  "start_url": "./business-login.html?source=pwa",
+  "start_url": "./sign-in.html?source=pwa",
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],

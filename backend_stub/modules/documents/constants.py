@@ -32,7 +32,7 @@ VALID_EXPIRY_ALERT_DAYS = frozenset({30, 60, 90})
 TENANT_DOCUMENT_CATEGORIES = [
     {"value": "general", "label": "General"},
     {"value": "contract", "label": "Contract"},
-    {"value": "rtw", "label": "RTW document"},
+    {"value": "rtw", "label": "Right to work check"},
     {"value": "visa_brp", "label": "Visa / BRP"},
     {"value": "dbs", "label": "DBS check"},
     {"value": "training", "label": "Training certificate"},
@@ -47,8 +47,8 @@ EMPLOYEE_DOCUMENT_CATEGORIES = [
     {"value": "contract", "label": "Contract"},
     {"value": "payslip", "label": "Payslip"},
     {"value": "id", "label": "ID / passport"},
-    {"value": "rtw", "label": "RTW document"},
     {"value": "visa_brp", "label": "Visa / BRP"},
+    {"value": "rtw", "label": "Right to work check"},
     {"value": "dbs", "label": "DBS check"},
     {"value": "qualification", "label": "Training certificate"},
     {"value": "training", "label": "Training certificate"},
@@ -65,6 +65,13 @@ EMPLOYEE_SELF_SERVICE_CATEGORIES = frozenset(
 
 EMPLOYEE_DOCUMENT_CATEGORY_LABELS = {item["value"]: item["label"] for item in EMPLOYEE_DOCUMENT_CATEGORIES}
 
+# Categories that share an expiry + HR-alert flow (ID / passport, visa / BRP, RTW check).
+ID_PASSPORT_CATEGORIES = frozenset({"id", "passport", "identity"})
+VISA_CATEGORIES = frozenset({"visa_brp", "visa"})
+RTW_CHECK_CATEGORIES = frozenset({"rtw", "right_to_work"})
+VISA_RTW_CATEGORIES = VISA_CATEGORIES | RTW_CHECK_CATEGORIES
+IDENTITY_EXPIRY_CATEGORIES = ID_PASSPORT_CATEGORIES | VISA_RTW_CATEGORIES
+
 EMPLOYEE_DOCUMENT_REQUIREMENTS = {
     "standard": (
         {"category": "contract", "label": "Signed employment contract", "required": True},
@@ -74,7 +81,8 @@ EMPLOYEE_DOCUMENT_REQUIREMENTS = {
     "sponsored": (
         {"category": "contract", "label": "Signed employment contract", "required": True},
         {"category": "id", "label": "Photo ID or passport copy", "required": True},
-        {"category": "rtw", "label": "Right to work evidence", "required": True},
+        {"category": "visa_brp", "label": "Visa / BRP (with expiry)", "required": True},
+        {"category": "rtw", "label": "Right to work check (with expiry)", "required": True},
         {"category": "policy", "label": "Handbook / H&S acknowledgement", "required": False},
     ),
 }

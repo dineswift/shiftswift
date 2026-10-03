@@ -238,6 +238,19 @@
           kvRow("Last active", escapeHtml(tenant.last_active?.label || "—")),
         ].join(""),
       ),
+      isDeleted
+        ? ""
+        : detailSection(
+            "Edit workspace",
+            `<form id="detail-workspace-form" class="master-workspace-form">
+              <label class="master-change-plan__field">Business name<input name="business_name" required maxlength="200" value="${escapeHtml(tenant.name || "")}" autocomplete="organization" /></label>
+              <label class="master-change-plan__field">Trading name <span class="muted">(optional)</span><input name="trading_name" maxlength="200" value="${escapeHtml(tenant.trading_name || "")}" autocomplete="organization" /></label>
+              <label class="master-change-plan__field">Registered address<textarea name="registered_address" rows="3" maxlength="500" placeholder="Street, town, postcode">${escapeHtml(tenant.registered_address || "")}</textarea></label>
+              <p class="muted master-workspace-form__hint">Updates the customer workspace profile — same fields they see in HR Settings.</p>
+              <button type="submit" class="master-btn master-btn--ghost">Save workspace</button>
+              <p class="master-inline-status muted" id="detail-workspace-status" aria-live="polite"></p>
+            </form>`,
+          ),
     ].join("");
 
     const billingEmailValue = billingEmail
@@ -318,6 +331,10 @@
     };
 
     const changePlanSelect = document.getElementById("detail-change-plan-select");
+    const changePlanStaffTier = document.getElementById("detail-change-staff-tier");
+    const changePlanStaffCustomWrap = document.getElementById("detail-change-staff-custom-wrap");
+    const changePlanStaffCustom = document.getElementById("detail-change-staff-custom");
+    const changePlanPriceHint = document.getElementById("detail-change-price-hint");
     const changePlanNotes = document.getElementById("detail-change-plan-notes");
     const changePlanStatus = document.getElementById("detail-change-plan-status");
     const changePlanApply = document.getElementById("detail-change-plan-apply");
@@ -330,6 +347,8 @@
     const aiDocumentAddon = document.getElementById("detail-ai-document-addon");
     const aiDocumentMonthlyGbp = document.getElementById("detail-ai-document-monthly-gbp");
 
+    const billingUi = global.ShiftSwiftMasterBilling || {};
+
     const hideChangePlanPanel = () => {
       if (changePlanWrap) changePlanWrap.hidden = true;
       if (changePlanStatus) changePlanStatus.textContent = "";
@@ -341,9 +360,44 @@
       changePlanSelect.innerHTML = plans
         .map(
           (plan) =>
-            `<option value="${escapeHtml(plan.id)}"${plan.id === currentPlanId ? " selected" : ""}>${escapeHtml(plan.name)} · up to ${plan.max_employees} staff</option>`,
+            `<option value="${escapeHtml(plan.id)}"${plan.id === currentPlanId ? " selected" : ""}>${escapeHtml(plan.name)}</option>`,
         )
         .join("");
+    };
+
+    const syncChangePlanStaffTierUi = () => {
+      const isOffline = tenant.billing_mode === "offline";
+      const tierWrap = document.getElementById("detail-change-staff-tier-wrap");
+      if (tierWrap) tierWrap.hidden = !isOffline;
+      if (!isOffline) {
+        if (changePlanStaffCustomWrap) changePlanStaffCustomWrap.hidden = true;
+        if (changePlanPriceHint) {
+          changePlanPriceHint.hidden = true;
+          changePlanPriceHint.textContent = "";
+        }
+        return;
+      }
+      const planId = changePlanSelect?.value || tenant.plan_id || "";
+      const currentLimit = tenant.employees_limit || tenant.max_employees || null;
+      const resolvedLimit = billingUi.populateStaffTierSelect?.(
+        provisionPlans,
+        planId,
+        changePlanStaffTier,
+        { currentLimit },
+      );
+      const isCustom = changePlanStaffTier?.value === "custom";
+      if (changePlanStaffCustomWrap) changePlanStaffCustomWrap.hidden = !isCustom;
+      if (isCustom && changePlanStaffCustom && !String(changePlanStaffCustom.value || "").trim() && resolvedLimit) {
+        changePlanStaffCustom.value = String(resolvedLimit);
+      }
+      billingUi.updateStaffTierPriceHint?.(
+        provisionPlans,
+        planId,
+        changePlanStaffTier?.value,
+        changePlanStaffCustom?.value,
+        changePlanPriceHint,
+        { isOffline: true },
+      );
     };
 
     async function openChangePlanPanel() {
@@ -357,6 +411,7 @@
           provisionPlans.splice(0, provisionPlans.length, ...(data.plans || []));
         }
         populateChangePlanSelect(provisionPlans);
+        syncChangePlanStaffTierUi();
         if (changePlanNotes) changePlanNotes.value = tenant.billing_notes || "";
         if (rotaAdvancedAddon) rotaAdvancedAddon.checked = Boolean(tenant.rota_advanced_addon);
         if (rotaMultiSiteAddon) rotaMultiSiteAddon.checked = Boolean(tenant.rota_multi_site_addon);
@@ -388,6 +443,9 @@
     const changePlanActionBtn = document.getElementById("detail-action-change-plan");
     if (changePlanActionBtn) changePlanActionBtn.onclick = openChangePlanPanel;
     if (changePlanCancel) changePlanCancel.onclick = hideChangePlanPanel;
+    changePlanSelect?.addEventListener("change", syncChangePlanStaffTierUi);
+    changePlanStaffTier?.addEventListener("change", syncChangePlanStaffTierUi);
+    changePlanStaffCustom?.addEventListener("input", syncChangePlanStaffTierUi);
 
     if (changePlanApply) {
       changePlanApply.disabled = isDeleted;
@@ -417,18 +475,45 @@
           crmNotesValue !== (tenant.crm_addon_billing_notes || "") ||
           aiDocumentAddonEnabled !== Boolean(tenant.ai_document_addon) ||
           aiDocumentMonthlyValue !== (tenant.ai_document_addon_monthly_gbp ?? null);
-        if (!planChanged && !addonsChanged) {
+        const notes = (changePlanNotes?.value || "").trim();
+        let billingMode = tenant.billing_mode === "offline" ? "offline" : "stripe";
+        let staffLimit = null;
+        if (billingMode === "offline") {
+          staffLimit = billingUi.resolveStaffTierLimit?.(
+            provisionPlans,
+            planId,
+            changePlanStaffTier?.value,
+            changePlanStaffCustom?.value,
+          );
+          if (!staffLimit) {
+            if (changePlanStatus) changePlanStatus.textContent = "Choose a staff license tier (or enter a custom limit).";
+            return;
+          }
+        }
+        const staffChanged =
+          billingMode === "offline" &&
+          staffLimit != null &&
+          staffLimit !== Number(tenant.employees_limit || tenant.max_employees || 0);
+        if (!planChanged && !addonsChanged && !staffChanged) {
           if (changePlanStatus) changePlanStatus.textContent = "No changes to apply.";
           return;
         }
-        const notes = (changePlanNotes?.value || "").trim();
-        let billingMode = tenant.billing_mode === "offline" ? "offline" : "stripe";
         if (planChanged && billingMode !== "offline") {
           const ok = window.confirm(
             "This tenant is still on Stripe billing. Switch them to offline/manual billing with the new plan?",
           );
           if (!ok) return;
           billingMode = "offline";
+          staffLimit = billingUi.resolveStaffTierLimit?.(
+            provisionPlans,
+            planId,
+            changePlanStaffTier?.value,
+            changePlanStaffCustom?.value,
+          );
+          if (!staffLimit) {
+            if (changePlanStatus) changePlanStatus.textContent = "Choose a staff license tier (or enter a custom limit).";
+            return;
+          }
         }
         const subscriptionStatus =
           billingMode === "offline"
@@ -438,7 +523,7 @@
               : "active";
         if (changePlanStatus) changePlanStatus.textContent = "Saving…";
         try {
-          const result = await apiPost(`/master/tenants/${tenant.id}/billing`, {
+          const billingPayload = {
             billing_mode: billingMode,
             subscription_status: subscriptionStatus,
             plan_id: planId,
@@ -450,7 +535,20 @@
             crm_addon_billing_notes: crmNotesValue,
             ai_document_addon: aiDocumentAddonEnabled,
             ai_document_addon_monthly_gbp: aiDocumentMonthlyValue,
-          });
+          };
+          if (staffLimit != null) billingPayload.max_employees = staffLimit;
+          if (
+            billingMode === "offline" &&
+            staffLimit &&
+            !notes &&
+            (planChanged || staffChanged)
+          ) {
+            billingPayload.billing_notes =
+              billingUi.suggestedBillingNote?.(provisionPlans, planId, staffLimit) ||
+              tenant.billing_notes ||
+              "";
+          }
+          const result = await apiPost(`/master/tenants/${tenant.id}/billing`, billingPayload);
           hideChangePlanPanel();
           await refresh();
           const planLabel = provisionPlans.find((plan) => plan.id === planId)?.name || planId;
@@ -590,11 +688,59 @@
       if (!body) return;
       try {
         await apiPost(`/master/tenants/${tenant.id}/email`, { subject, body });
-        alert("Email sent.");
+        alert(`Email sent to ${data.sent_to || "tenant contact"}.`);
       } catch (error) {
         alert(error.message);
       }
     };
+
+    const resetHrBtn = document.getElementById("detail-reset-hr-password");
+    if (resetHrBtn) {
+      resetHrBtn.hidden = isDeleted;
+      resetHrBtn.onclick = async () => {
+        closeActionsMenu();
+        const hrEmail = tenant.hr_login_email || tenant.billing_email || "the primary HR login";
+        if (!window.confirm(`Send a password reset / setup email to ${hrEmail}?`)) return;
+        try {
+          const data = await apiPost(`/master/tenants/${tenant.id}/reset-hr-password`, {
+            send_email: true,
+            set_temporary_password: false,
+          });
+          alert(`Reset link sent to ${data.hr_username || hrEmail}.`);
+        } catch (error) {
+          alert(error.message);
+        }
+      };
+    }
+
+    const tempHrBtn = document.getElementById("detail-set-temp-hr-password");
+    if (tempHrBtn) {
+      tempHrBtn.hidden = isDeleted;
+      tempHrBtn.onclick = async () => {
+        closeActionsMenu();
+        const hrEmail = tenant.hr_login_email || tenant.billing_email || "the primary HR login";
+        if (
+          !window.confirm(
+            `Set a temporary password for ${hrEmail}?\n\nThe password will be shown once — copy it now. Do not share it in chat logs.`
+          )
+        ) {
+          return;
+        }
+        try {
+          const data = await apiPost(`/master/tenants/${tenant.id}/reset-hr-password`, {
+            send_email: false,
+            set_temporary_password: true,
+          });
+          const password = data.temporary_password || "";
+          window.prompt(
+            `Temporary password for ${data.hr_username || hrEmail} (copy now — shown once):`,
+            password
+          );
+        } catch (error) {
+          alert(error.message);
+        }
+      };
+    }
 
     document.getElementById("detail-save-notes").onclick = async () => {
       const statusEl = document.getElementById("detail-notes-status");
@@ -605,6 +751,32 @@
         if (statusEl) statusEl.textContent = error.message;
       }
     };
+
+    const workspaceForm = document.getElementById("detail-workspace-form");
+    if (workspaceForm && !isDeleted) {
+      workspaceForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const statusEl = document.getElementById("detail-workspace-status");
+        const fd = new FormData(workspaceForm);
+        const payload = {
+          business_name: String(fd.get("business_name") || "").trim(),
+          trading_name: String(fd.get("trading_name") || "").trim() || null,
+          registered_address: String(fd.get("registered_address") || "").trim() || null,
+        };
+        if (!payload.business_name) {
+          if (statusEl) statusEl.textContent = "Business name is required.";
+          return;
+        }
+        if (statusEl) statusEl.textContent = "Saving…";
+        try {
+          await apiPut(`/master/tenants/${tenant.id}/workspace`, payload);
+          if (statusEl) statusEl.textContent = "Workspace saved.";
+          await refresh();
+        } catch (error) {
+          if (statusEl) statusEl.textContent = error.message || "Could not save workspace.";
+        }
+      });
+    }
   }
 
   global.ShiftSwiftMasterTenantDetail = {

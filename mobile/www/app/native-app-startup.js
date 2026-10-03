@@ -1,6 +1,6 @@
 /** Native app startup loader — sliding logo animation while the shell loads. */
 (function initNativeStartupLoader() {
-  const LOADER_HTML = `
+  const LOADER_HTML = document.getElementById("native-startup-loader")?.outerHTML || `
     <div id="native-startup-loader" class="native-startup-loader" role="status" aria-live="polite" aria-label="Loading ShiftSwift HR">
       <div class="native-startup-loader__inner">
         <div class="native-startup-loader__icon-wrap">
@@ -56,6 +56,10 @@
 
   function hideCapacitorSplash() {
     try {
+      if (window.ShiftSwiftNativeApp?.hideSplash) {
+        window.ShiftSwiftNativeApp.hideSplash();
+        return;
+      }
       window.Capacitor?.Plugins?.SplashScreen?.hide?.()?.catch?.(() => null);
     } catch {
       /* ignore */
@@ -110,15 +114,28 @@
 
   function computeMinMs({ postLogin, sessionReady, isLogin, reduced }) {
     if (reduced) {
-      if (postLogin) return 360;
-      if (isLogin && sessionReady) return 240;
-      return 320;
+      if (postLogin) return 480;
+      if (isLogin && sessionReady) return 320;
+      return 400;
     }
     if (postLogin) return 1200;
-    if (isLogin && !sessionReady) return 980;
-    if (isLogin && sessionReady) return 520;
+    if (isLogin && !sessionReady) return 2000;
+    if (isLogin && sessionReady) return 1600;
     if (isPortalPage()) return 720;
-    return 920;
+    return 2000;
+  }
+
+  function activateStartupShell() {
+    const root = document.documentElement;
+    root.classList.add("native-startup-active");
+    document.body?.classList.add("native-startup-active");
+  }
+
+  function primeStartupLoader() {
+    if (!isNative() || isPortalPage()) return;
+    if (!isLoginPage()) return;
+    const loader = document.getElementById("native-startup-loader") || injectLoader();
+    if (loader) activateStartupShell();
   }
 
   async function boot() {
@@ -136,15 +153,28 @@
       return;
     }
 
+    if (isLoginPage() && /\/\/localhost\//i.test(String(location.href || ""))) {
+      document.getElementById("native-startup-loader")?.remove();
+      document.documentElement.classList.remove("native-startup-active");
+      document.body?.classList.remove("native-startup-active");
+      hideCapacitorSplash();
+      window.dispatchEvent(new CustomEvent("shiftswift:startup-loader-done"));
+      window.ShiftSwiftNativeStartup = {
+        finish: hideCapacitorSplash,
+        hideCapacitorSplash,
+        injectLoader,
+        dismissNativeStartupLoader: hideCapacitorSplash,
+      };
+      return;
+    }
+
     const loader = document.getElementById("native-startup-loader") || injectLoader();
     if (!loader) {
       hideCapacitorSplash();
       return;
     }
 
-    const root = document.documentElement;
-    root.classList.add("native-startup-active");
-    document.body?.classList.add("native-startup-active");
+    activateStartupShell();
     hideCapacitorSplash();
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -165,7 +195,7 @@
       finished = true;
       loader.classList.add("is-done");
       loader.setAttribute("aria-hidden", "true");
-      root.classList.remove("native-startup-active");
+      document.documentElement.classList.remove("native-startup-active");
       document.body?.classList.remove("native-startup-active");
       hideCapacitorSplash();
       window.dispatchEvent(new CustomEvent("shiftswift:startup-loader-done"));
@@ -180,17 +210,12 @@
 
     const maxTimer = window.setTimeout(finish, maxMs);
 
-    if (isLoginPage()) {
-      window.setTimeout(() => {
-        if (!finished) finish();
-      }, 1200);
-    }
-
     await Promise.all([delay(minMs), waitForPortalReady()]);
     window.clearTimeout(maxTimer);
     finish();
   }
 
+  primeStartupLoader();
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });
   } else {

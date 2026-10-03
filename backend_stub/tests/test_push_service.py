@@ -61,15 +61,16 @@ def test_send_employee_push_skips_when_not_configured(monkeypatch) -> None:
 @patch("modules.push.service.send_push")
 @patch("modules.push.service.list_subscriptions")
 @patch("modules.push.service.record_push_sent")
+@patch("modules.push.service._employee_push_already_sent", return_value=False)
 @patch("modules.push.service.push_configured", return_value=True)
 def test_send_employee_push_delivers_to_devices(
     _configured,
+    _already_sent,
     record_sent,
     list_subs,
     send_push,
     monkeypatch,
 ) -> None:
-    record_sent.return_value = True
     list_subs.return_value = [
         {"id": 1, "endpoint": "https://push.example/1", "p256dh": "k", "auth": "a"}
     ]
@@ -87,3 +88,30 @@ def test_send_employee_push_delivers_to_devices(
     )
     assert result["sent"] == 1
     send_push.assert_called_once()
+    record_sent.assert_called_once()
+
+
+@patch("modules.push.service.list_subscriptions")
+@patch("modules.push.service._employee_push_already_sent", return_value=False)
+@patch("modules.push.service.record_push_sent")
+@patch("modules.push.service.push_configured", return_value=True)
+def test_send_employee_push_no_subscription_skips_dedup(
+    _configured,
+    record_sent,
+    _already_sent,
+    list_subs,
+) -> None:
+    list_subs.return_value = []
+    conn = MagicMock()
+
+    result = push_service.send_employee_push(
+        tenant_id=1,
+        employee_id=2,
+        notification_key="shift_start:5",
+        title="Clock in",
+        body="Shift started",
+        url="https://app.example/punch.html",
+        conn=conn,
+    )
+    assert result["skipped"] == "no_subscription"
+    record_sent.assert_not_called()

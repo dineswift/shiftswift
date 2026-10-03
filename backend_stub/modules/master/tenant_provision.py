@@ -72,6 +72,8 @@ def create_tenant_manually(
 
     if access == "trialing" and trial_days < 1:
         raise ValueError("Trial days must be at least 1 when access is trialing")
+    if billing_mode == "offline" and access == "trialing":
+        raise ValueError("Offline / invoice billing cannot include a trial — choose Active or use Stripe billing")
     if billing_mode == "stripe" and access == "active":
         raise ValueError("Stripe billing requires trialing or pending payment — use offline for immediate active access")
 
@@ -299,16 +301,25 @@ def update_tenant_billing(
 
 def list_provision_plans() -> list[dict[str, object]]:
     from billing_plans import list_plans
+    from billing_pricing import offline_pricing_summary, offline_staff_tiers, plan_pricing_payload
 
-    return [
-        {
-            "id": plan.id,
-            "name": plan.name,
-            "max_employees": plan.max_employees,
-            "price_gbp_ex_vat": plan.price_gbp_ex_vat,
-        }
-        for plan in list_plans()
-    ]
+    items: list[dict[str, object]] = []
+    for plan in list_plans():
+        pricing = plan_pricing_payload(plan)
+        items.append(
+            {
+                "id": plan.id,
+                "name": plan.name,
+                "max_employees": plan.max_employees,
+                "price_gbp_ex_vat": plan.price_gbp_ex_vat,
+                "base_price_gbp_ex_vat": pricing["base_price_gbp_ex_vat"],
+                "price_per_active_employee_gbp_ex_vat": pricing["price_per_active_employee_gbp_ex_vat"],
+                "monthly_cap_gbp_ex_vat": pricing["monthly_cap_gbp_ex_vat"],
+                "staff_tiers": offline_staff_tiers(plan),
+                "offline_pricing": offline_pricing_summary(plan.id),
+            }
+        )
+    return items
 
 
 def _send_manual_welcome_email(

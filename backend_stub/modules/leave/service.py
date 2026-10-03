@@ -309,15 +309,19 @@ def review_leave_request(
             ),
         )
     if decision == "approved" and start_date and end_date:
-        sync_approved_leave_to_sponsor_absence(
-            tenant_id=tenant_id,
-            employee_id=int(employee_id),
-            request_id=request_id,
-            leave_type=str(leave_type),
-            start_date=start_date,
-            end_date=end_date,
-            conn=conn,
-        )
+        try:
+            sync_approved_leave_to_sponsor_absence(
+                tenant_id=tenant_id,
+                employee_id=int(employee_id),
+                request_id=request_id,
+                leave_type=str(leave_type),
+                start_date=start_date,
+                end_date=end_date,
+                conn=conn,
+            )
+        except Exception:
+            # Approval must still succeed even if sponsor mirroring fails.
+            pass
     conn.commit()
     items = list_leave_requests(tenant_id=tenant_id, conn=conn, limit=500)
     match = next((item for item in items if item["id"] == request_id), None)

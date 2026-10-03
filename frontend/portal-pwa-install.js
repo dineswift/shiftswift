@@ -21,6 +21,16 @@
 
   const ios = window.ShiftSwiftPwaIos || {};
 
+  if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+    void window.ShiftSwiftBrand?.disablePwaRuntime?.();
+    window.ShiftSwiftPortalPwaInstall = {
+      openIosInstallSheet() {},
+      closeIosInstallSheet() {},
+      isStandalone: () => false,
+    };
+    return;
+  }
+
   function isNativeShell() {
     try {
       if (window.Capacitor?.isNativePlatform?.()) return true;

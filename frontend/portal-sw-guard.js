@@ -20,6 +20,10 @@
   }
 
   async function preparePortal(target) {
+    if (window.ShiftSwiftBrand && window.ShiftSwiftBrand.isPwaEnabled?.() !== true) {
+      await window.ShiftSwiftBrand.disablePwaRuntime?.();
+      return;
+    }
     if (target === "employee") {
       await unregisterMatching([ADMIN_SW, LEGACY_SW]);
       return;

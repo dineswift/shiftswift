@@ -40,7 +40,21 @@ window.ShiftSwiftBrand.isCapacitorNative = function isCapacitorNative() {
 };
 
 window.ShiftSwiftBrand.isLocalDevHost = function isLocalDevHost() {
+  // Capacitor WebViews use hostname "localhost" (App://localhost) — never treat as local API.
   if (this.isCapacitorNative()) return false;
+  try {
+    const protocol = String(window.location.protocol || "").toLowerCase();
+    if (
+      protocol === "capacitor:" ||
+      protocol === "ionic:" ||
+      protocol === "app:" ||
+      Boolean(window.__SSHR_BUNDLED_NATIVE_BOOT)
+    ) {
+      return false;
+    }
+  } catch {
+    /* ignore */
+  }
   const host = window.location.hostname;
   return host === "localhost" || host === "127.0.0.1";
 };
@@ -91,8 +105,20 @@ window.ShiftSwiftBrand.normalizeApiBase = function normalizeApiBase(url) {
 };
 
 window.ShiftSwiftBrand.resolveApiBase = function resolveApiBase() {
-  if (this.isCapacitorNative()) {
-    return this.normalizeApiBase(this.urls.api);
+  const productionApi = this.normalizeApiBase(this.urls.api || "https://api.shiftswifthr.co.uk");
+  if (this.isCapacitorNative() || !this.isLocalDevHost()) {
+    if (this.isCapacitorNative() || Boolean(window.__SSHR_BUNDLED_NATIVE_BOOT)) {
+      try {
+        const stored = localStorage.getItem("apiBaseUrl");
+        if (stored && /localhost|127\.0\.0\.1/.test(stored)) {
+          localStorage.removeItem("apiBaseUrl");
+        }
+        localStorage.setItem("apiBaseUrl", productionApi);
+      } catch {
+        /* ignore */
+      }
+      return productionApi;
+    }
   }
   if (this.isLocalDevHost()) {
     return this.urls.localApi;
@@ -206,7 +232,11 @@ window.ShiftSwiftBrand.applyBrandDom = function applyBrandDom(root) {
 
 window.ShiftSwiftBrand.bootstrapBrand = async function bootstrapBrand() {
   try {
-    const res = await fetch(`${this.resolveApiBase()}/setup/brand`);
+    const url = `${this.resolveApiBase()}/setup/brand`;
+    const res =
+      window.Capacitor?.isNativePlatform?.() && window.ShiftSwiftNativeApiFetch?.nativeAwareFetch
+        ? await window.ShiftSwiftNativeApiFetch.nativeAwareFetch(url, {})
+        : await fetch(url);
     if (res.ok) {
       this.mergeBrand(await res.json());
     }

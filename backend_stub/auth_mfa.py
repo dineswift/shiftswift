@@ -43,6 +43,19 @@ def provisioning_uri(*, username: str, secret: str, portal: Portal) -> str:
     return pyotp.TOTP(secret).provisioning_uri(name=quote(label), issuer_name=MFA_ISSUER)
 
 
+def qr_png_data_uri(otpauth_uri: str, *, box_size: int = 4) -> str:
+    """Inline PNG QR for native apps that cannot load third-party QR CDNs."""
+    import base64
+    import io
+
+    import qrcode
+
+    img = qrcode.make(otpauth_uri, box_size=box_size, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
+
+
 def verify_totp_code(*, secret: str, code: str) -> bool:
     if not code or not secret:
         return False
@@ -172,11 +185,33 @@ def begin_mfa_setup(*, conn: Any, username: str) -> dict[str, str]:
             (_store_secret(secret), username),
         )
     conn.commit()
+    otpauth_uri = provisioning_uri(username=user["username"], secret=secret, portal=portal)
     return {
         "secret": secret,
-        "otpauth_uri": provisioning_uri(username=user["username"], secret=secret, portal=portal),
+        "otpauth_uri": otpauth_uri,
+        "qr_data_uri": qr_png_data_uri(otpauth_uri),
         "portal": portal,
     }
+
+
+def enable_mfa_with_passkey(*, conn: Any, username: str) -> None:
+    """Mark MFA active when the user enrolled with Face ID / Touch ID (WebAuthn)."""
+    with conn.cursor() as cur:
+        user = fetch_user_mfa(cur, username)
+        if not user:
+            raise LookupError("user not found")
+        cur.execute(
+            """
+            UPDATE app_users
+            SET mfa_enabled = TRUE,
+                mfa_enabled_at = NOW(),
+                totp_secret = NULL,
+                updated_at = NOW()
+            WHERE lower(username) = lower(%s)
+            """,
+            (username,),
+        )
+    conn.commit()
 
 
 def confirm_mfa_setup(*, conn: Any, username: str, code: str) -> None:
@@ -214,7 +249,11 @@ def verify_user_mfa_code(*, conn: Any, username: str, code: str) -> bool:
         user = fetch_user_mfa(cur, username)
     if not user or not user.get("mfa_enabled") or not user.get("totp_secret"):
         return False
-    secret = _load_secret(user["totp_secret"])
+    try:
+        secret = _load_secret(user["totp_secret"])
+    except Exception:
+        # ENCRYPTION_KEY mismatch / corrupt secret — treat as failed code, not 500
+        return False
     return verify_totp_code(secret=secret, code=code)
 
 
