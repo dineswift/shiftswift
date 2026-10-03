@@ -2653,13 +2653,19 @@
 
   function renderEmployeeRecordDocItem(doc) {
     const actions = [];
+    if (doc.has_file || doc.document_url) {
+      actions.push(
+        `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--view" data-record-view-doc="${doc.id}">View</button>`,
+      );
+    }
+    if (!doc.superseded) {
+      actions.push(
+        `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--amend" data-record-amend-doc="${doc.id}">Amend</button>`,
+      );
+    }
     if (doc.has_file) {
       actions.push(
         `<button type="button" class="employee-record-doc-btn employee-record-doc-btn--download" data-record-download-doc="${doc.id}">Download</button>`,
-      );
-    } else if (doc.document_url) {
-      actions.push(
-        `<a class="employee-record-doc-btn employee-record-doc-btn--download" href="${escapeHtml(doc.document_url)}" target="_blank" rel="noopener">Open</a>`,
       );
     }
     if (!doc.superseded) {
@@ -2833,13 +2839,204 @@
     }
   }
 
+  let documentViewerObjectUrl = "";
+
+  function closeEmployeeDocumentViewer() {
+    const viewer = document.getElementById("employee-doc-viewer");
+    if (viewer) viewer.hidden = true;
+    const body = viewer?.querySelector("[data-doc-viewer-body]");
+    if (body) body.replaceChildren();
+    if (documentViewerObjectUrl) {
+      URL.revokeObjectURL(documentViewerObjectUrl);
+      documentViewerObjectUrl = "";
+    }
+  }
+
+  function ensureEmployeeDocumentViewer() {
+    let viewer = document.getElementById("employee-doc-viewer");
+    if (viewer) return viewer;
+    viewer = document.createElement("div");
+    viewer.id = "employee-doc-viewer";
+    viewer.className = "employee-doc-viewer";
+    viewer.hidden = true;
+    viewer.innerHTML = `
+      <div class="employee-doc-viewer__dialog" role="dialog" aria-modal="true" aria-labelledby="employee-doc-viewer-title">
+        <div class="employee-doc-viewer__bar">
+          <strong id="employee-doc-viewer-title" data-doc-viewer-title>Document</strong>
+          <button type="button" class="employee-record-doc-btn" data-close-doc-viewer>Close</button>
+        </div>
+        <div class="employee-doc-viewer__body" data-doc-viewer-body></div>
+      </div>`;
+    document.body.appendChild(viewer);
+    viewer.querySelector("[data-close-doc-viewer]")?.addEventListener("click", closeEmployeeDocumentViewer);
+    viewer.addEventListener("click", (event) => {
+      if (event.target === viewer) closeEmployeeDocumentViewer();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && viewer.hidden === false) closeEmployeeDocumentViewer();
+    });
+    return viewer;
+  }
+
+  async function openEmployeeDocumentViewer({ employeeId, doc }) {
+    if (!doc) return;
+    const viewer = ensureEmployeeDocumentViewer();
+    const title = viewer.querySelector("[data-doc-viewer-title]");
+    const body = viewer.querySelector("[data-doc-viewer-body]");
+    const label = doc.title || "Document";
+    if (title) title.textContent = label;
+    if (body) body.innerHTML = `<p class="muted">Opening…</p>`;
+    viewer.hidden = false;
+    if (doc.document_url && !doc.has_file) {
+      if (body) {
+        body.innerHTML = `<iframe class="employee-doc-viewer__frame" title="${escapeHtml(label)}" src="${escapeHtml(doc.document_url)}"></iframe>`;
+      }
+      return;
+    }
+    if (!employeeId || !doc.has_file) {
+      if (body) body.innerHTML = `<p class="muted">No file is stored for this document.</p>`;
+      return;
+    }
+    const res = await apiFetch(`/admin/employees/${employeeId}/documents/${doc.id}/file`);
+    if (!res.ok) throw new Error("Could not open this document");
+    const blob = await res.blob();
+    if (documentViewerObjectUrl) URL.revokeObjectURL(documentViewerObjectUrl);
+    documentViewerObjectUrl = URL.createObjectURL(blob);
+    const type = String(blob.type || "").toLowerCase();
+    const safeTitle = escapeHtml(label);
+    if (!body) return;
+    if (type.startsWith("image/")) {
+      body.innerHTML = `<img class="employee-doc-viewer__img" alt="${safeTitle}" src="${documentViewerObjectUrl}" />`;
+      return;
+    }
+    body.innerHTML = `<iframe class="employee-doc-viewer__frame" title="${safeTitle}" src="${documentViewerObjectUrl}"></iframe>`;
+  }
+
+  function recordDocumentById(container, documentId) {
+    const docs = scopedEmployeeDocuments(
+      container._sshrDocWorkspace?.documents || [],
+      container._sshrDocWorkspace?.employee?.id,
+    );
+    return docs.find((item) => String(item.id) === String(documentId)) || null;
+  }
+
+  function closeRecordDocumentAmend(container) {
+    const panel = container?.querySelector("#employees-side-doc-amend");
+    if (panel) panel.hidden = true;
+  }
+
+  function openRecordDocumentAmend(container, doc) {
+    const panel = container?.querySelector("#employees-side-doc-amend");
+    const form = container?.querySelector("#employees-side-doc-amend-form");
+    if (!panel || !form || !doc) return;
+    closeEmployeeDocumentViewer();
+    const categorySelect = form.querySelector('[name="category"]');
+    if (categorySelect) categorySelect.innerHTML = renderEmployeeDocumentCategoryOptions(doc.category || "");
+    const titleInput = form.querySelector('[name="title"]');
+    if (titleInput) titleInput.value = doc.title || "";
+    const payPeriodInput = form.querySelector('[name="pay_period"]');
+    if (payPeriodInput) payPeriodInput.value = doc.pay_period || "";
+    const issuedInput = form.querySelector('[name="issued_at"]');
+    if (issuedInput) issuedInput.value = isoDateValue(doc.issued_at);
+    const recordedInput = form.querySelector('[name="recorded_at"]');
+    if (recordedInput) recordedInput.value = isoDateValue(doc.recorded_at);
+    const expiresInput = form.querySelector('[name="expires_at"]');
+    if (expiresInput) expiresInput.value = isoDateValue(doc.expires_at);
+    const alertSelect = form.querySelector('[name="expiry_alert_days"]');
+    if (alertSelect) alertSelect.value = String(doc.expiry_alert_days || 30);
+    const visibleInput = form.querySelector('[name="employee_visible"]');
+    if (visibleInput) visibleInput.checked = Boolean(doc.employee_visible);
+    form.dataset.documentId = String(doc.id);
+    syncDocumentTypeDateFields(form, { defaultRecorded: false });
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    titleInput?.focus();
+  }
+
+  function bindRecordDocumentAmend(container) {
+    const form = container?.querySelector("#employees-side-doc-amend-form");
+    if (!form || form.dataset.bound === "1") return;
+    form.dataset.bound = "1";
+    const syncAmend = () => syncDocumentTypeDateFields(form, { defaultRecorded: false });
+    form.querySelector('[name="category"]')?.addEventListener("change", syncAmend);
+    form.querySelector('[name="expires_at"]')?.addEventListener("change", syncAmend);
+    form.querySelector('[name="expires_at"]')?.addEventListener("input", syncAmend);
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const employeeId = container._sshrDocWorkspace?.employee?.id;
+      const docId = form.dataset.documentId;
+      const statusEl = container.querySelector("#employees-side-doc-status");
+      const category = form.querySelector('[name="category"]')?.value || "";
+      const payPeriod = form.querySelector('[name="pay_period"]')?.value?.trim() || "";
+      if (!employeeId || !docId) return;
+      if (category === "payslip" && !payPeriod) {
+        if (statusEl) statusEl.textContent = "Pay period is required for payslips.";
+        return;
+      }
+      const dates = collectDocumentTypeDates(form, category);
+      const payload = {
+        title: form.querySelector('[name="title"]')?.value?.trim(),
+        category,
+        expires_at: dates.expires_at,
+        issued_at: dates.issued_at,
+        recorded_at: dates.recorded_at,
+        expiry_alert_days: Number(form.querySelector('[name="expiry_alert_days"]')?.value || 30),
+        employee_visible: form.querySelector('[name="employee_visible"]')?.checked ?? false,
+      };
+      if (category === "payslip") payload.pay_period = payPeriod;
+      if (statusEl) statusEl.textContent = "Saving…";
+      try {
+        const res = await apiFetch(`/admin/employees/${employeeId}/documents/${docId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(employeeApiError(res, data, "Update failed"));
+        closeRecordDocumentAmend(container);
+        await refreshEmployeeRecordDocuments(employeeId);
+        if (statusEl) statusEl.textContent = "Document updated.";
+        employeesToast("Document updated", "ok");
+      } catch (error) {
+        const message = employeeErrorText(error, "Update failed");
+        if (statusEl) statusEl.textContent = message;
+        employeesToast(message, "error");
+      }
+    });
+  }
+
   function bindEmployeeRecordDocumentActions(container, workspace) {
     if (!container || !workspace?.employee?.id) return;
     container._sshrDocWorkspace = workspace;
+    bindRecordDocumentAmend(container);
     if (container.dataset.docActionsBound === "1") return;
     container.dataset.docActionsBound = "1";
 
     container.addEventListener("click", (event) => {
+      const viewBtn = event.target.closest("[data-record-view-doc]");
+      if (viewBtn && container.contains(viewBtn)) {
+        event.preventDefault();
+        const row = recordDocumentById(container, viewBtn.getAttribute("data-record-view-doc"));
+        const employeeId = container._sshrDocWorkspace?.employee?.id;
+        viewBtn.disabled = true;
+        void openEmployeeDocumentViewer({ employeeId, doc: row })
+          .catch((error) => employeesToast(employeeErrorText(error, "Could not open this document"), "error"))
+          .finally(() => {
+            viewBtn.disabled = false;
+          });
+        return;
+      }
+      const amendBtn = event.target.closest("[data-record-amend-doc]");
+      if (amendBtn && container.contains(amendBtn)) {
+        event.preventDefault();
+        const row = recordDocumentById(container, amendBtn.getAttribute("data-record-amend-doc"));
+        if (row) openRecordDocumentAmend(container, row);
+        return;
+      }
+      if (event.target.closest("[data-record-cancel-amend]") && container.contains(event.target)) {
+        event.preventDefault();
+        closeRecordDocumentAmend(container);
+        return;
+      }
       const addBtn = event.target.closest("[data-doc-add-category]");
       if (addBtn && container.contains(addBtn)) {
         event.preventDefault();
@@ -3063,6 +3260,59 @@
         ${renderEmployeeDocTypeStripHtml(typeGroups)}
         <div id="employees-side-doc-groups" class="employee-record-doc-groups">
           ${renderEmployeeDocumentGroupsHtml(workspace)}
+        </div>
+        <div id="employees-side-doc-amend" class="employee-record-doc-amend" hidden>
+          <div class="employee-record-doc-amend__head">
+            <h5>Amend document</h5>
+            <button type="button" class="employee-record-doc-btn" data-record-cancel-amend>Close</button>
+          </div>
+          <form id="employees-side-doc-amend-form" class="employee-record-upload-form">
+            <label class="employee-record-field employee-record-field--full">
+              <span class="employee-record-field__label">Title</span>
+              <input type="text" name="title" required />
+            </label>
+            <label class="employee-record-field">
+              <span class="employee-record-field__label">Category</span>
+              <select name="category" id="employees-side-doc-amend-category"></select>
+            </label>
+            <label class="employee-record-field" id="employees-side-doc-amend-pay-period-field" hidden>
+              <span class="employee-record-field__label">Pay period</span>
+              <input type="text" name="pay_period" id="employees-side-doc-amend-pay-period" placeholder="e.g. 2026-04" />
+            </label>
+            <label class="employee-record-field" data-issued-field hidden>
+              <span class="employee-record-field__label" data-issued-label>Issue date</span>
+              <input type="date" name="issued_at" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-recorded-field hidden>
+              <span class="employee-record-field__label" data-recorded-label>Date taken</span>
+              <input type="date" name="recorded_at" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-expires-field>
+              <span class="employee-record-field__label" data-expires-label>Expiry date</span>
+              <input type="date" name="expires_at" data-empty="true" />
+            </label>
+            <label class="employee-record-field" data-alert-field hidden>
+              <span class="employee-record-field__label">HR alert</span>
+              <select name="expiry_alert_days">
+                <option value="30">30 days before</option>
+                <option value="60">60 days before</option>
+                <option value="90">90 days before</option>
+              </select>
+            </label>
+            <p class="muted employee-record-field__hint employee-record-field--full" data-expires-hint hidden></p>
+            <label class="ss-check-row ss-check-row--compact employee-record-field--full">
+              <input class="ss-check-row__input" type="checkbox" name="employee_visible" value="true" />
+              <span class="ss-check-row__box" aria-hidden="true"></span>
+              <span class="ss-check-row__content">
+                <span class="ss-check-row__title">Employee portal</span>
+                <span class="ss-check-row__hint muted">Shown to the employee when checked.</span>
+              </span>
+            </label>
+            <div class="edit-form-actions employee-record-field--full">
+              <button type="submit" class="btn btn-sm">Save changes</button>
+              <button type="button" class="btn ghost btn-sm" data-record-cancel-amend>Cancel</button>
+            </div>
+          </form>
         </div>
         <details class="employee-record-doc-upload">
           <summary>Upload document</summary>
@@ -3777,7 +4027,10 @@
       row.category !== "payslip" &&
       row.signing_status !== "signed";
     const parts = [];
-    parts.push(`<button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}">Edit</button>`);
+    parts.push(`<button type="button" class="btn ghost btn-sm" data-edit-doc="${row.id}">Amend</button>`);
+    if (row.has_file || row.document_url) {
+      parts.push(`<button type="button" class="btn ghost btn-sm" data-view-doc="${row.id}">View</button>`);
+    }
     if (row.has_file) {
       parts.push(`<button type="button" class="btn ghost btn-sm" data-download-doc="${row.id}">Download</button>`);
       parts.push(
@@ -3927,6 +4180,15 @@
       btn.addEventListener("click", () => {
         const row = docs.find((item) => String(item.id) === btn.dataset.editDoc);
         if (row) openEmployeeDocumentEditPanel(row, container);
+      });
+    });
+    container.querySelectorAll("[data-view-doc]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const row = docs.find((item) => String(item.id) === btn.dataset.viewDoc);
+        if (!row) return;
+        void openEmployeeDocumentViewer({ employeeId: activeEmployeeId, doc: row }).catch((error) => {
+          employeesToast(employeeErrorText(error, "Could not open this document"), "error");
+        });
       });
     });
 
