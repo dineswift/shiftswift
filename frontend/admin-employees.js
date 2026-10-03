@@ -195,6 +195,10 @@
     if (config.recorded.show && defaultRecorded && recordedInput && !recordedInput.value) {
       recordedInput.value = todayIsoDate();
     }
+    [issuedInput, recordedInput, expiresInput].forEach((input) => {
+      if (!input || input.type !== "date") return;
+      input.toggleAttribute("data-empty", !String(input.value || "").trim());
+    });
     const alertField =
       form.querySelector("[data-alert-field]") ||
       form.querySelector("#employee-document-upload-alert-field") ||
@@ -2922,19 +2926,19 @@
       categorySelect.innerHTML = categories
         .map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`)
         .join("");
-      const syncCategory = () => {
+      const syncCategory = (defaultRecorded) => {
         const isPayslip = categorySelect.value === "payslip";
         if (payPeriodField) payPeriodField.hidden = !isPayslip;
         if (payPeriodInput) payPeriodInput.required = isPayslip;
         if (shareCheckbox && isPayslip) shareCheckbox.checked = true;
-        syncDocumentTypeDateFields(form, { defaultRecorded: true });
+        syncDocumentTypeDateFields(form, { defaultRecorded });
       };
-      categorySelect.addEventListener("change", syncCategory);
-      form.querySelector('[name="issued_at"]')?.addEventListener("change", syncCategory);
-      form.querySelector('[name="recorded_at"]')?.addEventListener("change", syncCategory);
-      form.querySelector("#employees-side-doc-expires")?.addEventListener("change", syncCategory);
-      form.querySelector("#employees-side-doc-expires")?.addEventListener("input", syncCategory);
-      syncCategory();
+      categorySelect.addEventListener("change", () => syncCategory(true));
+      form.querySelector('[name="issued_at"]')?.addEventListener("change", () => syncCategory(false));
+      form.querySelector('[name="recorded_at"]')?.addEventListener("change", () => syncCategory(false));
+      form.querySelector("#employees-side-doc-expires")?.addEventListener("change", () => syncCategory(false));
+      form.querySelector("#employees-side-doc-expires")?.addEventListener("input", () => syncCategory(false));
+      syncCategory(true);
     }
 
     form.addEventListener("submit", async (event) => {
@@ -3119,10 +3123,12 @@
             </div>
           </form>
         </details>
-        <p class="muted employee-record-field-status" id="employees-side-doc-status" aria-live="polite"></p>
-        <p class="employee-record-lifecycle-link">
-          <button type="button" class="employee-record-link" id="employees-side-doc-manage-btn">Signing &amp; full document store →</button>
-        </p>
+        <div class="employee-record-doc-footer">
+          <p class="employee-record-field-status" id="employees-side-doc-status" aria-live="polite"></p>
+          <p class="employee-record-lifecycle-link">
+            <button type="button" class="employee-record-link" id="employees-side-doc-manage-btn">Signing &amp; full document store →</button>
+          </p>
+        </div>
       </section>
     </div>`;
   }
@@ -3590,11 +3596,11 @@
       filenameEl: form.querySelector("#employee-document-extra-filename"),
       cameraInput: form.querySelector("#employee-document-extra-camera"),
     });
-    const syncExtra = () => syncDocumentTypeDateFields(form, { defaultRecorded: true });
+    const syncExtra = (defaultRecorded) => syncDocumentTypeDateFields(form, { defaultRecorded });
     if (form.dataset.bound !== "true") {
       form.dataset.bound = "true";
-      categorySelect?.addEventListener("change", syncExtra);
-      form.querySelector('[name="expires_at"]')?.addEventListener("change", syncExtra);
+      categorySelect?.addEventListener("change", () => syncExtra(true));
+      form.querySelector('[name="expires_at"]')?.addEventListener("change", () => syncExtra(false));
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const status = form.querySelector("[data-extra-status]");
@@ -3687,11 +3693,11 @@
           filenameEl.hidden = true;
           filenameEl.textContent = "";
         }
-        syncExtra();
+        syncExtra(true);
         await refreshEmployeeDocumentStoreList(container);
       });
     }
-    syncExtra();
+    syncExtra(true);
   }
 
   function bindEmployeeDocumentEditForm(container) {
@@ -4280,18 +4286,18 @@
         uploadCategory.value = "payslip";
       }
       if (!uploadCategory.dataset.ready) {
-        const syncUploadCategory = () => {
+        const syncUploadCategory = (defaultRecorded) => {
           const isPayslip = uploadCategory.value === "payslip";
           if (payPeriodField) payPeriodField.hidden = !isPayslip;
           if (payPeriodInput) payPeriodInput.required = isPayslip;
-          syncDocumentTypeDateFields(uploadForm, { defaultRecorded: true });
+          syncDocumentTypeDateFields(uploadForm, { defaultRecorded });
         };
-        uploadCategory.addEventListener("change", syncUploadCategory);
-        uploadForm?.querySelector('[name="issued_at"]')?.addEventListener("change", syncUploadCategory);
-        uploadForm?.querySelector('[name="recorded_at"]')?.addEventListener("change", syncUploadCategory);
-        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("change", syncUploadCategory);
-        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("input", syncUploadCategory);
-        syncUploadCategory();
+        uploadCategory.addEventListener("change", () => syncUploadCategory(true));
+        uploadForm?.querySelector('[name="issued_at"]')?.addEventListener("change", () => syncUploadCategory(false));
+        uploadForm?.querySelector('[name="recorded_at"]')?.addEventListener("change", () => syncUploadCategory(false));
+        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("change", () => syncUploadCategory(false));
+        uploadForm?.querySelector('[name="expires_at"]')?.addEventListener("input", () => syncUploadCategory(false));
+        syncUploadCategory(true);
         uploadCategory.dataset.ready = "true";
       }
     }

@@ -1436,14 +1436,56 @@ window.Admin = (() => {
     popover.style.top = `${Math.round(top)}px`;
   }
 
+  const DATE_PICKER_MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  function daysInCalendarMonth(year, monthIndex) {
+    return new Date(year, monthIndex + 1, 0).getDate();
+  }
+
+  function pickerPartsFromState(state) {
+    const selected = parseIsoDateValue(state.pendingIso);
+    const year = state.viewYear;
+    const month = state.viewMonth;
+    let day = selected?.getDate() || 1;
+    const maxDay = daysInCalendarMonth(year, month);
+    if (day > maxDay) day = maxDay;
+    return { year, month, day };
+  }
+
+  function commitPickerParts(state, { year, month, day } = {}) {
+    const current = pickerPartsFromState(state);
+    const nextYear = Number.isFinite(year) ? year : current.year;
+    const nextMonth = Number.isFinite(month) ? month : current.month;
+    const maxDay = daysInCalendarMonth(nextYear, nextMonth);
+    let nextDay = Number.isFinite(day) ? day : current.day;
+    if (nextDay > maxDay) nextDay = maxDay;
+    if (nextDay < 1) nextDay = 1;
+    state.viewYear = nextYear;
+    state.viewMonth = nextMonth;
+    state.pendingIso = isoFromLocalDate(new Date(nextYear, nextMonth, nextDay));
+  }
+
   function renderDatePickerGrid(state) {
     const weekdays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    const parts = pickerPartsFromState(state);
     const view = new Date(state.viewYear, state.viewMonth, 1);
     const firstDow = (view.getDay() + 6) % 7;
     const start = new Date(state.viewYear, state.viewMonth, 1 - firstDow);
     const todayIso = isoFromLocalDate(todayLocalDate());
     const selectedIso = state.pendingIso;
-    const monthLabel = view.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
     const cells = [];
     for (let index = 0; index < 42; index += 1) {
       const cell = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
@@ -1457,19 +1499,46 @@ window.Admin = (() => {
         `<button type="button" class="${classes.join(" ")}" data-iso="${iso}" aria-pressed="${iso === selectedIso ? "true" : "false"}">${cell.getDate()}</button>`
       );
     }
+    const todayYear = todayLocalDate().getFullYear();
+    const yearStart = 1920;
+    const yearEnd = todayYear + 20;
+    const dayCount = daysInCalendarMonth(parts.year, parts.month);
+    const dayOptions = [];
+    for (let day = 1; day <= dayCount; day += 1) {
+      dayOptions.push(`<option value="${day}"${day === parts.day ? " selected" : ""}>${String(day).padStart(2, "0")}</option>`);
+    }
+    const monthOptions = DATE_PICKER_MONTHS.map(
+      (label, index) => `<option value="${index}"${index === parts.month ? " selected" : ""}>${label}</option>`,
+    ).join("");
+    const yearOptions = [];
+    for (let year = yearEnd; year >= yearStart; year -= 1) {
+      yearOptions.push(`<option value="${year}"${year === parts.year ? " selected" : ""}>${year}</option>`);
+    }
     return `
+      <div class="sshr-datepicker__jumps">
+        <label class="sshr-datepicker__jump">
+          <span class="sshr-datepicker__jump-label">Day</span>
+          <select data-part="day" aria-label="Day">${dayOptions.join("")}</select>
+        </label>
+        <label class="sshr-datepicker__jump">
+          <span class="sshr-datepicker__jump-label">Month</span>
+          <select data-part="month" aria-label="Month">${monthOptions}</select>
+        </label>
+        <label class="sshr-datepicker__jump">
+          <span class="sshr-datepicker__jump-label">Year</span>
+          <select data-part="year" aria-label="Year">${yearOptions.join("")}</select>
+        </label>
+      </div>
       <div class="sshr-datepicker__nav">
-        <p class="sshr-datepicker__month">${escapeHtml(monthLabel)}</p>
-        <div class="sshr-datepicker__nav-btns">
-          <button type="button" class="sshr-datepicker__nav-btn" data-nav="-1" aria-label="Previous month">‹</button>
-          <button type="button" class="sshr-datepicker__nav-btn" data-nav="1" aria-label="Next month">›</button>
-        </div>
+        <button type="button" class="sshr-datepicker__nav-btn" data-nav="-1" aria-label="Previous month">‹</button>
+        <p class="sshr-datepicker__month">${escapeHtml(view.toLocaleDateString("en-GB", { month: "long", year: "numeric" }))}</p>
+        <button type="button" class="sshr-datepicker__nav-btn" data-nav="1" aria-label="Next month">›</button>
       </div>
       <div class="sshr-datepicker__weekdays">${weekdays.map((day) => `<span>${day}</span>`).join("")}</div>
       <div class="sshr-datepicker__grid">${cells.join("")}</div>
       <div class="sshr-datepicker__actions">
         <button type="button" class="btn ghost" data-today>Today</button>
-        <button type="button" class="btn" data-select>Select</button>
+        <button type="button" class="btn" data-select>Done</button>
       </div>`;
   }
 
@@ -1501,13 +1570,23 @@ window.Admin = (() => {
     datePickerState = state;
     input.classList.add("sshr-date-open");
     popover.addEventListener("pointerdown", (event) => event.stopPropagation());
+    popover.addEventListener("change", (event) => {
+      const part = event.target?.closest?.("[data-part]")?.getAttribute("data-part");
+      if (!part) return;
+      const value = Number(event.target.value);
+      if (part === "day") commitPickerParts(state, { day: value });
+      if (part === "month") commitPickerParts(state, { month: value });
+      if (part === "year") commitPickerParts(state, { year: value });
+      applyDatePickerValue(input, state.pendingIso);
+      refreshDatePicker();
+    });
     popover.addEventListener("click", (event) => {
       const nav = event.target.closest("[data-nav]");
       if (nav) {
         const delta = Number(nav.getAttribute("data-nav") || "0");
         const next = new Date(state.viewYear, state.viewMonth + delta, 1);
-        state.viewYear = next.getFullYear();
-        state.viewMonth = next.getMonth();
+        commitPickerParts(state, { year: next.getFullYear(), month: next.getMonth() });
+        applyDatePickerValue(input, state.pendingIso);
         refreshDatePicker();
         return;
       }
@@ -1519,7 +1598,8 @@ window.Admin = (() => {
           state.viewYear = picked.getFullYear();
           state.viewMonth = picked.getMonth();
         }
-        refreshDatePicker();
+        applyDatePickerValue(input, state.pendingIso);
+        closeDatePicker();
         return;
       }
       if (event.target.closest("[data-today]")) {
@@ -1540,6 +1620,7 @@ window.Admin = (() => {
     refreshDatePicker();
     state.onDocClose = (event) => {
       if (event.target === input || popover.contains(event.target)) return;
+      if (event.target?.closest?.(".sshr-date-open-btn")) return;
       closeDatePicker();
     };
     state.onKey = (event) => {
@@ -1563,31 +1644,58 @@ window.Admin = (() => {
     window.addEventListener("scroll", state.onReposition, true);
   }
 
+  function ensureDatePickerButton(input) {
+    if (!input.parentElement) return null;
+    const existing = input.parentElement.classList.contains("sshr-date-field")
+      ? input.parentElement.querySelector(".sshr-date-open-btn")
+      : null;
+    if (existing) return existing;
+    const wrap = document.createElement("span");
+    wrap.className = "sshr-date-field";
+    input.parentElement?.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "sshr-date-open-btn";
+    button.setAttribute("aria-label", "Choose day, month, and year");
+    button.innerHTML =
+      '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"></rect><path d="M8 3v4M16 3v4M3.5 9.5h17"></path></svg>';
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (datePickerState?.input === input && datePickerState.popover?.isConnected) {
+        closeDatePicker();
+        return;
+      }
+      openDatePicker(input);
+    });
+    wrap.appendChild(button);
+    return button;
+  }
+
   function enhanceDatePicker(input) {
     if (!input || input.type !== "date" || input.dataset.sshrDatePicker === "1") return;
     if (input.disabled) return;
     input.dataset.sshrDatePicker = "1";
     input.classList.add("sshr-date-enhanced");
     input.setAttribute("autocomplete", "off");
-    input.setAttribute("inputmode", "none");
-    input.readOnly = true;
-    const suppressNative = (event) => {
-      event.preventDefault();
-    };
-    const open = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openDatePicker(input);
-    };
-    input.addEventListener("pointerdown", open);
-    input.addEventListener("mousedown", suppressNative);
-    input.addEventListener("click", suppressNative);
-    input.addEventListener("focus", () => openDatePicker(input));
+    input.readOnly = false;
+    input.removeAttribute("inputmode");
+    ensureDatePickerButton(input);
     input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
+      if (event.altKey && event.key === "ArrowDown") {
         event.preventDefault();
         openDatePicker(input);
       }
+    });
+    input.addEventListener("change", () => {
+      if (datePickerState?.input !== input) return;
+      const parsed = parseIsoDateValue(input.value);
+      if (!parsed) return;
+      datePickerState.viewYear = parsed.getFullYear();
+      datePickerState.viewMonth = parsed.getMonth();
+      datePickerState.pendingIso = isoFromLocalDate(parsed);
+      refreshDatePicker();
     });
   }
 

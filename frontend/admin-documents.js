@@ -911,7 +911,7 @@
   function syncExpiryFieldsInner() {
     const form = document.getElementById("document-upload-form");
     if (form && typeof window.AdminDocuments?.syncDocumentTypeDateFields === "function") {
-      window.AdminDocuments.syncDocumentTypeDateFields(form, { defaultRecorded: true });
+      window.AdminDocuments.syncDocumentTypeDateFields(form, { defaultRecorded: false });
       return;
     }
     const expiryEl = document.getElementById("document-upload-expires-at");
