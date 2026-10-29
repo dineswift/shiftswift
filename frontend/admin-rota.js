@@ -9,6 +9,7 @@
   let weekMeta = null;
   let rotaPolicy = null;
   let shifts = [];
+  let pendingRepeats = [];
   let attendanceByShiftId = new Map();
   let attendanceSummary = null;
   let attendanceItemsCache = [];
@@ -1234,9 +1235,10 @@
         setMessage("Select at least one day or employee.", "error");
         return;
       }
+      const employeeIds = [Number(shift.employee_id), ...extraEmployees];
       copyShiftToTargets(shiftIndex, {
         dayIsos: selectedDays.length ? selectedDays : [shift.shift_date],
-        employeeIds: extraEmployees.length ? extraEmployees : [Number(shift.employee_id)],
+        employeeIds,
       });
     };
   }
@@ -1245,30 +1247,250 @@
     showCopyShiftModal(shiftIndex);
   }
 
+  function checkedBulkValues(selector) {
+    return [...document.querySelectorAll(selector)].map((el) => el.value);
+  }
+
   function renderBulkTimesSection() {
     const host = document.getElementById("rota-bulk-days");
+    const staffHost = document.getElementById("rota-bulk-staff");
     const section = document.getElementById("rota-bulk-times");
+    const autoSection = document.getElementById("rota-auto-schedule");
     if (!host || !section) return;
     const candidate = getFormShiftCandidate();
     if (!candidate?.employee_id || isWeekReadOnly()) {
       section.hidden = true;
+      if (autoSection) autoSection.hidden = true;
       return;
     }
+    const previousDays = new Set(checkedBulkValues("#rota-bulk-days input:checked"));
+    const previousStaff = new Set(checkedBulkValues("#rota-bulk-staff input:checked"));
     section.hidden = false;
+    if (autoSection) autoSection.hidden = false;
+    syncAutoScheduleFields();
     host.innerHTML = weekDayIsos()
       .map((iso) => {
         const label = new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
           weekday: "short",
           day: "numeric",
         });
-        const isCurrent = iso === candidate.shift_date;
-        return `<label class="rota-bulk-day"><input type="checkbox" value="${iso}"${isCurrent ? " checked" : ""} /><span>${escapeHtml(label)}</span></label>`;
+        const checked = iso === candidate.shift_date || (previousDays.size > 0 && previousDays.has(iso));
+        return `<label class="rota-bulk-day"><input type="checkbox" value="${iso}"${checked ? " checked" : ""} /><span>${escapeHtml(label)}</span></label>`;
       })
       .join("");
+    if (!staffHost) return;
+    const others = activeEmployees().filter((emp) => Number(emp.id) !== Number(candidate.employee_id));
+    staffHost.innerHTML = others.length
+      ? others
+          .map((emp) => {
+            const checked = previousStaff.has(String(emp.id)) ? " checked" : "";
+            const label = `${employeeShortName(emp)} — ${employeeRoleLabel(emp)}`;
+            return `<label class="rota-bulk-day"><input type="checkbox" value="${emp.id}"${checked} /><span>${escapeHtml(label)}</span></label>`;
+          })
+          .join("")
+      : `<p class="muted rota-bulk-times__hint">No other active staff to copy to.</p>`;
+  }
+
+  function selectedBulkDayIsos(candidate) {
+    const days = new Set(checkedBulkValues("#rota-bulk-days input:checked"));
+    if (candidate?.shift_date) days.add(candidate.shift_date);
+    return [...days];
+  }
+
+  function selectedBulkEmployeeIds(candidate) {
+    const extras = checkedBulkValues("#rota-bulk-staff input:checked").map(Number);
+    return [...new Set([Number(candidate.employee_id), ...extras])];
+  }
+
+  function applyPatternToStaffDays(candidate, { dayIsos, employeeIds, editingIndex = null } = {}) {
+    let updated = 0;
+    let created = 0;
+    let skipped = 0;
+    const applied = [];
+    employeeIds.forEach((empId) => {
+      dayIsos.forEach((iso) => {
+        const payload = {
+          employee_id: empId,
+          shift_date: iso,
+          start_time: candidate.start_time,
+          end_time: candidate.end_time,
+          notes: candidate.notes,
+          employee_name: employeeName(empId),
+          role_label:
+            Number(empId) === Number(candidate.employee_id) ? candidate.role_label : roleFromEmployee(empId),
+        };
+        const isEditingCurrent =
+          editingIndex != null &&
+          shifts[editingIndex] &&
+          Number(empId) === Number(candidate.employee_id) &&
+          iso === candidate.shift_date;
+        if (isEditingCurrent) {
+          const trial = { ...shifts[editingIndex], ...payload };
+          if (shiftWouldOverlap(trial, editingIndex)) {
+            skipped += 1;
+            return;
+          }
+          const previous = { ...shifts[editingIndex] };
+          shifts[editingIndex] = trial;
+          updated += 1;
+          applied.push({ shift: { ...trial }, previous });
+          return;
+        }
+        const existingIndex = shifts.findIndex(
+          (shift, idx) =>
+            Number(shift.employee_id) === Number(empId) && shift.shift_date === iso && idx !== editingIndex,
+        );
+        if (existingIndex >= 0) {
+          const trial = { ...shifts[existingIndex], ...payload };
+          if (shiftWouldOverlap(trial, existingIndex)) {
+            skipped += 1;
+            return;
+          }
+          const previous = { ...shifts[existingIndex] };
+          shifts[existingIndex] = trial;
+          updated += 1;
+          applied.push({ shift: { ...trial }, previous });
+          return;
+        }
+        if (shiftWouldOverlap(payload)) {
+          skipped += 1;
+          return;
+        }
+        shifts.push(payload);
+        created += 1;
+        applied.push({ shift: { ...payload }, previous: null });
+      });
+    });
+    return { updated, created, skipped, applied };
+  }
+
+  function shiftRepeatKey(shift) {
+    return [
+      Number(shift.employee_id),
+      shift.shift_date,
+      String(shift.start_time || "").slice(0, 5),
+      String(shift.end_time || "").slice(0, 5),
+      shift.role_label || "",
+      shift.notes || "",
+    ].join("|");
+  }
+
+  function isAutoScheduleEnabled() {
+    return Boolean(document.getElementById("rota-auto-schedule-enabled")?.checked);
+  }
+
+  function syncAutoScheduleFields() {
+    const enabled = isAutoScheduleEnabled();
+    const fields = document.getElementById("rota-auto-schedule-fields");
+    if (fields) fields.hidden = !enabled;
+    const count = document.getElementById("rota-auto-schedule-count");
+    if (!count) return;
+    if (!enabled) {
+      count.textContent = "Upcoming weeks stay as they are until you change a day and choose to update them.";
+      return;
+    }
+    const frequency = document.getElementById("rota-auto-frequency")?.value === "month" ? "month" : "week";
+    const until = document.getElementById("rota-auto-until")?.value;
+    const anchor = document.getElementById("rota-add-day")?.value || currentWeekStart;
+    if (!until || !anchor) {
+      count.textContent = "";
+      return;
+    }
+    let occurrences = 0;
+    if (frequency === "month") {
+      const start = new Date(`${anchor}T12:00:00`);
+      for (let step = 1; step <= 24; step += 1) {
+        const next = new Date(start.getFullYear(), start.getMonth() + step, start.getDate(), 12);
+        if (next.getDate() !== start.getDate()) continue;
+        const iso = toLocalIsoDate(next);
+        if (iso > until) break;
+        if (iso > weekEndIso(currentWeekStart)) occurrences += 1;
+      }
+    } else {
+      let cursor = addDays(anchor, 7);
+      while (cursor <= until && occurrences < 52) {
+        if (cursor > weekEndIso(currentWeekStart)) occurrences += 1;
+        cursor = addDays(cursor, 7);
+      }
+    }
+    const unit = frequency === "month" ? "month" : "week";
+    count.textContent = occurrences
+      ? `Repeats for ${occurrences} upcoming ${unit}${occurrences === 1 ? "" : "s"}, then stops.`
+      : "Choose a later until date to repeat into upcoming weeks.";
+  }
+
+  function ensureAutoUntil() {
+    const until = document.getElementById("rota-auto-until");
+    if (!until) return addDays(currentWeekStart, 56);
+    if (!until.value) until.value = addDays(currentWeekStart, 56);
+    return until.value;
+  }
+
+  function resetAutoScheduleForm() {
+    const box = document.getElementById("rota-auto-schedule-enabled");
+    if (box) box.checked = true;
+    const frequency = document.getElementById("rota-auto-frequency");
+    if (frequency) frequency.value = "week";
+    const until = document.getElementById("rota-auto-until");
+    if (until) until.value = addDays(currentWeekStart, 56);
+    syncAutoScheduleFields();
+  }
+
+  function formatUntilLabel(iso) {
+    if (!iso) return "";
+    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  function queueAutoRepeat(shift, { match = null, force = false } = {}) {
+    if (!force && !isAutoScheduleEnabled()) return;
+    const until = ensureAutoUntil();
+    const frequency = document.getElementById("rota-auto-frequency")?.value === "month" ? "month" : "week";
+    const rule = {
+      employee_id: Number(shift.employee_id),
+      shift_date: shift.shift_date,
+      start_time: String(shift.start_time).slice(0, 5),
+      end_time: String(shift.end_time).slice(0, 5),
+      role_label: shift.role_label || "",
+      notes: shift.notes || "",
+      frequency,
+      until,
+      match_employee_id: match ? Number(match.employee_id) : null,
+      match_shift_date: match ? match.shift_date : null,
+      match_start_time: match ? String(match.start_time).slice(0, 5) : null,
+      match_end_time: match ? String(match.end_time).slice(0, 5) : null,
+    };
+    const key = `${rule.employee_id}|${rule.match_shift_date || rule.shift_date}|${rule.match_start_time || rule.start_time}`;
+    pendingRepeats = pendingRepeats.filter((existing) => existing.key !== key);
+    pendingRepeats.push({ ...rule, key });
+  }
+
+  function rememberAutoSchedule(applied) {
+    const changed = applied.filter((item) => item.previous && shiftRepeatKey(item.previous) !== shiftRepeatKey(item.shift));
+    const unchanged = applied.filter((item) => item.previous && shiftRepeatKey(item.previous) === shiftRepeatKey(item.shift));
+    const created = applied.filter((item) => !item.previous);
+    let updateUpcoming = false;
+    if (changed.length) {
+      const untilLabel = formatUntilLabel(ensureAutoUntil());
+      updateUpcoming = window.confirm(
+        `Apply this change to upcoming weeks until ${untilLabel} as well?\n\nSave draft stores this week and the upcoming weeks.`,
+      );
+    }
+    if (isAutoScheduleEnabled()) {
+      created.forEach((item) => queueAutoRepeat(item.shift));
+      unchanged.forEach((item) => queueAutoRepeat(item.shift));
+    }
+    if (updateUpcoming) {
+      changed.forEach((item) => queueAutoRepeat(item.shift, { match: item.previous, force: true }));
+    }
+    return updateUpcoming || (isAutoScheduleEnabled() && (created.length > 0 || unchanged.length > 0));
   }
 
   function applyBulkTimesFromPanel() {
-    if (!guardWeekEditable("apply bulk times")) return;
+    if (!guardWeekEditable("apply these hours")) return;
     const candidate = getFormShiftCandidate();
     if (!candidate) {
       setMessage("Set employee, day, start, and end first.", "error");
@@ -1278,78 +1500,47 @@
       setMessage("Start and end time cannot be the same.", "error");
       return;
     }
-    const dayIsos = [...document.querySelectorAll("#rota-bulk-days input:checked")].map((el) => el.value);
+    const dayIsos = selectedBulkDayIsos(candidate);
+    const employeeIds = selectedBulkEmployeeIds(candidate);
     if (!dayIsos.length) {
-      setMessage("Select at least one day to apply times to.", "error");
+      setMessage("Select at least one day.", "error");
       return;
     }
-    let updated = 0;
-    let created = 0;
-    let skipped = 0;
-    dayIsos.forEach((iso) => {
-      if (iso === candidate.shift_date && editingShiftIndex != null && shifts[editingShiftIndex]) {
-        const trial = { ...shifts[editingShiftIndex], ...payload };
-        if (shiftWouldOverlap(trial, editingShiftIndex)) {
-          skipped += 1;
-          return;
-        }
-        shifts[editingShiftIndex] = trial;
-        updated += 1;
-        return;
-      }
-      const existingIndex = shifts.findIndex(
-        (s, idx) =>
-          Number(s.employee_id) === Number(candidate.employee_id) &&
-          s.shift_date === iso &&
-          idx !== editingShiftIndex,
-      );
-      const payload = {
-        employee_id: candidate.employee_id,
-        shift_date: iso,
-        start_time: candidate.start_time,
-        end_time: candidate.end_time,
-        role_label: candidate.role_label,
-        notes: candidate.notes,
-        employee_name: employeeName(candidate.employee_id),
-      };
-      if (existingIndex >= 0) {
-        const trial = { ...shifts[existingIndex], ...payload };
-        if (shiftWouldOverlap(trial, existingIndex)) {
-          skipped += 1;
-          return;
-        }
-        shifts[existingIndex] = trial;
-        updated += 1;
-        return;
-      }
-      if (shiftWouldOverlap(payload)) {
-        skipped += 1;
-        return;
-      }
-      shifts.push(payload);
-      created += 1;
+    const { updated, created, skipped, applied } = applyPatternToStaffDays(candidate, {
+      dayIsos,
+      employeeIds,
+      editingIndex: editingShiftIndex,
     });
     if (!updated && !created) {
       setMessage(
         skipped > 0
-          ? `Could not apply — ${skipped} day${skipped === 1 ? "" : "s"} would overlap.`
+          ? `Could not apply — ${skipped} slot${skipped === 1 ? "" : "s"} would overlap.`
           : "Nothing to apply.",
         "error",
       );
       return;
     }
+    const repeating = rememberAutoSchedule(applied);
     shifts.sort((a, b) => `${a.shift_date}${a.start_time}`.localeCompare(`${b.shift_date}${b.start_time}`));
     markDirty();
+    editingShiftIndex = null;
     const parts = [];
-    if (updated) parts.push(`${updated} updated`);
     if (created) parts.push(`${created} added`);
+    if (updated) parts.push(`${updated} updated`);
+    const people = employeeIds.length;
+    const repeatNote = repeating ? " Upcoming weeks are included when you save the draft." : "";
     setMessage(
-      `Bulk times: ${parts.join(", ")}${skipped ? ` · ${skipped} skipped` : ""} — click Save draft.`,
+      `${parts.join(", ")} across ${dayIsos.length} day${dayIsos.length === 1 ? "" : "s"} for ${people} staff${skipped ? ` · ${skipped} skipped` : ""}${repeatNote} — click Save draft.`,
       "success",
     );
     renderAll();
-    renderBulkTimesSection();
     updateOverlapStatus();
+    if (isMobileViewport()) {
+      closeShiftPanel();
+    } else {
+      syncPanelVisibility();
+      renderBulkTimesSection();
+    }
   }
 
   function markDirty() {
@@ -2032,6 +2223,8 @@
     if (panelDeleteBtn) panelDeleteBtn.hidden = true;
     const bulkSection = document.getElementById("rota-bulk-times");
     if (bulkSection) bulkSection.hidden = true;
+    const autoSection = document.getElementById("rota-auto-schedule");
+    if (autoSection) autoSection.hidden = true;
   }
 
   function openShiftPanel({ employeeId = null, shiftDate = null, shiftIndex = null } = {}) {
@@ -2082,6 +2275,7 @@
     updatePanelContext();
     updateShiftDurationLabel();
     updateOverlapStatus();
+    resetAutoScheduleForm();
     renderBulkTimesSection();
 
     const panelCopyBtn = document.getElementById("rota-panel-copy-btn");
@@ -2378,6 +2572,7 @@
     }
   }
   async function loadWeek({ retryAfterAlign = true, attempt = 0 } = {}) {
+    pendingRepeats = [];
     setMessage("Loading rota…");
     // Attendance is loaded separately — path-only URL avoids Cap bridge quirks with "?".
     const weekPath = `/admin/rota/weeks/${currentWeekStart}`;
@@ -2501,39 +2696,7 @@
   }
 
   function addShiftFromForm() {
-    if (!guardWeekEditable("save shifts")) return;
-    const overlap = findFormOverlap();
-    if (overlap) {
-      setMessage(overlap, "error");
-      updateOverlapStatus();
-      return;
-    }
-    const candidate = getFormShiftCandidate();
-    if (!candidate) {
-      setMessage("Employee, day, start, and end are required.", "error");
-      return;
-    }
-    const payload = {
-      ...candidate,
-      employee_name: employeeName(candidate.employee_id),
-    };
-    if (editingShiftIndex != null && shifts[editingShiftIndex]) {
-      shifts[editingShiftIndex] = { ...shifts[editingShiftIndex], ...payload };
-      setMessage("Shift updated — click Save draft.", "success");
-    } else {
-      shifts.push(payload);
-      setMessage("Shift added — click Save draft.", "success");
-    }
-    shifts.sort((a, b) => `${a.shift_date}${a.start_time}`.localeCompare(`${b.shift_date}${b.start_time}`));
-    markDirty();
-    editingShiftIndex = null;
-    renderAll();
-    updateOverlapStatus();
-    if (isMobileViewport()) {
-      closeShiftPanel();
-    } else {
-      syncPanelVisibility();
-    }
+    applyBulkTimesFromPanel();
   }
 
   function clearRota() {
@@ -2547,10 +2710,41 @@
       return;
     }
     shifts = [];
+    pendingRepeats = [];
     markDirty();
     closeShiftPanel();
     renderAll();
     setMessage("Rota cleared — click Save draft to persist.");
+  }
+
+  async function flushPendingRepeats() {
+    const rules = pendingRepeats
+      .filter((rule) =>
+        shifts.some(
+          (shift) =>
+            Number(shift.employee_id) === Number(rule.employee_id) &&
+            shift.shift_date === rule.shift_date &&
+            String(shift.start_time).slice(0, 5) === rule.start_time &&
+            String(shift.end_time).slice(0, 5) === rule.end_time,
+        ),
+      )
+      .map(({ key, ...rule }) => rule);
+    if (!rules.length) {
+      pendingRepeats = [];
+      return "";
+    }
+    const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/repeat`, {
+      method: "POST",
+      body: JSON.stringify({ rules }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = data.detail;
+      const message = detail?.message || (typeof detail === "string" ? detail : "") || "Could not update upcoming weeks.";
+      throw new Error(`This week was saved. ${message}`);
+    }
+    pendingRepeats = [];
+    return data.message || "Upcoming weeks updated.";
   }
 
   async function saveRota(options = {}) {
@@ -2586,7 +2780,9 @@
       shifts = data.shifts || [];
       markClean();
       renderAll();
-      return data.message || "Rota saved — publish when ready.";
+      const repeatNote = await flushPendingRepeats();
+      const saved = data.message || "Rota saved — publish when ready.";
+      return repeatNote ? `${saved} ${repeatNote}` : saved;
     };
 
     if (button && window.ShiftSwiftAction?.runButtonAction) {
@@ -3249,6 +3445,9 @@
       renderBulkTimesSection();
     });
     document.getElementById("rota-bulk-apply-btn")?.addEventListener("click", applyBulkTimesFromPanel);
+    document.getElementById("rota-auto-schedule-enabled")?.addEventListener("change", syncAutoScheduleFields);
+    document.getElementById("rota-auto-frequency")?.addEventListener("change", syncAutoScheduleFields);
+    document.getElementById("rota-auto-until")?.addEventListener("change", syncAutoScheduleFields);
     document.getElementById("rota-add-role")?.addEventListener("input", updateOverlapStatus);
     document.getElementById("rota-add-notes")?.addEventListener("input", updateOverlapStatus);
     initPanelDrag();

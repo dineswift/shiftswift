@@ -18,6 +18,7 @@ from modules.rota.service import (
     assert_week_save_allowed,
     is_week_fully_past,
     parse_week_start,
+    plan_repeat_pairs,
     rota_week_policy,
     shift_window,
     shifts_overlap,
@@ -152,9 +153,52 @@ def test_past_draft_week_allows_save_not_copy() -> None:
         assert_week_copy_allowed(week_start=week_start)
 
 
+def test_weekly_repeat_stops_on_until_and_skips_current_week() -> None:
+    pairs = plan_repeat_pairs(
+        match_date=date(2026, 10, 26),
+        new_date=date(2026, 10, 26),
+        until=date(2026, 11, 16),
+        frequency="week",
+        current_week_start=date(2026, 10, 26),
+    )
+    assert pairs == [
+        (date(2026, 11, 2), date(2026, 11, 2)),
+        (date(2026, 11, 9), date(2026, 11, 9)),
+        (date(2026, 11, 16), date(2026, 11, 16)),
+    ]
+
+
+def test_monthly_repeat_skips_missing_days() -> None:
+    pairs = plan_repeat_pairs(
+        match_date=date(2026, 1, 31),
+        new_date=date(2026, 1, 31),
+        until=date(2026, 6, 30),
+        frequency="month",
+        current_week_start=date(2026, 1, 26),
+    )
+    assert pairs == [
+        (date(2026, 3, 31), date(2026, 3, 31)),
+        (date(2026, 5, 31), date(2026, 5, 31)),
+    ]
+
+
+def test_repeat_moves_future_days_when_the_weekday_changes() -> None:
+    pairs = plan_repeat_pairs(
+        match_date=date(2026, 10, 28),
+        new_date=date(2026, 10, 29),
+        until=date(2026, 11, 12),
+        frequency="week",
+        current_week_start=date(2026, 10, 26),
+    )
+    assert pairs == [
+        (date(2026, 11, 4), date(2026, 11, 5)),
+        (date(2026, 11, 11), date(2026, 11, 12)),
+    ]
+
+
 def test_current_week_is_editable() -> None:
-    week_start = date(2026, 6, 8)
-    today = date(2026, 6, 10)
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
     assert not is_week_fully_past(week_start, today=today)
     policy = rota_week_policy(week_start, {"status": "published", "version": 3})
     assert policy["readonly"] is False

@@ -14656,11 +14656,42 @@ body.rota-week-readonly .rota-builder-hint {
   line-height: 1.35;
 }
 
+.rota-bulk-times__label {
+  margin: 8px 0 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-500, #5f5e5a);
+}
+
 .rota-bulk-days {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
   margin-bottom: 10px;
+}
+
+#rota-bulk-staff {
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.rota-auto-schedule {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--gray-200, #e5e7eb);
+}
+
+.rota-auto-schedule__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.rota-auto-schedule__fields[hidden] {
+  display: none !important;
 }
 
 .rota-bulk-day {

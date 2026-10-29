@@ -465,3 +465,211 @@ html.native-app .doc-photo-capture [data-photo-cancel] {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.28);
 }
+
+/* Platform chrome — iOS grouped lists, Android Material surfaces. Mint on both. */
+html.native-app.ios-device {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+html.native-app.android-device {
+  font-family: Roboto, "Segoe UI", sans-serif;
+}
+
+@media (max-width: 860px) {
+  html.native-app.ios-device body,
+  html.native-app.android-device body {
+    background: #e7f6f0;
+  }
+
+  html.native-app.ios-device main.content,
+  html.native-app.android-device main.content,
+  html.native-app.ios-device #mobile-more-panel,
+  html.native-app.android-device #mobile-more-panel {
+    background: #e7f6f0;
+  }
+
+  html.native-app.ios-device .card,
+  html.native-app.android-device .card {
+    border-color: rgba(15, 110, 86, 0.1);
+  }
+
+  html.native-app.ios-device .card {
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
+  html.native-app.android-device .card {
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(15, 46, 34, 0.08);
+  }
+
+  html.native-app.ios-device .mobile-tab-bar {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 0.5px solid rgba(15, 110, 86, 0.18);
+    box-shadow: none;
+  }
+
+  html.native-app.ios-device .mobile-tab {
+    min-height: 48px;
+    gap: 1px;
+  }
+
+  html.native-app.ios-device .mobile-tab__label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  html.native-app.ios-device .mobile-tab:active {
+    transform: none;
+    opacity: 0.55;
+  }
+
+  html.native-app.android-device .mobile-tab-bar {
+    background: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-top: none;
+    box-shadow: 0 -1px 3px rgba(15, 46, 34, 0.16);
+    padding-top: 8px;
+  }
+
+  html.native-app.android-device .mobile-tab__label {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+
+  html.native-app.android-device .mobile-tab--active .mobile-tab__icon,
+  html.native-app.android-device .mobile-tab--active .mobile-tab__icon-wrap {
+    background: #cdeedf;
+    border-radius: 16px;
+    min-width: 56px;
+    height: 32px;
+  }
+
+  html.native-app.android-device .mobile-tab--active .mobile-tab__icon-wrap::after {
+    display: none;
+  }
+
+  html.native-app.android-device .mobile-tab:active {
+    transform: none;
+    opacity: 1;
+    background: rgba(15, 110, 86, 0.08);
+    border-radius: 12px;
+  }
+
+  html.native-app.ios-device .mobile-more-menu,
+  html.native-app.android-device .mobile-more-menu {
+    gap: 0;
+  }
+
+  html.native-app.ios-device .mobile-tab-bar,
+  html.native-app.android-device .mobile-tab-bar {
+    left: 0;
+    right: 0;
+    width: 100%;
+  }
+
+  html.native-app.ios-device .mobile-more-group,
+  html.native-app.android-device .mobile-more-group {
+    margin: 16px 16px 6px;
+    letter-spacing: 0;
+    text-transform: none;
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: #0f6e56;
+  }
+
+  html.native-app.ios-device .mobile-more-link {
+    margin: 0 16px;
+    border: 0;
+    border-radius: 0;
+    border-bottom: 0.5px solid rgba(15, 110, 86, 0.12);
+    padding: 12px 14px;
+    box-shadow: none;
+  }
+
+  html.native-app.ios-device .mobile-more-group + .mobile-more-link,
+  html.native-app.ios-device .mobile-more-menu > .mobile-more-link:first-child {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+  }
+
+  html.native-app.ios-device .mobile-more-link:has(+ .mobile-more-group),
+  html.native-app.ios-device .mobile-more-link:last-child {
+    border-bottom: 0;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    margin-bottom: 4px;
+  }
+
+  html.native-app.ios-device .mobile-more-link:active {
+    transform: none;
+    background: #f3fbf8;
+  }
+
+  html.native-app.android-device .mobile-more-link {
+    border: 0;
+    border-radius: 0;
+    border-bottom: 1px solid rgba(15, 110, 86, 0.08);
+    min-height: 56px;
+    padding: 8px 16px;
+  }
+
+  html.native-app.android-device .mobile-more-link:active {
+    transform: none;
+    background: rgba(15, 110, 86, 0.12);
+  }
+
+  html.native-app.android-device .mobile-more-link__icon {
+    border-radius: 999px;
+  }
+
+  html.native-app.ios-device #settings.admin-section,
+  html.native-app.android-device #settings.admin-section {
+    min-height: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 4px 0 20px;
+    box-shadow: none;
+  }
+
+  html.native-app.ios-device #settings .settings-topbar,
+  html.native-app.ios-device #settings .settings-hub {
+    max-width: none;
+    margin-left: 16px;
+    margin-right: 16px;
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
+  html.native-app.android-device #settings .settings-topbar {
+    margin: 0 0 8px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: 0 1px 2px rgba(15, 46, 34, 0.08);
+  }
+
+  html.native-app.android-device #settings .settings-hub {
+    max-width: none;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+
+  html.native-app.ios-device .btn.primary,
+  html.native-app.ios-device .btn.secondary {
+    border-radius: 12px;
+  }
+
+  html.native-app.android-device .btn.primary,
+  html.native-app.android-device .btn.secondary {
+    border-radius: 20px;
+    min-height: 40px;
+  }
+}

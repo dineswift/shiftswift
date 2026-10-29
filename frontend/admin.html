@@ -75,8 +75,8 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v201" />
-    <link rel="stylesheet" href="./admin-surface-polish.css?v=2" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v203" />
+    <link rel="stylesheet" href="./admin-surface-polish.css?v=4" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
   </head>
   <body class="admin-portal">
@@ -2983,10 +2983,34 @@
               </label>
               <datalist id="rota-role-suggestions"></datalist>
               <div id="rota-bulk-times" class="rota-bulk-times" hidden>
-                <p class="rota-field-label">Apply these hours to other days (same employee)</p>
-                <p class="rota-bulk-times__hint muted">Updates existing shifts or adds new ones with the times above.</p>
+                <p class="rota-field-label">Same hours on more days and staff</p>
+                <p class="rota-bulk-times__hint muted">Tick extra days, and other staff who should get the same hours. Saving the shift applies the whole selection.</p>
+                <p class="rota-bulk-times__label">Days</p>
                 <div id="rota-bulk-days" class="rota-bulk-days"></div>
-                <button type="button" class="btn ghost btn-sm" id="rota-bulk-apply-btn">Apply times to selected days</button>
+                <p class="rota-bulk-times__label">Other staff</p>
+                <div id="rota-bulk-staff" class="rota-bulk-days"></div>
+                <button type="button" class="btn ghost btn-sm" id="rota-bulk-apply-btn">Apply to selected days and staff</button>
+              </div>
+              <div id="rota-auto-schedule" class="rota-auto-schedule" hidden>
+                <label class="rota-bulk-day">
+                  <input type="checkbox" id="rota-auto-schedule-enabled" checked />
+                  <span>Auto schedule</span>
+                </label>
+                <p class="rota-bulk-times__hint">Repeat these hours every week or month until the date below. Changing a day asks before upcoming weeks are updated. Click Save draft to store them.</p>
+                <div id="rota-auto-schedule-fields" class="rota-auto-schedule__fields">
+                  <label class="rota-field">
+                    <span class="rota-field-label">Repeat</span>
+                    <select id="rota-auto-frequency">
+                      <option value="week">Every week</option>
+                      <option value="month">Every month</option>
+                    </select>
+                  </label>
+                  <label class="rota-field">
+                    <span class="rota-field-label">Until</span>
+                    <input id="rota-auto-until" type="date" />
+                  </label>
+                </div>
+                <p id="rota-auto-schedule-count" class="rota-bulk-times__hint"></p>
               </div>
               <p class="rota-overlap-hint muted">Several employees can share the same hours. Overlap only blocks one person being scheduled twice on the same day.</p>
               <p id="rota-overlap-status" class="rota-overlap-status rota-overlap-status--ok"></p>
@@ -3783,7 +3807,7 @@
     <script src="./admin-global-documents.js?v=3"></script>
     <script src="./native-geolocation.js?v=2"></script>
     <script src="./admin-time-punch.js?v=39"></script>
-    <script src="./admin-rota.js?v=49"></script>
+    <script src="./admin-rota.js?v=51"></script>
     <script src="./admin-leave.js?v=admin-v15"></script>
     <script src="./admin-profile-changes.js?v=4"></script>
     <script src="./app.js?v=admin-v8"></script>

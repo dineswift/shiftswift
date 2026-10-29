@@ -94,6 +94,25 @@ class GenerateDraftRequest(BaseModel):
     expected_version: int | None = Field(default=None, ge=1)
 
 
+class RepeatShiftRule(BaseModel):
+    employee_id: int = Field(ge=1)
+    shift_date: str = Field(min_length=10, max_length=10)
+    start_time: str = Field(min_length=4, max_length=5)
+    end_time: str = Field(min_length=4, max_length=5)
+    role_label: str = Field(default="", max_length=80)
+    notes: str = Field(default="", max_length=500)
+    frequency: str = Field(pattern="^(week|month)$")
+    until: str = Field(min_length=10, max_length=10)
+    match_employee_id: int | None = Field(default=None, ge=1)
+    match_shift_date: str | None = Field(default=None, min_length=10, max_length=10)
+    match_start_time: str | None = Field(default=None, min_length=4, max_length=5)
+    match_end_time: str | None = Field(default=None, min_length=4, max_length=5)
+
+
+class RepeatShiftsRequest(BaseModel):
+    rules: list[RepeatShiftRule] = Field(min_length=1, max_length=80)
+
+
 class ReviewRequestBody(BaseModel):
     approve: bool
 
@@ -371,6 +390,32 @@ def save_week_rota(
                 week_start=parsed,
                 shifts_payload=[item.model_dump() for item in payload.shifts],
                 expected_version=payload.expected_version,
+                actor_username=current_user.username,
+                conn=conn,
+            )
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/weeks/{week_start}/repeat")
+def repeat_week_shifts(
+    week_start: str,
+    payload: RepeatShiftsRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+            return rota_service.apply_repeat_rules(
+                tenant_id=tenant_id,
+                current_week_start=parsed,
+                rules=[item.model_dump() for item in payload.rules],
                 actor_username=current_user.username,
                 conn=conn,
             )
