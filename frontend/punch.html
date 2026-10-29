@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <script src="./brand-config.js?v=brand-v5"></script>
+    <script src="./brand-config.js?v=brand-v10"></script>
     <script src="./app-host-guard.js?v=1"></script>
     <script>
       (function () {
@@ -23,7 +23,7 @@
     <title>ShiftSwift Time Clock</title>
     <link rel="manifest" href="./punch-manifest.webmanifest?v=4" />
     <link rel="stylesheet" href="./theme.css?v=brand-v1" />
-    <link rel="stylesheet" href="./punch.css?v=5" />
+    <link rel="stylesheet" href="./punch.css?v=6" />
   </head>
   <body class="punch-app">
     <div class="punch-shell">
@@ -120,13 +120,16 @@
 
       <section id="punch-mfa-view" class="punch-view" hidden>
         <article class="punch-card">
-          <h1>Verification code</h1>
-          <p class="punch-lead">Enter the code sent for <strong data-mfa-user></strong>.</p>
+          <h1>Check your email</h1>
+          <p class="punch-lead">We emailed a 6-digit code to <strong data-mfa-user></strong>. Check inbox and spam.</p>
           <form id="punch-mfa-form" class="punch-form">
             <label>
-              Code
+              Email code
               <input name="code" inputmode="numeric" autocomplete="one-time-code" required placeholder="123456" />
             </label>
+            <p class="muted">
+              <button type="button" class="portal-login-inline-link" id="punch-mfa-resend">Resend email code</button>
+            </p>
             <p id="punch-mfa-status" class="punch-status-msg" hidden></p>
             <button class="punch-btn punch-btn--primary" type="submit">Verify and continue</button>
           </form>
@@ -225,9 +228,9 @@
       </form>
     </dialog>
 
-    <script src="./brand-config.js?v=brand-v4"></script>
-    <script src="./push-notifications.js?v=3"></script>
-    <script src="./punch.js?v=8"></script>
+    <script src="./brand-config.js?v=brand-v10"></script>
+    <script src="./push-notifications.js?v=7"></script>
+    <script src="./punch.js?v=10"></script>
     <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

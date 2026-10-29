@@ -31,9 +31,19 @@
     return /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(ua);
   }
 
+  function isAndroid() {
+    return /Android/i.test(navigator.userAgent);
+  }
+
+  function isAppleDesktop() {
+    return /Macintosh|Mac OS X/i.test(navigator.userAgent) && !isIos();
+  }
+
   function applyDeviceClasses() {
     const root = document.documentElement;
     if (isIos()) root.classList.add("ios-device");
+    if (isIos() || isAppleDesktop()) root.classList.add("apple-device");
+    if (isAndroid()) root.classList.add("android-device");
     if (isIosSafari()) root.classList.add("ios-safari");
     if (isStandalone()) {
       root.classList.add("pwa-standalone");
@@ -74,7 +84,9 @@
   }
 
   applyDeviceClasses();
-  injectLaunchSplashes();
+  if (window.ShiftSwiftBrand?.isPwaEnabled?.() === true) {
+    injectLaunchSplashes();
+  }
 
   window.ShiftSwiftPwaIos = {
     isIos,

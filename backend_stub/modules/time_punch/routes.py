@@ -14,6 +14,7 @@ from config import load_settings
 from core.database import get_connection
 from deps import client_ip, get_employee_user, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from modules.time_punch import service as punch_service
+from modules.time_punch import epos as epos_service
 from modules.time_punch import kiosk as kiosk_service
 from modules.time_punch import timesheet as timesheet_service
 from modules.time_punch.qr import punch_qr_data_uri, punch_qr_png_bytes
@@ -107,6 +108,10 @@ class KioskSessionRequest(BaseModel):
 class KioskPunchRequest(BaseModel):
     session_token: str = Field(min_length=8, max_length=200)
     punch_type: PunchAction
+
+
+class EposTokenCreateRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
 
 
 def _parse_optional_date(value: str | None, field_name: str) -> date | None:
@@ -862,3 +867,70 @@ def get_kiosk_pin_status(
         return {"employee_id": employee_id, "kiosk_pin_set": bool(row[0])}
     finally:
         conn.close()
+
+
+@admin_router.get("/sites/{site_id}/epos-tokens")
+def list_epos_tokens(
+    site_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        items = epos_service.list_integration_tokens(
+            tenant_id=tenant_id,
+            punch_site_id=site_id,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    return {"items": items, "count": len(items)}
+
+
+@admin_router.post("/sites/{site_id}/epos-tokens")
+def create_epos_token(
+    site_id: int,
+    payload: EposTokenCreateRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        row = epos_service.create_integration_token(
+            tenant_id=tenant_id,
+            punch_site_id=site_id,
+            label=payload.label,
+            created_by=current_user.username,
+            conn=conn,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return row
+
+
+@admin_router.delete("/epos-tokens/{token_id}")
+def revoke_epos_token(
+    token_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        removed = epos_service.revoke_integration_token(
+            tenant_id=tenant_id,
+            token_id=token_id,
+            revoked_by=current_user.username,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    if not removed:
+        raise HTTPException(status_code=404, detail="Integration token not found")
+    return {"ok": True, "revoked": True}

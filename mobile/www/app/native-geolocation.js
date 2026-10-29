@@ -53,6 +53,11 @@
     const plugin = geoPlugin();
     if (!plugin?.requestPermissions) return "prompt";
     try {
+      if (plugin.checkPermissions) {
+        const current = await plugin.checkPermissions();
+        const state = current?.location || current?.coarseLocation;
+        if (state === "granted" || state === "denied") return state;
+      }
       const result = await plugin.requestPermissions();
       return result?.location || result?.coarseLocation || "prompt";
     } catch {

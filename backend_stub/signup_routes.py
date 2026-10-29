@@ -121,6 +121,9 @@ def _create_hr_admin_user(conn: Any, tenant_id: int, username: str, password: st
             """,
             (username.lower(), hash_password(password), tenant_id),
         )
+    from modules.workspace.service import ensure_workspace_owner
+
+    ensure_workspace_owner(conn=conn, tenant_id=tenant_id, username=username)
 
 
 def _send_signup_welcome_email(

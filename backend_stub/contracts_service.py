@@ -9,6 +9,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from modules.document_signing.signature_image import signature_image_html
+
 TEMPLATES_DIR = Path(__file__).resolve().parent / "contract_templates"
 STORAGE_DIR = Path(os.getenv("CONTRACTS_STORAGE_DIR", Path(__file__).resolve().parent / "storage" / "contracts"))
 
@@ -425,15 +427,22 @@ def sign_contract(
     signature_name: str,
     signature_title: str | None,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
+    import html as html_lib
+
     contract = get_contract_by_token(conn, token)
+    drawing = signature_image_html(signature_image)
+    name = html_lib.escape(signature_name)
+    title = html_lib.escape(signature_title) if signature_title else ""
     signed_block = (
         f'<section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">'
         f"<h2>Electronic signature</h2>"
-        f"<p>Signed by: <strong>{signature_name}</strong>"
-        f"{f' ({signature_title})' if signature_title else ''}</p>"
+        f"{drawing}"
+        f"<p>Signed by: <strong>{name}</strong>"
+        f"{f' ({title})' if title else ''}</p>"
         f"<p>Date: {datetime.now(timezone.utc).strftime('%d %B %Y %H:%M UTC')}</p>"
-        f"<p>IP: {ip_address or 'recorded'}</p></section>"
+        f"<p>IP: {html_lib.escape(ip_address or 'recorded')}</p></section>"
     )
     signed_html = (contract["html"] or "") + signed_block
     tenant_dir = STORAGE_DIR / str(contract["tenant_id"])

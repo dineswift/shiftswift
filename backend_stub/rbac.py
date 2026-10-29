@@ -8,6 +8,22 @@ LEGACY_ROLE_MAP = {
     "employee": "employee",
 }
 
+WORKSPACE_ROLES: tuple[str, ...] = (
+    "owner",
+    "hr_manager",
+    "general_manager",
+    "supervisor",
+    "document_manager",
+)
+
+WORKSPACE_ROLE_LABELS: dict[str, str] = {
+    "owner": "Owner",
+    "hr_manager": "HR manager",
+    "general_manager": "General manager",
+    "supervisor": "Supervisor",
+    "document_manager": "Document manager",
+}
+
 
 PERMISSIONS: dict[str, set[str]] = {
     "owner": {
@@ -25,6 +41,7 @@ PERMISSIONS: dict[str, set[str]] = {
         "billing.read",
         "billing.write",
         "audit.read",
+        "workspace.users.manage",
     },
     "hr_manager": {
         "employees.read",
@@ -37,6 +54,7 @@ PERMISSIONS: dict[str, set[str]] = {
         "compliance.write",
         "settings.read",
         "audit.read",
+        "workspace.users.manage",
     },
     "general_manager": {
         "employees.read",
@@ -48,6 +66,11 @@ PERMISSIONS: dict[str, set[str]] = {
     "supervisor": {
         "employees.read",
         "compliance.read",
+    },
+    "document_manager": {
+        "employees.read",
+        "compliance.read",
+        "compliance.write",
     },
     "employee": {
         "employees.read.self",
@@ -66,12 +89,21 @@ PERMISSIONS: dict[str, set[str]] = {
         "billing.read",
         "billing.write",
         "audit.read",
+        "workspace.users.manage",
     },
 }
 
 
 def normalize_role(role: str) -> str:
     return LEGACY_ROLE_MAP.get(role, role)
+
+
+def effective_role(user: object) -> str:
+    workspace_role = getattr(user, "workspace_role", None)
+    if workspace_role:
+        return normalize_role(str(workspace_role))
+    role = getattr(user, "role", "")
+    return normalize_role(str(role))
 
 
 def has_permission(role: str, permission: str) -> bool:

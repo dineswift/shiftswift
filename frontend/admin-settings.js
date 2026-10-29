@@ -1,6 +1,30 @@
 /** Settings workspace — left nav, plan badge, business profile, billing, notifications. */
 (function initAdminSettings() {
-  const { apiFetch, escapeHtml, isFeatureEnabled, parseHashPath, mountEditForm, FORM_SCHEMAS, emptyStateHtml } = window.Admin;
+  const {
+    apiFetch,
+    escapeHtml,
+    isFeatureEnabled,
+    parseHashPath,
+    mountEditForm,
+    FORM_SCHEMAS,
+    emptyStateHtml,
+  } = window.Admin;
+
+  async function readApiFailure(res, fallback) {
+    if (window.Admin?.readApiError) return window.Admin.readApiError(res, fallback);
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string") return data.detail;
+    } catch {
+      /* ignore */
+    }
+    return fallback;
+  }
+
+  async function readApiSuccess(res) {
+    if (window.Admin?.parseApiJson) return window.Admin.parseApiJson(res);
+    return res.json();
+  }
 
   const PANELS = ["business", "documents", "billing", "notifications", "rota", "users", "security", "addons"];
   const PANEL_ICONS = {
@@ -56,7 +80,7 @@
     },
     security: {
       title: "Security",
-      subtitle: "Two-factor authentication for your HR admin sign-in.",
+      subtitle: "Email sign-in codes and optional authenticator app.",
     },
     addons: {
       title: "Add-ons & integrations",
@@ -131,6 +155,7 @@
   }
 
   function isMobileSettingsLayout() {
+    if (document.documentElement.classList.contains("native-tablet")) return false;
     return window.matchMedia("(max-width: 980px)").matches;
   }
 
@@ -180,7 +205,6 @@
       void loadRotaPanel();
     }
     if (panelId === "documents") {
-      window.AdminDocuments?.resetDocumentTabs?.();
       void window.AdminDocuments?.loadSettingsDocuments?.();
     }
     if (panelId === "notifications") {
@@ -273,6 +297,25 @@
     }
   }
 
+  function setupStepsForChecklist(checklist, clockEnabled) {
+    return [
+      { key: "business_address", label: "Business address", href: "#settings/business" },
+      { key: "first_employee", label: "First employee", href: "#employees" },
+      { key: "rtw_started", label: "Right-to-work check", href: "#compliance-rtw" },
+      { key: "punch_site", label: "Time punch site", href: "#time-punch" },
+      { key: "rota_published", label: "Published rota", href: "#rota" },
+      { key: "accountant_email", label: "Accountant email", href: "#time-punch/accountant" },
+    ].filter((step) => {
+      if (step.key === "accountant_email" && !clockEnabled) return false;
+      return true;
+    });
+  }
+
+  function nextIncompleteSetupStep(checklist, clockEnabled) {
+    if (!checklist) return null;
+    return setupStepsForChecklist(checklist, clockEnabled).find((step) => !checklist[step.key]) || null;
+  }
+
   async function renderSettingsSetupBanner() {
     const host = document.getElementById("settings-setup-banner");
     if (!host) return;
@@ -287,18 +330,9 @@
         return;
       }
       const clockEnabled = Boolean(data.time_clock_enabled);
-      const steps = [
-        { key: "business_address", label: "Business address", href: "#settings/business" },
-        { key: "first_employee", label: "First employee", href: "#employees" },
-        { key: "rtw_started", label: "Right-to-work check", href: "#compliance-rtw" },
-        { key: "punch_site", label: "Time punch site", href: "#time-punch" },
-        { key: "rota_published", label: "Published rota", href: "#rota" },
-        { key: "accountant_email", label: "Accountant email", href: "#time-punch/accountant" },
-      ].filter((step) => {
-        if (!clockEnabled && (step.key === "punch_site" || step.key === "accountant_email")) return false;
-        return true;
-      });
+      const steps = setupStepsForChecklist(checklist, clockEnabled);
       const done = steps.filter((step) => checklist[step.key]).length;
+      const nextStep = nextIncompleteSetupStep(checklist, clockEnabled);
       host.hidden = false;
       host.innerHTML = `
         <div class="settings-setup-banner__inner">
@@ -308,7 +342,7 @@
           </div>
           <div class="settings-setup-banner__actions">
             <a class="btn outline btn-sm" href="#overview">View checklist</a>
-            <a class="btn ghost btn-sm" href="${escapeHtml(steps.find((s) => !checklist[s.key])?.href || "#settings/business")}">Next step</a>
+            <a class="btn ghost btn-sm" href="${escapeHtml(nextStep?.href || "#settings/business")}">Next step</a>
           </div>
         </div>`;
     } catch {
@@ -376,11 +410,43 @@
     host.innerHTML = '<p class="muted">Loading business details…</p>';
 
     let values = {};
+    let loadError = null;
     try {
       const res = await apiFetch("/admin/tenant-profile");
-      if (res.ok) values = await res.json();
-    } catch {
-      /* optional */
+      if (res.ok) {
+        values = await res.json();
+      } else {
+        loadError = "Could not load business profile.";
+      }
+    } catch (error) {
+      loadError = error?.message || "Could not load business profile.";
+    }
+    if (!Object.keys(values).length && window.Admin?.fetchAdminOverview) {
+      try {
+        const overview = await window.Admin.fetchAdminOverview(false);
+        values = {
+          name: overview.tenant_name || overview.trading_name || "",
+          trading_name: overview.trading_name || overview.tenant_name || "",
+          billing_email: overview.billing_email || "",
+          signatory_name: overview.signatory_name || "",
+          signatory_email: overview.signatory_email || "",
+          signatory_title: overview.signatory_title || "Director",
+          registered_address: overview.registered_address || "",
+          registered_latitude: overview.registered_latitude ?? null,
+          registered_longitude: overview.registered_longitude ?? null,
+        };
+        loadError = null;
+      } catch {
+        /* keep profile error */
+      }
+    }
+    if (loadError && !Object.keys(values).length) {
+      host.innerHTML = `<div class="overview-error"><p class="muted">${escapeHtml(loadError)}</p><button type="button" class="btn outline btn-sm" id="business-profile-retry-btn">Retry</button></div>`;
+      host.querySelector("#business-profile-retry-btn")?.addEventListener("click", () => {
+        host.innerHTML = "";
+        void loadBusinessPanel();
+      });
+      return;
     }
     cacheRegisteredAddress(values);
 
@@ -453,6 +519,16 @@
 
   function renderAddonToggleRow(addon, enabled, planName) {
     const locked = !enabled;
+    const action = enabled
+      ? `<label class="settings-toggle" title="Enabled on your account">
+        <input type="checkbox" data-addon-toggle="${escapeHtml(addon.id)}" checked disabled />
+        <span class="settings-toggle__track" aria-hidden="true"></span>
+        <span class="visually-hidden">Enabled</span>
+      </label>`
+      : `<div class="settings-feature-toggle__actions">
+        <span class="settings-feature-toggle__pill">Not on your plan</span>
+        <button type="button" class="btn outline btn-sm" data-settings-upgrade>View plans</button>
+      </div>`;
     return `<article class="settings-feature-toggle${locked ? " settings-feature-toggle--locked" : ""}">
       <div class="settings-feature-toggle__copy">
         <h4 class="settings-feature-toggle__title">${escapeHtml(addon.title)}</h4>
@@ -463,11 +539,7 @@
             : `<p class="muted settings-feature-toggle__help">Included on <strong>Scale</strong> plans. You are on <strong>${escapeHtml(planName)}</strong>.</p>`
         }
       </div>
-      <label class="settings-toggle" title="${enabled ? "Enabled on your account" : "Upgrade your plan to enable"}">
-        <input type="checkbox" data-addon-toggle="${escapeHtml(addon.id)}" ${enabled ? "checked" : ""} ${enabled ? "disabled" : ""} />
-        <span class="settings-toggle__track" aria-hidden="true"></span>
-        <span class="visually-hidden">${enabled ? "Enabled" : "Disabled"}</span>
-      </label>
+      ${action}
     </article>`;
   }
 
@@ -497,15 +569,27 @@
       const overviewRes = await apiFetch("/admin/overview");
       const overview = overviewRes.ok ? await overviewRes.json() : {};
       const planName = overview.plan_display_name || "Starter";
+      const checklist = overview.setup_checklist || null;
+      const setupComplete = Boolean(overview.setup_complete);
+      const clockEnabled = Boolean(overview.time_clock_enabled);
+      const setupSteps = checklist ? setupStepsForChecklist(checklist, clockEnabled) : [];
+      const setupDone = setupSteps.filter((step) => checklist[step.key]).length;
+      const nextSetup = nextIncompleteSetupStep(checklist, clockEnabled);
       const scaleLocked = !isFeatureEnabled("multi-site") && !isFeatureEnabled("api-access");
 
       host.innerHTML = `
-        <p class="muted">Use toggles to see which Scale features are active on your account. Self-service enablement is coming soon — contact support or upgrade your plan today.</p>
+        <p class="muted">Optional <strong>Scale</strong> upgrades for multi-site and API integrations. Employees, rota, time punch, and compliance work on your current <strong>${escapeHtml(planName)}</strong> plan.</p>
+        ${
+          checklist && !setupComplete && nextSetup
+            ? `<div class="alert-card settings-addons-setup-nudge">
+                <p class="alert-copy">Workspace setup is ${setupDone}/${setupSteps.length} complete. Add-ons can wait — <a href="${escapeHtml(nextSetup.href)}">${escapeHtml(nextSetup.label)}</a> is your next step.</p>
+              </div>`
+            : ""
+        }
         ${
           scaleLocked
             ? `<div class="alert-card alert-card-warning settings-addons-upgrade">
-                <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade to unlock both, or email support if you are already on Scale.</p>
-                <button type="button" class="btn outline" data-settings-upgrade>View plans</button>
+                <p class="alert-copy">Multi-site and API access are included on <strong>Scale</strong>. Upgrade when you need them, or email support if you are already on Scale.</p>
               </div>`
             : ""
         }
@@ -514,7 +598,9 @@
         </div>
         <p class="muted settings-addons-foot">Rota add-ons (Advanced scheduling, Multi-site rota) are managed under <a href="#settings/rota">Rota scheduling</a> and <a href="#settings/billing">Billing &amp; plan</a>.</p>`;
 
-      host.querySelector("[data-settings-upgrade]")?.addEventListener("click", startUpgrade);
+      host.querySelectorAll("[data-settings-upgrade]").forEach((btn) => {
+        btn.addEventListener("click", startUpgrade);
+      });
       bindAddonToggles(host);
       window.ShiftSwiftBrand?.applyBrandDom?.(host);
       host.dataset.ready = "true";
@@ -599,18 +685,38 @@
   }
 
   const NOTIFICATION_EVENTS = [
-    { id: "rtw_expiry", label: "RTW expiry approaching", default: "email" },
+    { id: "rtw_expiry", label: "RTW expiry approaching", default: "email_push" },
+    { id: "visa_expiry", label: "Visa expiry approaching", default: "email_push" },
+    { id: "document_expiry", label: "ID / document expiry", default: "email_push" },
+    { id: "sms_login_reminder", label: "Monthly Home Office SMS login reminder", default: "email_push" },
     { id: "absence_day5", label: "Absence day-5 warning", default: "email" },
     { id: "absence_day9", label: "Absence day-9 alert", default: "email_sms" },
     { id: "rota_published", label: "Rota published", default: "email" },
-    { id: "missed_punch_hr", label: "Missed clock-in (HR alert)", default: "email" },
+    { id: "missed_punch_hr", label: "Missed clock-in (HR alert)", default: "email_push" },
+    { id: "leave_request_hr", label: "New leave request (HR alert)", default: "email_push" },
     { id: "missed_punch_employee", label: "Missed clock-in (employee reminder)", default: "email" },
   ];
 
-  const SIGNIN_REMINDER_DELIVERY = [
-    { value: "email_push", label: "Email + push alert" },
+  const HR_PUSH_DELIVERY = [
+    { value: "email_push", label: "Email and in-app" },
     { value: "email", label: "Email only" },
-    { value: "push", label: "Push alert only" },
+    { value: "push", label: "In-app only" },
+    { value: "off", label: "Off" },
+  ];
+
+  const HR_PUSH_EVENT_IDS = new Set([
+    "missed_punch_hr",
+    "leave_request_hr",
+    "rtw_expiry",
+    "visa_expiry",
+    "document_expiry",
+    "sms_login_reminder",
+  ]);
+
+  const SIGNIN_REMINDER_DELIVERY = [
+    { value: "email_push", label: "Email and in-app" },
+    { value: "email", label: "Email only" },
+    { value: "push", label: "In-app only" },
     { value: "off", label: "Off" },
   ];
 
@@ -752,7 +858,7 @@
       </article>
       <article class="card settings-rota-reminders">
         <h4 class="hr-section-title">Rota shift reminders</h4>
-        <p class="muted settings-rota-reminders__lead">Bell alerts and push notifications before each published shift starts and ends. Applies to all employees on the rota (platform jobs cron every 15 minutes).</p>
+        <p class="muted settings-rota-reminders__lead">In-app and email reminders before each published shift starts and ends. Sent to all employees on the rota (every 15 minutes).</p>
         <div class="settings-rota-reminders__grid">
           <label class="edit-field">
             <span class="edit-label">Before shift starts (minutes)</span>
@@ -825,6 +931,17 @@
             ${events.map((ev) => {
               const fallback = NOTIFICATION_EVENTS.find((item) => item.id === ev.id)?.default || "email";
               const current = prefs[ev.id] || fallback;
+              if (HR_PUSH_EVENT_IDS.has(ev.id)) {
+                return `
+              <tr>
+                <td>${escapeHtml(ev.label)}</td>
+                <td>
+                  <select class="settings-notify-select" data-notify-id="${escapeHtml(ev.id)}">
+                    ${HR_PUSH_DELIVERY.map((opt) => `<option value="${opt.value}" ${current === opt.value ? "selected" : ""}>${escapeHtml(opt.label)}</option>`).join("")}
+                  </select>
+                </td>
+              </tr>`;
+              }
               return `
               <tr>
                 <td>${escapeHtml(ev.label)}</td>
@@ -840,7 +957,7 @@
           </tbody>
         </table>
       </div>
-      <p class="muted settings-notify-foot">Rota publish emails also require the “Notify staff by email” checkbox when publishing.</p>`;
+      <p class="muted settings-notify-foot">Rota emails are sent only when <strong>Email rota to staff</strong> is ticked on publish.</p>`;
 
         host.querySelectorAll(".settings-notify-select").forEach((select) => {
           select.addEventListener("change", () => {
@@ -1329,28 +1446,190 @@
 
   function loadUsersPanel() {
     const host = document.getElementById("settings-users-content");
-    if (!host || host.dataset.ready === "true") return;
-    const username = localStorage.getItem("username") || "Admin";
-    const role = localStorage.getItem("userRole") || "hr";
-    const tenantId = window.Admin?.TENANT_ID || localStorage.getItem("tenantId") || "—";
-    const roleLabel = role === "admin" ? "Platform admin" : role === "hr" ? "HR admin" : role;
+    if (!host) return;
+    void renderUsersPanel(host);
+  }
 
-    host.innerHTML = `
-      <p class="muted">People who can sign in to this ShiftSwift HR workspace.</p>
-      <p class="muted">Workspace ID <strong>#${escapeHtml(tenantId)}</strong> · your sign-in email is your HR username.</p>
-      <div class="settings-user-card">
-        <div class="settings-user-card__main">
-          <strong>${escapeHtml(username)}</strong>
-          <span class="settings-user-badge">Owner</span>
+  async function renderUsersPanel(host) {
+    host.innerHTML = `<p class="muted">Loading workspace users…</p>`;
+    try {
+      const res = await apiFetch("/admin/workspace/users");
+      if (!res.ok) throw new Error(await readApiFailure(res, "Could not load workspace users."));
+      const data = await readApiSuccess(res);
+      const users = Array.isArray(data.users) ? data.users : [];
+      const roles = Array.isArray(data.roles) ? data.roles : [];
+      const canManage = Boolean(data.can_manage_users);
+      const currentUser = data.current_user || localStorage.getItem("employeeUsername") || "";
+      const tenantId = window.Admin?.TENANT_ID || localStorage.getItem("tenantId") || "—";
+
+      const rows = users
+        .map((user) => {
+          const isYou = user.username === currentUser;
+          const status = user.is_active ? "" : ' <span class="settings-user-badge settings-user-badge--muted">Inactive</span>';
+          const actions =
+            canManage && !isYou
+              ? `<div class="table-actions">
+                  <button type="button" class="btn ghost btn-sm" data-workspace-edit="${escapeHtml(user.username)}">Edit</button>
+                  ${
+                    user.is_active
+                      ? `<button type="button" class="btn ghost btn-sm" data-workspace-deactivate="${escapeHtml(user.username)}">Deactivate</button>`
+                      : `<button type="button" class="btn ghost btn-sm" data-workspace-activate="${escapeHtml(user.username)}">Reactivate</button>`
+                  }
+                </div>`
+              : "";
+          return `<tr>
+            <td><strong>${escapeHtml(user.display_name || user.username)}</strong>${isYou ? ' <span class="muted">(you)</span>' : ""}<br><span class="muted">${escapeHtml(user.username)}</span></td>
+            <td>${escapeHtml(user.role_label || user.role)}${status}</td>
+            <td>${actions}</td>
+          </tr>`;
+        })
+        .join("");
+
+      const roleOptions = roles
+        .map((role) => `<option value="${escapeHtml(role.id)}">${escapeHtml(role.label)}</option>`)
+        .join("");
+
+      host.innerHTML = `
+        <p class="muted">People who sign in to this workspace — separate from employees on the staff portal.</p>
+        <p class="muted">Workspace <strong>#${escapeHtml(tenantId)}</strong></p>
+        <div class="settings-users-table-wrap">
+          <table class="data-table settings-users-table">
+            <thead><tr><th>User</th><th>Role</th><th></th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="3" class="muted">No users yet.</td></tr>'}</tbody>
+          </table>
         </div>
-        <span class="muted">${escapeHtml(roleLabel)} · you</span>
-      </div>
-      <div class="settings-form-actions">
-        <a class="btn outline" href="#" data-brand-support-mailto="Invite manager to ShiftSwift HR">Invite manager</a>
-      </div>
-      <p class="muted">Multi-user roles and manager invites are set up by support. Email us to add HR managers or site leads.</p>`;
-    window.ShiftSwiftBrand?.applyBrandDom?.(host);
-    host.dataset.ready = "true";
+        ${
+          canManage
+            ? `<div class="settings-form-actions">
+                <button type="button" class="btn outline" id="workspace-user-invite-open">Invite user</button>
+              </div>
+              <dialog class="settings-dialog" id="workspace-user-invite-dialog">
+                <form method="dialog" class="settings-dialog-form" id="workspace-user-invite-form">
+                  <h3>Invite workspace user</h3>
+                  <p class="muted">Contractors and agents can use <strong>Document manager</strong> for employee files only.</p>
+                  <label class="edit-field">Work email<input type="email" name="email" required autocomplete="email" placeholder="agent@company.co.uk" /></label>
+                  <label class="edit-field">Display name (optional)<input type="text" name="display_name" maxlength="120" placeholder="e.g. Acme Payroll" /></label>
+                  <label class="edit-field">Role
+                    <select name="role" required>${roleOptions}</select>
+                  </label>
+                  <p class="muted" id="workspace-user-invite-status" aria-live="polite"></p>
+                  <div class="settings-form-actions">
+                    <button type="button" class="btn ghost" id="workspace-user-invite-cancel">Cancel</button>
+                    <button type="submit" class="btn">Send invite</button>
+                  </div>
+                </form>
+              </dialog>
+              <dialog class="settings-dialog" id="workspace-user-edit-dialog">
+                <form method="dialog" class="settings-dialog-form" id="workspace-user-edit-form">
+                  <h3>Edit workspace user</h3>
+                  <input type="hidden" name="username" />
+                  <p class="muted" id="workspace-user-edit-email"></p>
+                  <label class="edit-field">Display name<input type="text" name="display_name" maxlength="120" /></label>
+                  <label class="edit-field">Role
+                    <select name="role" required>${roleOptions}</select>
+                  </label>
+                  <p class="muted" id="workspace-user-edit-status" aria-live="polite"></p>
+                  <div class="settings-form-actions">
+                    <button type="button" class="btn ghost" id="workspace-user-edit-cancel">Cancel</button>
+                    <button type="submit" class="btn">Save</button>
+                  </div>
+                </form>
+              </dialog>`
+            : `<p class="muted">Only owners and HR managers can invite or edit workspace users.</p>`
+        }`;
+
+      if (canManage) {
+        const inviteDialog = host.querySelector("#workspace-user-invite-dialog");
+        const editDialog = host.querySelector("#workspace-user-edit-dialog");
+        host.querySelector("#workspace-user-invite-open")?.addEventListener("click", () => inviteDialog?.showModal());
+        host.querySelector("#workspace-user-invite-cancel")?.addEventListener("click", () => inviteDialog?.close());
+        host.querySelector("#workspace-user-edit-cancel")?.addEventListener("click", () => editDialog?.close());
+
+        host.querySelector("#workspace-user-invite-form")?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const status = host.querySelector("#workspace-user-invite-status");
+          const payload = Object.fromEntries(new FormData(form));
+          if (status) status.textContent = "Sending invite…";
+          try {
+            const res = await apiFetch("/admin/workspace/users/invite", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error(await readApiFailure(res, "Invite failed"));
+            const result = await readApiSuccess(res);
+            if (status) status.textContent = result.message || "Invite sent.";
+            inviteDialog?.close();
+            form.reset();
+            await renderUsersPanel(host);
+          } catch (error) {
+            if (status) status.textContent = error.message || "Invite failed";
+          }
+        });
+
+        host.querySelector("#workspace-user-edit-form")?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const status = host.querySelector("#workspace-user-edit-status");
+          const payload = Object.fromEntries(new FormData(form));
+          const username = String(payload.username || "");
+          if (status) status.textContent = "Saving…";
+          try {
+            const res = await apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                role: payload.role,
+                display_name: payload.display_name || "",
+              }),
+            });
+            if (!res.ok) throw new Error(await readApiFailure(res, "Update failed"));
+            editDialog?.close();
+            await renderUsersPanel(host);
+          } catch (error) {
+            if (status) status.textContent = error.message || "Update failed";
+          }
+        });
+
+        host.querySelectorAll("[data-workspace-edit]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const username = button.getAttribute("data-workspace-edit") || "";
+            const user = users.find((item) => item.username === username);
+            if (!user || !editDialog) return;
+            const form = host.querySelector("#workspace-user-edit-form");
+            form.username.value = user.username;
+            form.display_name.value = user.display_name || "";
+            form.role.value = user.role;
+            host.querySelector("#workspace-user-edit-email").textContent = user.username;
+            host.querySelector("#workspace-user-edit-status").textContent = "";
+            editDialog.showModal();
+          });
+        });
+
+        const toggleActive = async (username, isActive) => {
+          const label = isActive ? "Reactivate" : "Deactivate";
+          if (!window.confirm(`${label} ${username}?`)) return;
+          const res = await apiFetch(`/admin/workspace/users/${encodeURIComponent(username)}`, {
+            method: "PATCH",
+            body: JSON.stringify({ is_active: isActive }),
+          });
+          if (!res.ok) throw new Error(await readApiFailure(res, `${label} failed`));
+          await renderUsersPanel(host);
+        };
+
+        host.querySelectorAll("[data-workspace-deactivate]").forEach((button) => {
+          button.addEventListener("click", () => {
+            void toggleActive(button.getAttribute("data-workspace-deactivate") || "", false);
+          });
+        });
+        host.querySelectorAll("[data-workspace-activate]").forEach((button) => {
+          button.addEventListener("click", () => {
+            void toggleActive(button.getAttribute("data-workspace-activate") || "", true);
+          });
+        });
+      }
+    } catch (error) {
+      host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load workspace users.")}</p>`;
+    }
   }
 
   async function loadSecurityPanel() {
@@ -1382,33 +1661,169 @@
     }
 
     const enabled = Boolean(status.mfa_enabled);
+    const totpEnabled =
+      status.totp_enabled != null ? Boolean(status.totp_enabled) : Boolean(enabled);
     const required = Boolean(status.policy_required);
+    const emailDefault = Boolean(status.email_mfa_default);
+    const passkeysFeature = Boolean(status.passkeys_enabled);
+    window.ShiftSwiftPasskeyAuth?.notePasskeysEnabledFromServer?.(passkeysFeature);
+    const passkeys = passkeysFeature && Array.isArray(status.passkeys) ? status.passkeys : [];
+    const canPasskey =
+      passkeysFeature &&
+      Boolean(window.ShiftSwiftPasskeyAuth?.canUsePasskeys?.()) &&
+      !window.ShiftSwiftPasskeyAuth?.isDesktopLoginSurface?.();
+    const passkeyRows =
+      passkeys.length > 0
+        ? `<ul class="settings-passkey-list">${passkeys
+            .map(
+              (item) => `
+            <li class="settings-passkey-item">
+              <span>
+                <strong>${escapeHtml(item.device_label || "Face ID / Touch ID")}</strong>
+                <span class="muted">${item.last_used_at ? `Last used ${escapeHtml(String(item.last_used_at).slice(0, 10))}` : "Not used yet"}</span>
+              </span>
+              <button type="button" class="btn ghost settings-passkey-remove" data-passkey-id="${escapeHtml(String(item.id))}">Remove</button>
+            </li>`
+            )
+            .join("")}</ul>`
+        : `<p class="muted">No Face ID / Touch ID devices registered yet.</p>`;
+
+    const summaryLines = [];
+    if (emailDefault) {
+      summaryLines.push(
+        "After your password, sign-in sends a <strong>6-digit code to your email</strong> by default.",
+      );
+    }
+    if (required) {
+      summaryLines.push(
+        passkeysFeature
+          ? "Your organisation also requires an authenticator app or Face ID / Touch ID."
+          : "Your organisation also requires an authenticator app.",
+      );
+    } else {
+      summaryLines.push(
+        passkeysFeature
+          ? "You can optionally add Face ID / Touch ID or an authenticator app as alternatives."
+          : "You can optionally add an authenticator app as an alternative.",
+      );
+    }
+
     host.innerHTML = `
       <div class="settings-security-summary">
-        <p><strong>Status:</strong> ${enabled ? "Two-factor authentication is ON" : "Not enabled yet"}</p>
-        <p class="muted">${required ? "Your organisation requires authenticator app codes at sign-in." : "You can optionally enable an authenticator app for extra security."}</p>
+        <p><strong>Email codes:</strong> ${emailDefault ? "On (default at sign-in)" : "Off on this server"}</p>
+        <p><strong>Authenticator app:</strong> ${totpEnabled ? "On" : "Not set"}</p>
+        ${
+          passkeysFeature
+            ? `<p><strong>Face ID / Touch ID:</strong> ${
+                passkeys.length
+                  ? `${passkeys.length} device${passkeys.length === 1 ? "" : "s"}`
+                  : "Not set"
+              }</p>`
+            : ""
+        }
+        <p class="muted">${summaryLines.join(" ")}</p>
       </div>
-      <div id="settings-mfa-setup-block" ${enabled ? "hidden" : ""}>
-        <h4>Set up authenticator</h4>
-        <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator.</p>
+      ${
+        passkeysFeature
+          ? `<div class="settings-security-passkey-block">
+        <h4>Face ID / Touch ID</h4>
+        <p class="muted">Optional alternative to the email code on compatible iPhone / iPad browsers (not shown on desktop sign-in).</p>
+        ${
+          canPasskey
+            ? `
+        ${passkeyRows}
+        <button type="button" class="btn outline" id="settings-passkey-enable">
+          ${passkeys.length ? "Add another device" : "Enable Face ID / Touch ID"}
+        </button>
+        <p class="muted" id="settings-passkey-status-line" aria-live="polite"></p>`
+            : `<p class="muted">Face ID / Touch ID can be set up from Safari on iPhone or iPad. Desktop sign-in uses email codes instead.</p>`
+        }
+      </div>`
+          : ""
+      }
+      <div id="settings-mfa-setup-block" ${totpEnabled ? "hidden" : ""}>
+        <h4>Authenticator app (optional)</h4>
+        <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator as an alternative to email codes.</p>
         <button type="button" class="btn outline" id="settings-mfa-start">Generate QR code</button>
         <div id="settings-mfa-qr-area" hidden>
           <div class="mfa-enrollment-qr-wrap"><img id="settings-mfa-qr" alt="Authenticator QR code" width="180" height="180" /></div>
           <p class="muted">Manual key: <code id="settings-mfa-secret"></code></p>
-          <label class="edit-field">Verification code<input type="text" id="settings-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="123456" /></label>
-          <button type="button" class="btn" id="settings-mfa-enable">Enable two-factor authentication</button>
+          <label class="edit-field">Verification code<input type="text" id="settings-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
+          <button type="button" class="btn" id="settings-mfa-enable">Enable authenticator app</button>
         </div>
+        <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>
       </div>
       <div id="settings-mfa-disable-block" ${enabled ? "" : "hidden"}>
-        <h4>Turn off two-factor authentication</h4>
+        <h4>Turn off ${passkeysFeature ? "authenticator / Face ID MFA" : "authenticator MFA"}</h4>
+        <p class="muted">${
+          emailDefault
+            ? passkeysFeature
+              ? "Removes the authenticator app and Face ID MFA flag. Email sign-in codes remain required."
+              : "Removes the authenticator app. Email sign-in codes remain required."
+            : passkeysFeature
+              ? "Removes authenticator and Face ID MFA from this account."
+              : "Removes authenticator MFA from this account."
+        }</p>
         ${required ? '<p class="muted">Required by policy — contact platform support if you need an exception.</p>' : ""}
         <label class="edit-field">Password<input type="password" id="settings-mfa-disable-password" autocomplete="current-password" /></label>
-        <label class="edit-field">Authenticator code<input type="text" id="settings-mfa-disable-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
-        <button type="button" class="btn ghost" id="settings-mfa-disable" ${required ? "disabled" : ""}>Disable two-factor authentication</button>
-      </div>
-      <p class="muted" id="settings-mfa-status-line" aria-live="polite"></p>`;
+        <label class="edit-field">Authenticator code<input type="text" id="settings-mfa-disable-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="Required if authenticator is on" /></label>
+        <button type="button" class="btn ghost" id="settings-mfa-disable" ${required ? "disabled" : ""}>Disable optional MFA</button>
+        <p class="muted" id="settings-mfa-disable-status-line" aria-live="polite"></p>
+      </div>`;
+
+    const formatPasskeyError = (message) => {
+      const text = String(message || "").trim();
+      if (/rpid did not match|related origins/i.test(text)) {
+        return "Face ID could not start because this site’s security domain did not match. Refresh and try again, or contact support if it keeps failing.";
+      }
+      return text || "Could not enable Face ID";
+    };
 
     const statusLine = document.getElementById("settings-mfa-status-line");
+    const passkeyStatusLine = document.getElementById("settings-passkey-status-line");
+    const disableStatusLine = document.getElementById("settings-mfa-disable-status-line");
+    document.getElementById("settings-passkey-enable")?.addEventListener("click", async () => {
+      const btn = document.getElementById("settings-passkey-enable");
+      if (!window.ShiftSwiftPasskeyAuth?.registerPasskeyOnDevice) {
+        if (passkeyStatusLine) passkeyStatusLine.textContent = "Face ID is not available in this session.";
+        return;
+      }
+      if (btn) btn.disabled = true;
+      if (passkeyStatusLine) passkeyStatusLine.textContent = "Waiting for Face ID / Touch ID…";
+      try {
+        await window.ShiftSwiftPasskeyAuth.registerPasskeyOnDevice({
+          enableMfa: !enabled,
+          deviceLabel: "Face ID / Touch ID",
+        });
+        showSettingsToast(enabled ? "Face ID device added." : "Face ID enabled for sign-in.");
+        await loadSecurityPanel();
+      } catch (error) {
+        if (passkeyStatusLine) passkeyStatusLine.textContent = formatPasskeyError(error.message);
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    host.querySelectorAll(".settings-passkey-remove").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const passkeyId = button.getAttribute("data-passkey-id");
+        if (!passkeyId) return;
+        if (!window.confirm("Remove Face ID / Touch ID for this device?")) return;
+        button.disabled = true;
+        try {
+          if (window.ShiftSwiftPasskeyAuth?.deletePasskey) {
+            await window.ShiftSwiftPasskeyAuth.deletePasskey(passkeyId);
+          } else {
+            await mfaAuthFetch(`/auth/passkey/${encodeURIComponent(passkeyId)}`, { method: "DELETE" });
+          }
+          showSettingsToast("Face ID device removed.");
+          await loadSecurityPanel();
+        } catch (error) {
+          if (passkeyStatusLine) passkeyStatusLine.textContent = error.message || "Could not remove Face ID";
+          button.disabled = false;
+        }
+      });
+    });
+
     document.getElementById("settings-mfa-start")?.addEventListener("click", async () => {
       try {
         const setup = await mfaAuthFetch("/auth/mfa/setup", { method: "POST", body: "{}" });
@@ -1416,8 +1831,10 @@
         const qrImg = document.getElementById("settings-mfa-qr");
         const secretEl = document.getElementById("settings-mfa-secret");
         if (secretEl) secretEl.textContent = setup.manual_secret || "";
-        if (qrImg && setup.otpauth_uri) {
-          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
+        if (qrImg && (setup.otpauth_uri || setup.qr_data_uri)) {
+          qrImg.src =
+            setup.qr_data_uri ||
+            `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
         }
         if (qrArea) qrArea.hidden = false;
       } catch (error) {
@@ -1448,7 +1865,8 @@
         showSettingsToast("Two-factor authentication disabled.");
         await loadSecurityPanel();
       } catch (error) {
-        if (statusLine) statusLine.textContent = error.message;
+        if (disableStatusLine) disableStatusLine.textContent = error.message;
+        else if (statusLine) statusLine.textContent = error.message;
       }
     });
   }
@@ -1475,15 +1893,28 @@
       return;
     }
     sectionReady = true;
-    window.Admin.loadFormOptions()
-      .then(initSettingsSection)
-      .catch((error) => {
+    void (async () => {
+      try {
+        await window.Admin.loadFormOptions();
+      } catch {
+        /* business profile can still load without metadata */
+      }
+      try {
+        await initSettingsSection();
+      } catch (error) {
         const host = document.getElementById("tenant-profile-form");
         if (host && !businessFormMounted()) {
           host.innerHTML = `<p class="muted">${escapeHtml(error.message || "Could not load settings.")}</p>`;
         }
-      });
+      }
+    })();
   }
+
+  window.addEventListener("admin:portal-native-retry", () => {
+    if (parseHashPath(window.location.hash).baseSection === "settings") {
+      bootstrapSettingsSection();
+    }
+  });
 
   window.addEventListener("admin:section", (event) => {
     if (event.detail?.section === "settings") {
@@ -1504,5 +1935,5 @@
     bootstrapSettingsSection();
   }
 
-  window.AdminSettings = { showSettingsToast, startUpgrade };
+  window.AdminSettings = { showSettingsToast, startUpgrade, bootstrapSettingsSection };
 })();

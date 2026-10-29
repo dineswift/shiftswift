@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from core.email_templates import (
     EmailContent,
+    login_email_mfa_code,
     password_reset_email,
     render_email,
     signup_platform_guide_email,
@@ -44,6 +45,15 @@ def test_password_reset_escapes_html_in_url() -> None:
     )
     assert "<script>" not in content.html
     assert "Choose a new password" in content.html
+
+
+def test_login_email_mfa_code_renders_digits_not_escaped_tags() -> None:
+    content = login_email_mfa_code(code="729325", minutes=10)
+    assert "729325" in content.text
+    assert "729325" in content.html
+    assert "&lt;strong" not in content.html
+    assert 'font-size:28px' in content.html
+    assert "expires in 10 minutes" in content.html
 
 
 def test_render_email_includes_brand_header() -> None:

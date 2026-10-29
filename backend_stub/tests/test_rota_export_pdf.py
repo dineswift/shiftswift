@@ -22,8 +22,8 @@ def test_build_rota_week_pdf_starts_with_pdf_header() -> None:
         week_status="published",
         week_days=[week_start + timedelta(days=offset) for offset in range(7)],
         staff=[
-            {"id": 1, "short_name": "K. Acharya", "role_label": "Tandoori Chef"},
-            {"id": 2, "short_name": "A. Smith", "role_label": "Floor"},
+            {"id": 1, "initials": "KA", "short_name": "K. Acharya", "role_label": "Tandoori Chef"},
+            {"id": 2, "initials": "AS", "short_name": "A. Smith", "role_label": "Floor"},
         ],
         shifts=[
             {
@@ -107,7 +107,7 @@ def test_build_rota_week_pdf_with_attendance_legend() -> None:
         week_start_day_name="Monday",
         week_status="published",
         week_days=[week_start + timedelta(days=offset) for offset in range(7)],
-        staff=[{"id": 1, "short_name": "G. Kharel", "role_label": "Director"}],
+        staff=[{"id": 1, "initials": "GK", "short_name": "G. Kharel", "role_label": "Director"}],
         shifts=[
             {
                 "id": 5,

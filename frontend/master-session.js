@@ -44,7 +44,7 @@
     const url =
       global.ShiftSwiftSession?.resolveLoginUrl?.() ||
       global.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
-      "./native-app-login.html";
+      "./sign-in.html";
     window.location.replace(url);
   }
 

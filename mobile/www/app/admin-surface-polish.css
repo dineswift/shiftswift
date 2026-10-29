@@ -1,0 +1,398 @@
+/**
+ * ShiftSwift admin surface polish — Employees / Dashboard language across sections.
+ * Flattened page titles, pastel stat cards, sheet-style detail panels.
+ */
+
+/* ── Stat cards ── */
+.hr-stats-grid .hr-stat-card,
+.rtw-stats-grid .rtw-stat-card,
+.absence-stats-grid .absence-stat-card,
+.punch-stats-grid .hr-stat-card,
+.leave-stats-grid .hr-stat-card,
+.employment-stats-grid .hr-stat-card,
+.disciplinary-stats-grid .hr-stat-card,
+.rota-stats-grid .hr-stat-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  min-height: 76px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: #f3f6f2;
+  box-shadow: none;
+}
+
+.hr-stats-grid .hr-stat-card__icon,
+.rtw-stats-grid .rtw-stat-card__icon,
+.absence-stats-grid .absence-stat-card__icon,
+.punch-stats-grid .hr-stat-card__icon,
+.leave-stats-grid .hr-stat-card__icon,
+.employment-stats-grid .hr-stat-card__icon,
+.disciplinary-stats-grid .hr-stat-card__icon,
+.rota-stats-grid .hr-stat-card__icon {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  font-size: 0.95rem;
+}
+
+.hr-stats-grid .hr-stat-card__icon .admin-icon,
+.rtw-stats-grid .rtw-stat-card__icon .admin-icon,
+.absence-stats-grid .absence-stat-card__icon .admin-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.hr-stats-grid .hr-stat-card__label,
+.rtw-stats-grid .rtw-stat-card__label,
+.absence-stats-grid .absence-stat-card__label,
+.punch-stats-grid .hr-stat-card__label,
+.leave-stats-grid .hr-stat-card__label {
+  order: 3;
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: inherit;
+  opacity: 0.78;
+}
+
+.hr-stats-grid .hr-stat-card__value,
+.rtw-stats-grid .rtw-stat-card__value,
+.absence-stats-grid .absence-stat-card__value,
+.punch-stats-grid .hr-stat-card__value,
+.leave-stats-grid .hr-stat-card__value {
+  flex: 1 1 auto;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: inherit;
+}
+
+.hr-stats-grid .hr-stat-card__sub,
+.rtw-stats-grid .rtw-stat-card__hint,
+.absence-stats-grid .absence-stat-card__sub,
+.punch-stats-grid .hr-stat-card__sub,
+.leave-stats-grid .hr-stat-card__sub {
+  flex: 1 1 100%;
+  order: 4;
+  font-size: 0.72rem;
+  opacity: 0.7;
+  color: inherit;
+}
+
+.hr-stats-grid .hr-stat-card--ok,
+.rtw-stats-grid .rtw-stat-card--ok,
+.absence-stats-grid .absence-stat-card--ok,
+.leave-stats-grid .hr-stat-card--ok,
+.employment-stats-grid .hr-stat-card--ok,
+.disciplinary-stats-grid .hr-stat-card--ok,
+.rota-stats-grid .hr-stat-card--ok,
+.punch-stats-grid .hr-stat-card--ok {
+  background: #e9f8f1;
+  color: #0f6e56;
+}
+
+.hr-stats-grid .hr-stat-card--warn,
+.rtw-stats-grid .rtw-stat-card--warn,
+.absence-stats-grid .absence-stat-card--warn,
+.leave-stats-grid .hr-stat-card--warn,
+.employment-stats-grid .hr-stat-card--warn,
+.disciplinary-stats-grid .hr-stat-card--warn,
+.rota-stats-grid .hr-stat-card--warn {
+  background: #f8eedc;
+  color: #854f0b;
+}
+
+.hr-stats-grid .hr-stat-card--danger,
+.rtw-stats-grid .rtw-stat-card--danger,
+.absence-stats-grid .absence-stat-card--danger,
+.disciplinary-stats-grid .hr-stat-card--danger,
+.rtw-stats-grid .rtw-stat-card--clear {
+  background: #fdeeee;
+  color: #b42318;
+}
+
+.punch-stats-grid .hr-stat-card:nth-child(1),
+.leave-stats-grid .hr-stat-card:nth-child(3) {
+  background: #e8f1fb;
+  color: #185fa5;
+}
+
+/* ── Empty states ── */
+.admin-empty-state,
+.compliance-empty-state,
+.rota-empty-state,
+.lifecycle-empty-state {
+  border: 1px dashed rgba(15, 110, 86, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f7fcf9 0%, #ffffff 72%);
+}
+
+.compliance-empty-state__icon,
+.admin-empty-state__icon {
+  background: var(--green-100);
+  color: var(--green-800);
+  border: 1px solid rgba(15, 110, 86, 0.12);
+}
+
+/* ── Desktop page chrome ── */
+@media (min-width: 861px) {
+  body.admin-portal .admin-section > .section-header {
+    padding: 2px 0 16px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.admin-portal .admin-section > .section-header h2 {
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--ink-900, #12251f);
+  }
+
+  body.admin-portal .admin-section > .section-header .muted,
+  body.admin-portal .admin-section > .section-header p.muted {
+    margin-top: 6px;
+    font-size: 0.95rem;
+    max-width: 46rem;
+  }
+
+  body.admin-portal .admin-section > .section-header .section-actions .btn.primary,
+  body.admin-portal .admin-section > .section-header .section-actions .employees-add-btn {
+    border-radius: 999px;
+    padding-inline: 16px;
+  }
+
+  body.admin-portal .settings-topbar {
+    padding: 2px 0 16px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.admin-portal .settings-topbar__title {
+    font-size: 1.55rem;
+    letter-spacing: -0.03em;
+  }
+
+  body.admin-portal .admin-section > .hr-stats-grid,
+  body.admin-portal .admin-section > .leave-stats-grid,
+  body.admin-portal .admin-section > .punch-stats-grid,
+  body.admin-portal .admin-section > .rtw-stats-grid,
+  body.admin-portal .admin-section > .absence-stats-grid {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  body.admin-portal .hr-filter-tabs,
+  body.admin-portal .rtw-filter-tabs {
+    gap: 4px;
+    padding: 4px;
+    border: none;
+    border-radius: 12px;
+    background: #f3f6f2;
+    overflow: visible;
+  }
+
+  body.admin-portal .hr-filter-tab + .hr-filter-tab,
+  body.admin-portal .rtw-filter-tab + .rtw-filter-tab {
+    border-left: none;
+  }
+
+  body.admin-portal .hr-filter-tab,
+  body.admin-portal .rtw-filter-tab {
+    border-radius: 9px;
+    padding: 7px 12px;
+  }
+
+  body.admin-portal .hr-filter-tab.is-active,
+  body.admin-portal .rtw-filter-tab.is-active {
+    background: #fff;
+    color: var(--green-800);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+
+  body.admin-portal .hr-surface-panel,
+  body.admin-portal .hr-log-panel,
+  body.admin-portal .rtw-add-panel,
+  body.admin-portal .absence-log-panel {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 16px 18px;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  body.admin-portal .hr-detail-panel,
+  body.admin-portal .recruitment-detail-panel,
+  body.admin-portal .grievance-detail-panel,
+  body.admin-portal .disciplinary-detail-panel,
+  body.admin-portal .leave-detail-panel,
+  body.admin-portal .rtw-detail-panel,
+  body.admin-portal .absence-detail-panel {
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(18, 37, 31, 0.06);
+  }
+
+  body.admin-portal .data-table thead th,
+  body.admin-portal table.admin-table thead th {
+    background: transparent;
+    border-bottom: 1px solid #edf1ee;
+  }
+
+  body.admin-portal .data-table tbody tr:hover,
+  body.admin-portal table.admin-table tbody tr:hover {
+    background: #f7fbf8;
+  }
+
+  body.admin-portal .data-table tbody tr.hr-register-row--selected,
+  body.admin-portal .data-table tbody tr.is-selected,
+  body.admin-portal .data-table tbody tr[aria-selected="true"] {
+    background: #eef8f3;
+  }
+
+  body.admin-portal .leave-search input,
+  body.admin-portal .hr-search input,
+  body.admin-portal .rtw-search input,
+  body.admin-portal .templates-filter input,
+  body.admin-portal .templates-filter select {
+    height: 42px;
+    border-radius: 12px;
+  }
+}
+
+/* ── Settings hub ── */
+.settings-hub-card {
+  border-radius: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.settings-hub-card:hover,
+.settings-hub-card:focus-visible {
+  border-color: rgba(15, 110, 86, 0.28);
+  box-shadow: 0 8px 20px rgba(15, 46, 34, 0.06);
+  transform: translateY(-1px);
+}
+
+.settings-hub-card__icon {
+  background: #e9f8f1 !important;
+  color: #0f6e56 !important;
+  border-radius: 999px;
+}
+
+/* ── Status pills ── */
+.hr-status-workflow [data-status],
+.hr-status-chip,
+.leave-status-chip,
+.status-pill,
+.employees-status-pill {
+  border-radius: 999px;
+}
+
+/* ── List / case rows ── */
+#grievance .cases-list-item:hover,
+#disciplinary .cases-list-item:hover,
+#offboarding .lifecycle-list-item:hover {
+  background: #f7fbf8;
+}
+
+#employees .employees-register-table tbody tr:hover,
+#employees .data-table tbody tr:hover,
+#leave .data-table tbody tr:hover,
+#recruitment .data-table tbody tr:hover,
+#templates .data-table tbody tr:hover,
+#profile-changes .data-table tbody tr:hover,
+#offboarding .data-table tbody tr:hover,
+#grievance .data-table tbody tr:hover,
+#disciplinary .data-table tbody tr:hover {
+  background: #f7fbf8;
+}
+
+/* ── Time punch ── */
+#time-punch .punch-site-card,
+#time-punch .punch-log-card {
+  border-radius: 14px;
+  border-color: rgba(15, 46, 34, 0.1);
+}
+
+#time-punch .punch-site-card:hover {
+  border-color: rgba(15, 110, 86, 0.28);
+  box-shadow: 0 6px 16px rgba(15, 46, 34, 0.05);
+}
+
+/* ── Compliance ── */
+#compliance .compliance-empty-state,
+#compliance-rtw .compliance-empty-state,
+.rtw-workspace .compliance-empty-state,
+.absence-workspace .compliance-empty-state {
+  margin: 8px 0;
+  padding: 28px 18px;
+}
+
+/* ── Templates / tools ── */
+#templates .template-card,
+#global-documents .global-doc-card {
+  border-radius: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#templates .template-card:hover,
+#global-documents .global-doc-card:hover {
+  border-color: rgba(15, 110, 86, 0.28);
+  box-shadow: 0 8px 18px rgba(15, 46, 34, 0.05);
+}
+
+/* ── Tables ── */
+body.admin-portal .data-table thead th,
+body.admin-portal table.admin-table thead th {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  font-weight: 800;
+}
+
+body.admin-portal .data-table tbody td,
+body.admin-portal table.admin-table tbody td {
+  border-color: rgba(15, 46, 34, 0.06);
+}
+
+body.admin-portal .admin-section {
+  gap: 14px;
+}
+
+body.admin-portal .hr-stats-grid,
+body.admin-portal .leave-stats-grid,
+body.admin-portal .punch-stats-grid {
+  gap: 12px;
+}
+
+@media (min-width: 861px) {
+  .leave-mobile-add-sheet__panel {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, calc(100vw - 48px));
+    max-height: min(86vh, 720px);
+    border-radius: 16px;
+    padding: 18px 20px 20px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  }
+}

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Literal
 
-from core.notifications import send_email_content
+from core.notifications import email_delivered, send_email_content
 from modules.push.service import app_url_path, send_employee_push
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -110,14 +111,26 @@ def notify_rota_published(
     shifts: list[dict[str, Any]],
     conn: Any,
     previous_shifts: list[dict[str, Any]] | None = None,
+    resend: bool = False,
+    employee_ids: list[int] | None = None,
 ) -> dict[str, int | str]:
     """Email and push staff — all on first publish, only affected employees on updates."""
+    import time
+
     from admin_service import get_tenant_profile, tenant_notification_delivery_enabled
     from core.email_templates import rota_published_email, rota_updated_email
     from modules.employees.notification_branding import employee_notification_from_name
 
-    notify_map = employees_to_notify(previous_shifts=previous_shifts, current_shifts=shifts)
-    is_update = bool(previous_shifts)
+    resend_batch_id = int(time.time()) if resend else None
+    if resend:
+        notify_map = {int(shift["employee_id"]): "initial" for shift in shifts}
+        is_update = False
+        if employee_ids is not None:
+            allowed = {int(eid) for eid in employee_ids}
+            notify_map = {eid: kind for eid, kind in notify_map.items() if eid in allowed}
+    else:
+        notify_map = employees_to_notify(previous_shifts=previous_shifts, current_shifts=shifts)
+        is_update = bool(previous_shifts)
     if not notify_map:
         if is_update and previous_shifts:
             all_ids = {int(s["employee_id"]) for s in previous_shifts} | {
@@ -127,12 +140,14 @@ def notify_rota_published(
         else:
             unchanged = 0
         return {
-            "mode": "update" if is_update else "initial",
+            "mode": "resend" if resend else ("update" if is_update else "initial"),
             "emails_sent": 0,
             "emails_skipped": 0,
             "pushes_sent": 0,
             "employees_notified": 0,
             "employees_unchanged": unchanged,
+            "skip_reasons": {},
+            "email_failures": [],
         }
 
     delivery_enabled = tenant_notification_delivery_enabled(
@@ -143,12 +158,14 @@ def notify_rota_published(
     profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
     if not profile.get("notify_on_rota_publish", True):
         return {
-            "mode": "update" if is_update else "initial",
+            "mode": "resend" if resend else ("update" if is_update else "initial"),
             "emails_sent": 0,
             "emails_skipped": len(notify_map),
             "pushes_sent": 0,
             "employees_notified": 0,
             "employees_unchanged": len({int(s["employee_id"]) for s in shifts}) - len(notify_map),
+            "skip_reasons": {"tenant_notifications_off": len(notify_map)},
+            "email_failures": [],
         }
 
     tenant_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
@@ -168,10 +185,15 @@ def notify_rota_published(
         rows = {row[0]: row for row in cur.fetchall()}
 
     sent = skipped = pushes_sent = 0
+    skip_reasons: dict[str, int] = defaultdict(int)
+    email_failures: list[dict[str, Any]] = []
+    push_skip_reasons: dict[str, int] = defaultdict(int)
+
     for employee_id, change_kind in notify_map.items():
         row = rows.get(employee_id)
         if not row:
             skipped += 1
+            skip_reasons["employee_not_found"] += 1
             continue
 
         employee_name = f"{row[1]} {row[2]}".strip() or "there"
@@ -199,7 +221,7 @@ def notify_rota_published(
                         change_kind=change_kind,
                     )
                     payload_type = "rota_updated"
-                send_email_content(
+                delivery = send_email_content(
                     conn=conn,
                     tenant_id=tenant_id,
                     content=content,
@@ -215,14 +237,41 @@ def notify_rota_published(
                     deliver_now=True,
                     commit=False,
                 )
-                sent += 1
+                if email_delivered(delivery):
+                    sent += 1
+                else:
+                    skipped += 1
+                    skip_reasons["smtp_failed"] += 1
+                    if len(email_failures) < 5:
+                        email_failures.append(
+                            {
+                                "employee_id": employee_id,
+                                "email": email,
+                                "error": str(delivery.get("delivery_error") or "Email delivery failed"),
+                            }
+                        )
             else:
                 skipped += 1
+                skip_reasons["no_valid_email"] += 1
         else:
             skipped += 1
+            if not delivery_enabled:
+                skip_reasons["tenant_delivery_off"] += 1
+            elif not row[4]:
+                skip_reasons["employee_email_disabled"] += 1
+            else:
+                skip_reasons["no_valid_email"] += 1
 
         if delivery_enabled:
-            if change_kind == "initial":
+            if resend:
+                push_key = f"rota_resend:{resend_batch_id}:{week_start.isoformat()}:{employee_id}"
+                push_title = "Your rota is ready — ShiftSwift HR"
+                push_body = (
+                    f"Your rota for {week_label} is ready — "
+                    f"{shift_count} shift{'s' if shift_count != 1 else ''}. Tap to view your shifts."
+                )
+                push_tag = f"rota-resend-{week_start.isoformat()}"
+            elif change_kind == "initial":
                 push_key = f"rota_published:{week_start.isoformat()}:{employee_id}"
                 push_title = "Your rota is ready — ShiftSwift HR"
                 push_body = (
@@ -255,6 +304,9 @@ def notify_rota_published(
                 conn=conn,
             )
             pushes_sent += int(push_result.get("sent") or 0)
+            push_skip = str(push_result.get("skipped") or "").strip()
+            if push_skip and not push_result.get("sent"):
+                push_skip_reasons[push_skip] += 1
 
     all_scheduled = {int(s["employee_id"]) for s in shifts}
     unchanged_count = 0
@@ -264,12 +316,15 @@ def notify_rota_published(
 
     conn.commit()
     return {
-        "mode": "update" if is_update else "initial",
+        "mode": "resend" if resend else ("update" if is_update else "initial"),
         "emails_sent": sent,
         "emails_skipped": skipped,
         "pushes_sent": pushes_sent,
         "employees_notified": len(notify_map),
         "employees_unchanged": unchanged_count,
+        "skip_reasons": dict(skip_reasons),
+        "push_skip_reasons": dict(push_skip_reasons),
+        "email_failures": email_failures,
     }
 
 

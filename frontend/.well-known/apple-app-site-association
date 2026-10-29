@@ -1,0 +1,16 @@
+{
+  "webcredentials": {
+    "apps": [
+      "GA8N734FH8.co.uk.shiftswifthr.app"
+    ]
+  },
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "GA8N734FH8.co.uk.shiftswifthr.app",
+        "paths": ["*"]
+      }
+    ]
+  }
+}

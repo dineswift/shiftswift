@@ -110,11 +110,14 @@ def test_business_mfa_enrollment_token_round_trip() -> None:
 
 
 def test_auth_policy_defaults() -> None:
-    from auth_policy import business_require_mfa_hr, employee_require_mfa
+    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
+    from modules.master.security import master_require_mfa
 
     dev = _dev_settings()
     assert not business_require_mfa_hr(dev)
     assert not employee_require_mfa(dev)
+    assert not master_require_mfa(dev)
+    assert login_require_email_mfa(dev)
 
     prod = Settings(
         app_env="production",
@@ -131,8 +134,10 @@ def test_auth_policy_defaults() -> None:
         database_url=None,
         use_db=False,
     )
-    assert business_require_mfa_hr(prod)
+    assert not business_require_mfa_hr(prod)
     assert not employee_require_mfa(prod)
+    assert not master_require_mfa(prod)
+    assert login_require_email_mfa(prod)
 
 
 def test_portal_allows_user() -> None:
@@ -229,3 +234,47 @@ def test_employee_login_without_business_id() -> None:
     )
     assert user is not None
     assert user.tenant_id == "1"
+
+
+def test_mfa_skip_enrollment_route_on_auth_router() -> None:
+    import auth_routes
+
+    paths = {getattr(route, "path", None) for route in auth_routes.router.routes}
+    assert "/mfa/skip-enrollment" in paths or "/auth/mfa/skip-enrollment" in paths
+    assert "/mfa/send-email-code" in paths or "/auth/mfa/send-email-code" in paths
+
+
+def test_email_mfa_helpers() -> None:
+    from auth_email_mfa import looks_like_email, mask_email
+
+    assert looks_like_email("hr@example.com")
+    assert not looks_like_email("not-an-email")
+    assert mask_email("hr@example.com").endswith("@example.com")
+    assert "*" in mask_email("hr@example.com")
+
+
+def test_mfa_skip_enrollment_business_and_master() -> None:
+    from unittest.mock import MagicMock, patch
+
+    from auth_routes import mfa_skip_enrollment
+
+    settings = _dev_settings()
+    request = MagicMock()
+    request.headers.get.return_value = None
+    request.client.host = "127.0.0.1"
+
+    with patch("auth_routes.settings", settings):
+        for portal, username, role, tenant_id in (
+            ("business", TENANT_HR_USERNAME, "hr", "1"),
+            ("master", MASTER_USERNAME, "admin", "999"),
+        ):
+            token = create_mfa_enrollment_token(
+                settings,
+                username=username,
+                role=role,
+                tenant_id=tenant_id,
+                portal=portal,
+            )
+            result = mfa_skip_enrollment(request, authorization=f"Bearer {token}")
+            assert result.get("access_token")
+            assert result.get("role") == role

@@ -1,4 +1,4 @@
-/** Employee portal — self-service two-factor authentication. */
+/** Employee portal — security: email codes (default) + optional authenticator. */
 (function () {
   "use strict";
 
@@ -35,29 +35,60 @@
     }
 
     const enabled = Boolean(status.mfa_enabled);
+    const totpEnabled =
+      status.totp_enabled != null ? Boolean(status.totp_enabled) : Boolean(enabled);
     const required = Boolean(status.policy_required);
+    const emailDefault = Boolean(status.email_mfa_default);
+    const passkeysFeature = Boolean(status.passkeys_enabled);
+    const passkeys = passkeysFeature && Array.isArray(status.passkeys) ? status.passkeys : [];
+
+    const summary = [];
+    if (emailDefault) {
+      summary.push("After your password, we email you a 6-digit code by default.");
+    }
+    if (required) {
+      summary.push("Your employer also requires an authenticator app.");
+    } else {
+      summary.push("You can optionally add an authenticator app as an alternative.");
+    }
+
     host.innerHTML = `
       <div class="settings-security-summary">
-        <p><strong>Status:</strong> ${enabled ? "Two-factor authentication is ON" : "Not enabled yet"}</p>
-        <p class="muted">${required ? "Your employer requires authenticator app codes at sign-in." : "You can optionally enable an authenticator app for extra account security."}</p>
+        <p><strong>Email codes:</strong> ${emailDefault ? "On (default at sign-in)" : "Off on this server"}</p>
+        <p><strong>Authenticator app:</strong> ${totpEnabled ? "On" : "Not set"}</p>
+        ${
+          passkeysFeature
+            ? `<p><strong>Face ID / Touch ID:</strong> ${
+                passkeys.length
+                  ? `${passkeys.length} device${passkeys.length === 1 ? "" : "s"}`
+                  : "Available on iPhone / iPad when enabled"
+              }</p>`
+            : ""
+        }
+        <p class="muted">${escapeHtml(summary.join(" "))}</p>
       </div>
-      <div id="employee-mfa-setup-block" ${enabled ? "hidden" : ""}>
-        <h4>Set up authenticator</h4>
-        <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator.</p>
+      <div id="employee-mfa-setup-block" ${totpEnabled ? "hidden" : ""}>
+        <h4>Authenticator app (optional)</h4>
+        <p class="muted">Use Google Authenticator, Authy, or Microsoft Authenticator as an alternative to email codes.</p>
         <button type="button" class="btn outline" id="employee-mfa-start">Generate QR code</button>
         <div id="employee-mfa-qr-area" hidden>
           <div class="mfa-enrollment-qr-wrap"><img id="employee-mfa-qr" alt="Authenticator QR code" width="180" height="180" /></div>
           <p class="muted">Manual key: <code id="employee-mfa-secret"></code></p>
           <label class="edit-field">Verification code<input type="text" id="employee-mfa-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="123456" /></label>
-          <button type="button" class="btn" id="employee-mfa-enable">Enable two-factor authentication</button>
+          <button type="button" class="btn" id="employee-mfa-enable">Enable authenticator app</button>
         </div>
       </div>
       <div id="employee-mfa-disable-block" ${enabled ? "" : "hidden"}>
-        <h4>Turn off two-factor authentication</h4>
+        <h4>Turn off authenticator app</h4>
+        <p class="muted">${
+          emailDefault
+            ? "Email sign-in codes remain required after this."
+            : "Removes authenticator MFA from this account."
+        }</p>
         ${required ? '<p class="muted">Required by policy — contact HR if you need an exception.</p>' : ""}
         <label class="edit-field">Password<input type="password" id="employee-mfa-disable-password" autocomplete="current-password" /></label>
         <label class="edit-field">Authenticator code<input type="text" id="employee-mfa-disable-code" inputmode="numeric" maxlength="8" autocomplete="one-time-code" /></label>
-        <button type="button" class="btn ghost" id="employee-mfa-disable" ${required ? "disabled" : ""}>Disable two-factor authentication</button>
+        <button type="button" class="btn ghost" id="employee-mfa-disable" ${required ? "disabled" : ""}>Disable authenticator</button>
       </div>
       <p class="muted" id="employee-mfa-status-line" aria-live="polite"></p>`;
 
@@ -70,9 +101,11 @@
         const qrArea = document.getElementById("employee-mfa-qr-area");
         const qrImg = document.getElementById("employee-mfa-qr");
         const secretEl = document.getElementById("employee-mfa-secret");
-        if (secretEl) secretEl.textContent = setup.manual_secret || "";
-        if (qrImg && setup.otpauth_uri) {
-          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
+        if (secretEl) secretEl.textContent = setup.manual_secret || setup.secret || "";
+        if (qrImg && (setup.qr_data_uri || setup.otpauth_uri)) {
+          qrImg.src =
+            setup.qr_data_uri ||
+            `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
         }
         if (qrArea) qrArea.hidden = false;
       } catch (error) {
@@ -118,13 +151,19 @@
 
   window.addEventListener("hashchange", () => {
     if (window.location.hash.replace("#", "").split("/")[0] === "security") {
+      const host = document.getElementById("employee-security-content");
+      if (host) delete host.dataset.ready;
       void loadSecurityPanel();
     }
   });
 
-  if (window.location.hash.replace("#", "").split("/")[0] === "security") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      if (window.location.hash.replace("#", "").split("/")[0] === "security") {
+        void loadSecurityPanel();
+      }
+    });
+  } else if (window.location.hash.replace("#", "").split("/")[0] === "security") {
     void loadSecurityPanel();
   }
-
-  window.EmployeeSecurity = { loadSecurityPanel };
 })();

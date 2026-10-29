@@ -10,7 +10,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # backend_stub/.env is the operator-edited source of truth (override CloudPanel empty vars)
-load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
+_ci_e2e = os.getenv("CI_E2E", "").strip().lower() in {"1", "true", "yes", "on"}
+load_dotenv(
+    Path(__file__).resolve().parent / ".env",
+    override=not _ci_e2e,
+)
 load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
 

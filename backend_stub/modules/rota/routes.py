@@ -61,6 +61,10 @@ class PublishRotaRequest(BaseModel):
     notify_staff: bool = Field(default=False)
 
 
+class ResendRotaNotificationsRequest(BaseModel):
+    employee_ids: list[int] | None = Field(default=None, max_length=500)
+
+
 class CopyWeekRequest(BaseModel):
     expected_version: int | None = Field(default=None, ge=1)
 
@@ -88,6 +92,25 @@ class TemplateUpdateRequest(BaseModel):
 class GenerateDraftRequest(BaseModel):
     template_id: int | None = Field(default=None, ge=1)
     expected_version: int | None = Field(default=None, ge=1)
+
+
+class RepeatShiftRule(BaseModel):
+    employee_id: int = Field(ge=1)
+    shift_date: str = Field(min_length=10, max_length=10)
+    start_time: str = Field(min_length=4, max_length=5)
+    end_time: str = Field(min_length=4, max_length=5)
+    role_label: str = Field(default="", max_length=80)
+    notes: str = Field(default="", max_length=500)
+    frequency: str = Field(pattern="^(week|month)$")
+    until: str = Field(min_length=10, max_length=10)
+    match_employee_id: int | None = Field(default=None, ge=1)
+    match_shift_date: str | None = Field(default=None, min_length=10, max_length=10)
+    match_start_time: str | None = Field(default=None, min_length=4, max_length=5)
+    match_end_time: str | None = Field(default=None, min_length=4, max_length=5)
+
+
+class RepeatShiftsRequest(BaseModel):
+    rules: list[RepeatShiftRule] = Field(min_length=1, max_length=80)
 
 
 class ReviewRequestBody(BaseModel):
@@ -376,6 +399,32 @@ def save_week_rota(
         conn.close()
 
 
+@admin_router.post("/weeks/{week_start}/repeat")
+def repeat_week_shifts(
+    week_start: str,
+    payload: RepeatShiftsRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+            return rota_service.apply_repeat_rules(
+                tenant_id=tenant_id,
+                current_week_start=parsed,
+                rules=[item.model_dump() for item in payload.rules],
+                actor_username=current_user.username,
+                conn=conn,
+            )
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
 @admin_router.post("/weeks/{week_start}/copy-previous")
 def copy_previous_week(
     week_start: str,
@@ -422,6 +471,31 @@ def publish_week_rota(
                 actor_username=current_user.username,
                 conn=conn,
                 notify_staff=payload.notify_staff,
+            )
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/weeks/{week_start}/resend-notifications")
+def resend_week_rota_notifications(
+    week_start: str,
+    payload: ResendRotaNotificationsRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+            return rota_service.resend_week_notifications(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                conn=conn,
+                employee_ids=payload.employee_ids,
             )
         except (RotaValidationError, RotaConflictError, ValueError) as exc:
             raise _handle_rota_errors(exc) from exc

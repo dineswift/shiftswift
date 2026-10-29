@@ -37,6 +37,46 @@ def smtp_configured() -> bool:
     )
 
 
+def humanize_delivery_error(raw: str | None) -> str:
+    """Turn SMTP library errors into actionable text for HR admins."""
+    text = str(raw or "").strip()
+    if not text:
+        return "Email delivery failed"
+    lower = text.lower()
+    if "unauthorized ip" in lower or "(525," in text or ("5.7.1" in text and "ip" in lower):
+        return (
+            "Mail server rejected this API server's IP address (SMTP 525). "
+            "Use a transactional relay such as Brevo (smtp-relay.brevo.com) with a verified "
+            "sending domain, or whitelist your API server IP in your mail provider — then "
+            "update SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in backend_stub/.env and restart the API."
+        )
+    if "authentication" in lower or "(535," in text or "invalid credentials" in lower:
+        return (
+            "SMTP login failed — check SMTP_USER and SMTP_PASSWORD in backend_stub/.env "
+            "(Brevo: use the SMTP key xsmtpsib-…, not the REST API key xkeysib-…)."
+        )
+    if "not configured" in lower:
+        return text
+    if "connection refused" in lower or "timed out" in lower or "network is unreachable" in lower:
+        return (
+            f"Could not reach mail server ({text[:120]}). "
+            "Check SMTP_HOST, SMTP_PORT, and firewall rules on the API server."
+        )
+    return text[:500]
+
+
+def email_delivered(payload: dict[str, Any] | None) -> bool:
+    """True when send_email_notification / send_email_content completed without delivery_error."""
+    return not (payload or {}).get("delivery_error")
+
+
+def require_email_delivered(payload: dict[str, Any] | None) -> None:
+    """Raise RuntimeError when SMTP delivery failed or was not configured."""
+    err = (payload or {}).get("delivery_error")
+    if err:
+        raise RuntimeError(str(err))
+
+
 def smtp_config_summary() -> dict[str, str | bool]:
     """Non-secret SMTP config snapshot for diagnostics."""
     password = os.getenv("SMTP_PASSWORD", "")
@@ -385,7 +425,7 @@ def send_email_notification(
             _send_email(conn=conn, tenant_id=tenant_id, subject=subject, body=body, payload=payload_out)
             status = "sent"
         except Exception as exc:
-            delivery_error = str(exc)[:500]
+            delivery_error = humanize_delivery_error(str(exc))
             status = "failed"
             logger.error(
                 "Email delivery failed to %s (%s): %s",
@@ -492,7 +532,7 @@ def deliver_notification(*, conn: Any, row: tuple[Any, ...]) -> bool:
         _mark_sent(conn, notif_id)
         return True
     except Exception as exc:
-        _mark_failed(conn, notif_id, str(exc))
+        _mark_failed(conn, notif_id, humanize_delivery_error(str(exc)))
         return False
 
 
@@ -534,8 +574,9 @@ def _send_email(
 ) -> None:
     to_addr = _resolve_delivery_recipient(conn=conn, tenant_id=tenant_id, payload=payload)
     if not smtp_configured():
-        _log_channel("email", subject, body, {"to": to_addr, **payload})
-        return
+        raise RuntimeError(
+            "SMTP not configured — set SMTP_HOST, SMTP_FROM, SMTP_USER, SMTP_PASSWORD in backend_stub/.env"
+        )
     if not to_addr:
         raise RuntimeError(
             "No recipient — set tenant billing/signatory email or COMPLIANCE_ALERT_EMAIL / SMTP_TO"
@@ -671,3 +712,119 @@ def _mark_failed(conn: Any, notif_id: int, error: str) -> None:
             (json.dumps({"delivery_error": error[:500]}), notif_id),
         )
     conn.commit()
+
+
+def _notification_label(*, subject: str, payload: dict[str, Any]) -> str:
+    event_type = str(payload.get("type") or payload.get("purpose") or "").strip()
+    labels = {
+        "employee_document_shared": "Document shared",
+        "document_signing": "Signature request",
+        "rota_published": "Rota published",
+        "rota_updated": "Rota updated",
+        "employee_portal_invite_sent": "Portal invite",
+    }
+    if event_type in labels:
+        return labels[event_type]
+    return (subject or "Email")[:120]
+
+
+def list_tenant_delivery_failures(
+    *,
+    tenant_id: int,
+    conn: Any,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List queued or failed outbound email notifications for HR resend."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM notifications
+            WHERE tenant_id = %s
+              AND channel = 'email'
+              AND status IN ('queued', 'failed')
+            """,
+            (tenant_id,),
+        )
+        total = int(cur.fetchone()[0])
+        cur.execute(
+            """
+            SELECT id, subject, status, created_at, payload
+            FROM notifications
+            WHERE tenant_id = %s
+              AND channel = 'email'
+              AND status IN ('queued', 'failed')
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+            """,
+            (tenant_id, limit, offset),
+        )
+        rows = cur.fetchall()
+
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        payload = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+        items.append(
+            {
+                "id": row[0],
+                "subject": row[1],
+                "status": row[2],
+                "created_at": row[3].isoformat() if hasattr(row[3], "isoformat") else row[3],
+                "label": _notification_label(subject=str(row[1] or ""), payload=payload),
+                "to": payload.get("to"),
+                "event_type": payload.get("type") or payload.get("purpose"),
+                "employee_id": payload.get("employee_id"),
+                "document_id": payload.get("document_id"),
+                "delivery_error": payload.get("delivery_error"),
+                "can_resend": True,
+            }
+        )
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+
+def resend_tenant_notification(
+    *,
+    tenant_id: int,
+    notification_id: int,
+    conn: Any,
+) -> dict[str, Any]:
+    """Retry a queued or failed email notification."""
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, tenant_id, channel, subject, body, payload, status
+            FROM notifications
+            WHERE id = %s AND tenant_id = %s
+            """,
+            (notification_id, tenant_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError("Notification not found")
+    if row[2] != "email":
+        raise ValueError("Only email notifications can be resent from here")
+    if row[6] == "sent":
+        raise ValueError("This notification was already delivered")
+
+    success = deliver_notification(conn=conn, row=row[:6])
+    if not success:
+        with conn.cursor() as cur:
+            cur.execute("SELECT payload FROM notifications WHERE id = %s", (notification_id,))
+            payload_row = cur.fetchone()
+        payload = (
+            payload_row[0]
+            if payload_row and isinstance(payload_row[0], dict)
+            else json.loads((payload_row or [None])[0] or "{}")
+        )
+        error = humanize_delivery_error(payload.get("delivery_error") or "Email delivery failed")
+        raise RuntimeError(error)
+
+    return {
+        "id": notification_id,
+        "status": "sent",
+        "message": "Notification resent successfully.",
+    }

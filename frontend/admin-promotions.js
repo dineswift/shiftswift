@@ -9,7 +9,13 @@
     parseHashBaseSection,
     downloadAuthenticated,
     isPlatformAdmin,
+    showAdminToast,
   } = window.Admin;
+
+  function promotionsToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   let validateForm = null;
   let discountCodes = [];
@@ -197,7 +203,7 @@
         try {
           await exportIntroducerCode(btn.dataset.exportReferral);
         } catch (error) {
-          alert(error.message || "Export failed");
+          promotionsToast(error.message || "Export failed", "error");
         }
       });
     });
@@ -229,7 +235,7 @@
       try {
         await downloadAuthenticated("/admin/billing/introducer-commission.csv", "shiftswift-introducers-all.csv");
       } catch (error) {
-        alert(error.message || "Export failed");
+        promotionsToast(error.message || "Export failed", "error");
       }
     });
   }

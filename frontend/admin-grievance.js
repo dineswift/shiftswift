@@ -1,6 +1,11 @@
 /** Grievance case management — encrypted notes, ACAS deadlines, case workspace. */
 (function () {
-  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection, emptyStateHtml } = window.Admin;
+  const { apiFetch, loadFormOptions, loadEmployees, mountEditForm, renderTableBody, FORM_SCHEMAS, escapeHtml, downloadAuthenticated, parseHashBaseSection, emptyStateHtml, showAdminToast } = window.Admin;
+
+  function grievanceToast(message, variant = "info") {
+    if (showAdminToast) showAdminToast(message, { variant });
+    else window.ShiftSwiftAction?.showActionToast?.(message, variant === "error" ? "error" : "ok");
+  }
 
   let selectedCaseId = null;
   let sectionReady = false;
@@ -53,6 +58,91 @@
           : `${row.acas_days_remaining} days left`
         : "";
     return `<span class="grievance-deadline ${cls}">${escapeHtml(row.acas_deadline)}${remaining ? `<span class="muted"> · ${escapeHtml(remaining)}</span>` : ""}</span>`;
+  }
+
+  function isMobileGrievanceUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function syncGrievanceMobileDetailLayout() {
+    const section = $("grievance");
+    if (!section) return;
+    const showDetail = isMobileGrievanceUi() && Boolean(selectedCaseId);
+    section.classList.toggle("grievance-mobile-detail-open", showDetail);
+    renderMobileGrievanceShell();
+  }
+
+  function renderMobileGrievanceShell() {
+    const shell = $("grievance-mobile-shell");
+    if (!shell) return;
+    const detailOpen = $("grievance")?.classList.contains("grievance-mobile-detail-open");
+    if (!isMobileGrievanceUi() || detailOpen) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = false;
+    renderMobileGrievanceCards();
+  }
+
+  function renderMobileGrievanceCards() {
+    const host = $("grievance-mobile-cards");
+    const heading = $("grievance-mobile-cases-heading");
+    if (!host) return;
+
+    const openCases = cases.filter((row) => row.status !== "closed");
+    if (heading) heading.textContent = `Open cases (${openCases.length})`;
+
+    if (!openCases.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No open grievance cases.</p>`;
+      return;
+    }
+
+    host.innerHTML = openCases
+      .map((row) => {
+        const canResolve = row.status !== "closed";
+        return `<article class="leave-mobile-request-card" data-grievance-id="${row.id}">
+          <div class="leave-mobile-request-card__head admin-mobile-case-card__tap" data-grievance-open="${row.id}" role="button" tabindex="0">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.case_reference)}</strong>
+              <span>${escapeHtml(row.employee_name || row.employee_id)} · ${escapeHtml(allegationLabel(row))}</span>
+            </div>
+            ${statusBadge(row.status, row.status_label)}
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>${severityBadge(row.severity)}</span>
+            <span>${acasDeadlineCell(row)}</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-grievance-open-btn="${row.id}">Open</button>
+            ${canResolve ? `<button type="button" class="leave-mobile-action leave-mobile-action--decline" data-grievance-resolve="${row.id}">Resolve</button>` : ""}
+          </div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-grievance-open]").forEach((el) => {
+      const open = () => void selectCase(Number(el.dataset.grievanceOpen));
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          open();
+        }
+      });
+    });
+    host.querySelectorAll("[data-grievance-open-btn]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void selectCase(Number(btn.dataset.grievanceOpenBtn));
+      });
+    });
+    host.querySelectorAll("[data-grievance-resolve]").forEach((btn) => {
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        void resolveCase(Number(btn.dataset.grievanceResolve));
+      });
+    });
   }
 
   function calculateAcasDeadline(notificationDate) {
@@ -117,6 +207,7 @@
     tbody.querySelectorAll(".grievance-case-row").forEach((row) => {
       row.addEventListener("click", () => selectCase(Number(row.dataset.rowId)));
     });
+    renderMobileGrievanceShell();
   }
 
   async function loadCases() {
@@ -127,9 +218,11 @@
       cases = data.items || [];
       renderCasesTable();
       updateNextReferencePreview();
+      renderMobileGrievanceShell();
     } catch {
       cases = [];
       renderCasesTable();
+      renderMobileGrievanceShell();
     }
   }
 
@@ -230,6 +323,7 @@
   async function selectCase(caseId) {
     selectedCaseId = caseId;
     renderCasesTable();
+    syncGrievanceMobileDetailLayout();
     const content = $("grievance-case-detail-content");
     if (content) content.innerHTML = `<p class="muted">Loading case…</p>`;
     try {
@@ -255,7 +349,7 @@
     });
     if (!res.ok) {
       const err = await res.json();
-      alert(err.detail || "Could not resolve case");
+      grievanceToast(err.detail || "Could not resolve case", "error");
       return;
     }
     await loadCases();
@@ -429,13 +523,19 @@
     await loadInvestigators();
     mountCaseForm();
     await loadCases();
+    renderMobileGrievanceShell();
+
+    window.addEventListener("resize", () => {
+      if (!sectionReady) return;
+      syncGrievanceMobileDetailLayout();
+    });
   }
 
   $("grievance-export-btn")?.addEventListener("click", async () => {
     try {
       await downloadAuthenticated("/grievance/cases/export", `grievance-cases-${new Date().toISOString().slice(0, 10)}.csv`);
     } catch {
-      alert("Could not export cases.");
+      grievanceToast("Could not export cases.", "error");
     }
   });
 

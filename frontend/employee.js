@@ -1,16 +1,39 @@
 (function () {
-  const session = window.ShiftSwiftSession;
-  const API_BASE = session.getApiBase();
-  const loginUrl = session.resolveLoginUrl();
+  function sessionApi() {
+    return window.ShiftSwiftSession;
+  }
+
+  function loginRedirectUrl() {
+    return (
+      window.ShiftSwiftAuthGuard?.loginRedirectUrl?.() ||
+      sessionApi()?.unifiedNativeLoginUrl?.() ||
+      sessionApi()?.resolveLoginUrl?.() ||
+      "./employee-login.html"
+    );
+  }
+
+  function isBundledNativeEmployee() {
+    return Boolean(
+      window.__SSHR_BUNDLED_NATIVE_BOOT ||
+        (window.Capacitor?.isNativePlatform?.() &&
+          /\/\/localhost\//i.test(String(window.location.href || "")) &&
+          /employee\.html/i.test(String(window.location.pathname || ""))),
+    );
+  }
+
+  function apiBase() {
+    return sessionApi()?.getApiBase?.() || "https://api.shiftswifthr.co.uk";
+  }
 
   async function ensureEmployeeSession() {
-    await session?.hydrateNativeSession?.({ force: true });
-    if (session?.hasSession?.()) return true;
-    if (session?.getRefreshToken?.()) {
-      const refreshed = await session.refreshAccessToken?.();
-      if (refreshed && session.hasSession?.()) return true;
+    const api = sessionApi();
+    await api?.hydrateNativeSession?.({ force: true });
+    if (api?.hasSession?.()) return true;
+    if (api?.getRefreshToken?.()) {
+      const refreshed = await api.refreshAccessToken?.();
+      if (refreshed && api.hasSession?.()) return true;
     }
-    return Boolean(session?.hasSession?.());
+    return Boolean(api?.hasSession?.());
   }
 
   function setModalStatus(message) {
@@ -53,13 +76,13 @@
     const button = document.getElementById("employee-gdpr-submit");
     if (button) button.disabled = true;
     try {
-      const response = await session.fetchWithAuth(
+      const response = await sessionApi().fetchWithAuth(
         "/auth/employee/gdpr-consent",
         {
           method: "POST",
           body: JSON.stringify({ accept_employee_gdpr: true }),
         },
-        { apiBase: API_BASE, loginUrl },
+        { apiBase: apiBase(), loginUrl: loginRedirectUrl() },
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -78,9 +101,33 @@
     const displayNameEl = document.getElementById("employee-display-name");
     const employerHeader = document.getElementById("topbar-employer-name");
     const employerSubtitle = document.getElementById("mobile-employer-subtitle");
+
+    function applyCachedProfile() {
+      const displayName = localStorage.getItem("employeeDisplayName") || "";
+      const firstName = localStorage.getItem("employeeFirstName") || "";
+      const username = localStorage.getItem("employeeUsername") || "";
+      let label = displayName || firstName;
+      if (!label && username) label = usernameDisplayFallback(username);
+      if (label && displayNameEl) displayNameEl.textContent = label;
+      if (label && welcome) welcome.textContent = `${label} · Your employer`;
+      window.EmployeeMobile?.refreshGreeting?.();
+      return label;
+    }
+
+    applyCachedProfile();
+
     try {
-      const response = await session.fetchWithAuth("/auth/verify", {}, { apiBase: API_BASE, loginUrl });
+      const response = await sessionApi().fetchWithAuth(
+        "/auth/verify",
+        {},
+        {
+          apiBase: apiBase(),
+          loginUrl: loginRedirectUrl(),
+          forceLogoutOn401: !isBundledNativeEmployee(),
+        },
+      );
       if (!response.ok) {
+        applyCachedProfile();
         window.dispatchEvent(
           new CustomEvent("employee:profile-loaded", {
             detail: {
@@ -101,6 +148,10 @@
         return;
       }
       applyEmployeeIdentity(user);
+      if (typeof user.time_clock_enabled === "boolean") {
+        localStorage.setItem("employeeTimeClockEnabled", user.time_clock_enabled ? "true" : "false");
+        window.EmployeeMobile?.syncClockAvailability?.(user.time_clock_enabled);
+      }
       const employerLabel = user.employer_name || "Your employer";
       if (employerHeader) employerHeader.textContent = employerLabel;
       if (employerSubtitle) employerSubtitle.textContent = employerLabel;
@@ -153,25 +204,73 @@
   function signOut(event) {
     event.preventDefault();
     void (async () => {
-      await session.clearSession();
+      const api = sessionApi();
+      if (api?.signOut) {
+        await api.signOut(loginRedirectUrl());
+        return;
+      }
+      await api?.clearSession?.();
       localStorage.removeItem("employeeUsername");
       localStorage.removeItem("employeeDisplayName");
       localStorage.removeItem("employeeFirstName");
-      window.location.replace(session.resolveLoginUrl());
+      window.location.replace(loginRedirectUrl());
     })();
   }
 
   async function boot() {
+    async function waitForSessionApi() {
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const api = sessionApi();
+        if (api?.getApiBase) return api;
+        await new Promise((resolve) => window.setTimeout(resolve, 50));
+      }
+      return sessionApi();
+    }
+
+    function wireMobileShell() {
+      if (window.MobileShell) {
+        const sidebar = window.MobileShell.initSidebar();
+        window.EmployeeMobile?.init?.();
+        window.MobileShell.initHashSections({
+          defaultSection: "overview",
+          sectionEvent: "employee:section",
+          sidebar,
+        });
+      } else {
+        window.EmployeeMobile?.init?.();
+      }
+    }
+
+    wireMobileShell();
+
+    const api = await waitForSessionApi();
+    if (!api?.getApiBase) {
+      window.dispatchEvent(
+        new CustomEvent("employee:profile-loaded", {
+          detail: { user: { time_clock_enabled: localStorage.getItem("employeeTimeClockEnabled") === "true" } },
+        }),
+      );
+      return;
+    }
+
     const ok = await ensureEmployeeSession();
     if (!ok) {
       window.ShiftSwiftNativeApp?.hideSplash?.();
-      window.location.replace(
-        window.ShiftSwiftAuthGuard?.loginRedirectUrl?.() || session.resolveLoginUrl(),
+      if (!window.Capacitor?.isNativePlatform?.()) {
+        window.location.replace(loginRedirectUrl());
+        return;
+      }
+      window.dispatchEvent(new CustomEvent("shiftswift:native-session-ready"));
+      window.dispatchEvent(
+        new CustomEvent("employee:profile-loaded", {
+          detail: { user: { time_clock_enabled: localStorage.getItem("employeeTimeClockEnabled") === "true" } },
+        }),
       );
       return;
     }
 
     window.ShiftSwiftNativeApp?.hideSplash?.();
+    window.dispatchEvent(new CustomEvent("shiftswift:native-session-ready"));
 
     document.querySelectorAll("[data-sign-out]").forEach((el) => {
       el.addEventListener("click", signOut);
@@ -179,20 +278,12 @@
 
     document.getElementById("employee-gdpr-submit")?.addEventListener("click", submitGdprConsent);
 
-    if (window.MobileShell) {
-      const sidebar = window.MobileShell.initSidebar();
-      window.EmployeeMobile?.init?.();
-      window.MobileShell.initHashSections({
-        defaultSection: "overview",
-        sectionEvent: "employee:section",
-        sidebar,
-      });
-    } else {
-      window.EmployeeMobile?.init?.();
-    }
-
     loadProfile();
   }
+
+  window.addEventListener("employee:profile-retry", () => {
+    void loadProfile();
+  });
 
   void boot();
 })();

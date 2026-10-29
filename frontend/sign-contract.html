@@ -21,6 +21,19 @@
       }
       .contract-preview h1 { font-size: 1.4rem; }
       .contract-preview h2 { font-size: 1.1rem; margin-top: 1rem; }
+      .sign-pad-wrap { display: grid; gap: 8px; }
+      .sign-pad-label { margin: 0; font-weight: 700; font-size: 0.92rem; }
+      .sign-pad-hint { margin: 0; }
+      .sign-pad {
+        width: 100%;
+        max-width: 100%;
+        height: 160px;
+        border: 1.5px solid var(--card-border, #e5e7eb);
+        border-radius: 12px;
+        background: #fff;
+        touch-action: none;
+        cursor: crosshair;
+      }
     </style>
   </head>
   <body class="auth-body">
@@ -33,8 +46,14 @@
         <p class="muted" id="contract-meta">Loading contract…</p>
         <div id="contract-preview" class="contract-preview"></div>
         <form id="sign-form" class="stack" style="margin-top:16px;">
-          <label>Your full name (electronic signature)<input name="signature_name" required /></label>
+          <label>Your full name<input name="signature_name" required autocomplete="name" /></label>
           <label>Job title<input name="signature_title" placeholder="Director" /></label>
+          <div class="sign-pad-wrap">
+            <p class="sign-pad-label">Your signature</p>
+            <p class="muted sign-pad-hint">Draw with your finger, stylus, or mouse.</p>
+            <canvas id="signature-pad" class="sign-pad" width="640" height="200" aria-label="Signature pad"></canvas>
+            <button type="button" class="btn ghost btn-sm" id="signature-pad-clear">Clear signature</button>
+          </div>
           <label class="checkbox-row">
             <input type="checkbox" name="accept_terms" required />
             <span>I have read this agreement and sign on behalf of my organisation.</span>
@@ -45,7 +64,7 @@
       </div>
     </div>
     <script src="./action-feedback.js?v=3"></script>
-    <script src="./sign-contract.js?v=4"></script>
+    <script src="./sign-contract.js?v=5"></script>
       <script src="./cookie-consent.js?v=1"></script>
   </body>
 </html>

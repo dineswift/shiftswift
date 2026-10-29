@@ -78,6 +78,7 @@ rsync -a --delete --delete-excluded \
   --include='landing.html' \
   --include='privacy-policy.html' \
   --include='cookies.html' \
+  --include='delete-account.html' \
   --include='eula.html' \
   --include='dpa.html' \
   --include='payment-terms.html' \
@@ -144,6 +145,7 @@ LEGAL_PAGES=(
   payment-terms.html
   privacy-policy.html
   cookies.html
+  delete-account.html
   eula.html
   dpa.html
   legal.css

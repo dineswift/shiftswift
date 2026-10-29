@@ -33,6 +33,12 @@ DAY_OFF_RE = (
 )
 
 
+def _employee_initials(first_name: str | None, last_name: str | None) -> str:
+    first = (first_name or "").strip()[:1]
+    last = (last_name or "").strip()[:1]
+    return (first + last).upper() or "?"
+
+
 def _employee_short_name(first_name: str | None, last_name: str | None) -> str:
     first = (first_name or "").strip()
     last = (last_name or "").strip()
@@ -129,6 +135,7 @@ def _load_rota_staff(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
         staff.append(
             {
                 "id": int(row[0]),
+                "initials": _employee_initials(row[1], row[2]),
                 "short_name": _employee_short_name(row[1], row[2]),
                 "role_label": _employee_role_label(row[3], row[4]),
             }
@@ -225,24 +232,40 @@ def build_rota_week_pdf(
         key = (int(shift["employee_id"]), str(shift["shift_date"])[:10])
         shifts_by_employee_day.setdefault(key, []).append(shift)
 
-    day_labels = []
-    for day in week_days:
-        day_labels.append(day.strftime("%a %d"))
+    shifts_per_day: dict[str, int] = {day.isoformat(): 0 for day in week_days}
+    for shift in shifts:
+        day_iso = str(shift.get("shift_date") or "")[:10]
+        if day_iso in shifts_per_day:
+            shifts_per_day[day_iso] += 1
 
-    table_data: list[list[Any]] = [[Paragraph("<b>Staff</b>", header_style), *[Paragraph(f"<b>{label}</b>", header_style) for label in day_labels]]]
+    header_cells: list[Any] = [Paragraph("<b>Staff</b>", header_style)]
+    for day in week_days:
+        count = shifts_per_day.get(day.isoformat(), 0)
+        count_label = f"{count} shift{'s' if count != 1 else ''}"
+        header_cells.append(
+            Paragraph(
+                f"<b>{day.strftime('%a %d')}</b><br/><font size='6' color='#64748B'>{count_label}</font>",
+                header_style,
+            )
+        )
+    table_data: list[list[Any]] = [header_cells]
 
     cell_tone_map: dict[tuple[int, int], str] = {}
     for row_idx, employee in enumerate(staff, start=1):
         emp_id = int(employee["id"])
         role_label = employee["role_label"]
         staff_cell = Paragraph(
-            f"<b>{employee['short_name']}</b><br/><font size='6' color='#64748B'>{role_label}</font>",
+            f"<b>{employee['initials']}</b> {employee['short_name']}<br/>"
+            f"<font size='6' color='#64748B'>{role_label}</font>",
             staff_style,
         )
         row_cells: list[Any] = [staff_cell]
         for col_idx, day in enumerate(week_days):
             day_iso = day.isoformat()
-            day_shifts = shifts_by_employee_day.get((emp_id, day_iso), [])
+            day_shifts = sorted(
+                shifts_by_employee_day.get((emp_id, day_iso), []),
+                key=lambda row: str(row.get("start_time") or ""),
+            )
             if not day_shifts:
                 row_cells.append(Paragraph("—", cell_style))
                 cell_tone_map[(row_idx, col_idx + 1)] = "empty"
@@ -251,7 +274,13 @@ def build_rota_week_pdf(
             for index, shift in enumerate(day_shifts):
                 if index:
                     lines.append("")
-                lines.extend(_shift_cell_lines(shift, fallback_role=role_label))
+                cell_lines = _shift_cell_lines(shift, fallback_role=role_label)
+                if _is_day_off(shift):
+                    lines.append(f"<b>{cell_lines[0]}</b>")
+                else:
+                    lines.append(f"<b>{cell_lines[0]}</b>")
+                    if len(cell_lines) > 1:
+                        lines.append(f"<font size='6' color='#475467'>{cell_lines[1]}</font>")
             tone = _resolve_cell_tone(
                 day_shifts,
                 fallback_role=role_label,
@@ -284,8 +313,10 @@ def build_rota_week_pdf(
         ]
     )
     for (row, col), tone in cell_tone_map.items():
-        bg, _ = TONE_COLORS.get(tone, TONE_COLORS["default"])
+        bg, accent = TONE_COLORS.get(tone, TONE_COLORS["default"])
         table_style.add("BACKGROUND", (col, row), (col, row), bg)
+        if tone != "empty":
+            table_style.add("LINEBEFORE", (col, row), (col, row), 2.5, accent)
     table.setStyle(table_style)
     body.append(table)
     if show_attendance_legend:

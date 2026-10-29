@@ -1,7 +1,9 @@
 /* ShiftSwift Employee Portal — PWA service worker (employee shell only). */
-const CACHE_NAME = "shiftswift-employee-v14";
+const CACHE_NAME = "shiftswift-employee-v15";
 const SHELL = [
   "./employee.html",
+  "./sign-in.html",
+  "./sign-in-manifest.webmanifest",
   "./employee-login.html",
   "./employee-forgot-password.html",
   "./install-employee.html",
@@ -27,6 +29,9 @@ const SHELL = [
   "./employee-rota.js",
   "./employee-my-details.js",
   "./employee-leave.js",
+  "./unified-login.js",
+  "./trusted-device.js",
+  "./passkey-auth.js",
   "./assets/shiftswift-employee-app-icon-192.png",
   "./assets/shiftswift-employee-app-icon.png",
   "./assets/shiftswift-employee-app-icon-180.png",
@@ -36,7 +41,7 @@ const SHELL = [
 const STATIC_EXTENSIONS = /\.(css|js|png|svg|webmanifest|html)$/i;
 const MUTABLE_EXTENSIONS = /\.(css|js)$/i;
 const CACHE_FIRST_EXTENSIONS = /\.(png|svg|woff2?)$/i;
-const EMPLOYEE_SHELL_PATHS = /\/(employee|employee-login|employee-forgot-password|install-employee)\.html$/i;
+const EMPLOYEE_SHELL_PATHS = /\/(employee|sign-in|employee-login|employee-forgot-password|install-employee)\.html$/i;
 
 function networkFirst(request) {
   return fetch(request)
@@ -217,7 +222,13 @@ self.addEventListener("push", (event) => {
       const data = parsePushPayload(event);
       const allClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const client of allClients) {
-        client.postMessage({ type: "SHIFT_ALERT", title: data.title, body: data.body, urgent: data.urgent });
+        client.postMessage({
+          type: "SHIFT_ALERT",
+          title: data.title,
+          body: data.body,
+          urgent: Boolean(data.urgent || CLOCK_ALERT_TYPES.has(data.alert_type)),
+          alert_type: data.alert_type || "general",
+        });
       }
       await self.registration.showNotification(data.title, buildClockNotificationOptions(data));
     })()

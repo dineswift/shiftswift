@@ -281,6 +281,7 @@ def _serialize_tenant_row(row: tuple[Any, ...], *, as_of: datetime | None = None
     return {
         "id": int(tenant_id),
         "name": name or f"Tenant {tenant_id}",
+        "trading_name": trading_name or "",
         "location": _location_label(registered_address, trading_name, name or ""),
         "plan_id": subscription_plan,
         "plan_tier": plan_tier(subscription_plan),
