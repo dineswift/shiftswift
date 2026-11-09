@@ -18,10 +18,48 @@
     <script src="./session-auth.js?v=25"></script>
     <script src="./native-app.js?v=26"></script>
     <title>ShiftSwift HR | Sign in</title>
-    <link rel="stylesheet" href="./native-app-login.css?v=19" />
+    <link rel="stylesheet" href="./native-app-login.css?v=21" />
   </head>
   <body class="portal-login-page portal-login-page--native-app portal-login-page--unified" data-login-page="unified">
     <div class="portal-login-shell">
+      <aside class="login-poster">
+        <div class="login-poster__inner">
+          <div class="login-poster__brand">
+            <svg class="login-poster__mark" viewBox="0 0 68 68" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="0" y="0" width="68" height="68" rx="14" fill="#0a5a47" />
+              <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5" />
+              <rect x="14" y="24" width="18" height="5" rx="2.5" fill="#9FE1CB" />
+              <rect x="14" y="34" width="22" height="5" rx="2.5" fill="#5DCAA5" />
+              <line x1="14" y1="56" x2="54" y2="56" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+              <polyline points="44,48 54,56 44,64" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>ShiftSwift HR</span>
+          </div>
+          <p class="login-poster__kicker">For the team on the floor</p>
+          <h2 class="login-poster__title">The working week, in one place.</h2>
+          <p class="login-poster__lead">Publish the rota, clock in at the door, and keep the hours ready for month end.</p>
+          <div class="login-poster__board" aria-hidden="true">
+            <div class="login-poster__tape"></div>
+            <div class="login-poster__board-head">
+              <span>This week</span>
+              <span>Illustrative</span>
+            </div>
+            <ul class="login-poster__shifts">
+              <li><span>Mon</span><i class="login-poster__bar login-poster__bar--kitchen"></i><em>Kitchen</em></li>
+              <li><span>Tue</span><i class="login-poster__bar login-poster__bar--floor"></i><em>Floor</em></li>
+              <li><span>Wed</span><i class="login-poster__bar login-poster__bar--care"></i><em>Care</em></li>
+              <li><span>Thu</span><i class="login-poster__bar login-poster__bar--bar"></i><em>Bar</em></li>
+              <li><span>Fri</span><i class="login-poster__bar login-poster__bar--front"></i><em>Front</em></li>
+            </ul>
+          </div>
+          <ul class="login-poster__points">
+            <li>A saved week can start the next rota</li>
+            <li>Clock-in stays at the premises</li>
+            <li>Hours your accountant can use</li>
+          </ul>
+        </div>
+      </aside>
+      <div class="login-stage">
       <header class="native-login-hero">
         <div class="native-login-hero__logo-wrap">
           <svg class="native-login-hero__mark" viewBox="0 0 68 68" width="80" height="80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -145,6 +183,7 @@
           </div>
         </section>
       </main>
+      </div>
     </div>
     <script src="./trusted-device.js?v=3"></script>
     <script src="./passkey-auth.js?v=7"></script>
