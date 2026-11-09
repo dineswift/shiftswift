@@ -27,7 +27,8 @@
     <script src="./native-app.js?v=7"></script>
     <script src="./pwa-ios.js?v=2"></script>
     <title>ShiftSwift HR | Business sign in</title>
-    <link rel="stylesheet" href="./styles.css?v=brandkit-v10" />
+    <link rel="stylesheet" href="./styles.css?v=brandkit-v11" />
+    <link rel="stylesheet" href="./native-app-login.css?v=23" />
     <style>
       .portal-login-page--split {
         --portal-login-hero: url("./assets/screenshots/admin-overview.svg");
@@ -45,56 +46,67 @@
       }
     </style>
   </head>
-  <body class="portal-login-page portal-login-page--streamlined portal-login-page--split login-step-signin" data-login-page="business">
+  <body class="portal-login-page portal-login-page--streamlined portal-login-page--split portal-login-page--business-poster login-step-signin" data-login-page="business">
     <div class="portal-login-split">
-      <aside class="portal-login-visual" aria-hidden="true">
-        <div class="portal-login-visual-scrim"></div>
-        <div class="portal-login-visual-content">
-          <img
-            class="portal-login-visual-logo"
-            src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v5"
-            alt=""
-            width="42"
-            height="42"
-          />
-          <p class="portal-login-visual-kicker">HR admin &amp; compliance</p>
-          <h2 class="portal-login-visual-title">Run payroll-ready HR from one dashboard</h2>
-          <ul class="portal-login-visual-features">
-            <li class="portal-login-visual-feature">
-              <span class="portal-login-visual-feature-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M8 7h8M8 12h8M8 17h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                  <rect x="5" y="4" width="14" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
-                </svg>
-              </span>
-              <span><strong>Employees</strong><span>Records, contracts and portal invites</span></span>
-            </li>
-            <li class="portal-login-visual-feature">
-              <span class="portal-login-visual-feature-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <rect x="4" y="5" width="16" height="15" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
-                  <path d="M8 3v4M16 3v4M4 10h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                </svg>
-              </span>
-              <span><strong>Rotas</strong><span>Publish shifts and notify staff</span></span>
-            </li>
-            <li class="portal-login-visual-feature">
-              <span class="portal-login-visual-feature-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/>
-                  <path d="M12 8v4l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-                </svg>
-              </span>
-              <span><strong>Time clock</strong><span>Geofenced clock-in and punch review</span></span>
-            </li>
-            <li class="portal-login-visual-feature">
-              <span class="portal-login-visual-feature-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 3 20 7v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V7l8-4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-                </svg>
-              </span>
-              <span><strong>Compliance</strong><span>RTW, documents and audits</span></span>
-            </li>
+      <aside class="login-poster">
+        <div class="login-poster__inner">
+          <div class="login-poster__brand">
+            <svg class="login-poster__mark" viewBox="0 0 68 68" width="44" height="44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="0" y="0" width="68" height="68" rx="14" fill="#0a5a47" />
+              <rect x="14" y="14" width="26" height="5" rx="2.5" fill="#5DCAA5" />
+              <rect x="14" y="24" width="18" height="5" rx="2.5" fill="#9FE1CB" />
+              <rect x="14" y="34" width="22" height="5" rx="2.5" fill="#5DCAA5" />
+              <line x1="14" y1="56" x2="54" y2="56" stroke="#ffffff" stroke-width="3" stroke-linecap="round" />
+              <polyline points="44,48 54,56 44,64" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>ShiftSwift HR</span>
+          </div>
+          <p class="login-poster__kicker">For the team on the floor</p>
+          <h2 class="login-poster__title">The working week, <span>in one place.</span></h2>
+          <p class="login-poster__lead">Publish the rota. Clock in at the door. Hours ready for month end.</p>
+          <div class="login-poster__board" aria-hidden="true">
+            <div class="login-poster__tape"></div>
+            <div class="login-poster__board-head">
+              <span class="login-poster__week">This week</span>
+              <span>Illustrative</span>
+            </div>
+            <div class="login-poster__scale">
+              <span></span>
+              <span class="login-poster__scale-track"><span>8am</span><span>11pm</span></span>
+              <span></span>
+            </div>
+            <ul class="login-poster__shifts">
+              <li>
+                <span>Mon</span>
+                <i class="login-poster__track"><b class="login-poster__block" style="--start: 8%; --len: 46%"></b></i>
+                <em>Kitchen<small>09:00–17:00</small></em>
+              </li>
+              <li>
+                <span>Tue</span>
+                <i class="login-poster__track"><b class="login-poster__block login-poster__block--floor" style="--start: 27%; --len: 46%"></b></i>
+                <em>Floor<small>12:00–20:00</small></em>
+              </li>
+              <li>
+                <span>Wed</span>
+                <i class="login-poster__track"><b class="login-poster__block login-poster__block--care" style="--start: 0%; --len: 46%"></b></i>
+                <em>Care<small>08:00–16:00</small></em>
+              </li>
+              <li>
+                <span>Thu</span>
+                <i class="login-poster__track"><b class="login-poster__block login-poster__block--bar" style="--start: 53%; --len: 40%"></b></i>
+                <em>Bar<small>16:00–23:00</small></em>
+              </li>
+              <li>
+                <span>Fri</span>
+                <i class="login-poster__track"><b class="login-poster__block login-poster__block--front" style="--start: 14%; --len: 46%"></b></i>
+                <em>Front<small>10:00–18:00</small></em>
+              </li>
+            </ul>
+          </div>
+          <ul class="login-poster__notes">
+            <li><strong>Saved week</strong><span>Start from a week you already like.</span></li>
+            <li><strong>At the door</strong><span>Clock-in stays on the premises.</span></li>
+            <li><strong>Month end</strong><span>Hours ready for your accountant.</span></li>
           </ul>
         </div>
       </aside>

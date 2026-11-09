@@ -102,6 +102,10 @@ html.native-app.native-keyboard-open body.portal-login-page--unified {
   display: none;
 }
 
+.portal-login-page--business-poster .portal-login-split {
+  grid-template-columns: 1fr;
+}
+
 /* ── Hero ─────────────────────────────────────────────────────────────── */
 
 .native-login-hero {
@@ -842,7 +846,9 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
     background: #e7e4dc;
   }
 
-  .portal-login-page--unified .login-poster {
+  .portal-login-page--unified .login-poster,
+  .portal-login-page--business-poster .login-poster {
+    position: relative;
     display: flex;
     min-height: 0;
     overflow: auto;
@@ -1127,5 +1133,22 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 
   .portal-login-page--unified .login-stage .native-login-sheet::before {
     display: none;
+  }
+
+  .portal-login-page--business-poster .portal-login-split {
+    grid-template-columns: minmax(0, 1.2fr) minmax(420px, 0.85fr);
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    background: #e7e4dc;
+  }
+
+  .portal-login-page--business-poster .portal-login-panel {
+    min-height: 0;
+    height: 100%;
+    overflow: auto;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(15, 110, 86, 0.05), transparent 60%),
+      var(--native-paper);
   }
 }
