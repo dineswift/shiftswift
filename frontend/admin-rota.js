@@ -1786,6 +1786,21 @@
       btn.title = copyBlocked ? copyBlockedMessage() : "Copy all shifts from the previous week";
     });
 
+    ["rota-save-base-btn", "rota-mobile-save-base"].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.disabled = !shifts.length;
+      btn.title = shifts.length
+        ? "Save this week's shifts under a name you can load later"
+        : "Add shifts before saving a base rota";
+    });
+    ["rota-use-base-btn", "rota-mobile-use-base"].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.disabled = copyBlocked;
+      btn.title = copyBlocked ? copyBlockedMessage() : "Load a saved base rota into this week as a draft";
+    });
+
     if (readonly && panelOpen) closeShiftPanel();
   }
 
@@ -3017,17 +3032,224 @@
     }
   }
 
+  function rotaErrorText(data, fallback) {
+    const detail = data?.detail;
+    if (detail && typeof detail === "object") return detail.message || fallback;
+    if (typeof detail === "string" && detail) return detail;
+    return fallback;
+  }
+
+  function askBaseRota({ mode, templates }) {
+    const dialog = document.getElementById("rota-base-dialog");
+    const form = document.getElementById("rota-base-form");
+    if (!dialog || !form) return Promise.resolve(null);
+    const title = document.getElementById("rota-base-title");
+    const lead = document.getElementById("rota-base-lead");
+    const nameField = document.getElementById("rota-base-name-field");
+    const pickField = document.getElementById("rota-base-pick-field");
+    const nameInput = document.getElementById("rota-base-name");
+    const select = document.getElementById("rota-base-select");
+    const status = document.getElementById("rota-base-status");
+    const submit = document.getElementById("rota-base-submit");
+    if (status) {
+      status.hidden = true;
+      status.textContent = "";
+    }
+    if (mode === "save") {
+      if (title) title.textContent = "Save as base rota";
+      if (lead) {
+        lead.textContent = "Store this week's shifts under a name. On a later week, load it, edit the shifts, then publish.";
+      }
+      if (nameField) nameField.hidden = false;
+      if (pickField) pickField.hidden = true;
+      if (nameInput) nameInput.value = "";
+      if (submit) submit.textContent = "Save base rota";
+    } else {
+      if (title) title.textContent = "Use a base rota";
+      if (lead) {
+        lead.textContent = shifts.length
+          ? "This replaces the shifts on this week and keeps them as a draft until you publish."
+          : "These shifts are added as a draft. Edit them, then publish when staff should see the rota.";
+      }
+      if (nameField) nameField.hidden = true;
+      if (pickField) pickField.hidden = false;
+      if (select) {
+        select.innerHTML = (templates || [])
+          .map(
+            (item) =>
+              `<option value="${item.id}">${escapeHtml(item.name)} · ${item.shift_count} shift${item.shift_count === 1 ? "" : "s"}</option>`,
+          )
+          .join("");
+      }
+      if (submit) submit.textContent = "Load into this week";
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        form.removeEventListener("submit", onSubmit);
+        document.getElementById("rota-base-cancel")?.removeEventListener("click", onCancel);
+        dialog.removeEventListener("close", onClose);
+        resolve(value);
+      };
+      const onSubmit = (event) => {
+        event.preventDefault();
+        if (mode === "save") {
+          const name = nameInput?.value.trim() || "";
+          if (!name) {
+            if (status) {
+              status.hidden = false;
+              status.textContent = "Give this base rota a name.";
+            }
+            return;
+          }
+          dialog.close();
+          finish({ name });
+          return;
+        }
+        const templateId = Number(select?.value);
+        if (!templateId) {
+          if (status) {
+            status.hidden = false;
+            status.textContent = "Choose a base rota.";
+          }
+          return;
+        }
+        dialog.close();
+        finish({ templateId });
+      };
+      const onCancel = () => {
+        dialog.close();
+        finish(null);
+      };
+      const onClose = () => finish(null);
+      form.addEventListener("submit", onSubmit);
+      document.getElementById("rota-base-cancel")?.addEventListener("click", onCancel);
+      dialog.addEventListener("close", onClose);
+      if (typeof dialog.showModal === "function") dialog.showModal();
+      else finish(null);
+      if (mode === "save") nameInput?.focus();
+    });
+  }
+
+  async function saveAsBaseRota() {
+    if (!shifts.length) {
+      setMessage("Add shifts before saving a base rota.", "error");
+      return;
+    }
+    const choice = await askBaseRota({ mode: "save" });
+    if (!choice?.name) return;
+    if (dirty) {
+      if (isWeekReadOnly()) {
+        const keep = window.confirm(
+          "This week is locked, so the last saved rota is stored. Unsaved edits stay on screen only.",
+        );
+        if (!keep) return;
+      } else {
+        setMessage("Saving this week first…");
+        const saved = await saveRota();
+        if (!saved) return;
+      }
+    }
+    const postBase = async (replace) => {
+      const res = await apiFetch("/admin/rota/base-templates", {
+        method: "POST",
+        body: JSON.stringify({
+          name: choice.name,
+          week_start: currentWeekStart,
+          replace,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    };
+    setMessage("Saving base rota…");
+    try {
+      let { res, data } = await postBase(false);
+      if (!res.ok && data?.detail?.field === "name") {
+        const overwrite = window.confirm(`${rotaErrorText(data, "That name is already used.")} Replace it?`);
+        if (!overwrite) {
+          setMessage("Base rota was not saved.", "info");
+          return;
+        }
+        ({ res, data } = await postBase(true));
+      }
+      if (!res.ok) {
+        setMessage(rotaErrorText(data, "Could not save the base rota."), "error");
+        return;
+      }
+      setMessage(data.message || `Saved “${choice.name}”.`, "success");
+    } catch (error) {
+      setMessage(error.message || "Could not save the base rota.", "error");
+    }
+  }
+
+  async function useBaseRota() {
+    if (!guardWeekCopy()) return;
+    setMessage("Loading base rotas…");
+    let templates = [];
+    try {
+      const res = await apiFetch("/admin/rota/base-templates");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(rotaErrorText(data, "Could not load base rotas."), "error");
+        return;
+      }
+      templates = data.items || [];
+    } catch (error) {
+      setMessage(error.message || "Could not load base rotas.", "error");
+      return;
+    }
+    if (!templates.length) {
+      setMessage("Save a week as a base rota first. Use More → Save as base rota.", "info");
+      return;
+    }
+    const choice = await askBaseRota({ mode: "use", templates });
+    if (!choice?.templateId) {
+      setMessage("");
+      return;
+    }
+    setMessage("Loading base rota…");
+    try {
+      const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/apply-base`, {
+        method: "POST",
+        body: JSON.stringify({
+          template_id: choice.templateId,
+          expected_version: weekMeta?.version ?? null,
+          replace: shifts.length > 0,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(rotaErrorText(data, "Could not load the base rota."), "error");
+        return;
+      }
+      weekMeta = data.week;
+      shifts = data.shifts || [];
+      pendingRepeats = [];
+      markClean();
+      renderAll();
+      setMessage(data.message || "Base rota loaded as a draft.", "success");
+    } catch (error) {
+      setMessage(error.message || "Could not load the base rota.", "error");
+    }
+  }
+
   async function copyPreviousWeek() {
     if (!guardWeekCopy()) return;
-    const copyPrompt = multiSiteRotaEnabled()
-      ? "Copy every location from last week into this week? Unsaved changes will be lost."
-      : "Copy all shifts from last week into this week? Unsaved changes will be lost.";
+    const replacing = shifts.length > 0 || dirty;
+    const copyPrompt = replacing
+      ? "Replace the shifts on this week with last week's rota? It stays a draft until you publish."
+      : multiSiteRotaEnabled()
+        ? "Copy every location from last week into this week? Unsaved changes will be lost."
+        : "Copy all shifts from last week into this week? Unsaved changes will be lost.";
     if (!window.confirm(copyPrompt)) return;
     setMessage("Copying…");
     try {
       const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/copy-previous`, {
         method: "POST",
-        body: JSON.stringify({ expected_version: weekMeta?.version ?? null }),
+        body: JSON.stringify({ expected_version: weekMeta?.version ?? null, replace: replacing }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -3602,6 +3824,8 @@
     document.getElementById("rota-attendance-export-csv")?.addEventListener("click", () => exportShiftsAttendance("csv", "Flags"));
     document.getElementById("rota-attendance-export-pdf")?.addEventListener("click", () => exportShiftsAttendance("pdf", "Flags"));
     document.getElementById("rota-copy-prev-btn")?.addEventListener("click", copyPreviousWeek);
+    document.getElementById("rota-save-base-btn")?.addEventListener("click", saveAsBaseRota);
+    document.getElementById("rota-use-base-btn")?.addEventListener("click", useBaseRota);
     document.getElementById("rota-clear-btn")?.addEventListener("click", clearRota);
     document.getElementById("rota-publish-btn")?.addEventListener("click", publishRota);
     document.getElementById("rota-resend-btn")?.addEventListener("click", resendRotaNotifications);
@@ -3639,6 +3863,8 @@
     document.getElementById("rota-mobile-export-csv")?.addEventListener("click", exportRotaCsv);
     document.getElementById("rota-mobile-export-pdf")?.addEventListener("click", exportRotaPdf);
     document.getElementById("rota-mobile-copy-prev")?.addEventListener("click", copyPreviousWeek);
+    document.getElementById("rota-mobile-save-base")?.addEventListener("click", saveAsBaseRota);
+    document.getElementById("rota-mobile-use-base")?.addEventListener("click", useBaseRota);
     document.getElementById("rota-mobile-reload")?.addEventListener("click", () => {
       if (dirty && !window.confirm("Discard unsaved changes?")) return;
       closeShiftPanel();

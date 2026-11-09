@@ -13945,6 +13945,13 @@ html.native-app .pwa-install-page .pwa-install-actions .btn.ghost {
   margin-top: 4px;
 }
 
+#rota-base-dialog .edit-field input,
+#rota-base-dialog .edit-field select {
+  width: 100%;
+  min-height: 44px;
+  font-size: 1rem;
+}
+
 .rota-shift-cards {
   display: grid;
   gap: 10px;

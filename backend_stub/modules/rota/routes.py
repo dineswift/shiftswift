@@ -16,6 +16,7 @@ from core.database import get_connection
 from core.permissions import check_permission
 from deps import get_employee_user, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from modules.rota import attendance as rota_attendance
+from modules.rota import base_templates as rota_base
 from modules.rota import insights as rota_insights
 from modules.rota import readiness as rota_readiness
 from modules.rota import requests as rota_requests
@@ -68,6 +69,23 @@ class ResendRotaNotificationsRequest(BaseModel):
 
 class CopyWeekRequest(BaseModel):
     expected_version: int | None = Field(default=None, ge=1)
+    replace: bool = Field(default=False)
+
+
+class SaveBaseRotaRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    week_start: str = Field(min_length=10, max_length=10)
+    replace: bool = Field(default=False)
+
+
+class RenameBaseRotaRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class ApplyBaseRotaRequest(BaseModel):
+    template_id: int = Field(ge=1)
+    expected_version: int | None = Field(default=None, ge=1)
+    replace: bool = Field(default=False)
 
 
 class TemplateRequirementInput(BaseModel):
@@ -446,7 +464,128 @@ def copy_previous_week(
                 expected_version=payload.expected_version,
                 actor_username=current_user.username,
                 conn=conn,
+                replace=payload.replace,
             )
+        except (RotaValidationError, RotaConflictError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.get("/base-templates")
+def list_base_rotas(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.read")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            return {"items": rota_base.list_base_templates(tenant_id=tenant_id, conn=conn)}
+        except RotaValidationError as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/base-templates")
+def save_base_rota(
+    payload: SaveBaseRotaRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=payload.week_start, conn=conn)
+            return rota_base.save_base_from_week(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                name=payload.name,
+                replace=payload.replace,
+                actor_username=current_user.username,
+                conn=conn,
+            )
+        except (RotaValidationError, ValueError) as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.patch("/base-templates/{template_id}")
+def rename_base_rota(
+    template_id: int,
+    payload: RenameBaseRotaRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            return rota_base.rename_base_template(
+                tenant_id=tenant_id,
+                template_id=template_id,
+                name=payload.name,
+                conn=conn,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RotaValidationError as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.delete("/base-templates/{template_id}")
+def delete_base_rota(
+    template_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            rota_base.delete_base_template(tenant_id=tenant_id, template_id=template_id, conn=conn)
+            return {"message": "Base rota deleted"}
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RotaValidationError as exc:
+            raise _handle_rota_errors(exc) from exc
+    finally:
+        conn.close()
+
+
+@admin_router.post("/weeks/{week_start}/apply-base")
+def apply_base_rota(
+    week_start: str,
+    payload: ApplyBaseRotaRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    check_permission(current_user, "employees.write")
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            parsed = _parse_tenant_week_start(tenant_id=tenant_id, week_start=week_start, conn=conn)
+            return rota_base.apply_base_template(
+                tenant_id=tenant_id,
+                week_start=parsed,
+                template_id=payload.template_id,
+                expected_version=payload.expected_version,
+                replace=payload.replace,
+                actor_username=current_user.username,
+                conn=conn,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         except (RotaValidationError, RotaConflictError, ValueError) as exc:
             raise _handle_rota_errors(exc) from exc
     finally:

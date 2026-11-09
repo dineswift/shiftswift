@@ -75,7 +75,7 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v206" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v207" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=4" />
     <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
   </head>
@@ -2697,6 +2697,8 @@
                     <button type="button" class="rota-more-menu__item" id="rota-export-csv-btn" role="menuitem" title="Weekly grid table (staff rows × day columns)">Export CSV</button>
                     <button type="button" class="rota-more-menu__item" id="rota-export-pdf-btn" role="menuitem" title="Weekly grid table matching the rota builder">Export PDF</button>
                     <button type="button" class="rota-more-menu__item" id="rota-copy-prev-btn" role="menuitem">Copy previous week</button>
+                    <button type="button" class="rota-more-menu__item" id="rota-save-base-btn" role="menuitem">Save as base rota</button>
+                    <button type="button" class="rota-more-menu__item" id="rota-use-base-btn" role="menuitem">Use a base rota</button>
                     <button type="button" class="rota-more-menu__item" id="rota-reload-btn" role="menuitem">Reload</button>
                     <label class="rota-more-menu__check" role="menuitemcheckbox">
                       <input type="checkbox" id="rota-notify-staff" checked />
@@ -2793,6 +2795,8 @@
               <button type="button" class="rota-mobile-chip" id="rota-mobile-export-csv">Grid CSV</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-export-pdf">Grid PDF</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-copy-prev">Copy prev week</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-save-base">Save as base</button>
+              <button type="button" class="rota-mobile-chip" id="rota-mobile-use-base">Use base rota</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-reload">Reload</button>
               <button type="button" class="rota-mobile-chip" id="rota-mobile-clear">Clear rota</button>
               <button type="button" class="rota-mobile-chip rota-mobile-chip--toggle" id="rota-mobile-notify-btn" aria-pressed="true">Email staff</button>
@@ -2932,6 +2936,25 @@
               <button type="button" class="btn primary rota-mobile-footer-btn" id="rota-mobile-publish-btn">Publish rota</button>
             </div>
           </div>
+          <dialog id="rota-base-dialog" class="rota-resend-dialog">
+            <form id="rota-base-form" class="rota-resend-dialog__form">
+              <h3 class="rota-resend-dialog__title" id="rota-base-title">Save as base rota</h3>
+              <p class="muted rota-resend-dialog__lead" id="rota-base-lead"></p>
+              <label class="edit-field" id="rota-base-name-field">
+                <span class="edit-label">Name</span>
+                <input id="rota-base-name" type="text" maxlength="120" placeholder="e.g. Standard week" autocomplete="off" />
+              </label>
+              <label class="edit-field" id="rota-base-pick-field" hidden>
+                <span class="edit-label">Base rota</span>
+                <select id="rota-base-select"></select>
+              </label>
+              <p id="rota-base-status" class="form-error-message" hidden></p>
+              <div class="rota-resend-dialog__actions">
+                <button type="button" class="btn ghost" id="rota-base-cancel">Cancel</button>
+                <button type="submit" class="btn primary" id="rota-base-submit">Save base rota</button>
+              </div>
+            </form>
+          </dialog>
           <dialog id="rota-resend-dialog" class="rota-resend-dialog">
             <form method="dialog" id="rota-resend-form" class="rota-resend-dialog__form">
               <h3 class="rota-resend-dialog__title">Resend rota notifications</h3>
@@ -3806,7 +3829,7 @@
     <script src="./action-feedback.js?v=4"></script>
     <script src="./admin-shared.js?v=admin-v57"></script>
     <script src="./passkey-auth.js?v=7"></script>
-    <script src="./admin-settings.js?v=43"></script>
+    <script src="./admin-settings.js?v=44"></script>
     <script src="./admin-workspace.js?v=admin-v36"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=37"></script>
@@ -3824,7 +3847,7 @@
     <script src="./admin-global-documents.js?v=3"></script>
     <script src="./native-geolocation.js?v=2"></script>
     <script src="./admin-time-punch.js?v=39"></script>
-    <script src="./admin-rota.js?v=51"></script>
+    <script src="./admin-rota.js?v=52"></script>
     <script src="./admin-leave.js?v=admin-v15"></script>
     <script src="./admin-profile-changes.js?v=4"></script>
     <script src="./app.js?v=admin-v8"></script>

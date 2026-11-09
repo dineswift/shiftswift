@@ -734,6 +734,7 @@ def copy_week_from_previous(
     expected_version: int | None,
     actor_username: str,
     conn: Any,
+    replace: bool = False,
 ) -> dict[str, Any]:
     assert_week_copy_allowed(week_start=week_start)
     previous_start = week_start - timedelta(days=7)
@@ -742,9 +743,9 @@ def copy_week_from_previous(
         raise RotaValidationError("Previous week has no shifts to copy", field="week_start")
 
     _, current_shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
-    if current_shifts:
+    if current_shifts and not replace:
         raise RotaValidationError(
-            "Current week already has shifts — remove them or save an empty rota before copying",
+            "This week already has shifts. Copy again to replace them with last week.",
             field="shifts",
         )
 
@@ -770,7 +771,11 @@ def copy_week_from_previous(
         actor_username=actor_username,
         conn=conn,
     )
-    result["message"] = f"Copied {len(payload)} shifts from previous week"
+    result["message"] = (
+        f"Replaced this week with {len(payload)} shifts from last week. It stays a draft until you publish."
+        if replace
+        else f"Copied {len(payload)} shifts from previous week"
+    )
     result["copied_from_week"] = previous_start.isoformat()
     return result
 

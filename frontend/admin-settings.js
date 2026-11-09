@@ -1125,6 +1125,88 @@
     }));
   }
 
+  async function renderBaseRotasEditor(container) {
+    if (!container) return;
+    container.innerHTML = `<p class="muted">Loading base rotas…</p>`;
+    try {
+      const res = await apiFetch("/admin/rota/base-templates");
+      const data = res.ok ? await res.json() : {};
+      if (!res.ok) {
+        const detail = data.detail;
+        const message =
+          (detail && typeof detail === "object" && detail.message) ||
+          (typeof detail === "string" && detail) ||
+          "Could not load base rotas.";
+        container.innerHTML = `<p class="muted">${escapeHtml(message)}</p>`;
+        return;
+      }
+      const items = data.items || [];
+      container.innerHTML = `
+        <div class="settings-rota-templates">
+          <h4>Base rotas</h4>
+          <p class="muted">A base rota is a saved week of real shifts. On the Rota page, use More → Save as base rota, then load it into another week, edit, and publish.</p>
+          ${
+            items.length
+              ? `<ul class="settings-rota-template-list">${items
+                  .map(
+                    (item) =>
+                      `<li class="settings-rota-template-list__item"><strong>${escapeHtml(item.name)}</strong> · ${item.shift_count} shift${item.shift_count === 1 ? "" : "s"}<button type="button" class="btn ghost" data-rename-base="${item.id}" data-base-name="${escapeHtml(item.name)}">Rename</button><button type="button" class="btn ghost settings-rota-template-delete" data-delete-base="${item.id}" aria-label="Delete ${escapeHtml(item.name)}">Delete</button></li>`,
+                  )
+                  .join("")}</ul>`
+              : `<p class="muted">No base rotas yet.</p>`
+          }
+          <p class="muted" id="settings-rota-base-status" aria-live="polite"></p>
+        </div>`;
+      const statusEl = document.getElementById("settings-rota-base-status");
+      container.querySelectorAll("[data-rename-base]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const current = btn.getAttribute("data-base-name") || "";
+          const next = window.prompt("Base rota name", current);
+          if (next == null) return;
+          const name = next.trim();
+          if (!name || name === current) return;
+          if (statusEl) statusEl.textContent = "Renaming…";
+          try {
+            const saveRes = await apiFetch(`/admin/rota/base-templates/${btn.getAttribute("data-rename-base")}`, {
+              method: "PATCH",
+              body: JSON.stringify({ name }),
+            });
+            const saveData = await saveRes.json().catch(() => ({}));
+            if (!saveRes.ok) {
+              const detail = saveData.detail;
+              throw new Error(
+                (detail && typeof detail === "object" && detail.message) || detail || "Could not rename",
+              );
+            }
+            showSettingsToast("Base rota renamed ✓");
+            await renderBaseRotasEditor(container);
+          } catch (error) {
+            if (statusEl) statusEl.textContent = error.message || "Could not rename";
+          }
+        });
+      });
+      container.querySelectorAll("[data-delete-base]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!window.confirm("Delete this base rota? Weeks already published are unchanged.")) return;
+          if (statusEl) statusEl.textContent = "Deleting…";
+          try {
+            const delRes = await apiFetch(`/admin/rota/base-templates/${btn.getAttribute("data-delete-base")}`, {
+              method: "DELETE",
+            });
+            const delData = await delRes.json().catch(() => ({}));
+            if (!delRes.ok) throw new Error(delData.detail || "Could not delete");
+            showSettingsToast("Base rota deleted ✓");
+            await renderBaseRotasEditor(container);
+          } catch (error) {
+            if (statusEl) statusEl.textContent = error.message || "Could not delete";
+          }
+        });
+      });
+    } catch {
+      container.innerHTML = `<p class="muted">Could not load base rotas.</p>`;
+    }
+  }
+
   async function renderRotaTemplatesEditor(container, advancedEnabled) {
     if (!container) return;
     if (!advancedEnabled) {
@@ -1352,6 +1434,7 @@
         <p class="muted settings-rota-addon-status" id="settings-rota-addon-status"></p>
         <p class="muted settings-rota-foot" id="settings-rota-mode-help"></p>
         <p class="muted" id="settings-rota-status" aria-live="polite"></p>
+        <div id="settings-rota-bases-wrap"></div>
         <div id="settings-rota-templates-wrap"></div>`;
 
       const help = document.getElementById("settings-rota-mode-help");
@@ -1370,7 +1453,8 @@
       function updateHelp() {
         const mode = select?.value || "basic";
         if (mode === "basic") {
-          help.textContent = "Build rotas manually on the weekly grid. Staff see published shifts in the Time Clock app.";
+          help.textContent =
+            "Build rotas manually on the weekly grid. Save a week as a base rota and load it into a later week, then publish. Staff see published shifts in the Time Clock app.";
         } else if (mode === "advanced") {
           help.textContent = "Use staffing templates, coverage gaps, hours warnings, and generate draft on the Rota page.";
         } else {
@@ -1433,6 +1517,7 @@
         }
       });
 
+      await renderBaseRotasEditor(document.getElementById("settings-rota-bases-wrap"));
       await renderRotaTemplatesEditor(
         document.getElementById("settings-rota-templates-wrap"),
         Boolean(overview.rota_advanced_addon) && (current === "advanced" || current === "multi_site")

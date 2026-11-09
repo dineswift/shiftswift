@@ -11,6 +11,7 @@ import pytest
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
+from modules.rota.base_templates import pattern_from_shifts, week_shifts_from_pattern
 from modules.rota.service import (
     RotaValidationError,
     assert_week_copy_allowed,
@@ -268,6 +269,78 @@ def test_repeat_moves_future_days_when_the_weekday_changes() -> None:
         (date(2026, 11, 4), date(2026, 11, 5)),
         (date(2026, 11, 11), date(2026, 11, 12)),
     ]
+
+
+def test_base_rota_keeps_people_times_and_location_on_a_later_week() -> None:
+    week = date(2026, 11, 9)
+    pattern = pattern_from_shifts(
+        week_start=week,
+        shifts=[
+            {
+                "employee_id": 4,
+                "shift_date": "2026-11-10",
+                "start_time": "09:00:00",
+                "end_time": "17:00",
+                "role_label": "Floor",
+                "notes": "Open",
+                "punch_site_id": 2,
+            }
+        ],
+    )
+    assert pattern == [
+        {
+            "day_offset": 1,
+            "employee_id": 4,
+            "start_time": "09:00",
+            "end_time": "17:00",
+            "role_label": "Floor",
+            "notes": "Open",
+            "punch_site_id": 2,
+        }
+    ]
+    payload, skipped = week_shifts_from_pattern(
+        week_start=date(2026, 11, 16),
+        pattern=pattern,
+        active_employee_ids={4},
+        active_site_ids={2},
+        require_site=True,
+    )
+    assert skipped == []
+    assert payload[0]["shift_date"] == "2026-11-17"
+    assert payload[0]["punch_site_id"] == 2
+    assert payload[0]["employee_id"] == 4
+
+
+def test_base_rota_skips_people_and_locations_that_are_gone() -> None:
+    pattern = [
+        {
+            "day_offset": 0,
+            "employee_id": 9,
+            "start_time": "10:00",
+            "end_time": "14:00",
+            "role_label": "",
+            "notes": "",
+            "punch_site_id": 3,
+        },
+        {
+            "day_offset": 2,
+            "employee_id": 4,
+            "start_time": "18:00",
+            "end_time": "22:00",
+            "role_label": "Bar",
+            "notes": "",
+            "punch_site_id": 8,
+        },
+    ]
+    payload, skipped = week_shifts_from_pattern(
+        week_start=date(2026, 11, 16),
+        pattern=pattern,
+        active_employee_ids={4},
+        active_site_ids={3},
+        require_site=True,
+    )
+    assert payload == []
+    assert {item["reason"] for item in skipped} == {"employee_unavailable", "missing_location"}
 
 
 def test_current_week_is_editable() -> None:
