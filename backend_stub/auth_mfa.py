@@ -27,9 +27,13 @@ def _store_secret(raw_secret: str) -> str:
 
 
 def _load_secret(stored: str) -> str:
+    stored = (stored or "").strip()
     if stored.startswith("plain:"):
-        return stored[6:]
-    return decrypt_text(stored)
+        return stored[6:].strip()
+    # Older rows saved the base32 secret on its own, with no encryption prefix.
+    if ":" not in stored:
+        return stored
+    return decrypt_text(stored).strip()
 
 
 def generate_totp_secret() -> str:
@@ -63,8 +67,9 @@ def verify_totp_code(*, secret: str, code: str) -> bool:
     if not normalized.isdigit() or len(normalized) not in {6, 8}:
         return False
     totp = pyotp.TOTP(secret)
-    # Two steps covers a phone clock that is up to a minute off.
-    return totp.verify(normalized, valid_window=2)
+    # Aware UTC avoids a wrong local timezone on the server. Four steps is ±2 minutes.
+    now = datetime.now(timezone.utc)
+    return totp.verify(normalized, for_time=now, valid_window=4)
 
 
 def second_factor_order(*, has_totp: bool) -> tuple[str, ...]:
@@ -158,9 +163,10 @@ def fetch_user_mfa(cur: Any, username: str) -> dict[str, Any] | None:
         SELECT username, role, tenant_id::text, login_portal, mfa_enabled, totp_secret, is_active
         FROM app_users
         WHERE lower(username) = lower(%s)
+        ORDER BY (username = %s) DESC, id
         LIMIT 1
         """,
-        (username,),
+        (username, username),
     )
     row = cur.fetchone()
     if not row:

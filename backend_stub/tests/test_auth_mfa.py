@@ -59,6 +59,15 @@ def test_totp_verify_round_trip() -> None:
     assert not verify_totp_code(secret=secret, code="000000")
 
 
+def test_raw_base32_secret_still_loads() -> None:
+    from auth_mfa import _load_secret
+
+    secret = generate_totp_secret()
+    assert _load_secret(secret) == secret
+    assert _load_secret(f"plain:{secret}") == secret
+    assert verify_totp_code(secret=secret, code=pyotp.TOTP(secret).now())
+
+
 def test_master_provisioning_uri_keeps_the_secret() -> None:
     secret = generate_totp_secret()
     uri = provisioning_uri(username="admin@shiftswifthr.co.uk", secret=secret, portal="master")

@@ -118,6 +118,7 @@ def verify_email_mfa_code(
     username: str,
     challenge_jti: str,
     code: str,
+    record_failure: bool = True,
 ) -> bool:
     normalized = str(code or "").strip().replace(" ", "")
     if not normalized.isdigit() or len(normalized) != 6:
@@ -144,16 +145,19 @@ def verify_email_mfa_code(
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if expires_at <= now or int(attempts or 0) >= EMAIL_MFA_MAX_ATTEMPTS:
-            cur.execute(
-                "UPDATE mfa_email_codes SET consumed_at = NOW() WHERE id = %s",
-                (row_id,),
-            )
+            if record_failure:
+                cur.execute(
+                    "UPDATE mfa_email_codes SET consumed_at = NOW() WHERE id = %s",
+                    (row_id,),
+                )
             return False
         if not secrets.compare_digest(str(code_hash), _hash_code(normalized)):
-            cur.execute(
-                "UPDATE mfa_email_codes SET attempts = attempts + 1 WHERE id = %s",
-                (row_id,),
-            )
+            # A wrong authenticator code must not use up the emailed code.
+            if record_failure:
+                cur.execute(
+                    "UPDATE mfa_email_codes SET attempts = attempts + 1 WHERE id = %s",
+                    (row_id,),
+                )
             return False
         cur.execute(
             "UPDATE mfa_email_codes SET consumed_at = NOW() WHERE id = %s",

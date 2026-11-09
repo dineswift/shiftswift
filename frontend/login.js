@@ -813,7 +813,9 @@ function applyMfaMethodUi() {
     if (resolved === "email") {
       const hint = escapeLoginHtml(emailHint || pendingMfaUsername);
       lead.innerHTML = emailSent
-        ? `We emailed a 6-digit code to <strong data-mfa-user>${hint}</strong>. Check inbox and spam.`
+        ? totpAvailable
+          ? `We emailed a 6-digit code to <strong data-mfa-user>${hint}</strong>. Enter that code, or the code from your authenticator app.`
+          : `We emailed a 6-digit code to <strong data-mfa-user>${hint}</strong>. Check inbox and spam.`
         : `Enter the 6-digit code we email to <strong data-mfa-user>${hint}</strong>.`;
     } else {
       lead.innerHTML = `Enter the 6-digit code from your authenticator app for <strong data-mfa-user>${escapeLoginHtml(pendingMfaUsername)}</strong>.`;
@@ -821,7 +823,14 @@ function applyMfaMethodUi() {
   }
 
   const labelText = document.getElementById("mfa-code-label-text");
-  if (labelText) labelText.textContent = resolved === "email" ? "Email code" : "Authenticator code";
+  if (labelText) {
+    labelText.textContent =
+      resolved === "email" && totpAvailable
+        ? "Email or authenticator code"
+        : resolved === "email"
+          ? "Email code"
+          : "Authenticator code";
+  }
   const codeInput = mfaPanel.querySelector('input[name="code"]');
   if (codeInput) codeInput.value = "";
 

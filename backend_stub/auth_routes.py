@@ -607,6 +607,7 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
                     username=challenge["sub"],
                     challenge_jti=str(challenge.get("jti") or ""),
                     code=payload.code,
+                    record_failure=requested_method == "email",
                 ):
                     method = "email"
                     matched = True
@@ -629,12 +630,20 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
                     status_code=401,
                     detail="This account uses Face ID / Touch ID only. Sign in again and use the passkey option, or reset MFA from Settings on the web.",
                 )
+            if has_totp and requested_method == "totp":
+                raise HTTPException(
+                    status_code=401,
+                    detail=(
+                        "That authenticator code doesn't match this sign-in. "
+                        "Enter the code from the latest email, then scan a new QR code in account settings."
+                    ),
+                )
             if has_totp:
                 raise HTTPException(
                     status_code=401,
                     detail=(
-                        "Invalid authentication code. Use the current code from the authenticator "
-                        "entry for this sign-in, or the code from the email."
+                        "That code doesn't match the latest email or the authenticator app for this sign-in. "
+                        "Tap Resend email code and use the new code."
                     ),
                 )
             raise HTTPException(status_code=401, detail="Invalid or expired email code")

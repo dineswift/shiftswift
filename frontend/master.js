@@ -942,8 +942,10 @@
           const qrImg = document.getElementById("master-mfa-qr");
           const secretEl = document.getElementById("master-mfa-secret");
           if (secretEl) secretEl.textContent = setup.manual_secret || "";
-          if (qrImg && setup.otpauth_uri) {
-            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth_uri)}`;
+          if (qrImg && (setup.qr_data_uri || setup.otpauth_uri)) {
+            qrImg.src =
+              setup.qr_data_uri ||
+              `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(setup.otpauth_uri)}`;
           }
           if (qrArea) qrArea.hidden = false;
           if (statusEl) statusEl.textContent = "";
