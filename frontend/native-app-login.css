@@ -860,9 +860,9 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
     flex-direction: column;
     justify-content: center;
     width: 100%;
-    max-width: 560px;
+    max-width: 680px;
     margin: auto;
-    padding: 48px 56px 48px 64px;
+    padding: 40px 48px;
   }
 
   .login-poster::before {
@@ -907,57 +907,98 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 
   .login-poster__title {
     margin: 0;
-    max-width: 11ch;
+    max-width: 12ch;
     font-family: var(--native-heading);
-    font-size: clamp(2.4rem, 3.4vw, 3.35rem);
+    font-size: clamp(2.6rem, 3.6vw, 3.6rem);
     font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 0.98;
+    letter-spacing: -0.045em;
+    line-height: 0.96;
+  }
+
+  .login-poster__title span {
+    color: #b7efd8;
   }
 
   .login-poster__lead {
     margin: 16px 0 0;
-    max-width: 34em;
+    max-width: 36em;
     font-size: 1.05rem;
     line-height: 1.5;
-    color: rgba(255, 255, 255, 0.82);
+    color: rgba(255, 255, 255, 0.78);
   }
 
   .login-poster__board {
     position: relative;
-    margin-top: 32px;
-    max-width: 420px;
-    padding: 22px 18px 8px;
-    border-radius: 18px;
-    background: #f7f6f2;
+    margin-top: 28px;
+    padding: 20px 18px 10px;
+    border-radius: 22px;
+    background:
+      linear-gradient(180deg, #fffefb 0%, #f4f7f2 100%);
     color: var(--native-ink);
+    transform: rotate(-0.4deg);
     box-shadow:
-      0 22px 44px rgba(0, 0, 0, 0.22),
-      0 0 0 1px rgba(255, 255, 255, 0.08);
+      0 28px 60px rgba(0, 0, 0, 0.32),
+      0 0 0 1px rgba(255, 255, 255, 0.5),
+      0 0 70px rgba(93, 202, 165, 0.16);
   }
 
   .login-poster__tape {
     position: absolute;
-    top: -10px;
+    top: -13px;
     left: 50%;
-    width: 74px;
-    height: 18px;
-    border-radius: 2px;
-    background: rgba(234, 243, 222, 0.72);
-    transform: translateX(-50%) rotate(-2deg);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset;
+    width: 92px;
+    height: 22px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, rgba(234, 246, 214, 0.92), rgba(198, 224, 176, 0.78));
+    transform: translateX(-50%) rotate(-1.5deg);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 6px 10px rgba(0, 0, 0, 0.12);
   }
 
   .login-poster__board-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: 0.78rem;
+    margin-bottom: 12px;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--native-muted);
+    color: #6d756f;
+  }
+
+  .login-poster__week {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--native-pine);
+  }
+
+  .login-poster__week::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1d9e75;
+    box-shadow: 0 0 0 4px rgba(29, 158, 117, 0.16);
+  }
+
+  .login-poster__scale {
+    display: grid;
+    grid-template-columns: 42px 1fr 92px;
+    gap: 12px;
+    margin-bottom: 2px;
+  }
+
+  .login-poster__scale-track {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #8a918c;
   }
 
   .login-poster__shifts {
@@ -968,65 +1009,99 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 
   .login-poster__shifts li {
     display: grid;
-    grid-template-columns: 36px 1fr auto;
+    grid-template-columns: 42px 1fr 92px;
     align-items: center;
     gap: 12px;
-    padding: 9px 0;
-    border-top: 1px solid #e6e4dc;
-    font-size: 0.92rem;
+    padding: 8px 0;
+    border-top: 1px solid #e4ebe4;
   }
 
-  .login-poster__shifts span {
-    font-weight: 700;
+  .login-poster__shifts li > span {
+    font-size: 0.84rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     color: var(--native-pine);
   }
 
-  .login-poster__shifts em {
-    font-style: normal;
-    font-weight: 600;
-    color: #3d4a44;
-  }
-
-  .login-poster__bar {
+  .login-poster__track {
+    position: relative;
     display: block;
-    height: 8px;
+    height: 12px;
     border-radius: 999px;
-    background: #9fe1cb;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        #e7efe8 0,
+        #e7efe8 calc(25% - 1px),
+        #d5e3d8 calc(25% - 1px),
+        #d5e3d8 25%
+      );
+    overflow: hidden;
   }
 
-  .login-poster__bar--kitchen { width: 86%; background: #0f6e56; }
-  .login-poster__bar--floor { width: 62%; background: #1d9e75; }
-  .login-poster__bar--care { width: 74%; background: #5dcaa5; }
-  .login-poster__bar--bar { width: 48%; background: #0a5a47; }
-  .login-poster__bar--front { width: 92%; background: #127a5a; }
+  .login-poster__block {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--start);
+    width: var(--len);
+    border-radius: 999px;
+    background: linear-gradient(90deg, #0a5a47, #1d9e75);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+  }
 
-  .login-poster__points {
+  .login-poster__block--floor { background: linear-gradient(90deg, #127a5a, #3dbe8b); }
+  .login-poster__block--care { background: linear-gradient(90deg, #5dcaa5, #9fe1cb); }
+  .login-poster__block--bar { background: linear-gradient(90deg, #0c3d30, #0f6e56); }
+  .login-poster__block--front { background: linear-gradient(90deg, #0f6e56, #5dcaa5); }
+
+  .login-poster__shifts em {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px 18px;
-    margin: 22px 0 0;
+    flex-direction: column;
+    align-items: flex-end;
+    font-style: normal;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #24312b;
+  }
+
+  .login-poster__shifts small {
+    margin-top: 2px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #6d756f;
+  }
+
+  .login-poster__notes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 18px 0 0;
     padding: 0;
     list-style: none;
-    max-width: 460px;
-    font-size: 0.88rem;
+  }
+
+  .login-poster__notes li {
+    padding: 12px 12px 13px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .login-poster__notes strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.82rem;
+    letter-spacing: -0.02em;
+  }
+
+  .login-poster__notes span {
+    display: block;
+    font-size: 0.75rem;
     line-height: 1.35;
-    color: rgba(255, 255, 255, 0.88);
-  }
-
-  .login-poster__points li {
-    position: relative;
-    padding-left: 14px;
-  }
-
-  .login-poster__points li::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0.45em;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #9fe1cb;
+    color: rgba(255, 255, 255, 0.74);
   }
 
   .portal-login-page--unified .login-stage {
