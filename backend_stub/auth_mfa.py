@@ -7,8 +7,6 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
-from urllib.parse import quote
-
 import jwt
 import pyotp
 
@@ -39,8 +37,10 @@ def generate_totp_secret() -> str:
 
 
 def provisioning_uri(*, username: str, secret: str, portal: Portal) -> str:
-    label = f"{MFA_ISSUER} ({'Master' if portal == 'master' else 'Business'}):{username}"
-    return pyotp.TOTP(secret).provisioning_uri(name=quote(label), issuer_name=MFA_ISSUER)
+    # pyotp quotes the label. Pre-quoting it makes authenticator apps store a bad secret.
+    account = "Master" if portal == "master" else "Business"
+    label = f"{account}:{username}"
+    return pyotp.TOTP(secret).provisioning_uri(name=label, issuer_name=MFA_ISSUER)
 
 
 def qr_png_data_uri(otpauth_uri: str, *, box_size: int = 4) -> str:
@@ -63,7 +63,19 @@ def verify_totp_code(*, secret: str, code: str) -> bool:
     if not normalized.isdigit() or len(normalized) not in {6, 8}:
         return False
     totp = pyotp.TOTP(secret)
-    return totp.verify(normalized, valid_window=1)
+    # Two steps covers a phone clock that is up to a minute off.
+    return totp.verify(normalized, valid_window=2)
+
+
+def second_factor_order(*, has_totp: bool) -> tuple[str, ...]:
+    """Try the authenticator before the email code when this account has one.
+
+    The sign-in screen defaults to email, so an authenticator code was rejected
+    as an email code. Either factor still belongs to the same account.
+    """
+    if has_totp:
+        return ("totp", "email")
+    return ("email",)
 
 
 def create_mfa_challenge_token(

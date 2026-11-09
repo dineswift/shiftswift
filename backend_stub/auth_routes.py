@@ -21,6 +21,7 @@ from auth_mfa import (
     issue_trusted_device,
     portal_allows_user,
     trusted_device_is_valid,
+    second_factor_order,
     verify_user_mfa_code,
 )
 from auth_password_reset import complete_password_reset, request_password_reset
@@ -581,51 +582,62 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
 
-    method = payload.method or "email"
+    requested_method = payload.method or "email"
     conn = _db_conn()
     try:
         with conn.cursor() as cur:
             user_row = fetch_user_mfa(cur, challenge["sub"])
-        if method == "email":
-            from auth_email_mfa import verify_email_mfa_code
+        has_totp = bool(user_row and user_row.get("mfa_enabled") and user_row.get("totp_secret"))
+        passkey_only = bool(user_row and user_row.get("mfa_enabled") and not user_row.get("totp_secret"))
+        method = requested_method
+        matched = False
+        checked_email = False
+        from auth_email_mfa import verify_email_mfa_code
 
-            ok = verify_email_mfa_code(
-                conn=conn,
-                username=challenge["sub"],
-                challenge_jti=str(challenge.get("jti") or ""),
-                code=payload.code,
-            )
-            conn.commit()
-            if not ok:
-                log_security_event(
-                    settings,
-                    event_type="mfa_verify_failed",
+        for factor in second_factor_order(has_totp=has_totp):
+            if factor == "totp":
+                if verify_user_mfa_code(conn=conn, username=challenge["sub"], code=payload.code):
+                    method = "totp"
+                    matched = True
+                    break
+            elif factor == "email":
+                checked_email = True
+                if verify_email_mfa_code(
+                    conn=conn,
                     username=challenge["sub"],
-                    tenant_id=challenge["tenant_id"],
-                    ip_address=ip,
-                    user_agent=user_agent,
-                    success=False,
-                    detail="method=email",
-                )
-                raise HTTPException(status_code=401, detail="Invalid or expired email code")
-        else:
-            if user_row and user_row.get("mfa_enabled") and not user_row.get("totp_secret"):
+                    challenge_jti=str(challenge.get("jti") or ""),
+                    code=payload.code,
+                ):
+                    method = "email"
+                    matched = True
+                    break
+        if checked_email:
+            conn.commit()
+        if not matched:
+            log_security_event(
+                settings,
+                event_type="mfa_verify_failed",
+                username=challenge["sub"],
+                tenant_id=challenge["tenant_id"],
+                ip_address=ip,
+                user_agent=user_agent,
+                success=False,
+                detail=f"method={requested_method}",
+            )
+            if requested_method == "totp" and passkey_only and not has_totp:
                 raise HTTPException(
                     status_code=401,
                     detail="This account uses Face ID / Touch ID only. Sign in again and use the passkey option, or reset MFA from Settings on the web.",
                 )
-            if not verify_user_mfa_code(conn=conn, username=challenge["sub"], code=payload.code):
-                log_security_event(
-                    settings,
-                    event_type="mfa_verify_failed",
-                    username=challenge["sub"],
-                    tenant_id=challenge["tenant_id"],
-                    ip_address=ip,
-                    user_agent=user_agent,
-                    success=False,
-                    detail="method=totp",
+            if has_totp:
+                raise HTTPException(
+                    status_code=401,
+                    detail=(
+                        "Invalid authentication code. Use the current code from the authenticator "
+                        "entry for this sign-in, or the code from the email."
+                    ),
                 )
-                raise HTTPException(status_code=401, detail="Invalid authentication code")
+            raise HTTPException(status_code=401, detail="Invalid or expired email code")
 
         with conn.cursor() as cur:
             user = fetch_user_mfa(cur, challenge["sub"])

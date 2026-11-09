@@ -15,8 +15,11 @@ from auth_mfa import (
     create_mfa_enrollment_token,
     decode_mfa_challenge_token,
     decode_mfa_enrollment_token,
+    generate_totp_secret,
     hash_device_token,
     portal_allows_user,
+    provisioning_uri,
+    second_factor_order,
     verify_totp_code,
 )
 from auth_service import authenticate_user
@@ -54,6 +57,19 @@ def test_totp_verify_round_trip() -> None:
     code = pyotp.TOTP(secret).now()
     assert verify_totp_code(secret=secret, code=code)
     assert not verify_totp_code(secret=secret, code="000000")
+
+
+def test_master_provisioning_uri_keeps_the_secret() -> None:
+    secret = generate_totp_secret()
+    uri = provisioning_uri(username="admin@shiftswifthr.co.uk", secret=secret, portal="master")
+    assert f"secret={secret}" in uri
+    assert "%2520" not in uri
+    assert "Master" in uri
+
+
+def test_authenticator_is_checked_before_the_email_code() -> None:
+    assert second_factor_order(has_totp=True) == ("totp", "email")
+    assert second_factor_order(has_totp=False) == ("email",)
 
 
 def test_device_token_hash_is_stable() -> None:
