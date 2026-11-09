@@ -2102,3 +2102,302 @@ body.master-tenant-modal-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* Tenant detail window */
+.master-tenant-modal__panel {
+  width: min(720px, 100%);
+  border: none;
+  border-radius: 1.15rem;
+  box-shadow: 0 28px 70px rgba(12, 21, 36, 0.28);
+}
+
+.master-tenant-modal__head {
+  padding: 1.15rem 1.2rem 1rem;
+  background: linear-gradient(180deg, #f4f7f5 0%, #fff 72%);
+}
+
+.master-tenant-modal__head h2 {
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.master-tenant-modal .master-tenant-page__title-row {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.master-tenant-modal .master-tenant-page__last-active {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.master-tenant-modal .master-tenant-page__meta {
+  margin-top: 0.45rem;
+}
+
+.master-tenant-modal__close {
+  border-radius: 999px;
+  background: #fff;
+}
+
+.master-tenant-modal__body {
+  padding: 0 1.15rem 1.2rem;
+  background: #fff;
+}
+
+.master-tenant-modal .master-alert--compact,
+.master-tenant-page .master-alert--compact {
+  margin: 0 0 0.9rem;
+  padding: 0.65rem 0.8rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: #f6f3ea;
+  color: #6b5420;
+  line-height: 1.4;
+}
+
+.master-tenant-modal .master-detail-alert,
+.master-tenant-page .master-detail-alert {
+  margin: 0 0 0.9rem;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: #fff6eb;
+  color: #9a3412;
+  line-height: 1.45;
+}
+
+.master-tenant-modal .master-tenant-tabs,
+.master-tenant-page .master-tenant-tabs {
+  gap: 0.2rem;
+  margin: 0 0 1rem;
+  padding: 0.22rem;
+  border: none;
+  border-radius: 0.8rem;
+  background: #eef1f4;
+}
+
+.master-tenant-modal .master-tenant-tabs__btn,
+.master-tenant-page .master-tenant-tabs__btn {
+  flex: 1 1 auto;
+  margin: 0;
+  border: none;
+  border-radius: 0.62rem;
+  padding: 0.48rem 0.55rem;
+  color: #5c677a;
+}
+
+.master-tenant-modal .master-tenant-tabs__btn.is-active,
+.master-tenant-page .master-tenant-tabs__btn.is-active {
+  background: #fff;
+  color: #142033;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.master-tenant-modal .master-detail-section__title,
+.master-tenant-page .master-detail-section__title {
+  margin-bottom: 0.45rem;
+  letter-spacing: 0.08em;
+}
+
+.master-tenant-modal .master-detail-kv,
+.master-tenant-page .master-detail-kv {
+  padding: 0.15rem 0.9rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.9rem;
+  background: #f7f8fa;
+}
+
+.master-tenant-modal .master-detail-kv__row,
+.master-tenant-page .master-detail-kv__row {
+  grid-template-columns: minmax(7.5rem, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  padding: 0.72rem 0;
+}
+
+.master-tenant-modal .master-detail-kv__label,
+.master-tenant-page .master-detail-kv__label {
+  font-size: 0.75rem;
+}
+
+.master-tenant-modal .master-detail-kv__value,
+.master-tenant-page .master-detail-kv__value {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.master-tenant-modal .master-detail-kv__hint,
+.master-tenant-page .master-detail-kv__hint {
+  flex-basis: 100%;
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+}
+
+.master-tenant-modal .master-detail-plain,
+.master-tenant-page .master-detail-plain {
+  padding: 0.85rem 0.9rem 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.9rem;
+  background: #f7f8fa;
+}
+
+.master-tenant-modal .master-change-plan__field input,
+.master-tenant-modal .master-change-plan__field textarea,
+.master-tenant-modal .master-change-plan__field select,
+.master-tenant-page .master-change-plan__field input,
+.master-tenant-page .master-change-plan__field textarea,
+.master-tenant-page .master-change-plan__field select,
+.master-tenant-modal .master-notes textarea,
+.master-tenant-page .master-notes textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.7rem;
+  background: #fff;
+  padding: 0.62rem 0.75rem;
+}
+
+.master-tenant-modal .master-change-plan__field input:focus,
+.master-tenant-modal .master-change-plan__field textarea:focus,
+.master-tenant-modal .master-change-plan__field select:focus,
+.master-tenant-page .master-change-plan__field input:focus,
+.master-tenant-page .master-change-plan__field textarea:focus,
+.master-tenant-page .master-change-plan__field select:focus,
+.master-tenant-modal .master-notes textarea:focus,
+.master-tenant-page .master-notes textarea:focus {
+  outline: 2px solid rgba(15, 110, 86, 0.22);
+  border-color: #0f6e56;
+}
+
+.master-tenant-modal .master-workspace-form__hint,
+.master-tenant-page .master-workspace-form__hint {
+  margin: 0.15rem 0 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.master-tenant-modal .master-detail-employees,
+.master-tenant-page .master-detail-employees {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.9rem;
+  background: #f7f8fa;
+}
+
+.master-tenant-modal .master-staff-bar--detail,
+.master-tenant-page .master-staff-bar--detail {
+  height: 8px;
+  margin-top: 0.55rem;
+  background: #e6ebf0;
+}
+
+.master-tenant-modal .master-module-pills,
+.master-tenant-page .master-module-pills {
+  gap: 0.4rem;
+}
+
+.master-tenant-modal .master-module-pill,
+.master-tenant-page .master-module-pill {
+  padding: 0.32rem 0.65rem;
+}
+
+.master-tenant-modal .master-module-pill.is-active,
+.master-tenant-page .master-module-pill.is-active {
+  background: #e7f6ef;
+  color: #0f6e56;
+}
+
+.master-tenant-modal .master-notes,
+.master-tenant-page .master-notes {
+  padding: 0.85rem 0.9rem 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 0.9rem;
+  background: #f7f8fa;
+}
+
+.master-tenant-modal .master-notes h3,
+.master-tenant-page .master-notes h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--master-muted);
+}
+
+.master-notes__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.55rem;
+}
+
+.master-notes__actions .master-inline-status {
+  margin: 0;
+}
+
+.master-tenant-modal .master-tenant-actions,
+.master-tenant-page .master-tenant-actions {
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 0.2rem;
+  border-top: none;
+}
+
+.master-tenant-modal .master-tenant-actions__primary,
+.master-tenant-page .master-tenant-actions__primary {
+  min-height: 2.55rem;
+  border-radius: 0.75rem;
+}
+
+.master-tenant-modal .master-tenant-actions__grid,
+.master-tenant-page .master-tenant-actions__grid {
+  gap: 0.5rem;
+}
+
+.master-tenant-modal .master-tenant-actions__grid .master-btn,
+.master-tenant-page .master-tenant-actions__grid .master-btn,
+.master-tenant-modal .master-tenant-actions__secondary .master-btn,
+.master-tenant-page .master-tenant-actions__secondary .master-btn {
+  min-height: 2.45rem;
+  border-radius: 0.75rem;
+  border-color: #e2e8f0;
+  background: #fff;
+}
+
+.master-tenant-modal .master-tenant-actions__grid .master-btn:hover,
+.master-tenant-page .master-tenant-actions__grid .master-btn:hover,
+.master-tenant-modal .master-tenant-actions__secondary .master-btn:hover,
+.master-tenant-page .master-tenant-actions__secondary .master-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.master-tenant-modal .master-tenant-actions__secondary,
+.master-tenant-page .master-tenant-actions__secondary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.master-tenant-modal .master-tenant-actions__danger,
+.master-tenant-page .master-tenant-actions__danger {
+  margin-top: 0.25rem;
+  min-height: 2.45rem;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .master-tenant-modal .master-tenant-actions__grid,
+  .master-tenant-page .master-tenant-actions__grid,
+  .master-tenant-modal .master-tenant-actions__secondary,
+  .master-tenant-page .master-tenant-actions__secondary {
+    grid-template-columns: 1fr;
+  }
+}
+

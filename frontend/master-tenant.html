@@ -11,7 +11,7 @@
     <title>Tenant details | ShiftSwift Master Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./master.css?v=25" />
+    <link rel="stylesheet" href="./master.css?v=27" />
   </head>
   <body class="master-app master-tenant-page">
     <header class="master-tenant-page__topbar">
@@ -107,11 +107,14 @@
           <div class="master-notes">
             <h3>Internal notes</h3>
             <textarea id="detail-notes" rows="3" placeholder="Support notes visible to platform admins only"></textarea>
-            <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
-            <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
+            <div class="master-notes__actions">
+              <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
+              <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
+            </div>
           </div>
 
           <div class="master-tenant-actions" id="detail-actions">
+            <h3 class="master-detail-section__title">Sign in and access</h3>
             <button type="button" class="master-btn master-btn--gold master-tenant-actions__primary" id="detail-impersonate">Impersonate this account</button>
             <div class="master-tenant-actions__grid">
               <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
@@ -121,6 +124,7 @@
               <button type="button" class="master-btn master-btn--ghost" id="detail-set-temp-hr-password">Set temporary HR password</button>
               <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
             </div>
+            <h3 class="master-detail-section__title">Billing and account</h3>
             <div class="master-tenant-actions__secondary">
               <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-trial">Offline billing (keep trial)</button>
               <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-active">Offline billing (active)</button>
@@ -138,7 +142,7 @@
     <script src="./session-auth.js?v=1"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=5"></script>
-    <script src="./master-tenant-detail.js?v=8"></script>
+    <script src="./master-tenant-detail.js?v=9"></script>
     <script src="./master-tenant.js?v=2"></script>
   </body>
 </html>

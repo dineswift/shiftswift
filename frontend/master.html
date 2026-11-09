@@ -9,7 +9,7 @@
     <title>ShiftSwift | Master Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./master.css?v=26" />
+    <link rel="stylesheet" href="./master.css?v=27" />
   </head>
   <body class="master-app">
     <script>
@@ -304,15 +304,6 @@
               <div id="detail-billing-sections"></div>
               <div class="master-change-plan" id="detail-change-plan-wrap" hidden>
                 <h3>Change plan</h3>
-                <label class="master-change-plan__field" id="detail-change-staff-tier-wrap">
-                  Staff license tier
-                  <select id="detail-change-staff-tier"></select>
-                </label>
-                <label class="master-change-plan__field" id="detail-change-staff-custom-wrap" hidden>
-                  Custom staff limit
-                  <input id="detail-change-staff-custom" type="number" min="1" max="9999" placeholder="e.g. 25" />
-                </label>
-                <p class="muted master-create-price-hint" id="detail-change-price-hint" hidden></p>
                 <label class="master-change-plan__field">
                   New plan
                   <select id="detail-change-plan-select"></select>
@@ -369,11 +360,14 @@
               <div class="master-notes">
                 <h3>Internal notes</h3>
                 <textarea id="detail-notes" rows="3" placeholder="Support notes visible to platform admins only"></textarea>
-                <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
-                <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
+                <div class="master-notes__actions">
+                  <button type="button" class="master-btn master-btn--ghost" id="detail-save-notes">Save notes</button>
+                  <p class="master-inline-status muted" id="detail-notes-status" aria-live="polite"></p>
+                </div>
               </div>
 
               <div class="master-tenant-actions" id="detail-actions">
+                <h3 class="master-detail-section__title">Sign in and access</h3>
                 <button type="button" class="master-btn master-btn--gold master-tenant-actions__primary" id="detail-impersonate">Impersonate this account</button>
                 <div class="master-tenant-actions__grid">
                   <button type="button" class="master-btn master-btn--ghost" id="detail-extend-trial">Extend trial</button>
@@ -383,6 +377,7 @@
                   <button type="button" class="master-btn master-btn--ghost" id="detail-set-temp-hr-password">Set temporary HR password</button>
                   <button type="button" class="master-btn master-btn--ghost" id="detail-suspend-toggle">Suspend account</button>
                 </div>
+                <h3 class="master-detail-section__title">Billing and account</h3>
                 <div class="master-tenant-actions__secondary">
                   <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-trial">Offline billing (keep trial)</button>
                   <button type="button" class="master-btn master-btn--ghost master-btn--compact" id="detail-offline-active">Offline billing (active)</button>
@@ -403,7 +398,7 @@
     <script src="./session-auth.js?v=12"></script>
     <script src="./master-session.js?v=1"></script>
     <script src="./master-auth-guard.js?v=6"></script>
-    <script src="./master-tenant-detail.js?v=8"></script>
+    <script src="./master-tenant-detail.js?v=9"></script>
     <script src="./master-tenant-contracts.js?v=1"></script>
     <script src="./admin-icons.js?v=5"></script>
     <script src="./master.js?v=28"></script>

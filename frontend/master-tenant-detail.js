@@ -52,9 +52,12 @@
     return `<div class="master-detail-kv__row"><dt class="master-detail-kv__label">${escapeHtml(label)}</dt><dd class="master-detail-kv__value">${valueHtml}</dd></div>`;
   }
 
-  function detailSection(title, rowsHtml) {
+  function detailSection(title, rowsHtml, options) {
     if (!rowsHtml) return "";
-    return `<section class="master-detail-section"><h3 class="master-detail-section__title">${escapeHtml(title)}</h3><dl class="master-detail-kv">${rowsHtml}</dl></section>`;
+    const body = options && options.plain
+      ? `<div class="master-detail-plain">${rowsHtml}</div>`
+      : `<dl class="master-detail-kv">${rowsHtml}</dl>`;
+    return `<section class="master-detail-section"><h3 class="master-detail-section__title">${escapeHtml(title)}</h3>${body}</section>`;
   }
 
   function cardStatusClass(status) {
@@ -250,6 +253,7 @@
               <button type="submit" class="master-btn master-btn--ghost">Save workspace</button>
               <p class="master-inline-status muted" id="detail-workspace-status" aria-live="polite"></p>
             </form>`,
+            { plain: true },
           ),
     ].join("");
 
