@@ -887,7 +887,7 @@
       host.innerHTML = `
         ${renderKeyValueGrid([
           ["Username", escapeHtml(profile.username)],
-          ["Email codes", "Default after password (when SMTP is configured)"],
+          ["Email codes", "Not used for master sign-in"],
           ["Authenticator app", mfaEnabled ? "Enabled" : "Not set"],
           ["Authenticator enabled at", escapeHtml(formatDate(profile.mfa_enabled_at))],
         ])}
@@ -900,7 +900,7 @@
         </form>
         <section id="master-enable-mfa-section" class="master-form"${mfaEnabled ? " hidden" : ""}>
           <h3>Authenticator app (optional)</h3>
-          <p class="muted">Email codes are already required at sign-in. Add Google Authenticator, Authy, or Microsoft Authenticator as an alternative.</p>
+          <p class="muted">Add Google Authenticator, Authy, or Microsoft Authenticator. Master sign-in asks for that code, not email.</p>
           <button type="button" class="master-btn master-btn--gold" id="master-mfa-start">Generate QR code</button>
           <div id="master-mfa-qr-area" hidden>
             <div class="master-mfa-qr-wrap"><img id="master-mfa-qr" alt="Authenticator QR code" width="180" height="180" /></div>
@@ -912,7 +912,7 @@
         </section>
         <form id="master-disable-mfa-form" class="master-form"${mfaEnabled ? "" : " hidden"}>
           <h3>Disable authenticator</h3>
-          <p class="muted">Removes the authenticator app. Email sign-in codes remain required when SMTP is configured.</p>
+          <p class="muted">Removes the authenticator app. Master sign-in will then use the password only.</p>
           <label>Current password<input type="password" name="current_password" required autocomplete="current-password" /></label>
           <button type="submit" class="master-btn master-btn--ghost">Disable authenticator</button>
           <p class="master-inline-status muted" id="master-mfa-status" aria-live="polite"></p>

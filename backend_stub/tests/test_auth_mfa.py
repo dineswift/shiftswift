@@ -59,7 +59,15 @@ def test_totp_verify_round_trip() -> None:
     assert not verify_totp_code(secret=secret, code="000000")
 
 
-def test_raw_base32_secret_still_loads() -> None:
+def test_unreadable_authenticator_secret_is_not_usable() -> None:
+    from auth_mfa import load_totp_secret
+
+    secret = generate_totp_secret()
+    assert load_totp_secret(f"plain:{secret}") == secret
+    assert load_totp_secret("not-a-valid-encrypted-blob:zzzz") is None
+    assert load_totp_secret("") is None
+    code = pyotp.TOTP(secret).now()
+    assert verify_totp_code(secret=secret, code=f"  {code[:3]} {code[3:]} ")
     from auth_mfa import _load_secret
 
     secret = generate_totp_secret()
@@ -135,7 +143,7 @@ def test_business_mfa_enrollment_token_round_trip() -> None:
 
 
 def test_auth_policy_defaults() -> None:
-    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa
+    from auth_policy import business_require_mfa_hr, employee_require_mfa, login_require_email_mfa, portal_uses_email_mfa
     from modules.master.security import master_require_mfa
 
     dev = _dev_settings()
@@ -143,6 +151,8 @@ def test_auth_policy_defaults() -> None:
     assert not employee_require_mfa(dev)
     assert not master_require_mfa(dev)
     assert login_require_email_mfa(dev)
+    assert not portal_uses_email_mfa(dev, "master")
+    assert portal_uses_email_mfa(dev, "business")
 
     prod = Settings(
         app_env="production",

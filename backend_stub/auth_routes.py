@@ -18,6 +18,7 @@ from auth_mfa import (
     decode_mfa_enrollment_token,
     disable_mfa,
     fetch_user_mfa,
+    load_totp_secret,
     issue_trusted_device,
     portal_allows_user,
     trusted_device_is_valid,
@@ -211,7 +212,7 @@ def _login_response(
         tenant_id = str(payload.tenant_id or user.tenant_id)
 
     from auth_email_mfa import looks_like_email, issue_and_send_email_mfa, mask_email
-    from auth_policy import login_require_email_mfa
+    from auth_policy import portal_uses_email_mfa
     from core.notifications import smtp_configured
 
     mfa_required = False
@@ -219,15 +220,18 @@ def _login_response(
     totp_available = False
     passkey_available = False
     passkeys_feature = False
-    email_mfa_policy = login_require_email_mfa(settings)
-    email_mfa_available = looks_like_email(user.username) and smtp_configured()
+    email_step = portal_uses_email_mfa(settings, portal) and looks_like_email(user.username) and smtp_configured()
     if settings.use_db and settings.database_url:
         conn = _db_conn()
         try:
             with conn.cursor() as cur:
                 row = fetch_user_mfa(cur, user.username)
             mfa_enabled = bool(row and row.get("mfa_enabled"))
-            totp_available = bool(row and row.get("mfa_enabled") and row.get("totp_secret"))
+            totp_available = bool(mfa_enabled and row and load_totp_secret(row.get("totp_secret")))
+            if portal == "master" and mfa_enabled and row and row.get("totp_secret") and not totp_available:
+                # The saved authenticator cannot be read, and this account has no mailbox.
+                disable_mfa(conn=conn, username=user.username)
+                mfa_enabled = False
             from auth_passkeys import passkeys_enabled, user_passkeys_usable
 
             passkeys_feature = passkeys_enabled()
@@ -235,8 +239,8 @@ def _login_response(
         finally:
             conn.close()
 
-    # Email OTP is the default second factor after password when policy + SMTP allow it.
-    if email_mfa_policy and email_mfa_available:
+    # Business sign-in can email a code. Master sign-in uses the authenticator app only.
+    if email_step:
         mfa_required = True
     elif mfa_enabled or totp_available or passkey_available:
         mfa_required = True
@@ -244,7 +248,7 @@ def _login_response(
     enrollment_portal: Literal["master", "business"] = portal
     must_enroll = False
     # Only force authenticator/passkey enrollment when email MFA is not covering login.
-    if not (email_mfa_policy and email_mfa_available):
+    if not email_step:
         if portal == "master" and enforce_master_mfa and not mfa_enabled and not passkey_available:
             must_enroll = True
             enrollment_portal = "master"
@@ -324,20 +328,18 @@ def _login_response(
         )
         challenge_claims = decode_mfa_challenge_token(settings, challenge)
         methods: list[str] = []
-        # Prefer email whenever SMTP can deliver — especially when authenticator / Face ID are not set up.
-        if looks_like_email(user.username) and smtp_configured():
+        # Business accounts can receive an email code. Master accounts use the authenticator app.
+        if email_step:
             methods.append("email")
-            email_mfa_available = True
         if totp_available:
             methods.append("totp")
         if passkey_available:
             methods.append("passkey")
 
-        email_only = methods == ["email"] or (methods == [] and looks_like_email(user.username))
-        if not methods and looks_like_email(user.username) and smtp_configured():
+        email_only = methods == ["email"]
+        if not methods and email_step:
             methods.append("email")
             email_only = True
-            email_mfa_available = True
 
         if not methods:
             face_hint = " / Face ID" if passkeys_feature else ""
@@ -587,14 +589,20 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
     try:
         with conn.cursor() as cur:
             user_row = fetch_user_mfa(cur, challenge["sub"])
-        has_totp = bool(user_row and user_row.get("mfa_enabled") and user_row.get("totp_secret"))
+        has_totp = bool(
+            user_row and user_row.get("mfa_enabled") and load_totp_secret(user_row.get("totp_secret"))
+        )
         passkey_only = bool(user_row and user_row.get("mfa_enabled") and not user_row.get("totp_secret"))
         method = requested_method
         matched = False
         checked_email = False
         from auth_email_mfa import verify_email_mfa_code
 
-        for factor in second_factor_order(has_totp=has_totp):
+        factors = second_factor_order(has_totp=has_totp)
+        if challenge.get("portal") == "master":
+            factors = tuple(factor for factor in factors if factor != "email")
+
+        for factor in factors:
             if factor == "totp":
                 if verify_user_mfa_code(conn=conn, username=challenge["sub"], code=payload.code):
                     method = "totp"
@@ -631,13 +639,17 @@ def verify_mfa_login(request: Request, payload: MfaVerifyRequest) -> dict[str, o
                     detail="This account uses Face ID / Touch ID only. Sign in again and use the passkey option, or reset MFA from Settings on the web.",
                 )
             if has_totp and requested_method == "totp":
-                raise HTTPException(
-                    status_code=401,
-                    detail=(
+                if challenge.get("portal") == "master":
+                    detail = (
+                        "That authenticator code doesn't match the master account. "
+                        "Enter the current 6-digit code from the authenticator app for this sign-in."
+                    )
+                else:
+                    detail = (
                         "That authenticator code doesn't match this sign-in. "
                         "Enter the code from the latest email, then scan a new QR code in account settings."
-                    ),
-                )
+                    )
+                raise HTTPException(status_code=401, detail=detail)
             if has_totp:
                 raise HTTPException(
                     status_code=401,
@@ -712,6 +724,9 @@ def send_mfa_email_code(request: Request, payload: MfaSendEmailCodeRequest) -> d
     if not settings.use_db or not settings.database_url:
         raise HTTPException(status_code=503, detail="MFA requires database")
 
+    if challenge.get("portal") == "master":
+        raise HTTPException(status_code=400, detail="Master sign-in uses the authenticator app.")
+
     from auth_email_mfa import issue_and_send_email_mfa, looks_like_email, mask_email
 
     if not looks_like_email(challenge["sub"]):
@@ -774,7 +789,7 @@ def mfa_setup(
             raise HTTPException(status_code=404, detail="User not found")
         if mode == "enrollment" and not user.get("mfa_enabled"):
             pass
-        elif user.get("mfa_enabled"):
+        elif user.get("mfa_enabled") and load_totp_secret(user.get("totp_secret")):
             raise HTTPException(status_code=400, detail="MFA is already enabled")
         result = begin_mfa_setup(conn=conn, username=current_user.username)
     finally:

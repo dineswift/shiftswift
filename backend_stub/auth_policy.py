@@ -28,3 +28,10 @@ def login_require_email_mfa(settings: Settings) -> bool:
     """After password, require email OTP by default (authenticator/passkey remain alternatives)."""
     _ = settings
     return _env_flag("LOGIN_REQUIRE_EMAIL_MFA", default=True)
+
+
+def portal_uses_email_mfa(settings: Settings, portal: str) -> bool:
+    """Master sign-in never emails a code. The master address may not be a mailbox anyone can open."""
+    if portal == "master":
+        return False
+    return login_require_email_mfa(settings)

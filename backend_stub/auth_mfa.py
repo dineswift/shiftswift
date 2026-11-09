@@ -36,6 +36,17 @@ def _load_secret(stored: str) -> str:
     return decrypt_text(stored).strip()
 
 
+def load_totp_secret(stored: str | None) -> str | None:
+    """Return a usable authenticator secret, or None when the stored value cannot be read."""
+    if not stored or not str(stored).strip():
+        return None
+    try:
+        secret = _load_secret(str(stored)).strip()
+    except Exception:
+        return None
+    return secret or None
+
+
 def generate_totp_secret() -> str:
     return pyotp.random_base32()
 
@@ -63,13 +74,13 @@ def qr_png_data_uri(otpauth_uri: str, *, box_size: int = 4) -> str:
 def verify_totp_code(*, secret: str, code: str) -> bool:
     if not code or not secret:
         return False
-    normalized = code.strip().replace(" ", "")
-    if not normalized.isdigit() or len(normalized) not in {6, 8}:
+    normalized = "".join(ch for ch in code if ch.isdigit())
+    if len(normalized) not in {6, 8}:
         return False
     totp = pyotp.TOTP(secret)
-    # Aware UTC avoids a wrong local timezone on the server. Four steps is ±2 minutes.
+    # Aware UTC avoids a wrong local timezone on the server. Ten steps is ±5 minutes.
     now = datetime.now(timezone.utc)
-    return totp.verify(normalized, for_time=now, valid_window=4)
+    return totp.verify(normalized, for_time=now, valid_window=10)
 
 
 def second_factor_order(*, has_totp: bool) -> tuple[str, ...]:
@@ -267,10 +278,8 @@ def verify_user_mfa_code(*, conn: Any, username: str, code: str) -> bool:
         user = fetch_user_mfa(cur, username)
     if not user or not user.get("mfa_enabled") or not user.get("totp_secret"):
         return False
-    try:
-        secret = _load_secret(user["totp_secret"])
-    except Exception:
-        # ENCRYPTION_KEY mismatch / corrupt secret — treat as failed code, not 500
+    secret = load_totp_secret(user["totp_secret"])
+    if not secret:
         return False
     return verify_totp_code(secret=secret, code=code)
 
