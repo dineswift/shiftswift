@@ -342,7 +342,7 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
   gap: 0;
 }
 
-.portal-login-page--unified .portal-login-form > label,
+.portal-login-page--unified .portal-login-form > label:not(.unified-login-remember-device),
 .portal-login-page--unified .portal-login-field {
   display: grid;
   gap: 8px;
@@ -563,13 +563,18 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 /* ── Errors & misc ────────────────────────────────────────────────────── */
 
 .portal-login-page--unified .form-error-message {
-  margin: 14px 0 0;
+  margin: 0 0 14px;
   padding: 12px 14px;
   border-radius: 12px;
   background: #fef2f2;
   color: #b42318;
   font-size: 0.86rem;
   line-height: 1.4;
+}
+
+.portal-login-page--unified .form-error-message.form-status-message--info {
+  background: #f3faf6;
+  color: #0a5a47;
 }
 
 .portal-login-remember--mfa {
@@ -675,7 +680,8 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 
 /* ── Password step (compact hero) ───────────────────────────────────── */
 
-.portal-login-page--unified.login-step-password .native-login-hero {
+.portal-login-page--unified.login-step-password .native-login-hero,
+.portal-login-page--unified.login-step-mfa .native-login-hero {
   flex-shrink: 0;
   padding:
     max(20px, calc(env(safe-area-inset-top) + 12px))
@@ -683,31 +689,38 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
     32px;
 }
 
-.portal-login-page--unified.login-step-password .native-login-hero__logo-wrap {
+.portal-login-page--unified.login-step-password .native-login-hero__logo-wrap,
+.portal-login-page--unified.login-step-mfa .native-login-hero__logo-wrap {
   margin-bottom: 10px;
 }
 
 .portal-login-page--unified.login-step-password .native-login-hero__logo,
-.portal-login-page--unified.login-step-password .native-login-hero__mark {
+.portal-login-page--unified.login-step-password .native-login-hero__mark,
+.portal-login-page--unified.login-step-mfa .native-login-hero__logo,
+.portal-login-page--unified.login-step-mfa .native-login-hero__mark {
   width: 52px;
   height: 52px;
   border-radius: 14px;
 }
 
-.portal-login-page--unified.login-step-password .native-login-hero__title {
+.portal-login-page--unified.login-step-password .native-login-hero__title,
+.portal-login-page--unified.login-step-mfa .native-login-hero__title {
   font-size: 1.3rem;
 }
 
 .portal-login-page--unified.login-step-password .native-login-hero__tagline,
-.portal-login-page--unified.login-step-password .native-login-roles {
+.portal-login-page--unified.login-step-password .native-login-roles,
+.portal-login-page--unified.login-step-mfa .native-login-hero__tagline {
   display: none;
 }
 
-.portal-login-page--unified.login-step-password .native-login-sheet {
+.portal-login-page--unified.login-step-password .native-login-sheet,
+.portal-login-page--unified.login-step-mfa .native-login-sheet {
   margin-top: -20px;
 }
 
-.portal-login-page--unified.login-step-password .portal-login-card-head h1 {
+.portal-login-page--unified.login-step-password .portal-login-card-head h1,
+.portal-login-page--unified.login-step-mfa .portal-login-card-head h1 {
   font-size: 1.3rem;
 }
 
@@ -774,9 +787,13 @@ body.portal-login-page--native-stable.login-step-enroll #mfa-enrollment-panel {
 
 /* ── Desktop card layout ──────────────────────────────────────────────── */
 
+.portal-login-page--unified.login-step-mfa .portal-login-card-head {
+  margin-bottom: 16px;
+}
+
 @media (min-width: 520px) {
   .portal-login-page--unified .portal-login-shell {
-    justify-content: center;
+    justify-content: safe center;
     padding: 32px 24px;
   }
 

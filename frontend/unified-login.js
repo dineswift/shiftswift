@@ -42,10 +42,11 @@
     return url;
   }
 
-  function setStatusMessage(el, message) {
+  function setStatusMessage(el, message, tone) {
     if (!el) return;
     el.textContent = message || "";
     el.hidden = !message;
+    el.classList.toggle("form-status-message--info", Boolean(message) && tone === "info");
   }
 
   function ensureMfaVerifyStatus() {
@@ -63,20 +64,20 @@
     return status;
   }
 
-  function setStatus(message) {
+  function setStatus(message, tone) {
     if (document.body.classList.contains("login-step-mfa")) {
-      setStatusMessage(ensureMfaVerifyStatus(), message);
+      setStatusMessage(ensureMfaVerifyStatus(), message, tone);
       return;
     }
     if (document.body.classList.contains("login-step-enroll")) {
-      setEnrollmentStatus(message);
+      setEnrollmentStatus(message, tone);
       return;
     }
-    setStatusMessage(document.getElementById("login-status"), message);
+    setStatusMessage(document.getElementById("login-status"), message, tone);
   }
 
-  function setEnrollmentStatus(message) {
-    setStatusMessage(document.getElementById("mfa-enrollment-status"), message);
+  function setEnrollmentStatus(message, tone) {
+    setStatusMessage(document.getElementById("mfa-enrollment-status"), message, tone);
   }
 
   function normalizeMfaCode(value) {
@@ -421,11 +422,11 @@
     if (mfaPanel) {
       mfaPanel.hidden = false;
       applyMfaMethodUi();
-      if (serverMessage) setStatus(serverMessage);
-      else if (pendingMfaMethod === "email" && emailSent) {
-        setStatus("Check your inbox and spam folder for the 6-digit code.");
-      } else if (pendingMfaMethod === "email" && !emailSent) {
-        setStatus("Sending email code…");
+      const repeatsLead = /emailed a 6-digit|check your inbox|check inbox/i.test(serverMessage);
+      if (serverMessage && !repeatsLead) setStatus(serverMessage);
+      else if (pendingMfaMethod === "email" && emailSent) setStatus("");
+      else if (pendingMfaMethod === "email" && !emailSent) {
+        setStatus("Sending email code…", "info");
         void ensureEmailCodeSent();
       }
       mfaPanel.querySelector('input[name="code"]')?.focus();
@@ -442,7 +443,7 @@
       pendingMfaMeta.emailSent = true;
       pendingMfaMethod = "email";
       applyMfaMethodUi();
-      setStatus(data.message || "We emailed a 6-digit code. Check your inbox and spam folder.");
+      setStatus("");
     } catch (error) {
       setStatus(error.message || "Could not email your sign-in code. Tap Resend to try again.");
     }
@@ -656,7 +657,7 @@
           showLoginForm();
           return;
         }
-        setStatus("Verifying code…");
+        setStatus("Verifying code…", "info");
         const code = normalizeMfaCode(new FormData(mfaForm).get("code"));
         if (!code || code.length < 6) {
           setStatus(
@@ -689,7 +690,7 @@
           showLoginForm();
           return;
         }
-        setStatus("Sending a new code…");
+        setStatus("Sending a new code…", "info");
         resendBtn.disabled = true;
         try {
           const data = await postJson("/auth/mfa/send-email-code", {
@@ -698,7 +699,7 @@
           if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
           pendingMfaMethod = "email";
           applyMfaMethodUi();
-          setStatus(data.message || "We sent a new code to your email.");
+          setStatus(data.message || "We sent a new code to your email.", "info");
         } catch (error) {
           setStatus(error.message || "Could not resend code");
         } finally {
@@ -715,14 +716,14 @@
       useEmailBtn.addEventListener("click", async () => {
         pendingMfaMethod = "email";
         applyMfaMethodUi();
-        setStatus("Sending email code…");
+        setStatus("Sending email code…", "info");
         try {
           const data = await postJson("/auth/mfa/send-email-code", {
             challenge_token: pendingChallenge,
           });
           if (data.email_hint) pendingMfaMeta.emailHint = data.email_hint;
           applyMfaMethodUi();
-          setStatus(data.message || "We sent a code to your email.");
+          setStatus(data.message || "We sent a code to your email.", "info");
           document.querySelector('#mfa-form input[name="code"]')?.focus();
         } catch (error) {
           setStatus(error.message || "Could not send email code");
@@ -762,7 +763,7 @@
           showLoginForm();
           return;
         }
-        setStatus("Waiting for Face ID…");
+        setStatus("Waiting for Face ID…", "info");
         mfaPasskeyBtn.disabled = true;
         try {
           const data = await window.ShiftSwiftPasskeyAuth.verifyMfaWithPasskey(
@@ -970,7 +971,7 @@
       }
       pendingEmail = email;
 
-      setStatus("Signing in…");
+      setStatus("Signing in…", "info");
       const submitBtn = document.getElementById("login-submit");
       if (submitBtn) submitBtn.disabled = true;
 
