@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -26,6 +27,7 @@ SPONSOR_ABSENCE_ALERT_DAY = int(os.getenv("SPONSOR_ABSENCE_ALERT_DAY", "9"))
 SPONSOR_ABSENCE_REPORT_LIMIT_DAYS = int(os.getenv("SPONSOR_ABSENCE_REPORT_LIMIT_DAYS", "10"))
 SMS_REPORTING_WINDOW_DAYS = int(os.getenv("SMS_REPORTING_WINDOW_DAYS", "10"))
 SMS_DUE_SOON_DAYS = int(os.getenv("SMS_DUE_SOON_DAYS", "3"))
+logger = logging.getLogger(__name__)
 def _resolve_storage_dir(env_name: str, default: str) -> Path:
     raw = (os.getenv(env_name) or default).strip()
     path = Path(raw)
@@ -1105,6 +1107,13 @@ def evaluate_day9_absence_alerts(*, tenant_id: int, as_of: date, conn: Any) -> l
                 ),
             )
         conn.commit()
+        _text_hr_day9_absence(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            streak=streak,
+            report_by=report_by,
+            conn=conn,
+        )
         alerts.append(
             {
                 "alert_id": alert_id,
@@ -1116,6 +1125,49 @@ def evaluate_day9_absence_alerts(*, tenant_id: int, as_of: date, conn: Any) -> l
             }
         )
     return alerts
+
+
+def _text_hr_day9_absence(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    streak: int,
+    report_by: date,
+    conn: Any,
+) -> None:
+    """Text the business phone when the day-9 alert preference includes SMS."""
+    try:
+        from admin_service import get_notification_preferences, get_tenant_profile
+        from core.sms import preference_includes_sms, send_sms
+
+        prefs = get_notification_preferences(tenant_id=tenant_id, conn=conn)["preferences"]
+        if not preference_includes_sms(prefs.get("absence_day9")):
+            return
+        phone = str(get_tenant_profile(tenant_id=tenant_id, conn=conn).get("phone") or "")
+        if not phone.strip():
+            return
+        name = "A sponsored worker"
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT first_name, last_name
+                FROM employees
+                WHERE tenant_id = %s AND id = %s
+                """,
+                (tenant_id, employee_id),
+            )
+            row = cur.fetchone()
+        if row:
+            name = f"{row[0] or ''} {row[1] or ''}".strip() or name
+        send_sms(
+            to=phone,
+            body=(
+                f"ShiftSwift HR: {name} has {streak} working days of unauthorised absence. "
+                f"Report it to the Home Office by {report_by.strftime('%d %b %Y')}."
+            ),
+        )
+    except Exception:
+        logger.warning("Day-9 SMS failed for tenant %s employee %s", tenant_id, employee_id)
 
 
 def absence_type_catalog() -> list[dict[str, Any]]:

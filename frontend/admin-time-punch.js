@@ -1383,7 +1383,7 @@
     return `
       <div class="punch-geofence-settings" id="punch-geofence-settings">
         <h4 class="punch-site-section-title">Adjust geofence</h4>
-        <p class="muted punch-tab-intro punch-site-section-lead">How close staff must be to clock in with GPS (25–2000 metres). Widen if phones struggle indoors, or use the premises QR below.</p>
+        <p class="muted punch-tab-intro punch-site-section-lead">How close staff must be for a normal GPS clock-in (25–2000 metres). A premises QR is stricter: the phone must still be within 40m of this site.</p>
         <form id="punch-geofence-form" class="punch-geofence-form">
           <label class="edit-field punch-geofence-form__field">
             <span class="edit-label">Radius (metres)</span>
@@ -1482,7 +1482,7 @@
 
         <article class="card punch-clock-qr-card" id="punch-clock-qr-card">
           <h4 class="punch-site-section-title">Premises QR clock-in</h4>
-          <p class="muted punch-tab-intro punch-site-section-lead">Print this QR indoors where GPS is weak. Staff scan it in the Time Clock app, then clock in or out without GPS for 10 minutes.</p>
+          <p class="muted punch-tab-intro punch-site-section-lead">Staff scan this QR at the premises. Clock in and clock out stay on only while their phone is within 40m of this site.</p>
           <div id="punch-clock-qr-body" class="punch-clock-qr-body muted">Loading QR…</div>
         </article>
 
@@ -2905,14 +2905,29 @@
   }
 
   async function submitAdminPunch(form) {
+    const note = form.admin_note.value.trim().replace(/\s+/g, " ");
+    if (note.length < 3) {
+      showPunchNote("Add a short reason so the punch log shows why this time was entered.", "error");
+      form.admin_note.focus();
+      return;
+    }
     const payload = {
       employee_id: Number(form.employee_id.value),
       punch_site_id: Number(form.punch_site_id.value),
       punch_type: form.punch_type.value,
-      admin_note: form.admin_note.value.trim() || null,
+      admin_note: note,
     };
     if (form.punched_at.value) {
-      payload.punched_at = new Date(form.punched_at.value).toISOString();
+      const when = new Date(form.punched_at.value);
+      if (Number.isNaN(when.getTime())) {
+        showPunchNote("Enter a valid date and time.", "error");
+        return;
+      }
+      if (when.getTime() > Date.now() + 5 * 60 * 1000) {
+        showPunchNote("Punch time cannot be in the future.", "error");
+        return;
+      }
+      payload.punched_at = when.toISOString();
     }
     showPunchNote("Recording admin punch…");
     try {

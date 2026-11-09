@@ -706,7 +706,39 @@ body.punch-app {
   margin-top: 0.35rem;
 }
 
-@media (min-width: 640px) {
+@media (max-width: 480px) {
+  .punch-expected-shift,
+  .punch-shift-list,
+  .punch-site-list,
+  .punch-install-help__lead,
+  .punch-install-help__note,
+  .punch-install-help__platform ol {
+    font-size: 0.95rem;
+  }
+
+  .punch-expected-shift__tag,
+  .punch-info-card__title {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .punch-shell {
+    max-width: 640px;
+  }
+
+  .punch-card--clock {
+    padding: 1.35rem 1.5rem 1.5rem;
+  }
+
+  .punch-expected-shift,
+  .punch-shift-list,
+  .punch-site-list {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
   .punch-shell {
     max-width: 560px;
     padding-left: 1.25rem;

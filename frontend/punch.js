@@ -52,6 +52,7 @@
   let siteScanReady = false;
   let siteScanToken = null;
   let siteScanName = "";
+  let qrProximityMeters = 40;
   let geofenceCheckInFlight = false;
   let waitingServiceWorker = null;
   let scanStream = null;
@@ -146,7 +147,7 @@
   }
 
   function clockReady() {
-    return geofenceWithin || siteScanReady;
+    return geofenceWithin;
   }
 
   function syncClockButtons() {
@@ -356,8 +357,13 @@
     siteScanToken = data.token;
     siteScanName = data.site_name || "your site";
     saveSiteScanSession(data);
-    setSiteScanStatus(`Premises verified — ${siteScanName}. You can clock in or out without GPS.`);
+    qrProximityMeters = Number(data.proximity_meters) || 40;
+    geofenceWithin = false;
+    setSiteScanStatus(
+      `Premises code accepted — ${siteScanName}. Clock in and clock out turn on when this phone is within ${qrProximityMeters}m.`,
+    );
     syncClockButtons();
+    void refreshGeofencePreview();
   }
 
   function restoreSiteScanSession() {
@@ -398,6 +404,7 @@
       token: tokenValue,
       site_id: data.site_id,
       site_name: data.site_name,
+      proximity_meters: data.proximity_meters,
     });
     setMessage(data.message || `Premises verified — ${data.site_name}.`, "success");
     return data;
@@ -697,14 +704,6 @@
 
   async function refreshGeofencePreview() {
     if (!geofenceEl || !token() || !navigator.onLine || (clockView && clockView.hidden)) return;
-    if (siteScanReady) {
-      setGeofenceStatus(
-        `Using premises QR for ${siteScanName}. GPS check skipped — scan again if this expires.`,
-        "ok"
-      );
-      syncClockButtons();
-      return;
-    }
     if (geofenceCheckInFlight) return;
 
     geofenceCheckInFlight = true;
@@ -716,7 +715,10 @@
       const location = await readLocation();
       const response = await apiFetch("/time-punch/preview", {
         method: "POST",
-        body: JSON.stringify(location),
+        body: JSON.stringify({
+          ...location,
+          ...(siteScanReady && siteScanToken ? { clock_token: siteScanToken } : {}),
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (response.status === 401) {
@@ -731,11 +733,13 @@
       }
 
       geofenceWithin = Boolean(data.within_geofence);
+      if (data.qr_proximity && data.radius_meters) qrProximityMeters = Number(data.radius_meters);
       const accuracyNote =
         data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
       if (geofenceWithin) {
         const distance = data.distance_meters != null ? `${Math.round(data.distance_meters)}m from site` : "Within site";
-        setGeofenceStatus(`${distance} · within range${accuracyNote}`, "ok");
+        const limit = data.qr_proximity ? ` · QR limit ${qrProximityMeters}m` : "";
+        setGeofenceStatus(`${distance}${limit}${accuracyNote}`, "ok");
         maybePromptPushNotifications();
       } else {
         setGeofenceStatus(`${data.message}${accuracyNote}`, "warn");
@@ -766,26 +770,30 @@
       return;
     }
     if (!clockReady()) {
-      setMessage("Move within your site geofence or scan the premises QR code first.", "error");
+      setMessage(
+        siteScanReady
+          ? `Move within ${qrProximityMeters}m of ${siteScanName} to clock in or out.`
+          : "Move within your site geofence. A premises QR still needs you within 40m.",
+        "error",
+      );
       return;
     }
 
     punchInFlight = true;
     syncClockButtons();
-    setMessage("Submitting punch…", "info");
+    setMessage("Reading your location…", "info");
 
     try {
       let response;
       let data;
+      const location = await readLocation();
       if (siteScanReady && siteScanToken) {
         response = await apiFetch("/time-punch/punch-site", {
           method: "POST",
-          body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken }),
+          body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken, ...location }),
         });
         data = await response.json().catch(() => ({}));
       } else {
-        setMessage("Reading your location…", "info");
-        const location = await readLocation();
         response = await apiFetch("/time-punch/punch", {
           method: "POST",
           body: JSON.stringify({ punch_type: punchType, ...location }),

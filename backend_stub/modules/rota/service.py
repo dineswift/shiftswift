@@ -170,8 +170,8 @@ def shifts_overlap(
     return a0 < b1 and b0 < a1
 
 
-def _shift_row(row: tuple[Any, ...]) -> dict[str, Any]:
-    return {
+def _shift_row(row: tuple[Any, ...], *, include_site: bool = False) -> dict[str, Any]:
+    payload = {
         "id": row[0],
         "employee_id": row[1],
         "shift_date": row[2].isoformat(),
@@ -181,7 +181,62 @@ def _shift_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "notes": row[6] or "",
         "employee_name": row[7],
         "employee_status": row[8],
+        "punch_site_id": None,
+        "site_name": "",
     }
+    if include_site:
+        site_id = row[9] if len(row) > 9 else None
+        payload["punch_site_id"] = int(site_id) if site_id is not None else None
+        payload["site_name"] = (row[10] or "") if len(row) > 10 else ""
+    return payload
+
+
+def rota_shifts_have_site_column(conn: Any) -> bool:
+    from core.schema import table_columns
+
+    return "punch_site_id" in table_columns(conn, "rota_shifts")
+
+
+def tenant_requires_shift_site(*, tenant_id: int, conn: Any) -> bool:
+    """Multi-site rota mode stores every shift against a punch site."""
+    if not rota_shifts_have_site_column(conn):
+        return False
+    from admin_service import get_tenant_profile
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    return bool(profile.get("rota_multi_site_enabled"))
+
+
+def _load_active_punch_site_ids(*, tenant_id: int, conn: Any) -> set[int]:
+    from core.schema import table_columns
+
+    if not table_columns(conn, "punch_sites"):
+        return set()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM punch_sites WHERE tenant_id = %s AND is_active = TRUE",
+            (tenant_id,),
+        )
+        return {int(row[0]) for row in cur.fetchall()}
+
+
+def primary_active_punch_site_id(*, tenant_id: int, conn: Any) -> int | None:
+    from core.schema import table_columns
+
+    if not table_columns(conn, "punch_sites"):
+        return None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id FROM punch_sites
+            WHERE tenant_id = %s AND is_active = TRUE
+            ORDER BY is_primary DESC, id
+            LIMIT 1
+            """,
+            (tenant_id,),
+        )
+        row = cur.fetchone()
+    return int(row[0]) if row else None
 
 
 def _week_row(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -214,6 +269,8 @@ def validate_shift_payload(
     week_end: date,
     active_employee_ids: set[int],
     index: int,
+    require_site: bool = False,
+    active_site_ids: set[int] | None = None,
 ) -> dict[str, Any]:
     try:
         employee_id = int(shift["employee_id"])
@@ -252,6 +309,24 @@ def validate_shift_payload(
     shift_id = shift.get("id")
     parsed_id = int(shift_id) if shift_id not in (None, "") else None
 
+    raw_site = shift.get("punch_site_id")
+    punch_site_id: int | None = None
+    if raw_site not in (None, ""):
+        try:
+            punch_site_id = int(raw_site)
+        except (TypeError, ValueError) as exc:
+            raise RotaValidationError("punch_site_id must be a location id", field="punch_site_id", index=index) from exc
+        if punch_site_id <= 0:
+            punch_site_id = None
+    if punch_site_id is not None and active_site_ids is not None and punch_site_id not in active_site_ids:
+        raise RotaValidationError(
+            "Location is not an active site for this business",
+            field="punch_site_id",
+            index=index,
+        )
+    if require_site and punch_site_id is None:
+        raise RotaValidationError("Choose a location for every shift", field="punch_site_id", index=index)
+
     return {
         "id": parsed_id,
         "employee_id": employee_id,
@@ -260,6 +335,7 @@ def validate_shift_payload(
         "end_time": end_time,
         "role_label": role_label,
         "notes": notes,
+        "punch_site_id": punch_site_id,
     }
 
 
@@ -330,20 +406,33 @@ def list_shifts_for_week(*, tenant_id: int, week_start: date, conn: Any) -> tupl
             return None, []
 
         week = _week_row(week_row)
+        include_site = rota_shifts_have_site_column(conn)
+        site_sql = (
+            ", s.punch_site_id, COALESCE(ps.name, '')"
+            if include_site
+            else ""
+        )
+        site_join = (
+            "LEFT JOIN punch_sites ps ON ps.id = s.punch_site_id AND ps.tenant_id = s.tenant_id"
+            if include_site
+            else ""
+        )
         cur.execute(
-            """
+            f"""
             SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time,
                    s.role_label, s.notes,
                    trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')) AS employee_name,
                    e.status
+                   {site_sql}
             FROM rota_shifts s
             JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
+            {site_join}
             WHERE s.tenant_id = %s AND s.rota_week_id = %s
             ORDER BY s.shift_date, s.start_time, employee_name
             """,
             (tenant_id, week["id"]),
         )
-        shifts = [_shift_row(row) for row in cur.fetchall()]
+        shifts = [_shift_row(row, include_site=include_site) for row in cur.fetchall()]
         return week, shifts
 
 
@@ -381,6 +470,9 @@ def save_week_shifts(
 ) -> dict[str, Any]:
     week_end = week_start + timedelta(days=6)
     active_ids = _load_active_employee_ids(tenant_id=tenant_id, conn=conn)
+    has_site = rota_shifts_have_site_column(conn)
+    require_site = tenant_requires_shift_site(tenant_id=tenant_id, conn=conn) if has_site else False
+    active_site_ids = _load_active_punch_site_ids(tenant_id=tenant_id, conn=conn) if has_site else None
     parsed = [
         validate_shift_payload(
             shift=item,
@@ -388,6 +480,8 @@ def save_week_shifts(
             week_end=week_end,
             active_employee_ids=active_ids,
             index=index,
+            require_site=require_site,
+            active_site_ids=active_site_ids,
         )
         for index, item in enumerate(shifts_payload)
     ]
@@ -423,25 +517,47 @@ def save_week_shifts(
         cur.execute("DELETE FROM rota_shifts WHERE tenant_id = %s AND rota_week_id = %s", (tenant_id, week_id))
 
         for shift in parsed:
-            cur.execute(
-                """
-                INSERT INTO rota_shifts (
-                  tenant_id, rota_week_id, employee_id, shift_date,
-                  start_time, end_time, role_label, notes
+            if has_site:
+                cur.execute(
+                    """
+                    INSERT INTO rota_shifts (
+                      tenant_id, rota_week_id, employee_id, shift_date,
+                      start_time, end_time, role_label, notes, punch_site_id
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        week_id,
+                        shift["employee_id"],
+                        shift["shift_date"],
+                        shift["start_time"],
+                        shift["end_time"],
+                        shift["role_label"],
+                        shift["notes"],
+                        shift.get("punch_site_id"),
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    tenant_id,
-                    week_id,
-                    shift["employee_id"],
-                    shift["shift_date"],
-                    shift["start_time"],
-                    shift["end_time"],
-                    shift["role_label"],
-                    shift["notes"],
-                ),
-            )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO rota_shifts (
+                      tenant_id, rota_week_id, employee_id, shift_date,
+                      start_time, end_time, role_label, notes
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        week_id,
+                        shift["employee_id"],
+                        shift["shift_date"],
+                        shift["start_time"],
+                        shift["end_time"],
+                        shift["role_label"],
+                        shift["notes"],
+                    ),
+                )
 
         cur.execute(
             """
@@ -643,6 +759,7 @@ def copy_week_from_previous(
                 "end_time": shift["end_time"],
                 "role_label": shift.get("role_label") or "",
                 "notes": shift.get("notes") or "",
+                "punch_site_id": shift.get("punch_site_id"),
             }
         )
     result = save_week_shifts(

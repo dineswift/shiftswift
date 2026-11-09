@@ -61,6 +61,7 @@ def test_build_rota_week_csv_includes_shift_rows() -> None:
                 "end_time": "22:00",
                 "role_label": "Kitchen",
                 "notes": "",
+                "site_name": "Soho",
                 "employee_name": "Govind Chhetri",
             },
         ],
@@ -69,6 +70,8 @@ def test_build_rota_week_csv_includes_shift_rows() -> None:
         },
     )
     assert "Week start" in csv_text
+    assert "Location" in csv_text.splitlines()[0]
+    assert "Soho" in csv_text
     assert "Govind Chhetri" in csv_text
     assert "17:00" in csv_text
     assert "No Show" in csv_text

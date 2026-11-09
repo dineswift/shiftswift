@@ -10,6 +10,9 @@
   let rotaPolicy = null;
   let shifts = [];
   let pendingRepeats = [];
+  let punchSites = [];
+  let selectedSiteId = "";
+  let locationFilterBound = false;
   let attendanceByShiftId = new Map();
   let attendanceSummary = null;
   let attendanceItemsCache = [];
@@ -87,16 +90,161 @@
     );
   }
 
+  function multiSiteRotaEnabled() {
+    return Boolean(window.Admin?.tenantFeatures?.rota_multi_site_enabled);
+  }
+
+  function shiftMatchesLocation(shift) {
+    if (!multiSiteRotaEnabled() || !selectedSiteId) return true;
+    if (selectedSiteId === "unassigned") return !shift.punch_site_id;
+    return Number(shift.punch_site_id) === Number(selectedSiteId);
+  }
+
+  function visibleShifts() {
+    return shifts.filter(shiftMatchesLocation);
+  }
+
+  function siteNameById(siteId) {
+    const site = punchSites.find((item) => Number(item.id) === Number(siteId));
+    return site?.name || "";
+  }
+
+  function defaultSiteIdForNewShift() {
+    if (selectedSiteId && selectedSiteId !== "unassigned") {
+      const id = Number(selectedSiteId);
+      if (punchSites.some((site) => Number(site.id) === id)) return id;
+    }
+    const primary = punchSites.find((site) => site.is_primary) || punchSites[0];
+    return primary ? Number(primary.id) : null;
+  }
+
+  function stampShiftSite(shift, siteId = null) {
+    if (!multiSiteRotaEnabled()) return shift;
+    const id = siteId || defaultSiteIdForNewShift();
+    shift.punch_site_id = id || null;
+    shift.site_name = id ? siteNameById(id) : "";
+    return shift;
+  }
+
+  function locationOptionsHtml({ includeAll = false } = {}) {
+    const parts = [];
+    if (includeAll) {
+      parts.push(`<option value="">All locations</option>`);
+      if (shifts.some((shift) => !shift.punch_site_id)) {
+        parts.push(`<option value="unassigned">Needs a location</option>`);
+      }
+    }
+    punchSites.forEach((site) => {
+      const suffix = site.is_primary ? " (main)" : "";
+      parts.push(`<option value="${site.id}">${escapeHtml(site.name || "Site")}${suffix}</option>`);
+    });
+    return parts.join("");
+  }
+
+  function renderLocationFilters() {
+    const enabled = multiSiteRotaEnabled();
+    ["rota-location-filter", "rota-location-filter-mobile", "rota-location-field"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.hidden = !enabled;
+    });
+    const siteCol = document.getElementById("rota-shifts-site-col");
+    if (siteCol) siteCol.hidden = !enabled;
+    if (!enabled) return;
+
+    const filterHtml = locationOptionsHtml({ includeAll: true }) || `<option value="">No locations yet</option>`;
+    ["rota-location-select", "rota-location-select-mobile"].forEach((id) => {
+      const select = document.getElementById(id);
+      if (!select) return;
+      select.innerHTML = filterHtml;
+      if (![...select.options].some((option) => option.value === selectedSiteId)) {
+        selectedSiteId = "";
+      }
+      select.value = selectedSiteId;
+    });
+    const panel = document.getElementById("rota-add-site");
+    if (panel && document.activeElement !== panel) {
+      const current = panel.value;
+      panel.innerHTML = locationOptionsHtml({ includeAll: false }) || `<option value="">Add a location in Time punch</option>`;
+      if (current && [...panel.options].some((option) => option.value === current)) panel.value = current;
+    }
+    const showSetup = punchSites.length < 2;
+    ["rota-location-setup", "rota-location-setup-mobile"].forEach((id) => {
+      const link = document.getElementById(id);
+      if (link) link.hidden = !showSetup;
+    });
+  }
+
+  function onLocationFilterChange(value) {
+    selectedSiteId = value || "";
+    try {
+      sessionStorage.setItem("sshr_rota_site_filter", selectedSiteId);
+    } catch {
+      /* ignore */
+    }
+    renderAll();
+  }
+
+  function bindLocationFiltersOnce() {
+    if (locationFilterBound) return;
+    locationFilterBound = true;
+    ["rota-location-select", "rota-location-select-mobile"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("change", (event) => {
+        onLocationFilterChange(event.target.value);
+      });
+    });
+  }
+
+  async function loadPunchSites() {
+    if (!multiSiteRotaEnabled()) {
+      punchSites = [];
+      renderLocationFilters();
+      return;
+    }
+    try {
+      const stored = sessionStorage.getItem("sshr_rota_site_filter");
+      if (stored != null) selectedSiteId = stored;
+    } catch {
+      /* ignore */
+    }
+    try {
+      const res = await apiFetch("/admin/time-punch/sites");
+      const data = res.ok ? await res.json() : {};
+      punchSites = (data.items || []).filter((site) => site.is_active !== false);
+    } catch {
+      punchSites = [];
+    }
+    renderLocationFilters();
+  }
+
   function rotaWeekStats() {
-    const staffScheduled = new Set(shifts.map((s) => s.employee_id)).size;
+    const scoped = visibleShifts();
+    const staffScheduled = new Set(scoped.map((s) => s.employee_id)).size;
     const summary = attendanceSummary || {};
-    const noShows = Number(summary.no_show || 0);
-    const attended = Number(summary.attended || 0) + Number(summary.late || 0);
     const awaiting = Number(summary.awaiting || 0);
-    const flags = noShows + Number(summary.late || 0) + Number(summary.missing_clock_out || 0);
+    const locationFiltered = multiSiteRotaEnabled() && Boolean(selectedSiteId);
+    let attended = Number(summary.attended || 0) + Number(summary.late || 0);
+    let noShows = Number(summary.no_show || 0);
+    let lateCount = Number(summary.late || 0);
+    let missingClockOut = Number(summary.missing_clock_out || 0);
+    if (locationFiltered) {
+      attended = 0;
+      noShows = 0;
+      lateCount = 0;
+      missingClockOut = 0;
+      scoped.forEach((shift) => {
+        const attendance = shift.id != null ? attendanceByShiftId.get(String(shift.id)) : null;
+        const status = attendance?.attendance_status;
+        if (status === "attended" || status === "late") attended += 1;
+        if (status === "late") lateCount += 1;
+        if (status === "no_show") noShows += 1;
+        if (status === "missing_clock_out") missingClockOut += 1;
+      });
+    }
+    const flags = noShows + lateCount + missingClockOut;
     return {
-      shifts: shifts.length,
+      shifts: scoped.length,
       staffScheduled,
+      locationFiltered,
       noShows,
       attended,
       awaiting,
@@ -126,11 +274,18 @@
 
     const shiftsSub = document.getElementById("rota-stat-shifts-sub");
     if (shiftsSub) {
-      shiftsSub.textContent = stats.shifts
+      const base = stats.shifts
         ? stats.published
           ? "Published this week"
           : "Draft — publish when ready"
         : "None scheduled yet";
+      if (stats.locationFiltered) {
+        const label =
+          selectedSiteId === "unassigned" ? "Needs a location" : siteNameById(selectedSiteId) || "This location";
+        shiftsSub.textContent = `${label} · ${base}`;
+      } else {
+        shiftsSub.textContent = base;
+      }
     }
     const staffSub = document.getElementById("rota-stat-staff-sub");
     if (staffSub) {
@@ -234,7 +389,7 @@
   function dayShiftsForMobile(selectedDay) {
     return shifts
       .map((shift, index) => ({ shift, index }))
-      .filter(({ shift }) => shift.shift_date === selectedDay)
+      .filter(({ shift }) => shift.shift_date === selectedDay && shiftMatchesLocation(shift))
       .sort((a, b) => String(a.shift.start_time || "").localeCompare(String(b.shift.start_time || "")));
   }
 
@@ -291,7 +446,7 @@
     const palette = avatarPalette(emp?.id || shift.employee_id);
     const name = emp ? employeeShortName(emp) : employeeName(shift.employee_id);
     const role = shift.role_label || employeeRoleLabel(emp);
-    const place = mobileShiftPlaceLabel(shift, emp);
+    const place = shift.site_name || mobileShiftPlaceLabel(shift, emp);
     const hours = Number(shiftHours(shift)) || 0;
     const hoursLabel = Number.isInteger(hours) ? `${hours} hrs` : `${hours.toFixed(1)} hrs`;
     const time = formatShiftTimeRange(shift) || `${shift.start_time || "—"} – ${shift.end_time || "—"}`;
@@ -746,6 +901,8 @@
     const endTime = document.getElementById("rota-add-end")?.value;
     const roleLabel = document.getElementById("rota-add-role")?.value?.trim() || "";
     const notes = document.getElementById("rota-add-notes")?.value?.trim() || "";
+    const siteRaw = document.getElementById("rota-add-site")?.value;
+    const siteId = siteRaw ? Number(siteRaw) : null;
     if (!employeeId || !shiftDate || !startTime || !endTime) return null;
     return {
       employee_id: Number(employeeId),
@@ -754,6 +911,8 @@
       end_time: endTime.slice(0, 5),
       role_label: roleLabel,
       notes,
+      punch_site_id: Number.isFinite(siteId) && siteId > 0 ? siteId : null,
+      site_name: Number.isFinite(siteId) && siteId > 0 ? siteNameById(siteId) : "",
     };
   }
 
@@ -1041,7 +1200,7 @@
     if (!guardWeekEditable("add shifts")) return;
     const emp = employeeById(employeeId);
     const roleLabel = emp?.job_title || emp?.department || "";
-    const candidate = {
+    const candidate = stampShiftSite({
       employee_id: employeeId,
       shift_date: shiftDate,
       start_time: "09:00",
@@ -1049,7 +1208,11 @@
       role_label: roleLabel,
       notes: "",
       employee_name: employeeName(employeeId),
-    };
+    });
+    if (multiSiteRotaEnabled() && !candidate.punch_site_id) {
+      setMessage("Add a location in Time punch before scheduling shifts.", "error");
+      return;
+    }
     const clash = shiftWouldOverlap(candidate);
     if (clash) {
       setMessage(`Cannot add — ${employeeName(candidate.employee_id)} already has a shift ${clash.start_time}–${clash.end_time} that day`, "error");
@@ -1315,6 +1478,8 @@
           start_time: candidate.start_time,
           end_time: candidate.end_time,
           notes: candidate.notes,
+          punch_site_id: candidate.punch_site_id || null,
+          site_name: candidate.site_name || "",
           employee_name: employeeName(empId),
           role_label:
             Number(empId) === Number(candidate.employee_id) ? candidate.role_label : roleFromEmployee(empId),
@@ -1504,6 +1669,10 @@
     const employeeIds = selectedBulkEmployeeIds(candidate);
     if (!dayIsos.length) {
       setMessage("Select at least one day.", "error");
+      return;
+    }
+    if (multiSiteRotaEnabled() && !candidate.punch_site_id) {
+      setMessage("Choose a location for this shift. Add sites under Time punch if the list is empty.", "error");
       return;
     }
     const { updated, created, skipped, applied } = applyPatternToStaffDays(candidate, {
@@ -1885,11 +2054,13 @@
       return;
     }
     const readonly = isWeekReadOnly();
-    if (!shifts.length) {
+    if (!visibleShifts().length) {
+      const emptyLabel =
+        multiSiteRotaEnabled() && selectedSiteId ? "No shifts at this location." : "No shifts this week.";
       host.innerHTML = readonly
-        ? '<p class="muted">No shifts this week.</p>'
+        ? `<p class="muted">${emptyLabel}</p>`
         : `<div class="rota-list-empty">
-        <p class="muted">No shifts this week.</p>
+        <p class="muted">${emptyLabel}</p>
         <button type="button" class="btn primary" id="rota-empty-add-shift">+ Add shift</button>
       </div>`;
       if (!readonly) {
@@ -1899,7 +2070,9 @@
     }
 
     host.innerHTML = shifts
-      .map((shift, index) => {
+      .map((shift, index) => ({ shift, index }))
+      .filter(({ shift }) => shiftMatchesLocation(shift))
+      .map(({ shift, index }) => {
         const day = new Date(`${shift.shift_date}T12:00:00`).toLocaleDateString("en-GB", {
           weekday: "short",
           day: "numeric",
@@ -1913,7 +2086,9 @@
               <span class="rota-shift-card__day">${escapeHtml(day)}</span>
               <span class="rota-shift-card__name">${name}</span>
               <span class="rota-shift-card__time">${escapeHtml(shift.start_time)} – ${escapeHtml(shift.end_time)}</span>
-              <span class="rota-shift-card__role muted">${role}</span>
+              <span class="rota-shift-card__role muted">${role}${
+                multiSiteRotaEnabled() && shift.site_name ? ` · ${escapeHtml(shift.site_name)}` : ""
+              }</span>
             </div>
             <div class="rota-shift-card__actions">
               ${
@@ -1958,6 +2133,9 @@
       { key: "start_time", render: (r) => escapeHtml(r.start_time) },
       { key: "end_time", render: (r) => escapeHtml(r.end_time) },
       { key: "role_label", render: (r) => formatRoleLabel(r.role_label) },
+      ...(multiSiteRotaEnabled()
+        ? [{ key: "site_name", render: (r) => escapeHtml(r.site_name || "—") }]
+        : []),
       {
         key: "punch",
         render: (r) => {
@@ -1982,7 +2160,7 @@
           : "No shifts this week — click + in the grid to add one."
         : "No active employees — open the Employees section to add team members.",
       columns,
-      rows: shifts,
+      rows: shifts.filter(shiftMatchesLocation),
     });
     tbody.querySelectorAll("[data-rota-remove]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1997,7 +2175,7 @@
   }
 
   function shiftsOnDate(iso) {
-    return shifts.filter((s) => s.shift_date === iso).length;
+    return shifts.filter((s) => s.shift_date === iso && shiftMatchesLocation(s)).length;
   }
 
   function renderGrid() {
@@ -2040,7 +2218,7 @@
       days.forEach((iso) => {
         const cellShifts = shifts
           .map((s, index) => ({ s, index }))
-          .filter(({ s }) => Number(s.employee_id) === Number(emp.id) && s.shift_date === iso);
+          .filter(({ s }) => Number(s.employee_id) === Number(emp.id) && s.shift_date === iso && shiftMatchesLocation(s));
         const emptyClass = cellShifts.length ? "" : " rota-shift-cell--empty";
         html += `<div class="rota-shift-cell rota-grid-drop${emptyClass}" data-employee-id="${emp.id}" data-shift-date="${iso}">`;
         cellShifts.forEach(({ s, index }) => {
@@ -2053,9 +2231,13 @@
               : "";
           const blockClass = shiftBlockClass(s, emp);
           const roleText = escapeHtml(s.role_label || employeeRoleLabel(emp));
+          const siteLine =
+            multiSiteRotaEnabled() && !selectedSiteId && s.site_name
+              ? `<span class="rota-shift-block-site">${escapeHtml(s.site_name)}</span>`
+              : "";
           const blockBody = isDayOffShift(s)
             ? `<span class="rota-off-label">OFF</span>`
-            : `${escapeHtml(formatShiftTimeRange(s))}<span class="rota-shift-block-role">${roleText}</span>`;
+            : `${escapeHtml(formatShiftTimeRange(s))}<span class="rota-shift-block-role">${roleText}</span>${siteLine}`;
           html += `<div class="rota-shift-wrap">
             <button type="button" class="rota-shift-block ${blockClass}${attendClass}" draggable="${readonly ? "false" : "true"}" data-shift-index="${index}" title="${readonly ? "View only" : "Drag to move · Alt+drag to copy"}">${blockBody}</button>
             ${
@@ -2179,6 +2361,7 @@
   }
 
   function renderAll() {
+    renderLocationFilters();
     renderWeekSummary();
     renderRotaStats();
     if (shouldUseMobileRotaBuilder()) {
@@ -2236,6 +2419,7 @@
     }
     panelOpen = true;
     syncPanelVisibility();
+    renderLocationFilters();
 
     const employeeSelect = document.getElementById("rota-add-employee");
     const daySelect = document.getElementById("rota-add-day");
@@ -2257,6 +2441,8 @@
       populateTimeSelects(shift.start_time, shift.end_time);
       if (roleInput) roleInput.value = shift.role_label || "";
       if (notesInput) notesInput.value = shift.notes || "";
+      const siteSelect = document.getElementById("rota-add-site");
+      if (siteSelect) siteSelect.value = shift.punch_site_id ? String(shift.punch_site_id) : "";
       if (title) title.textContent = "Edit shift";
       if (addBtn) addBtn.textContent = "Save shift";
     } else {
@@ -2267,6 +2453,9 @@
       populateTimeSelects("09:00", "17:00");
       if (roleInput) roleInput.value = "";
       if (notesInput) notesInput.value = "";
+      const siteSelect = document.getElementById("rota-add-site");
+      const defaultSite = defaultSiteIdForNewShift();
+      if (siteSelect) siteSelect.value = defaultSite ? String(defaultSite) : "";
       if (employeeSelect?.value) applyRoleFromEmployee(Number(employeeSelect.value));
       if (title) title.textContent = "Add shift";
       if (addBtn) addBtn.textContent = "Add to rota";
@@ -2552,6 +2741,7 @@
         await ensureRotaSession();
         await ensureWeekStartAligned();
         await loadEmployeesList();
+        await loadPunchSites();
         await loadWeek();
       } finally {
         rotaDataLoadPromise = null;
@@ -2702,19 +2892,27 @@
   function clearRota() {
     if (!guardWeekEditable("clear this rota")) return;
     if (!shifts.length) return;
-    if (
-      !window.confirm(
-        "Are you sure? This will remove all shifts from the current week. You will still need to save the rota to persist the change.",
-      )
-    ) {
+    const locationScoped = multiSiteRotaEnabled() && Boolean(selectedSiteId);
+    if (locationScoped && !visibleShifts().length) {
+      setMessage("No shifts at this location.", "info");
       return;
     }
-    shifts = [];
-    pendingRepeats = [];
+    const locationLabel =
+      selectedSiteId === "unassigned" ? "shifts with no location" : siteNameById(selectedSiteId) || "this location";
+    const confirmText = locationScoped
+      ? `Remove ${locationLabel} from this week? Other locations stay on the rota. Save draft to persist the change.`
+      : "Are you sure? This will remove all shifts from the current week. You will still need to save the rota to persist the change.";
+    if (!window.confirm(confirmText)) {
+      return;
+    }
+    shifts = locationScoped ? shifts.filter((shift) => !shiftMatchesLocation(shift)) : [];
+    if (!locationScoped) pendingRepeats = [];
     markDirty();
     closeShiftPanel();
     renderAll();
-    setMessage("Rota cleared — click Save draft to persist.");
+    setMessage(
+      locationScoped ? `${locationLabel} removed — click Save draft to persist.` : "Rota cleared — click Save draft to persist.",
+    );
   }
 
   async function flushPendingRepeats() {
@@ -2751,6 +2949,16 @@
     if (!guardWeekEditable("save this rota")) return false;
     const button = options.button || document.getElementById("rota-save-btn") || document.getElementById("rota-mobile-save-btn");
     const statusEl = document.getElementById("rota-admin-message");
+    if (multiSiteRotaEnabled()) {
+      const missing = shifts.filter((shift) => !shift.punch_site_id).length;
+      if (missing) {
+        setMessage(
+          `${missing} shift${missing === 1 ? "" : "s"} still need a location. Use the location filter “Needs a location” and edit them.`,
+          "error",
+        );
+        return false;
+      }
+    }
 
     const performSave = async () => {
       const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}`, {
@@ -2763,6 +2971,7 @@
             end_time: s.end_time,
             role_label: s.role_label || "",
             notes: s.notes || "",
+            punch_site_id: s.punch_site_id ? Number(s.punch_site_id) : null,
           })),
           expected_version: weekMeta?.version ?? null,
         }),
@@ -2810,7 +3019,10 @@
 
   async function copyPreviousWeek() {
     if (!guardWeekCopy()) return;
-    if (!window.confirm("Copy all shifts from last week into this week? Unsaved changes will be lost.")) return;
+    const copyPrompt = multiSiteRotaEnabled()
+      ? "Copy every location from last week into this week? Unsaved changes will be lost."
+      : "Copy all shifts from last week into this week? Unsaved changes will be lost.";
+    if (!window.confirm(copyPrompt)) return;
     setMessage("Copying…");
     try {
       const res = await apiFetch(`/admin/rota/weeks/${currentWeekStart}/copy-previous`, {
@@ -2886,6 +3098,7 @@
     const sent = n.emails_sent ?? 0;
     const skipped = n.emails_skipped ?? 0;
     const pushes = n.pushes_sent ?? 0;
+    const texts = n.sms_sent ?? 0;
     const notified = n.employees_notified ?? sent;
     const unchanged = n.employees_unchanged ?? 0;
     const reasons = n.skip_reasons || {};
@@ -2896,6 +3109,9 @@
       const parts = [];
       if (reasons.smtp_failed) parts.push("SMTP failed on server");
       if (reasons.no_valid_email) parts.push("missing staff email on employee record");
+      if (reasons.no_mobile) parts.push("missing mobile number on the employee record");
+      if (reasons.sms_not_configured) parts.push("SMS provider is not configured on the server");
+      if (reasons.sms_failed) parts.push("SMS provider rejected the text");
       if (reasons.employee_email_disabled) parts.push("staff turned off email notifications");
       if (reasons.tenant_delivery_off || reasons.tenant_notifications_off) {
         parts.push("rota emails disabled in Settings → Notifications");
@@ -2923,14 +3139,21 @@
       return "";
     }
 
+    function smsHint() {
+      if (texts > 0) {
+        return ` · ${texts} text${texts === 1 ? "" : "s"} sent`;
+      }
+      return "";
+    }
+
     if (n.mode === "resend") {
       if (sent > 0) {
-        return ` · ${sent} staff email${sent === 1 ? "" : "s"} resent${pushHint()}`;
+        return ` · ${sent} staff email${sent === 1 ? "" : "s"} resent${pushHint()}${smsHint()}`;
       }
       if (skipped > 0) {
-        return ` · no staff emails resent${skipHint()}`;
+        return ` · no staff emails resent${skipHint()}${smsHint()}`;
       }
-      return pushHint();
+      return pushHint() + smsHint();
     }
     if (n.mode === "update") {
       if (notified > 0 && sent > 0) {
@@ -2938,20 +3161,20 @@
         if (unchanged > 0) {
           msg += ` (${unchanged} unchanged — not emailed)`;
         }
-        return msg + pushHint();
+        return msg + pushHint() + smsHint();
       }
       if (notified > 0 && sent === 0 && skipped > 0) {
-        return ` · staff with schedule changes were not emailed${skipHint()}${pushHint()}`;
+        return ` · staff with schedule changes were not emailed${skipHint()}${pushHint()}${smsHint()}`;
       }
       return " · no schedule changes — staff not emailed";
     }
     if (sent > 0) {
-      return ` · ${sent} email${sent === 1 ? "" : "s"} sent${pushHint()}`;
+      return ` · ${sent} email${sent === 1 ? "" : "s"} sent${pushHint()}${smsHint()}`;
     }
     if (skipped > 0) {
-      return ` · no staff emails sent${skipHint()}${pushHint()}`;
+      return ` · no staff emails sent${skipHint()}${pushHint()}${smsHint()}`;
     }
-    return pushHint();
+    return pushHint() + smsHint();
   }
 
   async function publishRota() {
@@ -3271,6 +3494,8 @@
         body: JSON.stringify({
           template_id: selectedTemplateId ? Number(selectedTemplateId) : null,
           expected_version: weekMeta?.version ?? null,
+          punch_site_id:
+            selectedSiteId && selectedSiteId !== "unassigned" ? Number(selectedSiteId) : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -3317,6 +3542,11 @@
     if (feats.rota_advanced_enabled) {
       bindAdvancedUiOnce();
       renderAdvancedPanel();
+    }
+    bindLocationFiltersOnce();
+    renderLocationFilters();
+    if (sectionReady && feats.rota_multi_site_enabled && !punchSites.length) {
+      void loadPunchSites();
     }
   }
 

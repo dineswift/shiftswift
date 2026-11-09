@@ -47,6 +47,9 @@ PunchType = Literal["in", "out", "break_start", "break_end"]
 PunchMethod = Literal["gps", "site_qr", "admin", "kiosk", "epos"]
 WorkState = Literal["off", "clocked_in", "on_break"]
 SITE_SCAN_VALID_MINUTES = 10
+# Premises QR does not replace the geofence. The phone must be this close to the scanned site.
+QR_PROXIMITY_METERS = int(os.getenv("PUNCH_QR_PROXIMITY_M", "40"))
+QR_MAX_ACCURACY_METERS = int(os.getenv("PUNCH_QR_MAX_ACCURACY_M", "65"))
 RAPID_RE_PUNCH_MINUTES = int(os.getenv("PUNCH_RAPID_REPUNCH_MINUTES", "10"))
 PUNCH_QR_MAX_AGE_HOURS = int(os.getenv("PUNCH_QR_MAX_AGE_HOURS", "24"))
 DEFAULT_RADIUS_M = int(os.getenv("PUNCH_GEOFENCE_RADIUS_M", "150"))
@@ -378,10 +381,51 @@ def scan_site_token(
         "site_id": site["id"],
         "site_name": site["name"],
         "valid_until_minutes": SITE_SCAN_VALID_MINUTES,
+        "proximity_meters": QR_PROXIMITY_METERS,
         "message": (
-            f"Premises verified — {site['name']}. "
-            f"You can clock in or out without GPS for the next {SITE_SCAN_VALID_MINUTES} minutes."
+            f"Premises code accepted for {site['name']}. "
+            f"Clock in and clock out stay available only while this device is within {QR_PROXIMITY_METERS}m of the site."
         ),
+    }
+
+
+def evaluate_qr_proximity(
+    *,
+    site: dict[str, Any],
+    latitude: float,
+    longitude: float,
+    accuracy_meters: float | None,
+) -> dict[str, Any]:
+    """QR punches require the device to be very close to the scanned site."""
+    distance = haversine_meters(latitude, longitude, float(site["latitude"]), float(site["longitude"]))
+    accuracy = float(accuracy_meters) if accuracy_meters is not None else None
+    accuracy_ok = accuracy is None or accuracy <= float(QR_MAX_ACCURACY_METERS)
+    within = distance <= float(QR_PROXIMITY_METERS) and accuracy_ok
+    dist_int = int(round(distance))
+    if within:
+        message = (
+            f"Within {dist_int}m of {site['name']} "
+            f"(QR limit {QR_PROXIMITY_METERS}m). You can clock in or out."
+        )
+    elif accuracy is not None and not accuracy_ok:
+        message = (
+            f"GPS accuracy is ±{int(round(accuracy))}m. "
+            f"QR clock-in needs a precise fix within {QR_PROXIMITY_METERS}m of {site['name']}."
+        )
+    else:
+        message = (
+            f"You are about {dist_int}m from {site['name']}. "
+            f"QR clock-in and clock-out need this device within {QR_PROXIMITY_METERS}m."
+        )
+    return {
+        "within_geofence": within,
+        "distance_meters": round(distance, 1),
+        "site_name": site["name"],
+        "site_id": site["id"],
+        "radius_meters": QR_PROXIMITY_METERS,
+        "accuracy_meters": accuracy,
+        "qr_proximity": True,
+        "message": message,
     }
 
 
@@ -683,8 +727,30 @@ def preview_geofence(
     longitude: float,
     accuracy_meters: float | None,
     conn: Any,
+    clock_token: str | None = None,
 ) -> dict[str, Any]:
     """Server-side geofence check — same distance rules as record_punch, without writing."""
+    if clock_token:
+        site = resolve_site_by_clock_token(clock_token=clock_token, conn=conn)
+        if not site:
+            raise LookupError("Invalid or expired premises code")
+        _validate_site_clock_token_freshness(site)
+        if site["tenant_id"] != tenant_id:
+            raise PermissionError("This premises code belongs to another business")
+        if not employee_can_punch_at_site(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            site_id=site["id"],
+            conn=conn,
+        ):
+            raise PermissionError(f"You are not assigned to punch at {site['name']}")
+        return evaluate_qr_proximity(
+            site=site,
+            latitude=latitude,
+            longitude=longitude,
+            accuracy_meters=accuracy_meters,
+        )
+
     sites = eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     if not sites:
         raise LookupError("No punch sites configured for this business")
@@ -886,6 +952,9 @@ def record_punch_via_site_token(
     username: str,
     punch_type: PunchType,
     clock_token: str,
+    latitude: float,
+    longitude: float,
+    accuracy_meters: float | None,
     ip_address: str | None,
     user_agent: str | None,
     conn: Any,
@@ -917,6 +986,15 @@ def record_punch_via_site_token(
     ):
         raise PermissionError(f"You are not assigned to punch at {site['name']}")
 
+    proximity = evaluate_qr_proximity(
+        site=site,
+        latitude=latitude,
+        longitude=longitude,
+        accuracy_meters=accuracy_meters,
+    )
+    if not proximity["within_geofence"]:
+        raise PermissionError(str(proximity["message"]))
+
     prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     rapid_re_punch = _detect_rapid_re_punch(last=prior, punch_type=punch_type)
 
@@ -925,10 +1003,10 @@ def record_punch_via_site_token(
         employee_id=employee_id,
         punch_site_id=site["id"],
         punch_type=punch_type,
-        latitude=site["latitude"],
-        longitude=site["longitude"],
-        accuracy_meters=None,
-        distance_meters=0.0,
+        latitude=latitude,
+        longitude=longitude,
+        accuracy_meters=accuracy_meters,
+        distance_meters=float(proximity["distance_meters"]),
         app_username=username,
         ip_address=ip_address,
         user_agent=user_agent,
@@ -938,6 +1016,27 @@ def record_punch_via_site_token(
     )
     result["site_name"] = site["name"]
     return result
+
+
+def clean_admin_punch_note(note: str | None) -> str:
+    text = " ".join(str(note or "").split())
+    if len(text) < 3:
+        raise ValueError("Add a short reason for this admin punch")
+    if len(text) > 500:
+        raise ValueError("Reason must be 500 characters or fewer")
+    return text
+
+
+def resolve_admin_punched_at(punched_at: datetime | None, *, now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    if punched_at is None:
+        return current
+    ts = punched_at if punched_at.tzinfo else punched_at.replace(tzinfo=timezone.utc)
+    if ts > current + timedelta(minutes=5):
+        raise ValueError("Punch time cannot be in the future")
+    if ts < current - timedelta(days=400):
+        raise ValueError("Punch time is too far in the past")
+    return ts
 
 
 def record_admin_punch(
@@ -985,9 +1084,8 @@ def record_admin_punch(
             raise LookupError("Punch site not found")
         site = _site_row(site_row)
 
-        ts = punched_at or datetime.now(timezone.utc)
-        if punched_at and punched_at.tzinfo is None:
-            ts = punched_at.replace(tzinfo=timezone.utc)
+        ts = resolve_admin_punched_at(punched_at)
+        note = clean_admin_punch_note(admin_note)
 
         cur.execute(
             """
@@ -1008,7 +1106,7 @@ def record_admin_punch(
                 site["latitude"],
                 site["longitude"],
                 recorded_by,
-                admin_note,
+                note,
                 recorded_by,
             ),
         )

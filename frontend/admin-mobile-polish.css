@@ -456,8 +456,26 @@
   body:has(#mobile-tab-bar) #time-punch .punch-tab-intro,
   body:has(#mobile-tab-bar) #time-punch .punch-admin-message {
     margin: 0 0 8px;
-    font-size: 0.78rem;
-    line-height: 1.4;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-admin-panel .hr-section-title {
+    font-size: 1.15rem;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-admin-form .edit-label {
+    font-size: 0.8125rem;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-field-hint {
+    font-size: 0.875rem;
+  }
+
+  body:has(#mobile-tab-bar) #time-punch .punch-admin-form .btn {
+    width: 100%;
+    min-height: 48px;
+    font-size: 1rem;
   }
 
   body:has(#mobile-tab-bar) #time-punch .punch-manual-form,

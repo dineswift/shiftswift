@@ -67,7 +67,11 @@ def _shift_cell_lines(shift: dict[str, Any], *, fallback_role: str) -> list[str]
     start = str(shift.get("start_time") or "")[:5]
     end = str(shift.get("end_time") or "")[:5]
     role = (shift.get("role_label") or "").strip() or fallback_role
-    return [f"{start}–{end}", role]
+    lines = [f"{start}–{end}", role]
+    site = str(shift.get("site_name") or "").strip()
+    if site:
+        lines.append(site)
+    return lines
 
 
 def _shift_tone(shift: dict[str, Any], *, fallback_role: str) -> str:
@@ -394,6 +398,7 @@ ROTA_CSV_HEADERS = [
     "Start",
     "End",
     "Role",
+    "Location",
     "Notes",
     "Attendance",
 ]
@@ -439,6 +444,7 @@ def build_rota_week_csv(
                 str(shift.get("start_time") or "")[:5],
                 str(shift.get("end_time") or "")[:5],
                 str(shift.get("role_label") or "").strip(),
+                str(shift.get("site_name") or "").strip(),
                 str(shift.get("notes") or "").strip(),
                 attendance_label,
             ]

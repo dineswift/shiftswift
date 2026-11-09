@@ -48,6 +48,22 @@ html.native-app body.portal-login-page--unified {
   transition: none;
 }
 
+html.native-app body.portal-login-page--unified.cookie-consent-open {
+  padding-bottom: calc(11.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+  body.portal-login-page--unified.cookie-consent-open .native-login-hero {
+    padding-top: max(16px, calc(env(safe-area-inset-top) + 8px));
+    padding-bottom: 36px;
+  }
+
+  body.portal-login-page--unified.cookie-consent-open .portal-login-form > label,
+  body.portal-login-page--unified.cookie-consent-open .portal-login-field {
+    margin-bottom: 8px;
+  }
+}
+
 html.native-app.native-keyboard-open body.portal-login-page--unified {
   overscroll-behavior-y: none;
 }

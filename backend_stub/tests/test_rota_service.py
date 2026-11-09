@@ -90,6 +90,80 @@ def test_validate_shift_payload_rejects_out_of_week() -> None:
         )
 
 
+def _sample_shift(**overrides):
+    payload = {
+        "employee_id": 1,
+        "shift_date": "2026-06-08",
+        "start_time": "09:00",
+        "end_time": "17:00",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_validate_shift_requires_location_when_multi_site() -> None:
+    week_start = date(2026, 6, 8)
+    with pytest.raises(RotaValidationError, match="location"):
+        validate_shift_payload(
+            shift=_sample_shift(),
+            week_start=week_start,
+            week_end=week_start + timedelta(days=6),
+            active_employee_ids={1},
+            index=0,
+            require_site=True,
+            active_site_ids={4},
+        )
+
+
+def test_validate_shift_rejects_unknown_location() -> None:
+    week_start = date(2026, 6, 8)
+    with pytest.raises(RotaValidationError, match="not an active site"):
+        validate_shift_payload(
+            shift=_sample_shift(punch_site_id=9),
+            week_start=week_start,
+            week_end=week_start + timedelta(days=6),
+            active_employee_ids={1},
+            index=0,
+            require_site=True,
+            active_site_ids={4},
+        )
+
+
+def test_validate_shift_keeps_location() -> None:
+    week_start = date(2026, 6, 8)
+    parsed = validate_shift_payload(
+        shift=_sample_shift(punch_site_id=4),
+        week_start=week_start,
+        week_end=week_start + timedelta(days=6),
+        active_employee_ids={1},
+        index=0,
+        require_site=True,
+        active_site_ids={4},
+    )
+    assert parsed["punch_site_id"] == 4
+
+
+def test_overlap_blocks_same_person_at_two_locations() -> None:
+    shifts = [
+        {
+            "employee_id": 1,
+            "shift_date": date(2026, 6, 8),
+            "start_time": time(9, 0),
+            "end_time": time(17, 0),
+            "punch_site_id": 1,
+        },
+        {
+            "employee_id": 1,
+            "shift_date": date(2026, 6, 8),
+            "start_time": time(12, 0),
+            "end_time": time(18, 0),
+            "punch_site_id": 2,
+        },
+    ]
+    with pytest.raises(RotaValidationError):
+        validate_no_overlaps(shifts)
+
+
 def test_validate_no_overlaps_raises() -> None:
     shifts = [
         {

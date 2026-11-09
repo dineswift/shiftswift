@@ -39,7 +39,7 @@ def list_published_shifts_on_date(*, tenant_id: int, on_date: date, conn: Any) -
             SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time,
                    s.role_label, s.notes,
                    trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')),
-                   e.email, e.email_notifications_enabled
+                   e.email, e.email_notifications_enabled, e.phone
             FROM rota_shifts s
             JOIN rota_weeks w ON w.id = s.rota_week_id AND w.tenant_id = s.tenant_id
             JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
@@ -64,6 +64,7 @@ def list_published_shifts_on_date(*, tenant_id: int, on_date: date, conn: Any) -
             "employee_name": row[7],
             "employee_email": row[8] or "",
             "email_notifications_enabled": bool(row[9]),
+            "employee_phone": row[10] or "",
         }
         for row in rows
     ]
@@ -217,6 +218,16 @@ def evaluate_missed_punch_alerts(
                 commit=False,
             )
             if email_delivered(delivery):
+                notified_employee = True
+
+        if employee_delivery != "off" and "sms" in str(employee_delivery) and shift.get("employee_phone"):
+            from core.sms import missed_punch_sms_body, send_sms
+
+            sms = send_sms(
+                to=str(shift["employee_phone"]),
+                body=missed_punch_sms_body(tenant_name=employee_from_name, shift_label=shift_label),
+            )
+            if sms.get("ok"):
                 notified_employee = True
 
         with conn.cursor() as cur:

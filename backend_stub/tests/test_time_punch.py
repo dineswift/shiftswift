@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -13,9 +13,13 @@ sys.path.insert(0, str(BACKEND))
 from modules.time_punch.service import (
     _detect_rapid_re_punch,
     _punch_row,
+    clean_admin_punch_note,
     haversine_meters,
+    resolve_admin_punched_at,
     preview_geofence,
     record_punch,
+    QR_PROXIMITY_METERS,
+    evaluate_qr_proximity,
     record_punch_via_site_token,
     review_punch,
     scan_site_token,
@@ -170,6 +174,9 @@ def test_record_punch_via_site_token_inserts_qr_punch() -> None:
         username="employee@shiftswifthr.co.uk",
         punch_type="in",
         clock_token="valid-token",
+        latitude=53.4794,
+        longitude=-2.2451,
+        accuracy_meters=8.0,
         ip_address="127.0.0.1",
         user_agent="test",
         conn=conn,
@@ -180,6 +187,22 @@ def test_record_punch_via_site_token_inserts_qr_punch() -> None:
     assert result["clocked_in"] is True
     insert_params = cursor.execute.call_args_list[-1][0][1]
     assert insert_params[11] == "site_qr"
+    assert result["distance_meters"] == 0.0
+
+
+def test_qr_proximity_rejects_device_away_from_site() -> None:
+    site = {"id": 1, "name": "Main site", "latitude": 53.4794, "longitude": -2.2451}
+    near = evaluate_qr_proximity(site=site, latitude=53.4794, longitude=-2.2451, accuracy_meters=12)
+    assert near["within_geofence"] is True
+    assert near["radius_meters"] == QR_PROXIMITY_METERS
+
+    far = evaluate_qr_proximity(site=site, latitude=53.49, longitude=-2.2451, accuracy_meters=12)
+    assert far["within_geofence"] is False
+    assert "within" in far["message"]
+
+    coarse = evaluate_qr_proximity(site=site, latitude=53.4794, longitude=-2.2451, accuracy_meters=400)
+    assert coarse["within_geofence"] is False
+    assert "accuracy" in coarse["message"].lower()
 
 
 def test_punch_row_includes_hr_review_fields() -> None:
@@ -248,3 +271,26 @@ def test_review_punch_marks_record() -> None:
 
     assert result == {"id": 42, "reviewed": True}
     conn.commit.assert_called_once()
+
+
+def test_admin_punch_requires_a_reason() -> None:
+    assert clean_admin_punch_note("  Forgot   to punch  ") == "Forgot to punch"
+    try:
+        clean_admin_punch_note("ok")
+    except ValueError as exc:
+        assert "reason" in str(exc).lower()
+    else:
+        raise AssertionError("short reason should be rejected")
+
+
+def test_admin_punch_rejects_future_time() -> None:
+    now = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
+    assert resolve_admin_punched_at(None, now=now) == now
+    past = now - timedelta(hours=2)
+    assert resolve_admin_punched_at(past, now=now) == past
+    try:
+        resolve_admin_punched_at(now + timedelta(hours=1), now=now)
+    except ValueError as exc:
+        assert "future" in str(exc).lower()
+    else:
+        raise AssertionError("future punch time should be rejected")

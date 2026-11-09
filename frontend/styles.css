@@ -14178,6 +14178,38 @@ body[data-mobile-tab="compliance"] .compliance-dashboard-pane .sponsor-duties-se
   margin-left: auto;
 }
 
+.rota-location-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted, #64748b);
+}
+
+.rota-location-filter select {
+  min-width: 160px;
+  max-width: 240px;
+}
+
+.rota-location-filter--mobile,
+#rota-location-filter-mobile {
+  margin: 0 0 8px;
+  width: 100%;
+}
+
+#rota-location-filter-mobile select {
+  flex: 1;
+  max-width: none;
+}
+
+.rota-shift-block-site {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
 .rota-week-nav__label {
   display: block;
   text-align: center;
@@ -19067,8 +19099,19 @@ body.rota-week-readonly .rota-builder-hint {
 .punch-admin-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  max-width: 720px;
+  gap: 14px 16px;
+  max-width: none;
+}
+
+.punch-field-hint {
+  margin: -2px 0 0;
+  font-size: var(--text-caption-size);
+  line-height: 1.35;
+  color: var(--ink-500);
+}
+
+.punch-admin-form .punch-inline-form__actions .btn {
+  min-height: 44px;
 }
 
 .punch-admin-form .edit-field[data-span="2"] {
@@ -19728,10 +19771,29 @@ body.rota-week-readonly .rota-builder-hint {
   border-top: 1px solid var(--card-border);
 }
 
+@media (min-width: 1100px) {
+  .punch-admin-form {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.15fr) minmax(150px, 0.7fr) minmax(190px, 0.85fr);
+  }
+}
+
 @media (max-width: 720px) {
   .punch-inline-form,
   .punch-admin-form {
     grid-template-columns: 1fr;
+  }
+
+  .punch-admin-form .punch-inline-form__actions .btn {
+    width: 100%;
+  }
+
+  .punch-admin-panel .hr-section-title {
+    font-size: 1.15rem;
+  }
+
+  .punch-admin-panel .punch-tab-intro {
+    font-size: 0.95rem;
+    line-height: 1.45;
   }
 }
 

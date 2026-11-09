@@ -2425,7 +2425,7 @@
                   <div class="punch-filters punch-day-filters" aria-label="Filter punch records">
                     <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-day-filter-employee"><option value="">All employees</option></select></label>
                     <label class="edit-field"><span class="edit-label">Site</span><select id="punch-day-filter-site"><option value="">All sites</option></select></label>
-                    <label class="edit-field"><span class="edit-label">Type</span><select id="punch-day-filter-type"><option value="">All types</option><option value="in">Clock in only</option><option value="out">Clock out only</option></select></label>
+                    <label class="edit-field"><span class="edit-label">Type</span><select id="punch-day-filter-type"><option value="">All types</option><option value="in">Clock in only</option><option value="out">Clock out only</option><option value="break_start">Break start</option><option value="break_end">Break end</option></select></label>
                     <label class="edit-field"><span class="edit-label">HR review</span><select id="punch-day-filter-review"><option value="">All</option><option value="pending">Needs review</option><option value="reviewed">Reviewed</option></select></label>
                     <button type="button" class="btn ghost" id="punch-day-filter-apply">Apply</button>
                     <button type="button" class="btn ghost" id="punch-day-filter-clear">Clear</button>
@@ -2470,20 +2470,22 @@
               <div id="punch-tab-log" class="punch-tab-panel" data-punch-panel="log" hidden>
                 <div id="punch-admin-panel" class="punch-admin-panel">
                   <h4 class="hr-section-title">Admin punch</h4>
-                  <p class="muted punch-tab-intro">Manually clock in or out a staff member — for forgotten punches, lateness, or corrections.</p>
+                  <p class="muted punch-tab-intro">Add a missed clock-in, clock-out, or break. The entry is marked as an admin correction on the punch log.</p>
                   <form id="punch-admin-form" class="punch-admin-form">
                     <label class="edit-field"><span class="edit-label">Employee</span><select name="employee_id" id="punch-admin-employee" required><option value="">Select employee…</option></select></label>
                     <label class="edit-field"><span class="edit-label">Punch site</span><select name="punch_site_id" id="punch-admin-site" required><option value="">Select site…</option></select></label>
                     <label class="edit-field"><span class="edit-label">Type</span>
-                      <select name="punch_type">
+                      <select name="punch_type" id="punch-admin-type">
                         <option value="in">Clock in</option>
                         <option value="out">Clock out</option>
+                        <option value="break_start">Break start</option>
+                        <option value="break_end">Break end</option>
                       </select>
                     </label>
-                    <label class="edit-field"><span class="edit-label">Timestamp</span><input type="datetime-local" name="punched_at" id="punch-admin-when" /></label>
-                    <label class="edit-field" data-span="2"><span class="edit-label">Reason</span><textarea name="admin_note" rows="2" placeholder="e.g. Forgot to punch — confirmed on CCTV"></textarea></label>
+                    <label class="edit-field"><span class="edit-label">Time</span><input type="datetime-local" name="punched_at" id="punch-admin-when" /><span class="punch-field-hint">Leave blank to use the current time.</span></label>
+                    <label class="edit-field" data-span="2"><span class="edit-label">Reason</span><textarea name="admin_note" id="punch-admin-note" rows="2" required minlength="3" maxlength="500" placeholder="Required. e.g. Forgot to punch — confirmed on the floor"></textarea></label>
                     <div class="punch-inline-form__actions">
-                      <button type="submit" class="btn primary">Record admin punch</button>
+                      <button type="submit" class="btn primary">Save punch</button>
                     </div>
                   </form>
                 </div>
@@ -2501,7 +2503,7 @@
                   <label class="edit-field"><span class="edit-label">Site</span><select id="punch-filter-site"><option value="">All sites</option></select></label>
                   <label class="edit-field"><span class="edit-label">From</span><input type="date" id="punch-filter-from" /></label>
                   <label class="edit-field"><span class="edit-label">To</span><input type="date" id="punch-filter-to" /></label>
-                  <label class="edit-field"><span class="edit-label">Type</span><select id="punch-filter-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option></select></label>
+                  <label class="edit-field"><span class="edit-label">Type</span><select id="punch-filter-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option><option value="break_start">Break start</option><option value="break_end">Break end</option></select></label>
                   <button type="button" class="btn ghost" id="punch-filter-last-month">Last month</button>
                   <button type="button" class="btn ghost" id="punch-filter-apply">Apply</button>
                   <button type="button" class="btn ghost" id="punch-filter-clear">Clear</button>
@@ -2655,7 +2657,7 @@
               </label>
               <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-export-employee"><option value="">All employees</option></select></label>
               <label class="edit-field"><span class="edit-label">Site</span><select id="punch-export-site"><option value="">All sites</option></select></label>
-              <label class="edit-field" data-span="2"><span class="edit-label">Punch type</span><select id="punch-export-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option></select></label>
+              <label class="edit-field" data-span="2"><span class="edit-label">Punch type</span><select id="punch-export-type"><option value="">All types</option><option value="in">Clock in</option><option value="out">Clock out</option><option value="break_start">Break start</option><option value="break_end">Break end</option></select></label>
               <label class="edit-field" data-span="2"><span class="edit-label">HR review</span><select id="punch-export-review"><option value="">All</option><option value="pending">Needs review</option><option value="reviewed">Reviewed</option></select></label>
             </div>
             <footer class="punch-export-dialog__foot">
@@ -2765,6 +2767,11 @@
           </div>
           <article class="card hr-workspace">
           <div class="rota-mobile-only" id="rota-mobile-shell">
+            <label class="rota-location-filter" id="rota-location-filter-mobile" hidden>
+              <span>Location</span>
+              <select id="rota-location-select-mobile" aria-label="Filter rota by location"></select>
+              <a href="#time-punch" id="rota-location-setup-mobile" hidden>Add locations</a>
+            </label>
             <nav class="rota-mobile-week-nav" aria-label="Week navigation">
               <button type="button" class="btn ghost rota-mobile-week-btn" id="rota-mobile-prev-week" aria-label="Previous week">‹</button>
               <button type="button" class="rota-mobile-week-label-btn" id="rota-mobile-week-label-btn" aria-label="Jump to this week"></button>
@@ -2798,6 +2805,11 @@
                 <button type="button" class="btn ghost is-active" id="rota-view-grid" data-view="grid">Grid</button>
                 <button type="button" class="btn ghost" id="rota-view-list" data-view="list">List</button>
               </div>
+              <label class="rota-location-filter" id="rota-location-filter" hidden>
+                <span>Location</span>
+                <select id="rota-location-select" aria-label="Filter rota by location"></select>
+                <a href="#time-punch" id="rota-location-setup" hidden>Add locations</a>
+              </label>
               <p id="rota-week-summary" class="rota-week-summary"></p>
             </div>
             <p class="rota-builder-hint muted">Drag to move · Long press for options · Drag with two fingers to copy</p>
@@ -2848,6 +2860,7 @@
                     <th>Start</th>
                     <th>End</th>
                     <th>Role</th>
+                    <th id="rota-shifts-site-col" hidden>Location</th>
                     <th>Attendance</th>
                     <th></th>
                   </tr>
@@ -2953,6 +2966,10 @@
             </div>
             <p id="rota-shift-popover-context" class="muted rota-shift-panel__context mobile-editor-sheet__context"></p>
             <div class="rota-shift-panel__body mobile-editor-sheet__body">
+              <label class="rota-field" id="rota-location-field" hidden>
+                <span class="rota-field-label">Location</span>
+                <select id="rota-add-site"></select>
+              </label>
               <label class="rota-field">
                 <span class="rota-field-label">Employee</span>
                 <select id="rota-add-employee"></select>

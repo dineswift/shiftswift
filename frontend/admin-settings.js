@@ -957,7 +957,7 @@
           </tbody>
         </table>
       </div>
-      <p class="muted settings-notify-foot">Rota emails are sent only when <strong>Email rota to staff</strong> is ticked on publish.</p>`;
+      <p class="muted settings-notify-foot">Rota emails are sent only when <strong>Email rota to staff</strong> is ticked on publish. <strong>Email + SMS</strong> also texts the mobile on the employee record (or the business phone for the 9-day absence alert) when Twilio, Vonage, or MessageBird is configured on the server.</p>`;
 
         host.querySelectorAll(".settings-notify-select").forEach((select) => {
           select.addEventListener("change", () => {
@@ -1374,7 +1374,8 @@
         } else if (mode === "advanced") {
           help.textContent = "Use staffing templates, coverage gaps, hours warnings, and generate draft on the Rota page.";
         } else {
-          help.textContent = "Multi-site rota mode — per-location rotas will roll out here.";
+          help.textContent =
+            "Each shift is saved against a time punch site. On the Rota page, filter by location and assign shifts there.";
         }
       }
       updateHelp();

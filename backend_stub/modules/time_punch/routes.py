@@ -43,6 +43,7 @@ class GeofencePreviewRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     accuracy_meters: float | None = Field(default=None, ge=0)
+    clock_token: str | None = Field(default=None, min_length=8, max_length=200)
 
 
 class SiteScanRequest(BaseModel):
@@ -52,6 +53,9 @@ class SiteScanRequest(BaseModel):
 class SiteTokenPunchRequest(BaseModel):
     punch_type: PunchAction
     clock_token: str = Field(min_length=8, max_length=200)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float | None = Field(default=None, ge=0)
 
 
 class PunchSiteUpdate(BaseModel):
@@ -208,8 +212,11 @@ def punch_preview(
             latitude=payload.latitude,
             longitude=payload.longitude,
             accuracy_meters=payload.accuracy_meters,
+            clock_token=payload.clock_token,
             conn=conn,
         )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
@@ -255,7 +262,7 @@ def punch_scan_site(
     current_user: Annotated[AuthUser, Depends(get_employee_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    """Validate a premises QR token so the employee can punch without GPS."""
+    """Validate a premises QR token. Clock in and out still require the device to be at the site."""
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
@@ -291,6 +298,9 @@ def punch_via_site_token(
             username=current_user.username,
             punch_type=payload.punch_type,
             clock_token=payload.clock_token,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            accuracy_meters=payload.accuracy_meters,
             ip_address=client_ip(request),
             user_agent=request.headers.get("User-Agent"),
             conn=conn,

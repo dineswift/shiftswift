@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import defaultdict
 from datetime import date, timedelta
@@ -10,6 +11,8 @@ from typing import Any, Literal
 
 from core.notifications import email_delivered, send_email_content
 from modules.push.service import app_url_path, send_employee_push
+
+logger = logging.getLogger(__name__)
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -96,7 +99,9 @@ def _shift_summary_lines(shifts: list[dict[str, Any]]) -> list[str]:
         start = str(shift.get("start_time") or "")[:5]
         end = str(shift.get("end_time") or "")[:5]
         role = shift.get("role_label") or "Shift"
-        lines.append(f"{day} {shift_date.strftime('%d %b')}: {start}–{end} ({role})")
+        site = str(shift.get("site_name") or "").strip()
+        site_suffix = f" · {site}" if site else ""
+        lines.append(f"{day} {shift_date.strftime('%d %b')}: {start}–{end} ({role}){site_suffix}")
     return lines
 
 
@@ -114,7 +119,7 @@ def notify_rota_published(
     resend: bool = False,
     employee_ids: list[int] | None = None,
 ) -> dict[str, int | str]:
-    """Email and push staff — all on first publish, only affected employees on updates."""
+    """Email, push, and SMS staff — all on first publish, only affected employees on updates."""
     import time
 
     from admin_service import get_tenant_profile, tenant_notification_delivery_enabled
@@ -143,6 +148,7 @@ def notify_rota_published(
             "mode": "resend" if resend else ("update" if is_update else "initial"),
             "emails_sent": 0,
             "emails_skipped": 0,
+            "sms_sent": 0,
             "pushes_sent": 0,
             "employees_notified": 0,
             "employees_unchanged": unchanged,
@@ -161,6 +167,7 @@ def notify_rota_published(
             "mode": "resend" if resend else ("update" if is_update else "initial"),
             "emails_sent": 0,
             "emails_skipped": len(notify_map),
+            "sms_sent": 0,
             "pushes_sent": 0,
             "employees_notified": 0,
             "employees_unchanged": len({int(s["employee_id"]) for s in shifts}) - len(notify_map),
@@ -171,12 +178,25 @@ def notify_rota_published(
     tenant_name = employee_notification_from_name(tenant_id=tenant_id, conn=conn)
     week_label = _week_label(week_start)
     rota_url = app_url_path("employee.html#my-shifts")
+    sms_enabled = False
+    if delivery_enabled:
+        try:
+            from admin_service import get_notification_preferences
+            from core.sms import preference_includes_sms
+
+            rota_pref = get_notification_preferences(tenant_id=tenant_id, conn=conn)["preferences"].get(
+                "rota_published",
+                "email",
+            )
+            sms_enabled = preference_includes_sms(rota_pref)
+        except Exception:
+            logger.warning("Could not read rota SMS preference for tenant %s", tenant_id)
 
     employee_ids = list(notify_map.keys())
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, first_name, last_name, email, email_notifications_enabled
+            SELECT id, first_name, last_name, email, email_notifications_enabled, phone
             FROM employees
             WHERE tenant_id = %s AND id = ANY(%s)
             """,
@@ -184,7 +204,7 @@ def notify_rota_published(
         )
         rows = {row[0]: row for row in cur.fetchall()}
 
-    sent = skipped = pushes_sent = 0
+    sent = skipped = pushes_sent = sms_sent = 0
     skip_reasons: dict[str, int] = defaultdict(int)
     email_failures: list[dict[str, Any]] = []
     push_skip_reasons: dict[str, int] = defaultdict(int)
@@ -262,6 +282,27 @@ def notify_rota_published(
             else:
                 skip_reasons["no_valid_email"] += 1
 
+        if sms_enabled:
+            from core.sms import rota_sms_body, send_sms
+
+            mobile = row[5] if len(row) > 5 else ""
+            if str(mobile or "").strip():
+                sms = send_sms(
+                    to=str(mobile),
+                    body=rota_sms_body(
+                        tenant_name=tenant_name,
+                        week_label=week_label,
+                        shift_count=shift_count,
+                        change_kind=change_kind,
+                    ),
+                )
+                if sms.get("ok"):
+                    sms_sent += 1
+                else:
+                    skip_reasons[str(sms.get("skip_reason") or "sms_failed")] += 1
+            else:
+                skip_reasons["no_mobile"] += 1
+
         if delivery_enabled:
             if resend:
                 push_key = f"rota_resend:{resend_batch_id}:{week_start.isoformat()}:{employee_id}"
@@ -319,6 +360,7 @@ def notify_rota_published(
         "mode": "resend" if resend else ("update" if is_update else "initial"),
         "emails_sent": sent,
         "emails_skipped": skipped,
+        "sms_sent": sms_sent,
         "pushes_sent": pushes_sent,
         "employees_notified": len(notify_map),
         "employees_unchanged": unchanged_count,

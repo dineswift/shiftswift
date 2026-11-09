@@ -96,9 +96,9 @@
   --text-caption-size: 0.8125rem;
   --text-caption-weight: 500;
 
-  --text-label-size: 0.6875rem;
+  --text-label-size: 0.75rem;
   --text-label-weight: 700;
-  --text-label-tracking: 0.125em;
+  --text-label-tracking: 0.06em;
 
   --text-price-size: clamp(3rem, 4vw, 3.5rem);
   --text-price-weight: 800;
@@ -130,6 +130,39 @@ body {
   font-weight: var(--text-body-weight);
   line-height: 1.6;
   letter-spacing: 0;
+}
+
+/* Phone: 16px body so forms stay readable and iOS does not zoom inputs. */
+@media (max-width: 640px) {
+  :root {
+    --text-body-size: 1rem;
+    --text-body-size-lg: 1.0625rem;
+    --text-label-size: 0.8125rem;
+    --text-label-tracking: 0.04em;
+    --text-caption-size: 0.875rem;
+    --text-card-title-size: 1.2rem;
+  }
+}
+
+/* Tablet: slightly larger labels than the old 11px micro type. */
+@media (min-width: 641px) and (max-width: 1024px) {
+  :root {
+    --text-body-size: 0.96875rem;
+    --text-label-size: 0.75rem;
+    --text-caption-size: 0.875rem;
+    --text-card-title-size: 1.25rem;
+  }
+}
+
+/* Desktop: body and titles step up once the layout has room. */
+@media (min-width: 1280px) {
+  :root {
+    --text-body-size: 1rem;
+    --text-body-size-lg: 1.0625rem;
+    --text-label-size: 0.8125rem;
+    --text-caption-size: 0.875rem;
+    --text-card-title-size: 1.35rem;
+  }
 }
 
 h1, h2, h3, h4 {

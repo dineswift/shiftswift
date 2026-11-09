@@ -49,6 +49,7 @@ class ShiftInput(BaseModel):
     end_time: str = Field(min_length=4, max_length=5)
     role_label: str = Field(default="", max_length=80)
     notes: str = Field(default="", max_length=500)
+    punch_site_id: int | None = Field(default=None, ge=1)
 
 
 class SaveRotaRequest(BaseModel):
@@ -92,6 +93,7 @@ class TemplateUpdateRequest(BaseModel):
 class GenerateDraftRequest(BaseModel):
     template_id: int | None = Field(default=None, ge=1)
     expected_version: int | None = Field(default=None, ge=1)
+    punch_site_id: int | None = Field(default=None, ge=1)
 
 
 class RepeatShiftRule(BaseModel):
@@ -632,6 +634,7 @@ def generate_week_draft(
                 expected_version=payload.expected_version,
                 actor_username=current_user.username,
                 conn=conn,
+                punch_site_id=payload.punch_site_id,
             )
         except (RotaValidationError, RotaConflictError, ValueError) as exc:
             raise _handle_rota_errors(exc) from exc
