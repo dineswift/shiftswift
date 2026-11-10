@@ -568,7 +568,10 @@
               ? `<span class="punch-expected-shift__tag">Today’s shift</span>`
               : "";
     expectedEl.hidden = false;
-    expectedEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
+    const site = expected.site_name
+      ? ` · ${String(expected.site_name).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]))}`
+      : "";
+    expectedEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}${site}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
     const tone = onSite ? "on_site" : status || "scheduled";
     expectedEl.className = `punch-expected-shift punch-expected-shift--${tone}`;
   }

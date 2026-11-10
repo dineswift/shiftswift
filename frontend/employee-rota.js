@@ -60,7 +60,8 @@
     const first = today[0];
     const more = today.length > 1 ? ` · +${today.length - 1} more` : "";
     const role = first.role_label ? ` · ${first.role_label}` : "";
-    value.textContent = `${first.start_time}–${first.end_time}${role}${more}`;
+    const site = first.site_name ? ` · ${first.site_name}` : "";
+    value.textContent = `${first.start_time}–${first.end_time}${role}${site}${more}`;
     wrap.classList.add("employee-home-today--active");
   }
 
@@ -132,6 +133,7 @@
     const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
     const dayNum = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const role = shift.role_label ? `<p class="employee-shift-card__role">${escapeHtml(shift.role_label)}</p>` : "";
+    const site = shift.site_name ? `<p class="employee-shift-card__role">${escapeHtml(shift.site_name)}</p>` : "";
     const notes = shift.notes
       ? `<p class="employee-shift-card__notes muted">${escapeHtml(shift.notes)}</p>`
       : "";
@@ -152,6 +154,7 @@
           <div class="employee-shift-card__main">
             <p class="employee-shift-card__time">${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}</p>
             ${role}
+            ${site}
             ${notes}
             ${reminderHint}
           </div>

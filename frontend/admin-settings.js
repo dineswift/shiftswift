@@ -451,7 +451,11 @@
     cacheRegisteredAddress(values);
 
     try {
-      host.innerHTML = '<div id="tenant-profile-form-mount"></div><p id="tenant-profile-last-saved" class="settings-last-saved muted"></p>';
+      host.innerHTML = '<div id="business-logo-editor" class="business-logo-editor"></div><div id="tenant-profile-form-mount"></div><p id="tenant-profile-last-saved" class="settings-last-saved muted"></p>';
+      window.ShiftSwiftAdminWorkspace?.mountBusinessLogo?.(
+        document.getElementById("business-logo-editor"),
+        values,
+      );
       const mountHost = document.getElementById("tenant-profile-form-mount");
       const savedAt = localStorage.getItem(SAVED_AT_KEY);
       updateLastSavedLabel(savedAt);

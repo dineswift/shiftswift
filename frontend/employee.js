@@ -154,6 +154,7 @@
       }
       const employerLabel = user.employer_name || "Your employer";
       if (employerHeader) employerHeader.textContent = employerLabel;
+      paintEmployerMark(employerLabel, user.employer_logo);
       if (employerSubtitle) employerSubtitle.textContent = employerLabel;
       const displayName = localStorage.getItem("employeeDisplayName") || "Employee";
       if (displayNameEl) displayNameEl.textContent = displayName;
@@ -177,6 +178,32 @@
         }),
       );
     }
+  }
+
+  function paintEmployerMark(name, logoUri) {
+    const words = String(name || "")
+      .replace(/[^A-Za-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word && !/^(the|a|an|and)$/i.test(word));
+    const monogram = document.getElementById("topbar-brand-monogram");
+    if (monogram) {
+      monogram.textContent =
+        words.length >= 2
+          ? `${words[0][0]}${words[1][0]}`.toUpperCase()
+          : (words[0] || "HR").slice(0, 2).toUpperCase();
+    }
+    const logo = document.getElementById("topbar-brand-logo");
+    const mark = document.getElementById("topbar-brand-mark");
+    const src = String(logoUri || "").trim();
+    if (logo) {
+      if (src) {
+        logo.src = src;
+        logo.hidden = false;
+      } else {
+        logo.hidden = true;
+      }
+    }
+    mark?.classList.toggle("has-logo", Boolean(src));
   }
 
   function usernameDisplayFallback(username) {

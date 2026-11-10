@@ -85,7 +85,7 @@
     <meta name="description" content="View payslips, documents, shifts, and clock in from your phone." />
     <title>ShiftSwift HR | Employee Portal</title>
     <link rel="manifest" href="./employee-manifest.webmanifest?v=8" />
-    <link rel="stylesheet" href="./styles.css?v=admin-v197" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v209" />
     <link rel="stylesheet" href="./employee-mobile-polish.css?v=5" />
   </head>
   <body class="employee-portal">
@@ -164,8 +164,9 @@
                 src="./assets/shiftswift-employee-app-icon-192.png?v=brandkit-v6"
                 alt=""
               />
-              <span class="topbar-brand__venue" aria-hidden="true">
-                <svg class="admin-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/><path d="M9 10h.01M15 10h.01M12 10h.01"/></svg>
+              <span class="topbar-brand__venue topbar-brand__mark" id="topbar-brand-mark" aria-hidden="true">
+                <img id="topbar-brand-logo" alt="" hidden />
+                <span class="topbar-brand__monogram" id="topbar-brand-monogram">HR</span>
               </span>
               <span class="topbar-brand__text">
                 <span class="topbar-brand__name" id="topbar-employer-name">Employee portal</span>
@@ -667,7 +668,7 @@
     <script src="./admin-icons.js?v=2"></script>
     <script src="./employee-mobile.js?v=8"></script>
     <script src="./action-feedback.js?v=4"></script>
-    <script src="./employee.js?v=12"></script>
+    <script src="./employee.js?v=13"></script>
     <script>
       (function () {
         if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
@@ -675,9 +676,9 @@
         document.write('<script src="./portal-notifications.js?v=4"><\/script>');
       })();
     </script>
-    <script src="./employee-time-punch.js?v=17"></script>
+    <script src="./employee-time-punch.js?v=18"></script>
     <script src="./employee-timesheet.js?v=2"></script>
-    <script src="./employee-rota.js?v=10"></script>
+    <script src="./employee-rota.js?v=11"></script>
     <script src="./employee-shift-reminders.js?v=4"></script>
     <script src="./employee-documents.js?v=7"></script>
     <script src="./employee-notes.js?v=2"></script>

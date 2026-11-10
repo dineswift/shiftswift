@@ -1170,6 +1170,16 @@ def verify_auth(current_user: Annotated[AuthUser, Depends(get_current_user)]) ->
     try:
         if current_user.role == "employee":
             result["employer_name"] = tenant_display_name(tenant_id=tenant_id, conn=conn)
+            from core.schema import table_columns
+
+            if "logo_data_uri" in table_columns(conn, "tenants"):
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT logo_data_uri FROM tenants WHERE id = %s",
+                        (tenant_id,),
+                    )
+                    logo_row = cur.fetchone()
+                result["employer_logo"] = logo_row[0] if logo_row and logo_row[0] else None
             display_name, first_name = employee_display_name(
                 tenant_id=tenant_id,
                 username=current_user.username,

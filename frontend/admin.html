@@ -75,9 +75,9 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v208" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v210" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=4" />
-    <link rel="stylesheet" href="./admin-mobile-polish.css?v=23" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=24" />
   </head>
   <body class="admin-portal">
     <script>
@@ -245,18 +245,22 @@
               <span class="sidebar-toggle__bar" aria-hidden="true"></span>
               <span class="sidebar-toggle__bar" aria-hidden="true"></span>
             </button>
-            <a class="topbar-brand" href="#overview">
+            <div class="topbar-brand">
               <img
                 class="topbar-brand__logo app-mark app-mark--chrome"
                 src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6"
                 alt=""
               />
-              <span class="topbar-brand__venue" data-nav-icon="building" aria-hidden="true"></span>
-              <span class="topbar-brand__text">
+              <label class="topbar-brand__venue topbar-brand__mark" id="topbar-brand-mark" title="Change logo">
+                <img id="topbar-brand-logo" alt="" hidden />
+                <span class="topbar-brand__monogram" id="topbar-brand-monogram">HR</span>
+                <input id="topbar-brand-logo-input" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Change business logo" />
+              </label>
+              <a class="topbar-brand__text" href="#overview">
                 <span class="topbar-brand__name" id="topbar-business-name">ShiftSwift HR</span>
                 <span class="topbar-brand__app muted">Admin</span>
-              </span>
-            </a>
+              </a>
+            </div>
           </div>
           <div class="topbar-tools">
             <button type="button" class="topbar-icon-btn" id="topbar-alerts-btn" aria-label="Notifications">
@@ -264,12 +268,12 @@
               <span class="topbar-icon-btn__badge" id="topbar-alerts-badge" hidden>0</span>
             </button>
             <button type="button" class="topbar-avatar-btn topbar-avatar-btn--mobile" id="topbar-mobile-avatar" aria-label="Account and more">
-              <span class="topbar-user-menu__avatar" id="topbar-mobile-avatar-initials" aria-hidden="true">HR</span>
+              <img class="topbar-user-menu__avatar" id="topbar-mobile-avatar-initials" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6" alt="" />
             </button>
             <button type="button" class="btn ghost btn-sm topbar-signout-btn topbar-signout-btn--mobile" data-sign-out>Sign out</button>
             <details class="topbar-user-menu topbar-user-menu--desktop">
               <summary class="topbar-user-menu__trigger" aria-label="Account menu">
-                <span class="topbar-user-menu__avatar" aria-hidden="true">HR</span>
+                <img class="topbar-user-menu__avatar" src="./assets/shiftswift-hr-app-icon-192.png?v=brandkit-v6" alt="" />
               </summary>
               <div class="topbar-user-menu__panel">
                 <p class="topbar-user-menu__label muted" id="topbar-user-label">Admin account</p>
@@ -2636,12 +2640,13 @@
         <dialog id="punch-export-dialog" class="punch-export-dialog">
           <form method="dialog" class="punch-export-dialog__card">
             <header class="punch-export-dialog__head">
-              <h3>Export punch data</h3>
-              <p class="muted">Choose a date range and format for payroll or your records.</p>
+              <h3>Export clock in and clock out</h3>
+              <p class="muted">Daily rows, then week, month, and overall totals for the dates you choose.</p>
             </header>
             <div class="punch-export-dialog__presets" role="group" aria-label="Quick ranges">
               <button type="button" class="btn outline btn-sm" data-punch-export-preset="today">Today</button>
               <button type="button" class="btn outline btn-sm" data-punch-export-preset="week">This week</button>
+              <button type="button" class="btn outline btn-sm" data-punch-export-preset="month">This month</button>
               <button type="button" class="btn outline btn-sm" data-punch-export-preset="last-month">Last month</button>
               <button type="button" class="btn outline btn-sm" data-punch-export-preset="custom">Custom range</button>
             </div>
@@ -2651,8 +2656,9 @@
               <label class="edit-field" data-span="2">
                 <span class="edit-label">Format</span>
                 <select id="punch-export-format">
-                  <option value="csv">Punch log CSV (every clock in/out)</option>
-                  <option value="hours-pdf">Working hours PDF (for accountant)</option>
+                  <option value="hours-csv">Hours CSV — daily, weekly and monthly</option>
+                  <option value="hours-pdf">Hours PDF — daily, weekly and monthly</option>
+                  <option value="csv">Punch log CSV — every clock event</option>
                 </select>
               </label>
               <label class="edit-field"><span class="edit-label">Employee</span><select id="punch-export-employee"><option value="">All employees</option></select></label>
@@ -3829,8 +3835,8 @@
     <script src="./action-feedback.js?v=4"></script>
     <script src="./admin-shared.js?v=admin-v57"></script>
     <script src="./passkey-auth.js?v=7"></script>
-    <script src="./admin-settings.js?v=44"></script>
-    <script src="./admin-workspace.js?v=admin-v36"></script>
+    <script src="./admin-settings.js?v=45"></script>
+    <script src="./admin-workspace.js?v=admin-v38"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=37"></script>
     <script src="./admin-employees.js?v=62"></script>
@@ -3846,7 +3852,7 @@
     <script src="./admin-templates.js?v=admin-v14"></script>
     <script src="./admin-global-documents.js?v=3"></script>
     <script src="./native-geolocation.js?v=2"></script>
-    <script src="./admin-time-punch.js?v=40"></script>
+    <script src="./admin-time-punch.js?v=41"></script>
     <script src="./admin-rota.js?v=52"></script>
     <script src="./admin-leave.js?v=admin-v15"></script>
     <script src="./admin-profile-changes.js?v=4"></script>

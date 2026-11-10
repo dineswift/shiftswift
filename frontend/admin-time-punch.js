@@ -2985,21 +2985,28 @@
     }
   }
 
+  async function exportHoursFile(kind, period = null, exportFilters = {}) {
+    const resolved = period || exportPeriodDates();
+    const params = new URLSearchParams({
+      date_from: resolved.date_from,
+      date_to: resolved.date_to,
+    });
+    if (exportFilters.employee_id) params.set("employee_id", exportFilters.employee_id);
+    if (exportFilters.site_id) params.set("site_id", exportFilters.site_id);
+    const extension = kind === "pdf" ? "pdf" : "csv";
+    await downloadAuthenticated(
+      `/admin/time-punch/hours-report.${extension}?${params.toString()}`,
+      `clock-hours-${resolved.date_from}-to-${resolved.date_to}.${extension}`,
+    );
+    showPunchNote(
+      `Hours ${extension.toUpperCase()} downloaded for ${resolved.date_from} to ${resolved.date_to}.`,
+      "ok",
+    );
+  }
+
   async function exportHoursPdf(period = null) {
     try {
-      const resolved = period || exportPeriodDates();
-      const params = new URLSearchParams({
-        date_from: resolved.date_from,
-        date_to: resolved.date_to,
-      });
-      await downloadAuthenticated(
-        `/admin/time-punch/hours-report.pdf?${params.toString()}`,
-        `working-hours-${resolved.date_from}-to-${resolved.date_to}.pdf`,
-      );
-      showPunchNote(
-        `Hours PDF downloaded for ${resolved.date_from} to ${resolved.date_to}. Send this to your accountant.`,
-        "ok",
-      );
+      await exportHoursFile("pdf", period, readExportFilterValues());
     } catch (error) {
       showPunchNote(error.message || "Hours PDF export failed.", "error");
     }
@@ -3031,6 +3038,9 @@
     }
     if (preset === "week") {
       return { date_from: mondayIso(), date_to: todayIso() };
+    }
+    if (preset === "month") {
+      return { date_from: firstOfMonthIso(), date_to: todayIso() };
     }
     if (preset === "last-month") {
       return previousCalendarMonthRange();
@@ -3111,11 +3121,15 @@
       return;
     }
     $("punch-export-dialog")?.close();
-    if (format === "hours-pdf") {
-      await exportHoursPdf(range);
+    const exportFilters = readExportFilterValues();
+    if (format === "hours-pdf" || format === "hours-csv") {
+      try {
+        await exportHoursFile(format === "hours-pdf" ? "pdf" : "csv", range, exportFilters);
+      } catch (error) {
+        showPunchNote(error.message || "Export failed.", "error");
+      }
       return;
     }
-    const exportFilters = readExportFilterValues();
     try {
       const params = new URLSearchParams({
         date_from: range.date_from,
@@ -3189,8 +3203,16 @@
       tab.addEventListener("click", () => setActiveTab(tab.dataset.punchTab));
     });
 
-    $("punch-header-export-btn")?.addEventListener("click", () => openExportDialog("week"));
-    $("punch-export-hours-pdf-btn")?.addEventListener("click", () => openExportDialog("last-month"));
+    $("punch-header-export-btn")?.addEventListener("click", () => {
+      openExportDialog("week");
+      const formatEl = $("punch-export-format");
+      if (formatEl) formatEl.value = "hours-csv";
+    });
+    $("punch-export-hours-pdf-btn")?.addEventListener("click", () => {
+      openExportDialog("month");
+      const formatEl = $("punch-export-format");
+      if (formatEl) formatEl.value = "hours-pdf";
+    });
     $("punch-export-last-month-pdf-btn")?.addEventListener("click", () => {
       openExportDialog("last-month");
       const formatEl = $("punch-export-format");
@@ -3268,7 +3290,11 @@
       await loadPunches();
     });
 
-    $("punch-export-csv-btn")?.addEventListener("click", () => openExportDialog("week", "log"));
+    $("punch-export-csv-btn")?.addEventListener("click", () => {
+      openExportDialog("week", "log");
+      const formatEl = $("punch-export-format");
+      if (formatEl) formatEl.value = "hours-csv";
+    });
     $("punch-preview-export-btn")?.addEventListener("click", () => {
       if (punchHistoryDate === todayIso()) {
         openExportDialog("today", "daily");
@@ -3332,7 +3358,7 @@
     $("punch-export-cancel")?.addEventListener("click", () => $("punch-export-dialog")?.close());
     $("punch-export-dialog")?.addEventListener("close", () => {
       const formatEl = $("punch-export-format");
-      if (formatEl) formatEl.value = "csv";
+      if (formatEl) formatEl.value = "hours-csv";
     });
     $("punch-export-dialog")?.querySelector("form")?.addEventListener("submit", (event) => {
       void submitExportDialog(event);

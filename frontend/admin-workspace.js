@@ -218,9 +218,140 @@
     localStorage.setItem("adminFirstName", signatoryName.split(/\s+/)[0] || signatoryName);
   }
 
+  function brandMonogram(name) {
+    const words = String(name || "")
+      .replace(/[^A-Za-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word && !/^(the|a|an|and)$/i.test(word));
+    if (words.length >= 2) return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    const word = words[0] || "HR";
+    return word.slice(0, 2).toUpperCase();
+  }
+
+  function paintBusinessMark(name, logoUri) {
+    const mark = document.getElementById("topbar-brand-mark");
+    const monogram = document.getElementById("topbar-brand-monogram");
+    const logo = document.getElementById("topbar-brand-logo");
+    if (monogram) monogram.textContent = brandMonogram(name);
+    const src = String(logoUri || "").trim();
+    if (logo) {
+      if (src) {
+        logo.src = src;
+        logo.hidden = false;
+      } else {
+        logo.removeAttribute("src");
+        logo.hidden = true;
+      }
+    }
+    mark?.classList.toggle("has-logo", Boolean(src));
+    document.querySelectorAll("[data-business-logo-preview]").forEach((img) => {
+      if (src) {
+        img.src = src;
+        img.hidden = false;
+      } else {
+        img.hidden = true;
+      }
+    });
+    document.querySelectorAll("[data-business-logo-initials]").forEach((el) => {
+      el.textContent = brandMonogram(name);
+      el.hidden = Boolean(src);
+    });
+  }
+
+  function readLogoFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !String(file.type || "").startsWith("image/")) {
+        reject(new Error("Choose a PNG or JPEG logo."));
+        return;
+      }
+      const image = new Image();
+      const url = URL.createObjectURL(file);
+      image.onload = () => {
+        const size = 256;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const scale = Math.max(size / image.width, size / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL("image/jpeg", 0.86));
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Could not read that image."));
+      };
+      image.src = url;
+    });
+  }
+
+  async function saveBusinessLogo(dataUri) {
+    const res = await apiFetch("/admin/tenant-profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ logo_data_uri: dataUri || "" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = data.detail;
+      throw new Error(typeof detail === "string" ? detail : "Could not save the logo.");
+    }
+    paintBusinessMark(data.trading_name || data.name || localStorage.getItem("businessName"), data.logo_data_uri);
+    return data;
+  }
+
+  function mountBusinessLogo(host, profile) {
+    if (!host) return;
+    const name = profile?.trading_name || profile?.name || localStorage.getItem("businessName") || "Business";
+    host.innerHTML = `
+      <span class="topbar-brand__mark business-logo-editor__mark${profile?.logo_data_uri ? " has-logo" : ""}" aria-hidden="true">
+        <img data-business-logo-preview alt="" hidden />
+        <span class="topbar-brand__monogram" data-business-logo-initials>${brandMonogram(name)}</span>
+      </span>
+      <span class="business-logo-editor__copy">
+        <strong>Business logo</strong>
+        <span class="muted">Shown beside the business name. Square images look best.</span>
+      </span>
+      <span class="business-logo-editor__actions">
+        <button type="button" class="btn outline btn-sm" id="business-logo-change">Change logo</button>
+        <button type="button" class="btn ghost btn-sm" id="business-logo-clear">Use initials</button>
+      </span>`;
+    host.querySelector("#business-logo-change")?.addEventListener("click", () => {
+      document.getElementById("topbar-brand-logo-input")?.click();
+    });
+    host.querySelector("#business-logo-clear")?.addEventListener("click", () => {
+      void saveBusinessLogo("").catch((error) => {
+        window.alert(error.message || "Could not remove the logo.");
+      });
+    });
+    paintBusinessMark(name, profile?.logo_data_uri);
+  }
+
+  function bindBusinessLogoInput() {
+    const input = document.getElementById("topbar-brand-logo-input");
+    if (!input || input.dataset.bound === "1") return;
+    input.dataset.bound = "1";
+    paintBusinessMark(localStorage.getItem("businessName") || "ShiftSwift HR");
+    input.addEventListener("change", () => {
+      const file = input.files?.[0];
+      input.value = "";
+      if (!file) return;
+      void readLogoFile(file)
+        .then((dataUri) => saveBusinessLogo(dataUri))
+        .catch((error) => {
+          window.alert(error.message || "Could not save the logo.");
+        });
+    });
+  }
+
   function updateTopbarMeta(data) {
     const businessName = data.trading_name || data.tenant_name || "ShiftSwift HR";
     localStorage.setItem("businessName", businessName);
+    paintBusinessMark(businessName, data.logo_data_uri);
     document.title = `${businessName} | Admin Console`;
     const topbarName = document.getElementById("topbar-business-name");
     const userLabel = document.getElementById("topbar-user-label");
@@ -234,15 +365,8 @@
       topbarName.textContent = businessName;
     }
     if (userLabel) userLabel.textContent = displayName;
-    const initials = String(displayName)
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
     avatars.forEach((avatar) => {
-      avatar.textContent = initials || "HR";
+      avatar.setAttribute("aria-label", displayName || "Admin");
     });
   }
 
@@ -892,6 +1016,7 @@
   });
 
   async function bootWorkspace() {
+    bindBusinessLogoInput();
     if (window.__SSHR_BUNDLED_NATIVE_BOOT) return;
     await ensureNativeAdminSession();
     loadOverview();
@@ -909,5 +1034,6 @@
     loadOverview,
     loadTrialBanner,
     overviewRenderIncomplete,
+    mountBusinessLogo,
   };
 })();

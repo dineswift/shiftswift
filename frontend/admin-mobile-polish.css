@@ -122,11 +122,9 @@
   body:has(#mobile-tab-bar) #topbar-mobile-avatar-initials {
     width: 32px;
     height: 32px;
-    font-size: 0.72rem;
-    font-weight: 700;
-    background: #e1f5ee;
-    color: #0f6e56;
-    border: 1.5px solid rgba(15, 110, 86, 0.18);
+    object-fit: cover;
+    background: transparent;
+    border: none;
   }
 
   body:has(#mobile-tab-bar) .mobile-subscription-card {

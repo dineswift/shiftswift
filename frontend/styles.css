@@ -2095,13 +2095,79 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
 
 .topbar-brand__venue {
   display: none;
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  position: relative;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
   place-items: center;
-  border-radius: 10px;
-  background: #f3eee6;
-  color: #854f0b;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #1b8f73 0%, #0b5a46 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+}
+
+.topbar-brand__monogram {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.topbar-brand__mark img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.topbar-brand__mark.has-logo {
+  background: #fff;
+  box-shadow: none;
+  border: 1px solid var(--card-border);
+}
+
+.topbar-brand__mark input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.business-logo-editor .topbar-brand__mark {
+  display: grid;
+  cursor: default;
+}
+
+.business-logo-editor {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.business-logo-editor__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.business-logo-editor__copy strong {
+  color: var(--green-900);
+}
+
+.business-logo-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .topbar-brand__venue .admin-icon,
@@ -2338,6 +2404,7 @@ body.admin-portal.admin-clock-disabled .mobile-more-link--clock-stub {
   color: var(--green-800);
   font-size: 0.72rem;
   font-weight: 800;
+  object-fit: cover;
 }
 
 .topbar-user-menu__panel {

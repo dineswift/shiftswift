@@ -641,17 +641,64 @@ def export_punches_csv(
     )
 
 
+@admin_router.get("/hours-report.csv")
+def export_hours_report_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    date_from: str | None = None,
+    date_to: str | None = None,
+    employee_id: int | None = None,
+    site_id: int | None = None,
+) -> Response:
+    from modules.payroll_export.service import build_hours_csv
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    filters = _punch_filters(
+        employee_id=employee_id,
+        site_id=site_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    conn = get_connection()
+    try:
+        csv_body = build_hours_csv(
+            tenant_id=tenant_id,
+            conn=conn,
+            from_date=filters.get("date_from"),
+            to_date=filters.get("date_to"),
+            employee_id=filters.get("employee_id"),
+            punch_site_id=filters.get("punch_site_id"),
+        )
+    finally:
+        conn.close()
+    start = filters.get("date_from") or date.today().replace(day=1)
+    end = filters.get("date_to") or date.today()
+    filename = f"clock-hours-{start.isoformat()}-to-{end.isoformat()}.csv"
+    return Response(
+        content=csv_body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @admin_router.get("/hours-report.pdf")
 def export_hours_report_pdf(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     date_from: str | None = None,
     date_to: str | None = None,
+    employee_id: int | None = None,
+    site_id: int | None = None,
 ) -> Response:
     from modules.payroll_export.hours_pdf import hours_report_pdf_bytes
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    filters = _punch_filters(date_from=date_from, date_to=date_to)
+    filters = _punch_filters(
+        employee_id=employee_id,
+        site_id=site_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
     conn = get_connection()
     try:
         pdf_bytes = hours_report_pdf_bytes(
@@ -659,11 +706,14 @@ def export_hours_report_pdf(
             conn=conn,
             from_date=filters.get("date_from"),
             to_date=filters.get("date_to"),
+            employee_id=filters.get("employee_id"),
+            punch_site_id=filters.get("punch_site_id"),
         )
     finally:
         conn.close()
-    period = filters.get("date_from") or date.today().replace(day=1).isoformat()
-    filename = f"working-hours-{period}.pdf"
+    start = filters.get("date_from") or date.today().replace(day=1)
+    end = filters.get("date_to") or date.today()
+    filename = f"clock-hours-{start.isoformat()}-to-{end.isoformat()}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

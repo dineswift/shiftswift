@@ -113,6 +113,7 @@ class TenantProfileUpdate(BaseModel):
     punch_time_mode: str | None = Field(default=None, pattern="^(timestamped|presence_only)$")
     rota_mode: str | None = Field(default=None, pattern="^(basic|advanced|multi_site)$")
     rota_week_start_day: int | None = Field(default=None, ge=0, le=6)
+    logo_data_uri: str | None = Field(default=None, max_length=400_000)
 
 
 class PayrollHoursEmailRequest(BaseModel):

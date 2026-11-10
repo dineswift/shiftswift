@@ -46,6 +46,7 @@ TENANT_PROFILE_FIELDS = (
     "punch_time_mode",
     "rota_mode",
     "rota_week_start_day",
+    "logo_data_uri",
 )
 
 NOTIFICATION_PREF_DEFAULTS: dict[str, str] = {
@@ -210,6 +211,13 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
         alias=None,
         null_sql="NULL AS registered_longitude",
     )
+    logo_col = column_expr(
+        conn,
+        table="tenants",
+        column="logo_data_uri",
+        alias=None,
+        null_sql="NULL AS logo_data_uri",
+    )
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -223,7 +231,8 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
                    {rota_mode_col}, {rota_advanced_col}, {rota_multi_col}, {rota_week_start_col},
                    {punch_time_mode_col},
                    {crm_addon_col}, {crm_addon_monthly_col}, {ai_document_addon_col}, {ai_document_monthly_col},
-                   {registered_lat_col}, {registered_lng_col}
+                   {registered_lat_col}, {registered_lng_col},
+                   {logo_col}
             FROM tenants WHERE id = %s
             """,
             (tenant_id,),
@@ -266,6 +275,7 @@ def get_tenant_profile(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             "ai_document_addon_monthly_gbp": float(row[30]) if row[30] is not None else None,
             "registered_latitude": float(row[31]) if row[31] is not None else None,
             "registered_longitude": float(row[32]) if row[32] is not None else None,
+            "logo_data_uri": str(row[33]) if row[33] else None,
         }
     return attach_rota_mode_fields(profile, tenant_id=tenant_id, conn=conn)
 
@@ -287,6 +297,17 @@ def update_tenant_profile(
     if "registered_latitude" not in tenant_cols:
         allowed.pop("registered_latitude", None)
         allowed.pop("registered_longitude", None)
+    if "logo_data_uri" in allowed:
+        if "logo_data_uri" not in tenant_cols:
+            allowed.pop("logo_data_uri", None)
+        else:
+            raw = str(allowed.get("logo_data_uri") or "").strip()
+            if not raw:
+                allowed["logo_data_uri"] = None
+            elif not raw.startswith("data:image/") or ";base64," not in raw:
+                raise ValueError("Logo must be a PNG or JPEG image.")
+            else:
+                allowed["logo_data_uri"] = raw
 
     parsed_lat: float | None = None
     parsed_lng: float | None = None
@@ -1503,6 +1524,7 @@ def admin_overview(*, tenant_id: int, conn: Any) -> dict[str, Any]:
     return {
         "tenant_name": profile["name"],
         "trading_name": profile.get("trading_name"),
+        "logo_data_uri": profile.get("logo_data_uri"),
         "signatory_name": profile.get("signatory_name"),
         "signatory_email": profile.get("signatory_email"),
         "billing_email": profile.get("billing_email"),
