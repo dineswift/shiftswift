@@ -5,7 +5,8 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
+from datetime import time
+from unittest.mock import MagicMock, patch
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -16,6 +17,7 @@ from modules.time_punch.service import (
     clean_admin_punch_note,
     haversine_meters,
     resolve_admin_punched_at,
+    pick_shift_site_row,
     preview_geofence,
     record_punch,
     QR_PROXIMITY_METERS,
@@ -24,6 +26,39 @@ from modules.time_punch.service import (
     review_punch,
     scan_site_token,
 )
+
+
+def test_pick_shift_site_uses_open_shift_and_ignores_finished_ones() -> None:
+    morning = (1, "Stafford", time(9, 0), time(17, 0))
+    evening = (2, "Newport", time(18, 0), time(23, 0))
+    assert pick_shift_site_row([morning, evening], 10 * 60)[0] == 1
+    assert pick_shift_site_row([morning, evening], 19 * 60)[0] == 2
+    assert pick_shift_site_row([morning], 22 * 60) is None
+    assert pick_shift_site_row([morning], 7 * 60 + 30)[0] == 1
+
+
+def test_preview_uses_shift_site_instead_of_nearest() -> None:
+    conn = MagicMock()
+    assigned = {
+        "id": 2,
+        "name": "Stafford",
+        "latitude": 52.806,
+        "longitude": -2.117,
+        "radius_meters": 150,
+    }
+    with patch("modules.time_punch.service.shift_site_for_punch", return_value=assigned):
+        result = preview_geofence(
+            tenant_id=1,
+            employee_id=1,
+            latitude=53.4794,
+            longitude=-2.2451,
+            accuracy_meters=10.0,
+            conn=conn,
+        )
+    assert result["assigned_from_shift"] is True
+    assert result["site_name"] == "Stafford"
+    assert result["within_geofence"] is False
+    assert "shift" in result["message"].lower()
 
 
 def test_haversine_same_point_is_zero() -> None:
@@ -36,7 +71,8 @@ def test_haversine_known_distance_roughly() -> None:
     assert 900 < distance < 1100
 
 
-def test_record_punch_rejects_when_outside_geofence() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_record_punch_rejects_when_outside_geofence(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -68,7 +104,8 @@ def test_record_punch_rejects_when_outside_geofence() -> None:
         assert "150m" in str(exc)
 
 
-def test_preview_geofence_outside() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_preview_geofence_outside(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -90,7 +127,8 @@ def test_preview_geofence_outside() -> None:
     assert result["radius_meters"] == 100
 
 
-def test_preview_geofence_inside() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_preview_geofence_inside(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -140,7 +178,8 @@ def test_scan_site_token_rejects_other_tenant() -> None:
         assert "another business" in str(exc)
 
 
-def test_record_punch_via_site_token_inserts_qr_punch() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_record_punch_via_site_token_inserts_qr_punch(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor

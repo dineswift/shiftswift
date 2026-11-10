@@ -15458,6 +15458,8 @@ body.rota-week-readonly .rota-builder-hint {
 }
 
 .punch-expected-shift {
+  display: grid;
+  gap: 2px;
   margin: 0 0 1rem;
   padding: 0.85rem 1rem;
   border-radius: var(--radius-lg);
@@ -15465,6 +15467,11 @@ body.rota-week-readonly .rota-builder-hint {
   border: 1px solid var(--green-300);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.punch-expected-shift__place {
+  font-weight: 700;
+  color: var(--green-900);
 }
 
 .punch-expected-shift__tag {
@@ -15660,6 +15667,14 @@ body.rota-week-readonly .rota-builder-hint {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--gray-700);
+  line-height: 1.25;
+}
+
+.employee-shift-card__site {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green-800, #166534);
   line-height: 1.25;
 }
 

@@ -42,6 +42,14 @@
   const SITE_SCAN_KEY = "punchSiteScan";
   const SITE_SCAN_TTL_MS = 10 * 60 * 1000;
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   let pendingChallenge = null;
   let deferredInstallPrompt = null;
   let punchInFlight = false;
@@ -564,23 +572,30 @@
       if (expected) {
         expectedShiftEl.hidden = false;
         const status = expected.attendance_status;
+        const siteName = expected.site_name ? escapeHtml(expected.site_name) : "";
+        const role = expected.role_label ? escapeHtml(expected.role_label) : "";
         const statusNote =
           status === "late"
             ? "You clocked in late for today’s shift."
             : status === "no_show"
-              ? "You missed today’s scheduled shift — contact your manager."
+              ? "You missed today’s scheduled shift. Contact your manager."
               : status === "awaiting"
-                ? "You’re on the rota today — remember to clock in."
+                ? siteName
+                  ? `Today’s shift is at ${siteName}. Clock in there during your shift, or at the nearest site outside those hours.`
+                  : "You are on the rota today. Clock in at the nearest site."
                 : status === "attended"
                   ? "Today’s shift is recorded."
-                  : `Today: ${expected.start_time}–${expected.end_time}${expected.role_label ? ` (${expected.role_label})` : ""}.`;
+                  : siteName
+                    ? `Today ${expected.start_time}–${expected.end_time} at ${siteName}.`
+                    : `Today ${expected.start_time}–${expected.end_time}.`;
         const tag =
           status === "no_show"
             ? `<span class="punch-expected-shift__tag">Missed shift</span>`
             : status === "late"
               ? `<span class="punch-expected-shift__tag">Late</span>`
               : "";
-        expectedShiftEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
+        const place = siteName ? `<span class="punch-expected-shift__place">${siteName}</span>` : "";
+        expectedShiftEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${role ? ` · ${role}` : ""}</strong>${place}<span class="punch-expected-shift__note">${statusNote}</span>`;
         expectedShiftEl.className = `punch-expected-shift punch-expected-shift--${status || "scheduled"}`;
       } else {
         expectedShiftEl.hidden = true;
@@ -595,7 +610,8 @@
                 weekday: "short",
                 day: "numeric",
               });
-              return `<li><strong>${day}</strong> ${s.start_time}–${s.end_time}${s.role_label ? ` · ${s.role_label}` : ""}</li>`;
+              const site = s.site_name ? ` · ${escapeHtml(s.site_name)}` : "";
+              return `<li><strong>${day}</strong> ${s.start_time}–${s.end_time}${s.role_label ? ` · ${escapeHtml(s.role_label)}` : ""}${site}</li>`;
             })
             .join("")
         : "<li class=\"muted\">No published shifts this week yet.</li>";
@@ -737,9 +753,11 @@
       const accuracyNote =
         data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
       if (geofenceWithin) {
-        const distance = data.distance_meters != null ? `${Math.round(data.distance_meters)}m from site` : "Within site";
+        const site = data.site_name || "your site";
+        const where = data.assigned_from_shift ? `${site} for your shift` : site;
+        const distance = data.distance_meters != null ? ` · ${Math.round(data.distance_meters)}m from the site` : "";
         const limit = data.qr_proximity ? ` · QR limit ${qrProximityMeters}m` : "";
-        setGeofenceStatus(`${distance}${limit}${accuracyNote}`, "ok");
+        setGeofenceStatus(`At ${where}${distance}${limit}.${accuracyNote}`, "ok");
         maybePromptPushNotifications();
       } else {
         setGeofenceStatus(`${data.message}${accuracyNote}`, "warn");

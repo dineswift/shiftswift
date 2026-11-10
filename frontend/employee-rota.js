@@ -12,6 +12,10 @@
   let loadInFlight = null;
   let reminderConfig = { minutes_before_start: 10, minutes_before_end: 10 };
 
+  function localIso(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -50,7 +54,7 @@
     const value = document.getElementById("employee-home-today-value");
     if (!wrap || !value) return;
     wrap.hidden = false;
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = localIso();
     const today = (items || []).filter((item) => item.shift_date === todayIso);
     if (!today.length) {
       value.textContent = "No published shift today";
@@ -128,12 +132,12 @@
 
   function renderShiftCard(shift) {
     const date = new Date(`${shift.shift_date}T12:00:00`);
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = localIso();
     const isToday = shift.shift_date === todayIso;
     const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
     const dayNum = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const role = shift.role_label ? `<p class="employee-shift-card__role">${escapeHtml(shift.role_label)}</p>` : "";
-    const site = shift.site_name ? `<p class="employee-shift-card__role">${escapeHtml(shift.site_name)}</p>` : "";
+    const site = shift.site_name ? `<p class="employee-shift-card__site">${escapeHtml(shift.site_name)}</p>` : "";
     const notes = shift.notes
       ? `<p class="employee-shift-card__notes muted">${escapeHtml(shift.notes)}</p>`
       : "";

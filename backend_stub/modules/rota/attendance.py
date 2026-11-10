@@ -263,6 +263,30 @@ def _employee_shift_payload(row: tuple[Any, ...], *, include_site: bool) -> dict
     return payload
 
 
+def _choose_expected_shift_row(rows: list[tuple[Any, ...]], *, include_site: bool) -> tuple[Any, ...] | None:
+    """Prefer the shift whose clock-in window is open, so the card matches the site check."""
+    if not rows:
+        return None
+    if not include_site:
+        return rows[0]
+    from modules.time_punch.service import _clock_minutes, pick_shift_site_row
+
+    now_minutes = _clock_minutes(datetime.now(UK_TZ).time())
+    keyed: list[tuple[tuple[Any, ...], tuple[Any, ...]]] = []
+    for row in rows:
+        site_id = row[9] if len(row) > 9 else None
+        if site_id is None:
+            continue
+        keyed.append((row, (site_id, row[10] if len(row) > 10 else "", row[3], row[4])))
+    chosen = pick_shift_site_row([item[1] for item in keyed], now_minutes)
+    if not chosen:
+        return rows[0]
+    for row, key in keyed:
+        if key[0] == chosen[0] and key[2] == chosen[2] and key[3] == chosen[3]:
+            return row
+    return rows[0]
+
+
 def expected_shift_for_employee_on_date(
     *,
     tenant_id: int,
@@ -288,11 +312,11 @@ def expected_shift_for_employee_on_date(
               AND s.shift_date = %s
               AND w.status = 'published'
             ORDER BY s.start_time
-            LIMIT 1
             """,
             (tenant_id, employee_id, on_date),
         )
-        row = cur.fetchone()
+        rows = cur.fetchall()
+    row = _choose_expected_shift_row(rows, include_site=include_site)
     if not row:
         return None
     shift = _employee_shift_payload(row, include_site=include_site)

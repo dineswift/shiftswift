@@ -377,6 +377,9 @@ def scan_site_token(
         conn=conn,
     ):
         raise PermissionError(f"You are not assigned to punch at {site['name']}")
+    assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if assigned and int(assigned["id"]) != int(site["id"]):
+        raise PermissionError(f"Your shift is at {assigned['name']}. Clock in at that site.")
     return {
         "site_id": site["id"],
         "site_name": site["name"],
@@ -675,6 +678,103 @@ def assign_employee_to_site(
     conn.commit()
 
 
+def _clock_minutes(value: time) -> int:
+    return value.hour * 60 + value.minute
+
+
+def shift_window_covers_now(start: time, end: time, now_minutes: int) -> bool:
+    """True from 2 hours before the shift until 3 hours after it."""
+    start_m = _clock_minutes(start)
+    end_m = _clock_minutes(end)
+    open_m = start_m - 120
+    if end_m >= start_m:
+        return open_m <= now_minutes <= end_m + 180
+    return now_minutes >= open_m or now_minutes <= end_m + 180
+
+
+def _shift_in_progress(start: time, end: time, now_minutes: int) -> bool:
+    start_m = _clock_minutes(start)
+    end_m = _clock_minutes(end)
+    if end_m >= start_m:
+        return start_m <= now_minutes <= end_m
+    return now_minutes >= start_m or now_minutes <= end_m
+
+
+def pick_shift_site_row(rows: list[tuple[Any, ...]], now_minutes: int) -> tuple[Any, ...] | None:
+    """Choose the published shift site that applies now. None means any site."""
+    covering = [row for row in rows if shift_window_covers_now(row[2], row[3], now_minutes)]
+    if not covering:
+        return None
+    in_progress = [row for row in covering if _shift_in_progress(row[2], row[3], now_minutes)]
+    pool = in_progress or covering
+    return min(pool, key=lambda row: _clock_minutes(row[2]))
+
+
+def shift_site_for_punch(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    conn: Any,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    """Site on today's published shift, while that shift's clock-in window is open."""
+    from modules.rota.service import rota_shifts_have_site_column
+
+    if not rota_shifts_have_site_column(conn):
+        return None
+    current = (now or datetime.now(UK_TZ)).astimezone(UK_TZ)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT s.punch_site_id, ps.name, ps.address, ps.latitude, ps.longitude,
+                   ps.radius_meters, s.start_time, s.end_time
+            FROM rota_shifts s
+            JOIN rota_weeks w ON w.id = s.rota_week_id AND w.tenant_id = s.tenant_id
+            JOIN punch_sites ps ON ps.id = s.punch_site_id AND ps.tenant_id = s.tenant_id
+            WHERE s.tenant_id = %s
+              AND s.employee_id = %s
+              AND s.shift_date = %s
+              AND w.status = 'published'
+              AND s.punch_site_id IS NOT NULL
+              AND ps.is_active = TRUE
+            ORDER BY s.start_time
+            """,
+            (tenant_id, employee_id, current.date()),
+        )
+        rows = cur.fetchall()
+    chosen = pick_shift_site_row(
+        [(row[0], row[1], row[6], row[7]) for row in rows],
+        _clock_minutes(current.time()),
+    )
+    if not chosen:
+        return None
+    match = next(row for row in rows if row[0] == chosen[0] and row[6] == chosen[2] and row[7] == chosen[3])
+    return {
+        "id": int(match[0]),
+        "tenant_id": tenant_id,
+        "name": match[1],
+        "address": match[2] or "",
+        "latitude": float(match[3]),
+        "longitude": float(match[4]),
+        "radius_meters": int(match[5]),
+        "is_primary": False,
+        "is_active": True,
+    }
+
+
+def sites_for_clock_in(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    conn: Any,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Assigned shift site when one is open; otherwise every site the employee may use."""
+    assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if assigned:
+        return [assigned], True
+    return eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn), False
+
+
 def eligible_sites_for_employee(*, tenant_id: int, employee_id: int, conn: Any) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(
@@ -744,6 +844,9 @@ def preview_geofence(
             conn=conn,
         ):
             raise PermissionError(f"You are not assigned to punch at {site['name']}")
+        assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        if assigned and int(assigned["id"]) != int(site["id"]):
+            raise PermissionError(f"Your shift is at {assigned['name']}. Clock in at that site.")
         return evaluate_qr_proximity(
             site=site,
             latitude=latitude,
@@ -751,7 +854,7 @@ def preview_geofence(
             accuracy_meters=accuracy_meters,
         )
 
-    sites = eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    sites, assigned_shift = sites_for_clock_in(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     if not sites:
         raise LookupError("No punch sites configured for this business")
 
@@ -760,7 +863,14 @@ def preview_geofence(
     within = best_distance <= radius
     dist_int = int(round(best_distance))
     radius_int = int(radius)
-    if within:
+    if assigned_shift and within:
+        message = f"Within your shift at {best_site['name']} ({dist_int}m from site, limit {radius_int}m)."
+    elif assigned_shift:
+        message = (
+            f"Your shift is at {best_site['name']}. "
+            f"You appear to be {dist_int}m away. Move closer to clock in."
+        )
+    elif within:
         message = f"Within {best_site['name']} ({dist_int}m from site, limit {radius_int}m)."
     else:
         message = f"You appear to be {dist_int}m from {best_site['name']}. Move closer to clock in."
@@ -772,6 +882,7 @@ def preview_geofence(
         "site_id": best_site["id"],
         "radius_meters": radius_int,
         "accuracy_meters": accuracy_meters,
+        "assigned_from_shift": assigned_shift,
         "message": message,
     }
 
@@ -910,16 +1021,17 @@ def record_punch(
         conn=conn,
     )
 
-    sites = eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    sites, assigned_shift = sites_for_clock_in(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     if not sites:
         raise LookupError("No punch sites configured for this business")
 
     best_site, best_distance = _nearest_punch_site(latitude=latitude, longitude=longitude, sites=sites)
     within = best_distance <= float(best_site["radius_meters"])
     if not within:
+        place = f"your shift at {best_site['name']}" if assigned_shift else best_site["name"]
         raise PermissionError(
-            f"You must be within {best_site['radius_meters']}m of {best_site['name']} to punch "
-            f"(currently ~{int(best_distance)}m away)"
+            f"You must be within {int(best_site['radius_meters'])}m of {place} to clock in or out "
+            f"(you are about {int(best_distance)}m away)."
         )
 
     prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
@@ -985,6 +1097,9 @@ def record_punch_via_site_token(
         conn=conn,
     ):
         raise PermissionError(f"You are not assigned to punch at {site['name']}")
+    assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if assigned and int(assigned["id"]) != int(site["id"]):
+        raise PermissionError(f"Your shift is at {assigned['name']}. Clock in at that site.")
 
     proximity = evaluate_qr_proximity(
         site=site,

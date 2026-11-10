@@ -86,20 +86,33 @@
       : "punch-geofence-status";
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   function formatGeofenceMessage(data, within) {
     const site = data.site_name || "your site";
     const dist = data.distance_meters != null ? Math.round(data.distance_meters) : null;
-    const radius = data.radius_meters != null ? Number(data.radius_meters) : 25;
+    const radius = data.radius_meters != null ? Number(data.radius_meters) : null;
     const accuracy =
       data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
+    const limit = radius != null ? ` Stay within ${radius}m.` : "";
+    const away = dist != null ? `${dist}m away` : "outside the area";
 
-    if (within) {
-      const distPart = dist != null ? `${dist}m from site` : "On site";
-      return `✓ ${distPart} · within ${radius}m at ${site}.${accuracy} Tap Clock in.`;
+    if (data.assigned_from_shift) {
+      if (within) {
+        return `At ${site} for your shift${dist != null ? ` · ${dist}m from the site` : ""}.${accuracy} You can clock in.`;
+      }
+      return `Your shift is at ${site}. You are ${away}.${limit}${accuracy}`;
     }
-
-    const distPart = dist != null ? `You're ~${dist}m away` : "You're outside the site";
-    return `${distPart} from ${site} · need to be within ${radius}m to clock in or out.${accuracy}`;
+    if (within) {
+      return `At ${site}${dist != null ? ` · ${dist}m from the site` : ""}.${accuracy} You can clock in.`;
+    }
+    return `Nearest site is ${site}. You are ${away}.${limit}${accuracy}`;
   }
 
   function setSiteScanStatus(text) {
@@ -276,22 +289,18 @@
       return;
     }
     if (geofencePreview?.within_geofence) {
-      const dist =
-        geofencePreview.distance_meters != null
-          ? `${Math.round(geofencePreview.distance_meters)}m from ${geofencePreview.site_name || "site"}`
-          : `On site at ${geofencePreview.site_name || "your site"}`;
-      statusEl.textContent = `✓ ${dist} · tap Clock in below.`;
+      statusEl.textContent = "Ready to clock in";
       statusEl.className = "punch-work-state-label punch-work-state-label--ready";
       return;
     }
     if (siteScanReady && geofenceWithin) {
-      statusEl.textContent = `✓ Within ${qrProximityMeters}m of ${siteScanName}. Tap Clock in below.`;
+      statusEl.textContent = "Premises QR accepted. Tap Clock in.";
       statusEl.className = "punch-work-state-label punch-work-state-label--ready";
       return;
     }
     statusEl.textContent = siteScanReady
-      ? `Premises code accepted — move within ${qrProximityMeters}m of ${siteScanName} to clock in or out.`
-      : "Not clocked in — move on site or scan the premises QR, then stay within 40m.";
+      ? `Premises QR accepted for ${siteScanName}. Move within ${qrProximityMeters}m to clock in or out.`
+      : "Not clocked in";
     statusEl.className = "punch-work-state-label muted";
   }
 
@@ -543,20 +552,30 @@
     }
     const status = expected.attendance_status;
     const onSite = Boolean(options.onSite);
+    const previewSite = geofencePreview?.site_name ? escapeHtml(geofencePreview.site_name) : "";
+    const shiftSite = expected.site_name ? escapeHtml(expected.site_name) : "";
+    const assigned = Boolean(geofencePreview?.assigned_from_shift);
+    const placeName = (assigned && previewSite) || shiftSite || previewSite;
+    const range = options.radiusMeters ? `${options.radiusMeters}m` : "the site area";
+    const locationNote = onSite
+      ? assigned
+        ? "Your shift is here. Tap Clock in."
+        : "Nearest site. Tap Clock in."
+      : assigned
+        ? `Move within ${range} of this site.`
+        : shiftSite && previewSite && shiftSite !== previewSite
+          ? `Nearest site right now is ${previewSite}.`
+          : shiftSite
+            ? `Clock in within ${range} of this site.`
+            : "Clock in at the nearest site. A premises QR still needs you close to that site.";
     let statusNote =
       status === "late"
         ? "You clocked in late for today’s shift."
         : status === "no_show"
-          ? "You missed today’s scheduled shift — contact your manager."
-          : status === "awaiting"
-            ? onSite
-              ? "You’re on site — tap Clock in below."
-              : "You’re on the rota today — move within range of the site to clock in."
-            : status === "attended"
-              ? "Today’s shift is recorded."
-              : onSite
-                ? "You’re on site — tap Clock in below."
-                : `Move within ${options.radiusMeters || 40}m of the site to clock in. A premises QR still needs you that close.`;
+          ? "You missed today’s scheduled shift. Contact your manager."
+          : status === "attended"
+            ? "Today’s shift is recorded."
+            : locationNote;
     const tag =
       status === "no_show"
         ? `<span class="punch-expected-shift__tag">Missed shift</span>`
@@ -568,10 +587,9 @@
               ? `<span class="punch-expected-shift__tag">Today’s shift</span>`
               : "";
     expectedEl.hidden = false;
-    const site = expected.site_name
-      ? ` · ${String(expected.site_name).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]))}`
-      : "";
-    expectedEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}${site}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
+    const place = placeName ? `<span class="punch-expected-shift__place">${placeName}</span>` : "";
+    const role = expected.role_label ? ` · ${escapeHtml(expected.role_label)}` : "";
+    expectedEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${role}</strong>${place}<span class="punch-expected-shift__note">${statusNote}</span>`;
     const tone = onSite ? "on_site" : status || "scheduled";
     expectedEl.className = `punch-expected-shift punch-expected-shift--${tone}`;
   }
