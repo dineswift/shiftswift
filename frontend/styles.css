@@ -19653,6 +19653,23 @@ body.rota-week-readonly .rota-builder-hint {
   gap: 0.35rem;
 }
 
+.punch-site-radius {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.punch-site-radius input {
+  width: 5.4rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--card-border, #d5ddd8);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-weight: 600;
+}
+
 .punch-site-actions {
   display: flex;
   flex-wrap: wrap;

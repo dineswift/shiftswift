@@ -1498,7 +1498,7 @@
 
         <div class="hr-detail-foot punch-site-detail-foot">
           <button type="button" class="btn outline" id="punch-test-geofence-btn"><span aria-hidden="true">◎</span> Test geofence</button>
-          <button type="button" class="btn outline" id="punch-edit-site-btn"><span aria-hidden="true">✎</span> Edit name &amp; roles</button>
+          <button type="button" class="btn outline" id="punch-edit-site-btn"><span aria-hidden="true">✎</span> Edit site</button>
         </div>
         <p id="punch-geofence-test-result" class="muted punch-geofence-result" aria-live="polite"></p>
       </div>`;
@@ -1961,6 +1961,7 @@
       <form id="punch-edit-form" class="punch-inline-form punch-edit-form">
         <h4 class="hr-section-title">Site details</h4>
         <label class="edit-field"><span class="edit-label">Site name</span><input type="text" name="name" value="${escapeHtml(site.name)}" required /></label>
+        <label class="edit-field"><span class="edit-label">Geofence radius (metres)</span><input type="number" name="radius_meters" min="25" max="2000" step="1" value="${site.radius_meters}" required /></label>
         <label class="edit-field"><span class="edit-label">Permitted roles</span>
           <select name="permitted_roles">
             <option value="all" ${site.permitted_roles === "all" ? "selected" : ""}>All staff</option>
@@ -1982,11 +1983,17 @@
     wrap.querySelector("#punch-edit-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
+      const radius = Number(form.radius_meters.value);
+      if (!Number.isFinite(radius) || radius < 25 || radius > 2000) {
+        showPunchNote("Radius must be between 25 and 2000 metres.", "error");
+        return;
+      }
       await saveSiteFields(
         site.id,
         {
           name: form.name.value.trim(),
           permitted_roles: form.permitted_roles.value,
+          radius_meters: radius,
         },
         "Site details updated.",
       );
@@ -2011,8 +2018,10 @@
       selectedSiteId = siteId;
       renderSiteDetail(sites.find((s) => s.id === siteId));
       updatePunchStats();
+      return true;
     } catch (error) {
       showPunchNote(error.message || "Could not save site.", "error");
+      return false;
     }
   }
 
@@ -2062,7 +2071,12 @@
         return `<tr class="hr-register-row${selected}" data-site-id="${row.id}">
           <td><strong>${escapeHtml(row.name)}</strong></td>
           <td>${escapeHtml(row.address)}</td>
-          <td>${row.radius_meters}m</td>
+          <td>
+            <label class="punch-site-radius">
+              <input type="number" min="25" max="2000" step="1" value="${row.radius_meters}" data-site-radius="${row.id}" aria-label="Geofence radius in metres for ${escapeHtml(row.name)}" />
+              <span>m</span>
+            </label>
+          </td>
           <td>${escapeHtml(roleLabel(row.permitted_roles))}</td>
           <td>${row.is_active ? "Active" : "Inactive"}</td>
           <td class="punch-site-actions">
@@ -2074,10 +2088,27 @@
       .join("");
     tbody.querySelectorAll("[data-site-id]").forEach((row) => {
       row.addEventListener("click", (event) => {
-        if (event.target.closest(".punch-site-actions")) return;
+        if (event.target.closest(".punch-site-actions, .punch-site-radius")) return;
         selectedSiteId = Number(row.dataset.siteId);
         renderSitesTable();
         renderSiteDetail(sites.find((s) => s.id === selectedSiteId));
+      });
+    });
+    tbody.querySelectorAll("[data-site-radius]").forEach((input) => {
+      input.addEventListener("click", (event) => event.stopPropagation());
+      input.addEventListener("change", () => {
+        const site = sites.find((item) => item.id === Number(input.dataset.siteRadius));
+        if (!site) return;
+        const radius = Number(input.value);
+        if (!Number.isFinite(radius) || radius < 25 || radius > 2000) {
+          input.value = String(site.radius_meters);
+          showPunchNote("Radius must be between 25 and 2000 metres.", "error");
+          return;
+        }
+        if (radius === Number(site.radius_meters)) return;
+        void saveSiteFields(site.id, { radius_meters: radius }, "Geofence radius updated.").then((ok) => {
+          if (!ok) input.value = String(site.radius_meters);
+        });
       });
     });
     tbody.querySelectorAll("[data-site-qr-download]").forEach((btn) => {
