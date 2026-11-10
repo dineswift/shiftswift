@@ -109,6 +109,9 @@ def create_tenant_manually(
         )
         tenant_id = int(cur.fetchone()[0])
 
+    from auth_policy import ensure_login_mfa_default
+
+    ensure_login_mfa_default(conn, tenant_id, name=business_name.strip(), billing_email=email_norm)
     _create_hr_admin_user(conn, tenant_id, email_norm, admin_password)
 
     stripe_info: dict[str, object] = {}

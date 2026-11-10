@@ -240,7 +240,22 @@ def _login_response(
             conn.close()
 
     # Business sign-in can email a code. Master sign-in uses the authenticator app only.
-    if email_step:
+    skip_login_mfa = False
+    if portal != "master" and settings.use_db and settings.database_url:
+        from auth_policy import account_skips_login_mfa
+
+        conn = _db_conn()
+        try:
+            skip_login_mfa = account_skips_login_mfa(
+                username=user.username,
+                tenant_id=user.tenant_id,
+                conn=conn,
+            )
+        finally:
+            conn.close()
+    if skip_login_mfa:
+        email_step = False
+    elif email_step:
         mfa_required = True
     elif mfa_enabled or totp_available or passkey_available:
         mfa_required = True
@@ -248,7 +263,7 @@ def _login_response(
     enrollment_portal: Literal["master", "business"] = portal
     must_enroll = False
     # Only force authenticator/passkey enrollment when email MFA is not covering login.
-    if not email_step:
+    if not email_step and not skip_login_mfa:
         if portal == "master" and enforce_master_mfa and not mfa_enabled and not passkey_available:
             must_enroll = True
             enrollment_portal = "master"
@@ -1012,9 +1027,27 @@ def mfa_status(current_user: Annotated[AuthUser, Depends(get_current_user)]) -> 
         from modules.master.security import master_require_mfa
 
         policy_required = master_require_mfa(settings)
-    totp_enabled = bool(user.get("mfa_enabled") and user.get("totp_secret"))
+    skip_login_mfa = False
+    if user["role"] != "admin" and settings.use_db and settings.database_url:
+        from auth_policy import account_skips_login_mfa
+
+        conn = _db_conn()
+        try:
+            skip_login_mfa = account_skips_login_mfa(
+                username=current_user.username,
+                tenant_id=current_user.tenant_id,
+                conn=conn,
+            )
+        finally:
+            conn.close()
+    if skip_login_mfa:
+        policy_required = False
+    totp_enabled = bool(user.get("mfa_enabled") and user.get("totp_secret")) and not skip_login_mfa
     email_mfa_default = bool(
-        login_require_email_mfa(settings) and looks_like_email(user["username"]) and smtp_configured()
+        not skip_login_mfa
+        and login_require_email_mfa(settings)
+        and looks_like_email(user["username"])
+        and smtp_configured()
     )
     return {
         "username": user["username"],

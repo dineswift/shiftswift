@@ -306,6 +306,14 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
             )
             tenant_id = int(cur.fetchone()[0])
 
+        from auth_policy import ensure_login_mfa_default
+
+        ensure_login_mfa_default(
+            conn,
+            tenant_id,
+            name=payload.business_name.strip(),
+            billing_email=str(payload.billing_email).strip().lower(),
+        )
         admin_username = str(payload.billing_email).strip().lower()
         _create_hr_admin_user(conn, tenant_id, admin_username, payload.admin_password)
 

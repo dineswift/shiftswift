@@ -642,6 +642,14 @@ def get_tenant_detail(
         crm_addon_billing_notes = meta[12] if meta else None
         ai_document_addon = bool(meta[13]) if meta else False
         ai_document_addon_monthly_gbp = float(meta[14]) if meta and meta[14] is not None else None
+        login_mfa_required = True
+        from core.schema import table_columns
+
+        if "login_mfa_required" in table_columns(conn, "tenants"):
+            cur.execute("SELECT login_mfa_required FROM tenants WHERE id = %s", (tenant_id,))
+            flag = cur.fetchone()
+            if flag is not None and flag[0] is not None:
+                login_mfa_required = bool(flag[0])
 
         trial_access = subscription_status in TRIALING_STATUSES
         features = effective_features_for_tenant(
@@ -715,4 +723,5 @@ def get_tenant_detail(
         "crm_addon_billing_notes": crm_addon_billing_notes or "",
         "ai_document_addon": ai_document_addon,
         "ai_document_addon_monthly_gbp": ai_document_addon_monthly_gbp,
+        "login_mfa_required": login_mfa_required,
     }

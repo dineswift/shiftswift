@@ -27,6 +27,7 @@ from modules.master.platform_ops import (
     soft_delete_tenant,
     suspend_tenant,
     unsuspend_tenant,
+    set_tenant_login_mfa,
     update_tenant_workspace,
 )
 from modules.master.tenant_provision import (
@@ -92,6 +93,10 @@ class ExtendTrialRequest(BaseModel):
 
 class InternalNotesRequest(BaseModel):
     notes: str = Field(default="", max_length=8000)
+
+
+class TenantLoginMfaRequest(BaseModel):
+    required: bool
 
 
 class UpdateTenantWorkspaceRequest(BaseModel):
@@ -739,6 +744,40 @@ def master_extend_trial(
             conn=conn,
             target_tenant_id=tenant_id,
             detail={"days": payload.days},
+        )
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+@router.put("/tenants/{tenant_id}/login-mfa")
+def master_set_tenant_login_mfa(
+    tenant_id: int,
+    payload: TenantLoginMfaRequest,
+    request: Request,
+    current_user: Annotated[AuthUser, Depends(get_master_user)],
+) -> dict[str, object]:
+    conn = _db_conn()
+    try:
+        try:
+            result = set_tenant_login_mfa(
+                conn=conn,
+                tenant_id=tenant_id,
+                master_tenant_id=int(settings.master_customer_id),
+                required=payload.required,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Tenant not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _audit(
+            request=request,
+            current_user=current_user,
+            action="SET_TENANT_LOGIN_MFA",
+            conn=conn,
+            target_tenant_id=tenant_id,
+            detail={"login_mfa_required": result["login_mfa_required"]},
         )
         conn.commit()
         return result

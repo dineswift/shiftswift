@@ -326,6 +326,34 @@ def save_internal_notes(
     return {"tenant_id": tenant_id, "internal_notes": clean}
 
 
+def set_tenant_login_mfa(
+    *,
+    conn: Any,
+    tenant_id: int,
+    master_tenant_id: int,
+    required: bool,
+) -> dict[str, Any]:
+    from core.schema import table_columns
+
+    row = _get_tenant_row(conn, tenant_id, master_tenant_id)
+    if not row:
+        raise LookupError("Tenant not found")
+    if row[4]:
+        raise ValueError("Cannot edit a deleted tenant")
+    if "login_mfa_required" not in table_columns(conn, "tenants"):
+        raise ValueError("Sign-in code control needs the latest database update")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE tenants
+            SET login_mfa_required = %s, updated_at = NOW()
+            WHERE id = %s
+            """,
+            (bool(required), tenant_id),
+        )
+    return {"tenant_id": tenant_id, "login_mfa_required": bool(required)}
+
+
 def update_tenant_workspace(
     *,
     conn: Any,

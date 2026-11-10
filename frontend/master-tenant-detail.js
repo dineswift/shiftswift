@@ -255,6 +255,18 @@
             </form>`,
             { plain: true },
           ),
+      isDeleted
+        ? ""
+        : detailSection(
+            "Sign-in code",
+            `<form id="detail-mfa-form" class="master-workspace-form">
+              <label class="master-mfa-toggle"><input type="checkbox" name="login_mfa_required"${tenant.login_mfa_required === false ? "" : " checked"} /> Require a sign-in code</label>
+              <p class="muted master-workspace-form__hint">On for every business. Turn it off for a demo account. apple-review@shiftswifthr.co.uk always signs in with a password.</p>
+              <button type="submit" class="master-btn master-btn--ghost">Save sign-in code</button>
+              <p class="master-inline-status muted" id="detail-mfa-status" aria-live="polite"></p>
+            </form>`,
+            { plain: true },
+          ),
     ].join("");
 
     const billingEmailValue = billingEmail
@@ -755,6 +767,23 @@
         if (statusEl) statusEl.textContent = error.message;
       }
     };
+
+    const mfaForm = document.getElementById("detail-mfa-form");
+    if (mfaForm && !isDeleted) {
+      mfaForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const statusEl = document.getElementById("detail-mfa-status");
+        const required = Boolean(mfaForm.querySelector('input[name="login_mfa_required"]')?.checked);
+        if (statusEl) statusEl.textContent = "Saving…";
+        try {
+          await apiPut(`/master/tenants/${tenant.id}/login-mfa`, { required });
+          if (statusEl) statusEl.textContent = required ? "Sign-in code is on." : "Sign-in code is off. Password alone is enough.";
+          await refresh();
+        } catch (error) {
+          if (statusEl) statusEl.textContent = error.message || "Could not save the sign-in code.";
+        }
+      });
+    }
 
     const workspaceForm = document.getElementById("detail-workspace-form");
     if (workspaceForm && !isDeleted) {
