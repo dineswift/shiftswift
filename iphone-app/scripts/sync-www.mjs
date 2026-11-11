@@ -390,10 +390,7 @@ businessLoginHtml = businessLoginHtml.replace(
           </p>
 `,
 );
-businessLoginHtml = businessLoginHtml.replace(
-  '<script src="./brand-config.js?v=brand-v7"></script>',
-  '<script src="./native-api-fetch.js"></script>\n    <script src="./brand-config.js?v=brand-v7"></script>',
-);
+businessLoginHtml = ensureNativeApiFetch(businessLoginHtml);
 businessLoginHtml = businessLoginHtml.replace(
   'href="./sign-in.html"',
   'href="./index.html"',
@@ -430,6 +427,14 @@ businessLoginHtml = compactNativeMfaPanel(businessLoginHtml);
 fs.writeFileSync(path.join(www, "business-login.html"), businessLoginHtml);
 console.log("wrote www/business-login.html");
 
+function ensureNativeApiFetch(html) {
+  if (html.includes("./native-api-fetch.js")) return html;
+  return html.replace(
+    /<script src="\.\/brand-config\.js[^"]*"><\/script>/,
+    (tag) => `<script src="./native-api-fetch.js"></script>\n    ${tag}`,
+  );
+}
+
 function patchForgotPasswordPage(html, { backHref, titleMark }) {
   let out = html;
   for (const pattern of [
@@ -441,10 +446,7 @@ function patchForgotPasswordPage(html, { backHref, titleMark }) {
   ]) {
     out = out.replace(pattern, "");
   }
-  out = out.replace(
-    '<script src="./brand-config.js?v=brand-v7"></script>',
-    '<script src="./native-api-fetch.js"></script>\n    <script src="./brand-config.js?v=brand-v7"></script>',
-  );
+  out = ensureNativeApiFetch(out);
   out = out.replace(
     /<script src="\.\/password-reset\.js[^"]*"><\/script>/,
     '<script src="./password-reset.js"></script>',
@@ -526,10 +528,7 @@ for (const pattern of [
 ]) {
   employeeLoginHtml = employeeLoginHtml.replace(pattern, "");
 }
-employeeLoginHtml = employeeLoginHtml.replace(
-  '<script src="./brand-config.js?v=brand-v7"></script>',
-  '<script src="./native-api-fetch.js"></script>\n    <script src="./brand-config.js?v=brand-v7"></script>',
-);
+employeeLoginHtml = ensureNativeApiFetch(employeeLoginHtml);
 employeeLoginHtml = employeeLoginHtml.replace(
   /<script src="\.\/login\.js[^"]*"><\/script>/,
   '<script src="./native-app-startup.js"></script>\n    <script src="./login.js"></script>',

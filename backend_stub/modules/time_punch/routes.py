@@ -58,6 +58,10 @@ class SiteTokenPunchRequest(BaseModel):
     accuracy_meters: float | None = Field(default=None, ge=0)
 
 
+class SiteStaffUpdate(BaseModel):
+    employee_ids: list[int] = Field(default_factory=list, max_length=2000)
+
+
 class PunchSiteUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     radius_meters: int | None = Field(default=None, ge=25, le=2000)
@@ -424,6 +428,32 @@ def patch_site(
         return punch_service._site_row(row)
     finally:
         conn.close()
+
+
+@admin_router.put("/sites/{site_id}/staff")
+def put_site_staff(
+    site_id: int,
+    payload: SiteStaffUpdate,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            employee_ids = punch_service.set_site_staff(
+                tenant_id=tenant_id,
+                site_id=site_id,
+                employee_ids=payload.employee_ids,
+                conn=conn,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return {"site_id": site_id, "employee_ids": employee_ids}
 
 
 def _clock_qr_payload(*, site_id: int, site_name: str, clock_token: str) -> dict[str, object]:

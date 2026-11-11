@@ -19380,6 +19380,29 @@ body.rota-week-readonly .rota-builder-hint {
   background: var(--card);
 }
 
+.punch-site-staff-lead {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.punch-site-staff-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  margin: 8px 0 10px;
+}
+
+.punch-site-staff-list .checkbox-row {
+  align-items: center;
+}
+
+.punch-site-staff-list .checkbox-row input {
+  width: auto;
+  margin-top: 0;
+}
+
 .punch-site-info-row {
   display: flex;
   align-items: flex-start;

@@ -1,0 +1,17 @@
+{
+  "ios": {
+    "closedMarketing": [
+      "1.5.6",
+      "1.5.7"
+    ],
+    "lastBuiltMarketing": "1.5.8",
+    "lastBuiltBuild": 34
+  },
+  "android": {
+    "consumedVersionCodes": [
+      26,
+      27
+    ],
+    "lastBuiltVersionCode": 29
+  }
+}

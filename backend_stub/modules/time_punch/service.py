@@ -438,6 +438,23 @@ def format_permitted_roles(value: str | None) -> str:
     return value.replace(",", ", ")
 
 
+def _assigned_staff_by_site(*, tenant_id: int, conn: Any) -> dict[int, list[int]]:
+    grouped: dict[int, list[int]] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT punch_site_id, employee_id
+            FROM employee_punch_assignments
+            WHERE tenant_id = %s
+            ORDER BY employee_id
+            """,
+            (tenant_id,),
+        )
+        for site_id, employee_id in cur.fetchall():
+            grouped.setdefault(int(site_id), []).append(int(employee_id))
+    return grouped
+
+
 def list_punch_sites(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(
@@ -450,7 +467,11 @@ def list_punch_sites(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
             """,
             (tenant_id,),
         )
-        return [_site_row(row) for row in cur.fetchall()]
+        sites = [_site_row(row) for row in cur.fetchall()]
+    staff = _assigned_staff_by_site(tenant_id=tenant_id, conn=conn)
+    for site in sites:
+        site["assigned_employee_ids"] = staff.get(int(site["id"]), [])
+    return sites
 
 
 def upsert_primary_punch_site(
@@ -676,6 +697,50 @@ def assign_employee_to_site(
             (tenant_id, employee_id, punch_site_id),
         )
     conn.commit()
+
+
+def set_site_staff(
+    *,
+    tenant_id: int,
+    site_id: int,
+    employee_ids: list[int],
+    conn: Any,
+) -> list[int]:
+    """Replace who may use this site. An empty list means any staff member."""
+    unique_ids = sorted({int(employee_id) for employee_id in employee_ids})
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM punch_sites WHERE id = %s AND tenant_id = %s",
+            (site_id, tenant_id),
+        )
+        if not cur.fetchone():
+            raise LookupError("Punch site not found")
+        if unique_ids:
+            cur.execute(
+                "SELECT id FROM employees WHERE tenant_id = %s AND id = ANY(%s)",
+                (tenant_id, unique_ids),
+            )
+            found = {int(row[0]) for row in cur.fetchall()}
+            if any(employee_id not in found for employee_id in unique_ids):
+                raise ValueError("Choose staff from this business")
+        cur.execute(
+            """
+            DELETE FROM employee_punch_assignments
+            WHERE tenant_id = %s AND punch_site_id = %s
+            """,
+            (tenant_id, site_id),
+        )
+        for employee_id in unique_ids:
+            cur.execute(
+                """
+                INSERT INTO employee_punch_assignments (tenant_id, employee_id, punch_site_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (employee_id, punch_site_id) DO NOTHING
+                """,
+                (tenant_id, employee_id, site_id),
+            )
+    conn.commit()
+    return unique_ids
 
 
 def _clock_minutes(value: time) -> int:

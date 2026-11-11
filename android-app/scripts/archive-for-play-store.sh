@@ -6,6 +6,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ANDROID="$ROOT/android"
 AAB="$ANDROID/app/build/outputs/bundle/release/app-release.aab"
 KEY_PROPS="$ANDROID/key.properties"
+REPO="$(cd "$ROOT/.." && pwd)"
+
+echo "==> Store version"
+python3 "$REPO/scripts/prepare_store_build.py" android
 
 java_major() {
   local home="${1:-}"

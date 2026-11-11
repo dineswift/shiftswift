@@ -1424,6 +1424,55 @@
     );
   }
 
+  function staffSummary(site) {
+    const count = (site.assigned_employee_ids || []).length;
+    if (!count) return "Any staff";
+    return count === 1 ? "1 person" : `${count} people`;
+  }
+
+  function siteStaffChecksHtml(site) {
+    const selected = new Set((site.assigned_employee_ids || []).map((id) => Number(id)));
+    const rows = [...employees].sort((a, b) =>
+      `${a.first_name || ""} ${a.last_name || ""}`.localeCompare(`${b.first_name || ""} ${b.last_name || ""}`),
+    );
+    if (!rows.length) return `<p class="muted">Staff list is still loading.</p>`;
+    return rows
+      .map((employee) => {
+        const name = `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || `Employee ${employee.id}`;
+        const checked = selected.has(Number(employee.id)) ? " checked" : "";
+        return `<label class="checkbox-row"><input type="checkbox" value="${Number(employee.id)}"${checked} /> <span>${escapeHtml(name)}</span></label>`;
+      })
+      .join("");
+  }
+
+  async function saveSiteStaff(site) {
+    const button = $("punch-save-site-staff");
+    const ids = [...document.querySelectorAll("#punch-site-staff-list input:checked")].map((input) =>
+      Number(input.value),
+    );
+    if (button) button.disabled = true;
+    try {
+      const res = await apiFetch(`/admin/time-punch/sites/${site.id}/staff`, {
+        method: "PUT",
+        body: JSON.stringify({ employee_ids: ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(parseApiDetail(data, "Could not save staff for this site."));
+      site.assigned_employee_ids = data.employee_ids || [];
+      showPunchNote(
+        site.assigned_employee_ids.length
+          ? "This site is limited to the selected staff."
+          : "Any staff member can clock in at this site.",
+        "ok",
+      );
+      renderSitesTable();
+    } catch (error) {
+      showPunchNote(error.message || "Could not save staff for this site.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
   function renderSiteDetail(site) {
     const empty = $("punch-detail-empty");
     const content = $("punch-detail-content");
@@ -1471,6 +1520,15 @@
           <div class="punch-site-chips">${siteRoleChipsHtml(site.permitted_roles)}</div>
         </article>
 
+        <article class="punch-site-info-card" id="punch-site-staff">
+          <span class="punch-site-info-row__label">Who can clock in here</span>
+          <p class="muted punch-site-staff-lead">Leave everyone unticked and any staff member can use this site. Tick people to limit this site to them. A ticked person can only clock in at the sites you tick for them.</p>
+          <div class="punch-site-staff-list" id="punch-site-staff-list" data-pending="${employees.length ? "0" : "1"}">
+            ${siteStaffChecksHtml(site)}
+          </div>
+          <button type="button" class="btn outline" id="punch-save-site-staff">Save staff</button>
+        </article>
+
         <article class="punch-site-geofence-card">
           <div class="punch-site-geofence-card__viz">
             ${geofenceVizSvg(site.radius_meters)}
@@ -1503,6 +1561,9 @@
         <p id="punch-geofence-test-result" class="muted punch-geofence-result" aria-live="polite"></p>
       </div>`;
 
+    content.querySelector("#punch-save-site-staff")?.addEventListener("click", () => {
+      void saveSiteStaff(site);
+    });
     content.querySelector("#punch-test-geofence-btn")?.addEventListener("click", () => testGeofence(site));
     content.querySelector("#punch-edit-site-btn")?.addEventListener("click", () => showEditSiteForm(site));
     wireGeofenceSettings(site);
@@ -2062,7 +2123,7 @@
     if (!tbody) return;
     if (!sites.length) {
       tbody.innerHTML =
-        '<tr><td colspan="6" class="muted">No punch sites yet. Sync from address or add one manually.</td></tr>';
+        '<tr><td colspan="7" class="muted">No punch sites yet. Sync from address or add one manually.</td></tr>';
       return;
     }
     tbody.innerHTML = sites
@@ -2078,6 +2139,7 @@
             </label>
           </td>
           <td>${escapeHtml(roleLabel(row.permitted_roles))}</td>
+          <td>${escapeHtml(staffSummary(row))}</td>
           <td>${row.is_active ? "Active" : "Inactive"}</td>
           <td class="punch-site-actions">
             <button type="button" class="btn ghost btn-sm" data-site-qr-download="${row.id}">Download QR</button>
@@ -2574,6 +2636,14 @@
       employees = [];
     }
     refreshFilterSelects();
+    const pendingStaff = $("punch-site-staff-list");
+    if (pendingStaff?.dataset.pending === "1" && selectedSiteId) {
+      const open = sites.find((site) => site.id === selectedSiteId);
+      if (open) {
+        pendingStaff.dataset.pending = employees.length ? "0" : "1";
+        pendingStaff.innerHTML = siteStaffChecksHtml(open);
+      }
+    }
   }
 
   async function loadSites() {

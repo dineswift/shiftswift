@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from dev_credentials import DEV_MASTER_PASSWORD, DEV_MASTER_USERNAME
+from dev_credentials import MASTER_PASSWORD, MASTER_USERNAME
 from main import app
 from modules.master.platform_ops import update_tenant_workspace
 
@@ -17,14 +17,14 @@ client = TestClient(app)
 def _master_headers() -> dict[str, str]:
     login = client.post(
         "/auth/master-login",
-        json={"username": DEV_MASTER_USERNAME, "password": DEV_MASTER_PASSWORD},
+        json={"username": MASTER_USERNAME, "password": MASTER_PASSWORD},
     )
     assert login.status_code == 200, login.text
     token = login.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.mark.skipif(not DEV_MASTER_USERNAME, reason="master credentials not configured")
+@pytest.mark.skipif(not MASTER_USERNAME, reason="master credentials not configured")
 def test_master_settings_and_audit_endpoints():
     headers = _master_headers()
     settings = client.get("/master/settings", headers=headers)
@@ -42,13 +42,13 @@ def test_master_settings_and_audit_endpoints():
     assert "items" in audit.json()
 
 
-@pytest.mark.skipif(not DEV_MASTER_USERNAME, reason="master credentials not configured")
+@pytest.mark.skipif(not MASTER_USERNAME, reason="master credentials not configured")
 def test_master_account_profile():
     headers = _master_headers()
     res = client.get("/master/account", headers=headers)
     assert res.status_code == 200
     data = res.json()
-    assert data["username"] == DEV_MASTER_USERNAME
+    assert data["username"] == MASTER_USERNAME
 
 
 def test_update_tenant_workspace_updates_fields() -> None:

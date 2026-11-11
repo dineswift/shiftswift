@@ -43,8 +43,7 @@ def test_record_push_sent_dedupes() -> None:
 
 
 def test_send_employee_push_skips_when_not_configured(monkeypatch) -> None:
-    monkeypatch.delenv("VAPID_PUBLIC_KEY", raising=False)
-    monkeypatch.delenv("VAPID_PRIVATE_KEY", raising=False)
+    monkeypatch.setattr(push_service, "any_push_configured", lambda: False)
     conn = MagicMock()
     result = push_service.send_employee_push(
         tenant_id=1,

@@ -8,6 +8,10 @@ APP="$IOS/App"
 ARCHIVE="$IOS/build/ShiftSwiftHR.xcarchive"
 EXPORT="$IOS/build/export"
 EXPORT_PLIST="$IOS/ExportOptions-ipa.plist"
+REPO="$(cd "$ROOT/.." && pwd)"
+
+echo "==> Store version"
+python3 "$REPO/scripts/prepare_store_build.py" ios
 
 echo "==> Apply branding (app icon + splash)"
 node scripts/apply-branding.mjs

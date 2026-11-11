@@ -25,6 +25,7 @@ from modules.time_punch.service import (
     record_punch_via_site_token,
     review_punch,
     scan_site_token,
+    set_site_staff,
 )
 
 
@@ -333,3 +334,48 @@ def test_admin_punch_rejects_future_time() -> None:
         assert "future" in str(exc).lower()
     else:
         raise AssertionError("future punch time should be rejected")
+
+
+def _staff_cursor() -> tuple[MagicMock, MagicMock]:
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    return conn, cursor
+
+
+def test_set_site_staff_replaces_the_site_list() -> None:
+    conn, cursor = _staff_cursor()
+    cursor.fetchone.return_value = (5,)
+    cursor.fetchall.return_value = [(1,), (2,)]
+
+    assert set_site_staff(tenant_id=1, site_id=5, employee_ids=[2, 1, 1], conn=conn) == [1, 2]
+
+    sql = " ".join(call.args[0] for call in cursor.execute.call_args_list)
+    assert "DELETE FROM employee_punch_assignments" in sql
+    assert "INSERT INTO employee_punch_assignments" in sql
+    conn.commit.assert_called_once()
+
+
+def test_set_site_staff_rejects_someone_from_another_business() -> None:
+    conn, cursor = _staff_cursor()
+    cursor.fetchone.return_value = (5,)
+    cursor.fetchall.return_value = [(1,)]
+    try:
+        set_site_staff(tenant_id=1, site_id=5, employee_ids=[1, 9], conn=conn)
+    except ValueError as exc:
+        assert "staff" in str(exc).lower()
+    else:
+        raise AssertionError("unknown staff should be rejected")
+    conn.commit.assert_not_called()
+
+
+def test_set_site_staff_missing_site() -> None:
+    conn, cursor = _staff_cursor()
+    cursor.fetchone.return_value = None
+    try:
+        set_site_staff(tenant_id=1, site_id=5, employee_ids=[], conn=conn)
+    except LookupError as exc:
+        assert "not found" in str(exc).lower()
+    else:
+        raise AssertionError("missing site should be rejected")
+

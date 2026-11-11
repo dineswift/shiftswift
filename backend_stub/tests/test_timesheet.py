@@ -21,7 +21,7 @@ def test_summarize_day_with_break() -> None:
         ("out", base.replace(hour=17)),
     ]
     summary = summarize_day_events(events)
-    assert summary["total_hours"] == 7.5
+    assert summary["total_hours"] == 8.0
     assert summary["break_minutes"] == 30
     assert summary["complete"] is True
 

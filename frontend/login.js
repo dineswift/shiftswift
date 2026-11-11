@@ -570,12 +570,11 @@ function prefillUsernameFromQuery() {
 
 function friendlyLoginError(message, endpoint, username) {
   if (message === "Failed to fetch" || message === "Load failed") {
-    const host = window.location.hostname;
-    const isLocal = host === "localhost" || host === "127.0.0.1";
-    if (isLocal) {
+    const onThisMac = window.ShiftSwiftBrand?.isLocalDevHost?.() === true;
+    if (onThisMac) {
       return "Cannot reach the API. Start it with: bash scripts/start_local.sh";
     }
-    return "Cannot reach the API. The service may be restarting — try again in a minute, or contact support if this continues.";
+    return "Cannot reach the API. Check your connection and try again.";
   }
   if (message === "Invalid credentials for this login type") {
     if (endpoint.includes("master")) {

@@ -67,6 +67,10 @@ fi
 
 echo "==> sync frontend"
 rsync -a --delete "${API_ROOT}/frontend/" "${APP_ROOT}/"
+echo "==> bundle HR pages into one download"
+python3 "${API_ROOT}/scripts/inline_page_scripts.py" \
+  "${APP_ROOT}/admin.html" \
+  "${APP_ROOT}/employee.html"
 echo "==> app root portal picker (index.html → login.html on app only)"
 cp "${API_ROOT}/frontend/app-root-index.html" "${APP_ROOT}/index.html"
 
@@ -239,23 +243,25 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 echo "==> health check"
-if command -v curl >/dev/null 2>&1; then
-  health_ok=0
-  for _ in 1 2 3 4 5; do
-    if curl -sf "http://127.0.0.1:8000/health" >/dev/null; then
-      health_ok=1
-      break
-    fi
-    sleep 2
-  done
-  if [ "${health_ok}" -eq 1 ]; then
-    curl -s "http://127.0.0.1:8000/health"
-    echo ""
-  else
-    echo "Local API not responding on :8000 after restart — check logs:"
-    echo "  sudo journalctl -u ${SERVICE} -n 40 --no-pager"
-    sudo systemctl status "${SERVICE}" --no-pager -l 2>/dev/null | tail -20 || true
-  fi
+if ! command -v curl >/dev/null 2>&1; then
+  echo "ERROR: curl is required to confirm the API restarted"
+  exit 1
 fi
+health_ok=0
+for _ in 1 2 3 4 5; do
+  if curl -sf "http://127.0.0.1:8000/health" >/dev/null; then
+    health_ok=1
+    break
+  fi
+  sleep 2
+done
+if [ "${health_ok}" -ne 1 ]; then
+  echo "ERROR: Local API not responding on :8000 after restart — check logs:"
+  echo "  sudo journalctl -u ${SERVICE} -n 40 --no-pager"
+  sudo systemctl status "${SERVICE}" --no-pager -l 2>/dev/null | tail -20 || true
+  exit 1
+fi
+curl -s "http://127.0.0.1:8000/health"
+echo ""
 
 echo "Done."

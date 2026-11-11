@@ -32,7 +32,8 @@ def test_signup_platform_guide_email_covers_disclaimer_and_support() -> None:
     )
     assert "not an outsourced HR" in content.text
     assert "hr@acme.co.uk" in content.text
-    assert "punch.html" in content.text
+    assert "TIME CLOCK" in content.text
+    assert "Clock tab" in content.text
     assert "support@" in content.text
     assert "Getting started" in content.html
 
