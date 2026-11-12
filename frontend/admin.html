@@ -75,9 +75,9 @@
     <link rel="manifest" href="./admin-manifest.webmanifest?v=8" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=admin-v212" />
+    <link rel="stylesheet" href="./styles.css?v=admin-v214" />
     <link rel="stylesheet" href="./admin-surface-polish.css?v=4" />
-    <link rel="stylesheet" href="./admin-mobile-polish.css?v=24" />
+    <link rel="stylesheet" href="./admin-mobile-polish.css?v=26" />
   </head>
   <body class="admin-portal">
     <script>
@@ -488,8 +488,8 @@
               <h2 class="employees-page-title">Employees</h2>
               <p class="muted employees-page-lead">Manage your team, view details and keep records up to date.</p>
             </div>
-            <div class="section-actions employees-desktop-only">
-              <button type="button" class="btn primary employees-add-btn" id="employees-add-btn">+ Add employee</button>
+            <div class="section-actions employees-add-actions">
+              <button type="button" class="btn primary employees-add-btn js-add-employee" id="employees-add-btn">+ Add employee</button>
             </div>
             <div class="section-actions employees-desktop-only employees-lifecycle-shortcuts" hidden aria-hidden="true">
               <a class="btn ghost" href="#recruitment">Recruitment pipeline</a>
@@ -3840,7 +3840,7 @@
     <script src="./admin-workspace.js?v=admin-v38"></script>
     <script src="./admin-address-picker.js?v=4"></script>
     <script src="./admin-documents.js?v=37"></script>
-    <script src="./admin-employees.js?v=62"></script>
+    <script src="./admin-employees.js?v=65"></script>
     <script src="./admin-recruitment.js?v=8"></script>
     <script src="./admin-promotions.js?v=admin-v6"></script>
     <script src="./admin-crm.js?v=6"></script>

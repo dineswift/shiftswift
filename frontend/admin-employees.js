@@ -1063,6 +1063,10 @@
         rows.length > LIFECYCLE_HUB_PAGE_SIZE && !showAll
           ? `<button type="button" class="btn ghost lifecycle-view-all-btn" data-lifecycle-view-all="${stage.id}">View all ${rows.length} employees</button>`
           : "";
+      const stageAdd =
+        stage.id === "recruitment" || stage.id === "onboarding" || stage.id === "active"
+          ? `<button type="button" class="btn primary js-add-employee employees-stage-add">Add employee</button>`
+          : "";
       const recruitmentExtras =
         stage.id === "recruitment"
           ? `<div class="employees-recruitment-add">
@@ -1072,7 +1076,7 @@
                   ? "Add another employee — name and email is enough."
                   : "Add your first employee — name and email is enough to begin."
               }</p>
-              <div class="employees-recruitment-form-slot" id="employees-recruitment-form-slot"></div>
+              ${stageAdd}
             </div>`
           : "";
       const bulkInvite =
@@ -1087,7 +1091,7 @@
           ? !rows.length
             ? recruitmentExtras
             : `${cards}${viewAll}${recruitmentExtras}`
-          : `${cards}${viewAll}${bulkInvite}`;
+          : `${stageAdd}${cards}${viewAll}${bulkInvite}`;
 
       return `<section class="lifecycle-hub-section${isOpen ? " is-open" : ""}" data-lifecycle-section="${stage.id}">
         <button type="button" class="lifecycle-hub-section__header" data-lifecycle-toggle="${stage.id}" aria-expanded="${isOpen}">
@@ -1102,11 +1106,7 @@
       </section>`;
     }).join("");
 
-    if (lifecycleHubExpanded.recruitment) {
-      relocateQuickAddForm($("employees-recruitment-form-slot"));
-    } else {
-      relocateQuickAddForm($("employees-add-dialog"));
-    }
+    relocateQuickAddForm($("employees-add-dialog"));
 
     hub.querySelector("#employees-hub-retry-btn")?.addEventListener("click", () => {
       void initEmployeesSection();
@@ -1132,7 +1132,14 @@
       });
     });
 
-    hub.querySelector("#employees-stage-add-btn")?.addEventListener("click", () => focusRecruitmentAddForm());
+    if (hub.dataset.addBound !== "1") {
+      hub.dataset.addBound = "1";
+      hub.addEventListener("click", (event) => {
+        if (!event.target.closest(".js-add-employee")) return;
+        event.preventDefault();
+        openEmployeeQuickAdd();
+      });
+    }
 
     $("employees-hub-bulk-invite-btn")?.addEventListener("click", () => sendBulkPortalInvites("employees-hub-bulk-invite-status"));
     } catch (error) {
@@ -1147,13 +1154,43 @@
   }
 
   function focusRecruitmentAddForm() {
-    lifecycleHubExpanded.recruitment = true;
-    lifecycleHubOpenStage = "recruitment";
-    renderLifecycleHub(employeesCache);
-    window.requestAnimationFrame(() => {
-      $("employees-recruitment-form-slot")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      $("employee-quick-add-form")?.querySelector("input")?.focus();
-    });
+    openEmployeeQuickAdd();
+  }
+
+  function ensureAddEmployeeBackdrop() {
+    let backdrop = document.getElementById("employees-add-backdrop");
+    if (!backdrop) {
+      backdrop = document.createElement("button");
+      backdrop.type = "button";
+      backdrop.id = "employees-add-backdrop";
+      backdrop.className = "employees-add-backdrop";
+      backdrop.setAttribute("aria-label", "Close add employee");
+      backdrop.hidden = true;
+      backdrop.addEventListener("click", () => {
+        document.getElementById("employees-add-dialog")?.close?.();
+      });
+      document.body.appendChild(backdrop);
+    }
+    return backdrop;
+  }
+
+  function openEmployeeQuickAdd() {
+    const dialog = document.getElementById("employees-add-dialog");
+    if (!dialog) return;
+    relocateQuickAddForm(dialog);
+    const field = dialog.querySelector("input, textarea, select");
+    dialog.querySelectorAll("[autofocus]").forEach((el) => el.removeAttribute("autofocus"));
+    field?.setAttribute("autofocus", "");
+    if (dialog.parentElement !== document.body) document.body.appendChild(dialog);
+    dialog.classList.add("is-sheet");
+    ensureAddEmployeeBackdrop().hidden = false;
+    if (!dialog.open) {
+      if (typeof dialog.show === "function") dialog.show();
+      else dialog.setAttribute("open", "");
+    }
+    window.setTimeout(() => {
+      dialog.querySelector("input, textarea, select")?.focus();
+    }, 30);
   }
 
   function stageEmptyStateHtml(stageId) {
@@ -1166,8 +1203,6 @@
         icon: "clipboard",
         title: "No one onboarding",
         message: "When you hire someone, set their status to Onboarding and complete lifecycle steps here.",
-        actionLabel: "Add employee",
-        actionId: "employees-stage-add-btn",
         compact: true,
       });
     }
@@ -1176,8 +1211,6 @@
         icon: "users",
         title: "No active employees",
         message: "Complete onboarding or add staff who are already working.",
-        actionLabel: "Add employee",
-        actionId: "employees-stage-add-btn",
         compact: true,
       });
     }
@@ -1314,6 +1347,7 @@
 
   let mobileProfileTab = "details";
   let mobileProfileEdit = false;
+  let mobileProfileEditFocus = "";
   let mobileProfileHours = null;
   let mobileProfileLeave = null;
 
@@ -1377,17 +1411,42 @@
     return text || "—";
   }
 
-  function profileDetailRow({ icon, label, value, href, tone }) {
+  function profileDetailRow({ icon, label, value, href, tone, editKey }) {
     const display = profileValueOrDash(value);
     const toneClass = tone ? ` emp-profile-row__value--${tone}` : "";
-    const inner = href && display !== "—"
+    const inner = !editKey && href && display !== "—"
       ? `<a class="emp-profile-row__value${toneClass}" href="${escapeHtml(href)}">${escapeHtml(display)}</a>`
       : `<span class="emp-profile-row__value${toneClass}">${escapeHtml(display)}</span>`;
-    return `<div class="emp-profile-row">
+    const chevron = editKey ? `<span class="emp-profile-row__chevron" aria-hidden="true"></span>` : "";
+    const tag = editKey ? "button" : "div";
+    const attrs = editKey
+      ? ` type="button" class="emp-profile-row emp-profile-row--tap" data-emp-edit="${escapeHtml(editKey)}"`
+      : ` class="emp-profile-row"`;
+    return `<${tag}${attrs}>
       <span class="emp-profile-row__icon" aria-hidden="true">${iconSvg(icon)}</span>
       <span class="emp-profile-row__label">${escapeHtml(label)}</span>
       ${inner}
-    </div>`;
+      ${chevron}
+    </${tag}>`;
+  }
+
+  function mobileChoiceOptions(optionsKey, currentValue, fallback) {
+    const options = window.Admin?.formOptions?.[optionsKey]?.length
+      ? window.Admin.formOptions[optionsKey]
+      : fallback;
+    const values = new Set(options.map((item) => item.value || item.label));
+    let html = "";
+    if (currentValue && !values.has(currentValue)) {
+      html += `<option value="${escapeHtml(currentValue)}" selected>${escapeHtml(currentValue)}</option>`;
+    }
+    html += options
+      .map((item) => {
+        const value = item.value || item.label;
+        const selected = value === currentValue ? " selected" : "";
+        return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(item.label || value)}</option>`;
+      })
+      .join("");
+    return html;
   }
 
   function setDesktopEmployeeChromeVisible(visible) {
@@ -1443,30 +1502,87 @@
     return btn;
   }
 
-  function renderMobileProfileDetails(employee, workspace) {
-    if (mobileProfileEdit) {
-      return `<div class="emp-profile-edit-wrap">
-        <p class="muted emp-profile-edit-lead">Changes save when you leave a field.</p>
-        <div class="employee-record-fields emp-profile-edit-fields">
-          <label class="employee-record-field">
-            <span class="employee-record-field__label">Job title</span>
-            <input type="text" id="employees-side-job-title" value="${escapeHtml(employee.job_title || "")}" placeholder="Not set" />
-          </label>
-          <label class="employee-record-field">
+  function renderMobileProfileEditor(employee) {
+    const status = employee.status || "active";
+    const employment = employee.employment_type || "";
+    const hours = employee.contract_hours_weekly != null ? String(employee.contract_hours_weekly) : "";
+    const field = (id, label, type, value, extra = "") => `<label class="employee-record-field emp-profile-edit-field">
+      <span class="employee-record-field__label">${escapeHtml(label)}</span>
+      <input type="${type}" id="${id}" data-edit-key="${id}" value="${escapeHtml(value)}" ${extra} />
+    </label>`;
+    return `<div class="emp-profile-edit">
+      <p class="emp-profile-edit-lead">Leave a field and it saves. Tap Done when you finish.</p>
+      <p class="employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
+      <section class="emp-profile-section">
+        <h3 class="emp-profile-section__title">Name</h3>
+        <div class="emp-profile-edit-card">
+          ${field("employees-side-first-name", "First name", "text", employee.first_name || "", 'autocomplete="given-name"')}
+          ${field("employees-side-last-name", "Last name", "text", employee.last_name || "", 'autocomplete="family-name"')}
+        </div>
+      </section>
+      <section class="emp-profile-section">
+        <h3 class="emp-profile-section__title">Work</h3>
+        <div class="emp-profile-edit-card">
+          ${field("employees-side-job-title", "Job title", "text", employee.job_title || "", 'placeholder="Chef, supervisor…"')}
+          <label class="employee-record-field emp-profile-edit-field">
             <span class="employee-record-field__label">Department</span>
-            <select id="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
+            <select id="employees-side-department" data-edit-key="employees-side-department">${departmentSelectOptions(employee.department || "")}</select>
           </label>
-          <label class="employee-record-field">
-            <span class="employee-record-field__label">Email</span>
-            <input type="email" id="employees-side-email" value="${escapeHtml(employee.email || "")}" placeholder="Not set" />
+          <label class="employee-record-field emp-profile-edit-field">
+            <span class="employee-record-field__label">Status</span>
+            <select id="employees-side-status" data-edit-key="employees-side-status">${mobileChoiceOptions("employee_statuses", status, [
+              { value: "active", label: "Active" },
+              { value: "onboarding", label: "Onboarding" },
+              { value: "suspended", label: "Suspended" },
+              { value: "inactive", label: "Inactive" },
+              { value: "terminated", label: "Terminated" },
+            ])}</select>
+          </label>
+          <label class="employee-record-field emp-profile-edit-field">
+            <span class="employee-record-field__label">Employment type</span>
+            <select id="employees-side-employment-type" data-edit-key="employees-side-employment-type">
+              <option value="">Not set</option>
+              ${mobileChoiceOptions("employment_types", employment, [
+                { value: "full_time", label: "Full time" },
+                { value: "part_time", label: "Part time" },
+                { value: "zero_hours", label: "Zero hours" },
+                { value: "fixed_term", label: "Fixed term" },
+                { value: "casual", label: "Casual" },
+              ])}
+            </select>
+          </label>
+          ${field("employees-side-start", "Start date", "date", isoDateInputValue(employee.start_date))}
+          ${field("employees-side-hours", "Contract hours per week", "number", hours, 'inputmode="decimal" min="0" max="168" step="0.5" placeholder="e.g. 40"')}
+          ${field("employees-side-location", "Work location", "text", employee.work_location || "", 'placeholder="Site or town"')}
+          ${field("employees-side-email", "Work email", "email", employee.email || "", 'autocomplete="email" inputmode="email" placeholder="name@venue.co.uk"')}
+        </div>
+      </section>
+      <section class="emp-profile-section">
+        <h3 class="emp-profile-section__title">Personal</h3>
+        <div class="emp-profile-edit-card">
+          ${field("employees-side-phone", "Mobile phone", "tel", employee.phone || "", 'autocomplete="tel" inputmode="tel" placeholder="07…"')}
+          ${field("employees-side-dob", "Date of birth", "date", isoDateInputValue(employee.date_of_birth))}
+          ${field("employees-side-ni", "National Insurance number", "text", employee.ni_number || "", 'placeholder="AB 12 34 56 A" autocapitalize="characters"')}
+          <label class="employee-record-field emp-profile-edit-field">
+            <span class="employee-record-field__label">Home address</span>
+            <textarea id="employees-side-address" data-edit-key="employees-side-address" rows="3" placeholder="Street, town, postcode">${escapeHtml(employee.home_address || "")}</textarea>
           </label>
         </div>
-        <p class="muted employee-record-field-status" id="employees-side-field-status" aria-live="polite"></p>
-        ${renderEmployeeRecordSectionsHtml(employee, workspace)}
-        <p class="emp-profile-lifecycle-link">
-          <button type="button" class="employee-record-link" id="employees-side-lifecycle-btn">Open full lifecycle record →</button>
-        </p>
-      </div>`;
+      </section>
+      <section class="emp-profile-section">
+        <h3 class="emp-profile-section__title">Emergency contact</h3>
+        <div class="emp-profile-edit-card">
+          ${field("employees-side-emergency-name", "Contact name", "text", employee.emergency_contact_name || "")}
+          ${field("employees-side-emergency-phone", "Phone", "tel", employee.emergency_contact_phone || "", 'inputmode="tel"')}
+          ${field("employees-side-emergency-relationship", "Relationship", "text", employee.emergency_contact_relationship || "", 'placeholder="Partner, parent…"')}
+        </div>
+      </section>
+    </div>`;
+  }
+
+  function renderMobileProfileDetails(employee, workspace) {
+    if (mobileProfileEdit) {
+      return renderMobileProfileEditor(employee);
     }
 
     const contracted = employee.contract_hours_weekly != null ? Number(employee.contract_hours_weekly) : null;
@@ -1507,19 +1623,19 @@
       <section class="emp-profile-section" aria-labelledby="emp-profile-personal">
         <h3 class="emp-profile-section__title" id="emp-profile-personal">Personal</h3>
         <div class="emp-profile-card">
-          ${profileDetailRow({ icon: "mail", label: "Email", value: employee.email, href: employee.email ? `mailto:${employee.email}` : "", tone: employee.email ? "link" : "" })}
-          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.phone, href: employee.phone ? `tel:${String(employee.phone).replace(/\s+/g, "")}` : "" })}
-          ${profileDetailRow({ icon: "map-pin", label: "Address", value: employee.home_address })}
-          ${profileDetailRow({ icon: "cake", label: "Date of birth", value: employee.date_of_birth ? formatFriendlyDate(employee.date_of_birth) : "" })}
+          ${profileDetailRow({ icon: "mail", label: "Email", value: employee.email, editKey: "employees-side-email", tone: employee.email ? "link" : "" })}
+          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.phone, editKey: "employees-side-phone" })}
+          ${profileDetailRow({ icon: "map-pin", label: "Address", value: employee.home_address, editKey: "employees-side-address" })}
+          ${profileDetailRow({ icon: "cake", label: "Date of birth", value: employee.date_of_birth ? formatFriendlyDate(employee.date_of_birth) : "", editKey: "employees-side-dob" })}
         </div>
       </section>
 
       <section class="emp-profile-section" aria-labelledby="emp-profile-employment">
         <h3 class="emp-profile-section__title" id="emp-profile-employment">Employment</h3>
         <div class="emp-profile-card">
-          ${profileDetailRow({ icon: "briefcase", label: "Job title", value: employee.job_title })}
-          ${profileDetailRow({ icon: "calendar", label: "Start date", value: employee.start_date ? formatFriendlyDate(employee.start_date) : "" })}
-          ${profileDetailRow({ icon: "clock", label: "Contract", value: contractCopy })}
+          ${profileDetailRow({ icon: "briefcase", label: "Job title", value: employee.job_title, editKey: "employees-side-job-title" })}
+          ${profileDetailRow({ icon: "calendar", label: "Start date", value: employee.start_date ? formatFriendlyDate(employee.start_date) : "", editKey: "employees-side-start" })}
+          ${profileDetailRow({ icon: "clock", label: "Contract", value: contractCopy, editKey: "employees-side-hours" })}
           ${profileDetailRow({ icon: "shield", label: "Right to work", value: rtw, tone: rtwTone })}
           ${profileDetailRow({ icon: "calendar", label: "Visa expiry", value: visaExpiryRaw ? formatFriendlyDate(visaExpiryRaw) : "" })}
           ${profileDetailRow({ icon: "calendar", label: "RTW check expiry", value: rtwExpiryRaw ? formatFriendlyDate(rtwExpiryRaw) : "" })}
@@ -1529,9 +1645,9 @@
       <section class="emp-profile-section" aria-labelledby="emp-profile-emergency">
         <h3 class="emp-profile-section__title" id="emp-profile-emergency">Emergency contact</h3>
         <div class="emp-profile-card">
-          ${profileDetailRow({ icon: "user", label: "Name", value: employee.emergency_contact_name })}
-          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.emergency_contact_phone, href: employee.emergency_contact_phone ? `tel:${String(employee.emergency_contact_phone).replace(/\s+/g, "")}` : "" })}
-          ${profileDetailRow({ icon: "heart", label: "Relation", value: employee.emergency_contact_relationship })}
+          ${profileDetailRow({ icon: "user", label: "Name", value: employee.emergency_contact_name, editKey: "employees-side-emergency-name" })}
+          ${profileDetailRow({ icon: "phone", label: "Phone", value: employee.emergency_contact_phone, editKey: "employees-side-emergency-phone" })}
+          ${profileDetailRow({ icon: "heart", label: "Relation", value: employee.emergency_contact_relationship, editKey: "employees-side-emergency-relationship" })}
         </div>
       </section>`;
   }
@@ -1625,6 +1741,7 @@
         <div class="emp-profile-chips">
           ${chips.map((chip) => `<span class="emp-profile-chip emp-profile-chip--${chip.tone}">${escapeHtml(chip.label)}</span>`).join("")}
         </div>
+        ${mobileProfileEdit ? "" : `<button type="button" class="btn emp-profile-edit-open" id="emp-profile-edit-open">Edit details</button>`}
       </header>
       <nav class="emp-profile-tabs" aria-label="Profile sections">
         ${tabs
@@ -1643,6 +1760,30 @@
         renderMobileEmployeeProfile(workspace);
       });
     });
+
+    host.querySelector("#emp-profile-edit-open")?.addEventListener("click", () => {
+      mobileProfileEdit = true;
+      mobileProfileTab = "details";
+      renderMobileEmployeeProfile(workspace);
+    });
+
+    host.querySelectorAll("[data-emp-edit]").forEach((row) => {
+      row.addEventListener("click", () => {
+        mobileProfileEdit = true;
+        mobileProfileTab = "details";
+        mobileProfileEditFocus = row.dataset.empEdit || "";
+        renderMobileEmployeeProfile(workspace);
+      });
+    });
+
+    if (mobileProfileEdit && mobileProfileEditFocus) {
+      const field = host.querySelector(`[data-edit-key="${mobileProfileEditFocus}"]`);
+      mobileProfileEditFocus = "";
+      window.setTimeout(() => {
+        field?.focus();
+        field?.scrollIntoView({ block: "center" });
+      }, 40);
+    }
 
     if (mobileProfileTab === "details" && mobileProfileEdit) {
       void refreshEmployeeSidePanelKioskPin?.(employee.id);
@@ -2413,6 +2554,9 @@
       throw new Error(employeeApiError(res, data, "Save failed"));
     }
     sidePanelWorkspace = data;
+    if (workspaceCache?.employee && Number(workspaceCache.employee.id) === Number(employeeId)) {
+      workspaceCache = data;
+    }
     const idx = employeesCache.findIndex((item) => item.id === employeeId);
     if (idx >= 0) {
       employeesCache[idx] = { ...employeesCache[idx], ...data.employee, completion_pct: data.completion_pct, next_section: data.next_section };
@@ -3385,7 +3529,11 @@
 
   function bindSidePanelInlineFields(employee, workspace) {
     const employeeId = employee.id;
-    const statusEl = document.getElementById("employees-side-field-status");
+    const root = isMobileEmployeesHub()
+      ? document.getElementById("emp-mobile-profile")
+      : document.getElementById("employees-side-content");
+    const field = (id) => (root || document).querySelector("#" + id);
+    const statusEl = field("employees-side-field-status");
 
     const saveField = async (sectionKey, updates) => {
       try {
@@ -3404,36 +3552,67 @@
 
     const saveInduction = (updates) => saveField("induction", updates);
 
-    document.getElementById("employees-side-job-title")?.addEventListener("change", (event) => {
+    field("employees-side-job-title")?.addEventListener("change", (event) => {
       void saveField("onboarding", { job_title: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-department")?.addEventListener("change", (event) => {
+    field("employees-side-department")?.addEventListener("change", (event) => {
       void saveField("onboarding", { department: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-email")?.addEventListener("change", (event) => {
+    field("employees-side-email")?.addEventListener("change", (event) => {
       void saveField("recruitment", { email: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-phone")?.addEventListener("change", (event) => {
+    field("employees-side-first-name")?.addEventListener("change", (event) => {
+      const value = event.target.value.trim();
+      if (!value) {
+        if (statusEl) statusEl.textContent = "First name is required.";
+        return;
+      }
+      void saveField("recruitment", { first_name: value });
+    });
+    field("employees-side-last-name")?.addEventListener("change", (event) => {
+      const value = event.target.value.trim();
+      if (!value) {
+        if (statusEl) statusEl.textContent = "Last name is required.";
+        return;
+      }
+      void saveField("recruitment", { last_name: value });
+    });
+    field("employees-side-status")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { status: event.target.value || null });
+    });
+    field("employees-side-employment-type")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { employment_type: event.target.value || null });
+    });
+    field("employees-side-start")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { start_date: event.target.value?.trim() || null });
+    });
+    field("employees-side-hours")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { contract_hours_weekly: event.target.value?.trim() || null });
+    });
+    field("employees-side-location")?.addEventListener("change", (event) => {
+      void saveField("onboarding", { work_location: event.target.value.trim() || null });
+    });
+    field("employees-side-phone")?.addEventListener("change", (event) => {
       void saveInduction({ phone: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-dob")?.addEventListener("change", (event) => {
+    field("employees-side-dob")?.addEventListener("change", (event) => {
       const value = event.target.value?.trim() || null;
       event.target.toggleAttribute("data-empty", !value);
       void saveInduction({ date_of_birth: value });
     });
-    document.getElementById("employees-side-ni")?.addEventListener("change", (event) => {
+    field("employees-side-ni")?.addEventListener("change", (event) => {
       void saveInduction({ ni_number: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-address")?.addEventListener("change", (event) => {
+    field("employees-side-address")?.addEventListener("change", (event) => {
       void saveInduction({ home_address: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-emergency-name")?.addEventListener("change", (event) => {
+    field("employees-side-emergency-name")?.addEventListener("change", (event) => {
       void saveInduction({ emergency_contact_name: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-emergency-phone")?.addEventListener("change", (event) => {
+    field("employees-side-emergency-phone")?.addEventListener("change", (event) => {
       void saveInduction({ emergency_contact_phone: event.target.value.trim() || null });
     });
-    document.getElementById("employees-side-emergency-relationship")?.addEventListener("change", (event) => {
+    field("employees-side-emergency-relationship")?.addEventListener("change", (event) => {
       void saveInduction({ emergency_contact_relationship: event.target.value.trim() || null });
     });
 
@@ -3446,7 +3625,7 @@
     const manageBtn = sideDocs?.querySelector("#employees-side-doc-manage-btn");
     if (isMobileEmployeesHub()) {
       if (manageBtn) manageBtn.textContent = "Add another document";
-      document.getElementById("employees-side-lifecycle-btn")?.closest("p")?.setAttribute("hidden", "");
+      field("employees-side-lifecycle-btn")?.closest("p")?.setAttribute("hidden", "");
     }
     sideDocs?.querySelector("#employees-side-doc-manage-btn")?.addEventListener("click", () => {
       if (isMobileEmployeesHub()) {
@@ -3458,7 +3637,7 @@
       sidePanelTab = "documents";
       paintEmployeeSidePanel(workspace.employee || {}, workspace);
     });
-    document.getElementById("employees-side-lifecycle-btn")?.addEventListener("click", () => {
+    field("employees-side-lifecycle-btn")?.addEventListener("click", () => {
       if (isMobileEmployeesHub()) {
         mobileProfileEdit = true;
         mobileProfileTab = "details";
@@ -5476,8 +5655,12 @@
     if (document.body.dataset.employeesDesktopBound === "true") return;
     document.body.dataset.employeesDesktopBound = "true";
     document.getElementById("employees-add-btn")?.addEventListener("click", () => {
-      const dialog = document.getElementById("employees-add-dialog");
-      if (typeof dialog?.showModal === "function") dialog.showModal();
+      openEmployeeQuickAdd();
+    });
+    document.getElementById("employees-add-dialog")?.addEventListener("close", () => {
+      document.getElementById("employees-add-dialog")?.classList.remove("is-sheet");
+      const backdrop = document.getElementById("employees-add-backdrop");
+      if (backdrop) backdrop.hidden = true;
     });
     document.getElementById("employees-search")?.addEventListener("input", (event) => {
       employeeSearchQuery = event.target.value || "";

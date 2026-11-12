@@ -21536,6 +21536,57 @@ input[type="date"].sshr-date-enhanced::-webkit-calendar-picker-indicator {
   background: rgba(15, 23, 42, 0.4);
 }
 
+.employees-add-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  border: 0;
+  padding: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.employees-add-backdrop[hidden] {
+  display: none !important;
+}
+
+.employees-add-dialog.is-sheet {
+  display: block;
+  position: fixed;
+  z-index: 1410;
+  left: 50%;
+  right: auto;
+  top: max(16px, env(safe-area-inset-top));
+  bottom: auto;
+  width: min(520px, calc(100vw - 32px));
+  max-width: none;
+  margin: 0;
+  transform: translateX(-50%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+.employees-add-dialog.is-sheet input,
+.employees-add-dialog.is-sheet select,
+.employees-add-dialog.is-sheet textarea {
+  font-size: 16px;
+}
+
+.employees-stage-add {
+  width: 100%;
+  min-height: 44px;
+}
+
+html.native-app .lifecycle-accordion-item.is-open,
+html.native-app .lifecycle-hub-section {
+  overflow: visible;
+}
+
+html.native-app .edit-form input:not([type="checkbox"]):not([type="radio"]),
+html.native-app .edit-form select,
+html.native-app .edit-form textarea {
+  font-size: 16px;
+}
+
 .employees-add-dialog__bar {
   display: flex;
   align-items: center;
