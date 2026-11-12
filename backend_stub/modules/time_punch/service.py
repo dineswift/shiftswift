@@ -34,13 +34,44 @@ def uk_day_range_bounds(
 def uk_today() -> date:
     return datetime.now(UK_TZ).date()
 
+from modules.time_punch.punch_time_mode import (
+    DEFAULT_PUNCH_TIME_MODE,
+    PUNCH_TIME_MODES,
+    SPONSOR_PRESENCE_ONLY_BLOCKED,
+    PunchTimeMode,
+    normalize_punch_time_mode,
+    validate_punch_time_mode_choice,
+)
+
 PunchType = Literal["in", "out", "break_start", "break_end"]
-PunchMethod = Literal["gps", "site_qr", "admin", "kiosk"]
+PunchMethod = Literal["gps", "site_qr", "admin", "kiosk", "epos"]
 WorkState = Literal["off", "clocked_in", "on_break"]
 SITE_SCAN_VALID_MINUTES = 10
+# Premises QR does not replace the geofence. The phone must be this close to the scanned site.
+QR_PROXIMITY_METERS = int(os.getenv("PUNCH_QR_PROXIMITY_M", "40"))
+QR_MAX_ACCURACY_METERS = int(os.getenv("PUNCH_QR_MAX_ACCURACY_M", "65"))
 RAPID_RE_PUNCH_MINUTES = int(os.getenv("PUNCH_RAPID_REPUNCH_MINUTES", "10"))
 PUNCH_QR_MAX_AGE_HOURS = int(os.getenv("PUNCH_QR_MAX_AGE_HOURS", "24"))
 DEFAULT_RADIUS_M = int(os.getenv("PUNCH_GEOFENCE_RADIUS_M", "150"))
+
+
+def get_tenant_punch_time_mode(*, tenant_id: int, conn: Any) -> PunchTimeMode:
+    from core.schema import table_columns
+
+    if "punch_time_mode" not in table_columns(conn, "tenants"):
+        return DEFAULT_PUNCH_TIME_MODE
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT punch_time_mode FROM tenants WHERE id = %s",
+            (tenant_id,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return DEFAULT_PUNCH_TIME_MODE
+    try:
+        return normalize_punch_time_mode(row[0])
+    except ValueError:
+        return DEFAULT_PUNCH_TIME_MODE
 
 
 class PunchSyncError(ValueError):
@@ -244,6 +275,8 @@ def _insert_time_punch(
     punch_method: PunchMethod,
     conn: Any,
     rapid_re_punch: bool = False,
+    external_ref: str | None = None,
+    integration_token_id: int | None = None,
 ) -> dict[str, Any]:
     with conn.cursor() as cur:
         cur.execute(
@@ -251,9 +284,10 @@ def _insert_time_punch(
             INSERT INTO time_punches (
               tenant_id, employee_id, punch_site_id, punch_type, punched_at,
               latitude, longitude, accuracy_meters, distance_meters, within_geofence,
-              app_username, ip_address, user_agent, punch_method, rapid_re_punch
+              app_username, ip_address, user_agent, punch_method, rapid_re_punch,
+              external_ref, integration_token_id
             )
-            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, punched_at
             """,
             (
@@ -270,6 +304,8 @@ def _insert_time_punch(
                 user_agent,
                 punch_method,
                 rapid_re_punch,
+                external_ref,
+                integration_token_id,
             ),
         )
         row = cur.fetchone()
@@ -341,14 +377,58 @@ def scan_site_token(
         conn=conn,
     ):
         raise PermissionError(f"You are not assigned to punch at {site['name']}")
+    assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if assigned and int(assigned["id"]) != int(site["id"]):
+        raise PermissionError(f"Your shift is at {assigned['name']}. Clock in at that site.")
     return {
         "site_id": site["id"],
         "site_name": site["name"],
         "valid_until_minutes": SITE_SCAN_VALID_MINUTES,
+        "proximity_meters": QR_PROXIMITY_METERS,
         "message": (
-            f"Premises verified — {site['name']}. "
-            f"You can clock in or out without GPS for the next {SITE_SCAN_VALID_MINUTES} minutes."
+            f"Premises code accepted for {site['name']}. "
+            f"Clock in and clock out stay available only while this device is within {QR_PROXIMITY_METERS}m of the site."
         ),
+    }
+
+
+def evaluate_qr_proximity(
+    *,
+    site: dict[str, Any],
+    latitude: float,
+    longitude: float,
+    accuracy_meters: float | None,
+) -> dict[str, Any]:
+    """QR punches require the device to be very close to the scanned site."""
+    distance = haversine_meters(latitude, longitude, float(site["latitude"]), float(site["longitude"]))
+    accuracy = float(accuracy_meters) if accuracy_meters is not None else None
+    accuracy_ok = accuracy is None or accuracy <= float(QR_MAX_ACCURACY_METERS)
+    within = distance <= float(QR_PROXIMITY_METERS) and accuracy_ok
+    dist_int = int(round(distance))
+    if within:
+        message = (
+            f"Within {dist_int}m of {site['name']} "
+            f"(QR limit {QR_PROXIMITY_METERS}m). You can clock in or out."
+        )
+    elif accuracy is not None and not accuracy_ok:
+        message = (
+            f"GPS accuracy is ±{int(round(accuracy))}m. "
+            f"QR clock-in needs a precise fix within {QR_PROXIMITY_METERS}m of {site['name']}."
+        )
+    else:
+        message = (
+            f"You are about {dist_int}m from {site['name']}. "
+            f"QR clock-in and clock-out need this device within {QR_PROXIMITY_METERS}m."
+        )
+    return {
+        "within_geofence": within,
+        "distance_meters": round(distance, 1),
+        "site_name": site["name"],
+        "site_id": site["id"],
+        "radius_meters": QR_PROXIMITY_METERS,
+        "accuracy_meters": accuracy,
+        "qr_proximity": True,
+        "message": message,
     }
 
 
@@ -356,6 +436,23 @@ def format_permitted_roles(value: str | None) -> str:
     if not value or value == "all":
         return "All staff"
     return value.replace(",", ", ")
+
+
+def _assigned_staff_by_site(*, tenant_id: int, conn: Any) -> dict[int, list[int]]:
+    grouped: dict[int, list[int]] = {}
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT punch_site_id, employee_id
+            FROM employee_punch_assignments
+            WHERE tenant_id = %s
+            ORDER BY employee_id
+            """,
+            (tenant_id,),
+        )
+        for site_id, employee_id in cur.fetchall():
+            grouped.setdefault(int(site_id), []).append(int(employee_id))
+    return grouped
 
 
 def list_punch_sites(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
@@ -370,7 +467,11 @@ def list_punch_sites(*, tenant_id: int, conn: Any) -> list[dict[str, Any]]:
             """,
             (tenant_id,),
         )
-        return [_site_row(row) for row in cur.fetchall()]
+        sites = [_site_row(row) for row in cur.fetchall()]
+    staff = _assigned_staff_by_site(tenant_id=tenant_id, conn=conn)
+    for site in sites:
+        site["assigned_employee_ids"] = staff.get(int(site["id"]), [])
+    return sites
 
 
 def upsert_primary_punch_site(
@@ -598,6 +699,147 @@ def assign_employee_to_site(
     conn.commit()
 
 
+def set_site_staff(
+    *,
+    tenant_id: int,
+    site_id: int,
+    employee_ids: list[int],
+    conn: Any,
+) -> list[int]:
+    """Replace who may use this site. An empty list means any staff member."""
+    unique_ids = sorted({int(employee_id) for employee_id in employee_ids})
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM punch_sites WHERE id = %s AND tenant_id = %s",
+            (site_id, tenant_id),
+        )
+        if not cur.fetchone():
+            raise LookupError("Punch site not found")
+        if unique_ids:
+            cur.execute(
+                "SELECT id FROM employees WHERE tenant_id = %s AND id = ANY(%s)",
+                (tenant_id, unique_ids),
+            )
+            found = {int(row[0]) for row in cur.fetchall()}
+            if any(employee_id not in found for employee_id in unique_ids):
+                raise ValueError("Choose staff from this business")
+        cur.execute(
+            """
+            DELETE FROM employee_punch_assignments
+            WHERE tenant_id = %s AND punch_site_id = %s
+            """,
+            (tenant_id, site_id),
+        )
+        for employee_id in unique_ids:
+            cur.execute(
+                """
+                INSERT INTO employee_punch_assignments (tenant_id, employee_id, punch_site_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (employee_id, punch_site_id) DO NOTHING
+                """,
+                (tenant_id, employee_id, site_id),
+            )
+    conn.commit()
+    return unique_ids
+
+
+def _clock_minutes(value: time) -> int:
+    return value.hour * 60 + value.minute
+
+
+def shift_window_covers_now(start: time, end: time, now_minutes: int) -> bool:
+    """True from 2 hours before the shift until 3 hours after it."""
+    start_m = _clock_minutes(start)
+    end_m = _clock_minutes(end)
+    open_m = start_m - 120
+    if end_m >= start_m:
+        return open_m <= now_minutes <= end_m + 180
+    return now_minutes >= open_m or now_minutes <= end_m + 180
+
+
+def _shift_in_progress(start: time, end: time, now_minutes: int) -> bool:
+    start_m = _clock_minutes(start)
+    end_m = _clock_minutes(end)
+    if end_m >= start_m:
+        return start_m <= now_minutes <= end_m
+    return now_minutes >= start_m or now_minutes <= end_m
+
+
+def pick_shift_site_row(rows: list[tuple[Any, ...]], now_minutes: int) -> tuple[Any, ...] | None:
+    """Choose the published shift site that applies now. None means any site."""
+    covering = [row for row in rows if shift_window_covers_now(row[2], row[3], now_minutes)]
+    if not covering:
+        return None
+    in_progress = [row for row in covering if _shift_in_progress(row[2], row[3], now_minutes)]
+    pool = in_progress or covering
+    return min(pool, key=lambda row: _clock_minutes(row[2]))
+
+
+def shift_site_for_punch(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    conn: Any,
+    now: datetime | None = None,
+) -> dict[str, Any] | None:
+    """Site on today's published shift, while that shift's clock-in window is open."""
+    from modules.rota.service import rota_shifts_have_site_column
+
+    if not rota_shifts_have_site_column(conn):
+        return None
+    current = (now or datetime.now(UK_TZ)).astimezone(UK_TZ)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT s.punch_site_id, ps.name, ps.address, ps.latitude, ps.longitude,
+                   ps.radius_meters, s.start_time, s.end_time
+            FROM rota_shifts s
+            JOIN rota_weeks w ON w.id = s.rota_week_id AND w.tenant_id = s.tenant_id
+            JOIN punch_sites ps ON ps.id = s.punch_site_id AND ps.tenant_id = s.tenant_id
+            WHERE s.tenant_id = %s
+              AND s.employee_id = %s
+              AND s.shift_date = %s
+              AND w.status = 'published'
+              AND s.punch_site_id IS NOT NULL
+              AND ps.is_active = TRUE
+            ORDER BY s.start_time
+            """,
+            (tenant_id, employee_id, current.date()),
+        )
+        rows = cur.fetchall()
+    chosen = pick_shift_site_row(
+        [(row[0], row[1], row[6], row[7]) for row in rows],
+        _clock_minutes(current.time()),
+    )
+    if not chosen:
+        return None
+    match = next(row for row in rows if row[0] == chosen[0] and row[6] == chosen[2] and row[7] == chosen[3])
+    return {
+        "id": int(match[0]),
+        "tenant_id": tenant_id,
+        "name": match[1],
+        "address": match[2] or "",
+        "latitude": float(match[3]),
+        "longitude": float(match[4]),
+        "radius_meters": int(match[5]),
+        "is_primary": False,
+        "is_active": True,
+    }
+
+
+def sites_for_clock_in(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    conn: Any,
+) -> tuple[list[dict[str, Any]], bool]:
+    """Assigned shift site when one is open; otherwise every site the employee may use."""
+    assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if assigned:
+        return [assigned], True
+    return eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn), False
+
+
 def eligible_sites_for_employee(*, tenant_id: int, employee_id: int, conn: Any) -> list[dict[str, Any]]:
     with conn.cursor() as cur:
         cur.execute(
@@ -650,9 +892,34 @@ def preview_geofence(
     longitude: float,
     accuracy_meters: float | None,
     conn: Any,
+    clock_token: str | None = None,
 ) -> dict[str, Any]:
     """Server-side geofence check — same distance rules as record_punch, without writing."""
-    sites = eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if clock_token:
+        site = resolve_site_by_clock_token(clock_token=clock_token, conn=conn)
+        if not site:
+            raise LookupError("Invalid or expired premises code")
+        _validate_site_clock_token_freshness(site)
+        if site["tenant_id"] != tenant_id:
+            raise PermissionError("This premises code belongs to another business")
+        if not employee_can_punch_at_site(
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            site_id=site["id"],
+            conn=conn,
+        ):
+            raise PermissionError(f"You are not assigned to punch at {site['name']}")
+        assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        if assigned and int(assigned["id"]) != int(site["id"]):
+            raise PermissionError(f"Your shift is at {assigned['name']}. Clock in at that site.")
+        return evaluate_qr_proximity(
+            site=site,
+            latitude=latitude,
+            longitude=longitude,
+            accuracy_meters=accuracy_meters,
+        )
+
+    sites, assigned_shift = sites_for_clock_in(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     if not sites:
         raise LookupError("No punch sites configured for this business")
 
@@ -661,7 +928,14 @@ def preview_geofence(
     within = best_distance <= radius
     dist_int = int(round(best_distance))
     radius_int = int(radius)
-    if within:
+    if assigned_shift and within:
+        message = f"Within your shift at {best_site['name']} ({dist_int}m from site, limit {radius_int}m)."
+    elif assigned_shift:
+        message = (
+            f"Your shift is at {best_site['name']}. "
+            f"You appear to be {dist_int}m away. Move closer to clock in."
+        )
+    elif within:
         message = f"Within {best_site['name']} ({dist_int}m from site, limit {radius_int}m)."
     else:
         message = f"You appear to be {dist_int}m from {best_site['name']}. Move closer to clock in."
@@ -673,6 +947,7 @@ def preview_geofence(
         "site_id": best_site["id"],
         "radius_meters": radius_int,
         "accuracy_meters": accuracy_meters,
+        "assigned_from_shift": assigned_shift,
         "message": message,
     }
 
@@ -768,6 +1043,7 @@ def employee_punch_status(*, tenant_id: int, employee_id: int, conn: Any) -> dic
         "break_started_at": break_started_at,
         "rapid_re_punch_window_minutes": RAPID_RE_PUNCH_MINUTES,
         "clock_in_cooldown_seconds": int(os.getenv("PUNCH_CLOCK_IN_COOLDOWN_SECONDS", "90")),
+        "punch_time_mode": get_tenant_punch_time_mode(tenant_id=tenant_id, conn=conn),
         "tenant_name": tenant_display_name(tenant_id=tenant_id, conn=conn),
         "assigned_sites": [
             {
@@ -810,16 +1086,17 @@ def record_punch(
         conn=conn,
     )
 
-    sites = eligible_sites_for_employee(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    sites, assigned_shift = sites_for_clock_in(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     if not sites:
         raise LookupError("No punch sites configured for this business")
 
     best_site, best_distance = _nearest_punch_site(latitude=latitude, longitude=longitude, sites=sites)
     within = best_distance <= float(best_site["radius_meters"])
     if not within:
+        place = f"your shift at {best_site['name']}" if assigned_shift else best_site["name"]
         raise PermissionError(
-            f"You must be within {best_site['radius_meters']}m of {best_site['name']} to punch "
-            f"(currently ~{int(best_distance)}m away)"
+            f"You must be within {int(best_site['radius_meters'])}m of {place} to clock in or out "
+            f"(you are about {int(best_distance)}m away)."
         )
 
     prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
@@ -852,6 +1129,9 @@ def record_punch_via_site_token(
     username: str,
     punch_type: PunchType,
     clock_token: str,
+    latitude: float,
+    longitude: float,
+    accuracy_meters: float | None,
     ip_address: str | None,
     user_agent: str | None,
     conn: Any,
@@ -882,6 +1162,18 @@ def record_punch_via_site_token(
         conn=conn,
     ):
         raise PermissionError(f"You are not assigned to punch at {site['name']}")
+    assigned = shift_site_for_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+    if assigned and int(assigned["id"]) != int(site["id"]):
+        raise PermissionError(f"Your shift is at {assigned['name']}. Clock in at that site.")
+
+    proximity = evaluate_qr_proximity(
+        site=site,
+        latitude=latitude,
+        longitude=longitude,
+        accuracy_meters=accuracy_meters,
+    )
+    if not proximity["within_geofence"]:
+        raise PermissionError(str(proximity["message"]))
 
     prior = last_punch(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
     rapid_re_punch = _detect_rapid_re_punch(last=prior, punch_type=punch_type)
@@ -891,10 +1183,10 @@ def record_punch_via_site_token(
         employee_id=employee_id,
         punch_site_id=site["id"],
         punch_type=punch_type,
-        latitude=site["latitude"],
-        longitude=site["longitude"],
-        accuracy_meters=None,
-        distance_meters=0.0,
+        latitude=latitude,
+        longitude=longitude,
+        accuracy_meters=accuracy_meters,
+        distance_meters=float(proximity["distance_meters"]),
         app_username=username,
         ip_address=ip_address,
         user_agent=user_agent,
@@ -904,6 +1196,27 @@ def record_punch_via_site_token(
     )
     result["site_name"] = site["name"]
     return result
+
+
+def clean_admin_punch_note(note: str | None) -> str:
+    text = " ".join(str(note or "").split())
+    if len(text) < 3:
+        raise ValueError("Add a short reason for this admin punch")
+    if len(text) > 500:
+        raise ValueError("Reason must be 500 characters or fewer")
+    return text
+
+
+def resolve_admin_punched_at(punched_at: datetime | None, *, now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    if punched_at is None:
+        return current
+    ts = punched_at if punched_at.tzinfo else punched_at.replace(tzinfo=timezone.utc)
+    if ts > current + timedelta(minutes=5):
+        raise ValueError("Punch time cannot be in the future")
+    if ts < current - timedelta(days=400):
+        raise ValueError("Punch time is too far in the past")
+    return ts
 
 
 def record_admin_punch(
@@ -951,9 +1264,8 @@ def record_admin_punch(
             raise LookupError("Punch site not found")
         site = _site_row(site_row)
 
-        ts = punched_at or datetime.now(timezone.utc)
-        if punched_at and punched_at.tzinfo is None:
-            ts = punched_at.replace(tzinfo=timezone.utc)
+        ts = resolve_admin_punched_at(punched_at)
+        note = clean_admin_punch_note(admin_note)
 
         cur.execute(
             """
@@ -974,7 +1286,7 @@ def record_admin_punch(
                 site["latitude"],
                 site["longitude"],
                 recorded_by,
-                admin_note,
+                note,
                 recorded_by,
             ),
         )

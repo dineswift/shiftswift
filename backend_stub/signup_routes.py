@@ -121,6 +121,9 @@ def _create_hr_admin_user(conn: Any, tenant_id: int, username: str, password: st
             """,
             (username.lower(), hash_password(password), tenant_id),
         )
+    from modules.workspace.service import ensure_workspace_owner
+
+    ensure_workspace_owner(conn=conn, tenant_id=tenant_id, username=username)
 
 
 def _send_signup_welcome_email(
@@ -303,6 +306,14 @@ def signup_start(payload: SignupStartRequest, request: Request) -> dict[str, obj
             )
             tenant_id = int(cur.fetchone()[0])
 
+        from auth_policy import ensure_login_mfa_default
+
+        ensure_login_mfa_default(
+            conn,
+            tenant_id,
+            name=payload.business_name.strip(),
+            billing_email=str(payload.billing_email).strip().lower(),
+        )
         admin_username = str(payload.billing_email).strip().lower()
         _create_hr_admin_user(conn, tenant_id, admin_username, payload.admin_password)
 

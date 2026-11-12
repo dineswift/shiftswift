@@ -1,13 +1,20 @@
 (function () {
   const session = window.ShiftSwiftSession;
+  if (!session) return;
+
   const API_BASE = session.getApiBase();
   const loginUrl = session.EMPLOYEE_LOGIN_URL;
-
-  if (!session.hasSession()) return;
 
   const listEl = document.getElementById("employee-week-shifts");
   const weekLabelEl = document.getElementById("employee-shifts-week-label");
   const messageEl = document.getElementById("employee-shift-message");
+
+  let loadInFlight = null;
+  let reminderConfig = { minutes_before_start: 10, minutes_before_end: 10 };
+
+  function localIso(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -17,8 +24,16 @@
       .replace(/"/g, "&quot;");
   }
 
+  function resolveTenantId() {
+    return (
+      localStorage.getItem("tenantId") ||
+      session.readTokenTenantId?.() ||
+      ""
+    );
+  }
+
   async function apiFetch(path, options = {}) {
-    const tenantId = localStorage.getItem("tenantId");
+    const tenantId = resolveTenantId();
     return session.fetchWithAuth(path, options, { apiBase: API_BASE, tenantId, loginUrl });
   }
 
@@ -34,10 +49,31 @@
     });
   }
 
+  function setHomeToday(items) {
+    const wrap = document.getElementById("employee-home-today");
+    const value = document.getElementById("employee-home-today-value");
+    if (!wrap || !value) return;
+    wrap.hidden = false;
+    const todayIso = localIso();
+    const today = (items || []).filter((item) => item.shift_date === todayIso);
+    if (!today.length) {
+      value.textContent = "No published shift today";
+      wrap.classList.remove("employee-home-today--active");
+      return;
+    }
+    const first = today[0];
+    const more = today.length > 1 ? ` · +${today.length - 1} more` : "";
+    const role = first.role_label ? ` · ${first.role_label}` : "";
+    const site = first.site_name ? ` · ${first.site_name}` : "";
+    value.textContent = `${first.start_time}–${first.end_time}${role}${site}${more}`;
+    wrap.classList.add("employee-home-today--active");
+  }
+
   function parseApiError(data, fallback) {
-    const detail = data?.detail;
-    if (typeof detail === "string") return detail;
-    if (detail && typeof detail.message === "string") return detail.message;
+    if (typeof data?.detail === "string") return data.detail;
+    if (Array.isArray(data?.detail) && data.detail[0]?.msg) return data.detail[0].msg;
+    if (typeof data?.error === "string") return data.error;
+    if (typeof data?.message === "string") return data.message;
     return fallback;
   }
 
@@ -76,11 +112,9 @@
         ${retry ? '<button type="button" class="btn ghost btn-sm" id="employee-shifts-retry">Try again</button>' : ""}
       </div>`;
     if (retry) {
-      document.getElementById("employee-shifts-retry")?.addEventListener("click", loadShifts);
+      document.getElementById("employee-shifts-retry")?.addEventListener("click", () => void loadShifts({ force: true }));
     }
   }
-
-  let reminderConfig = { minutes_before_start: 10, minutes_before_end: 10 };
 
   function renderReminderBanner() {
     const host = document.getElementById("employee-shift-reminders-info");
@@ -91,18 +125,19 @@
     host.innerHTML = `
       <div class="employee-shift-alerts-banner__copy">
         <span class="employee-shift-alerts-banner__title">Shift reminders active</span>
-        <span class="employee-shift-alerts-banner__sub">Bell alert ${startMin} min before start · ${endMin} min before end</span>
+        <span class="employee-shift-alerts-banner__sub">Reminder at shift start · ${startMin} min before start · ${endMin} min before end</span>
       </div>
       <span class="employee-shift-alerts-banner__icon" aria-hidden="true">🔔</span>`;
   }
 
   function renderShiftCard(shift) {
     const date = new Date(`${shift.shift_date}T12:00:00`);
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = localIso();
     const isToday = shift.shift_date === todayIso;
     const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
     const dayNum = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
     const role = shift.role_label ? `<p class="employee-shift-card__role">${escapeHtml(shift.role_label)}</p>` : "";
+    const site = shift.site_name ? `<p class="employee-shift-card__site">${escapeHtml(shift.site_name)}</p>` : "";
     const notes = shift.notes
       ? `<p class="employee-shift-card__notes muted">${escapeHtml(shift.notes)}</p>`
       : "";
@@ -123,6 +158,7 @@
           <div class="employee-shift-card__main">
             <p class="employee-shift-card__time">${escapeHtml(shift.start_time)}–${escapeHtml(shift.end_time)}</p>
             ${role}
+            ${site}
             ${notes}
             ${reminderHint}
           </div>
@@ -158,63 +194,113 @@
     setMessage("Cover request sent to your manager.");
   }
 
-  async function loadShifts() {
-    if (!listEl) return;
-    if (!localStorage.getItem("tenantId")) {
-      renderPlaceholder("Loading your account…");
-      return;
+  async function ensureSessionReady() {
+    window.ShiftSwiftNativeApiFetch?.boot?.();
+    await session.hydrateNativeSession?.({ force: true });
+    if (!session.hasSession() && session.getRefreshToken?.()) {
+      await session.refreshAccessToken?.();
+      await session.hydrateNativeSession?.({ force: true });
     }
-
-    renderPlaceholder("Loading shifts…");
-    setMessage("");
-    if (weekLabelEl) weekLabelEl.hidden = true;
-
-    try {
-      const res = await apiFetch("/rota/my-shifts", { method: "GET" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const errorText = parseApiError(data, "Could not load shifts.");
-        renderPlaceholder(errorText, { retry: true });
-        setShiftsSummary("Could not load shifts.");
-        return;
-      }
-
-      const items = data.shifts || [];
-      if (data.shift_reminders) {
-        reminderConfig = {
-          minutes_before_start: data.shift_reminders.minutes_before_start ?? 10,
-          minutes_before_end: data.shift_reminders.minutes_before_end ?? 10,
-        };
-      }
-      renderReminderBanner();
-      window.dispatchEvent(new CustomEvent("employee:shifts-loaded", { detail: data }));
-      setShiftsSummary(formatShiftSummary(items));
-
-      if (weekLabelEl) {
-        const label = formatWeekLabel(data.week_start, data.week_end);
-        if (label) {
-          weekLabelEl.textContent = label;
-          weekLabelEl.hidden = false;
-        } else {
-          weekLabelEl.hidden = true;
-        }
-      }
-
-      if (!items.length) {
-        renderPlaceholder("No published shifts this week yet. Check back after your manager publishes the rota.");
-        return;
-      }
-
-      listEl.innerHTML = items.map(renderShiftCard).join("");
-      listEl.querySelectorAll("[data-cover-shift]").forEach((btn) => {
-        btn.addEventListener("click", () => requestCover(Number(btn.getAttribute("data-cover-shift"))));
-      });
-    } catch {
-      renderPlaceholder("Could not reach the server. Check your connection.", { retry: true });
-      setShiftsSummary("Could not load shifts.");
+    const tokenTenant = session.readTokenTenantId?.();
+    if (tokenTenant && !localStorage.getItem("tenantId")) {
+      localStorage.setItem("tenantId", tokenTenant);
     }
   }
 
-  loadShifts();
-  window.addEventListener("employee:profile-loaded", loadShifts);
+  async function loadShifts({ force = false } = {}) {
+    if (!listEl) return;
+    if (loadInFlight && !force) return loadInFlight;
+
+    loadInFlight = (async () => {
+      await ensureSessionReady();
+
+      if (!session.hasSession()) {
+        renderPlaceholder("Sign in again to see your shifts.", { retry: true });
+        setShiftsSummary("Sign in required.");
+        setHomeToday([]);
+        return;
+      }
+
+      if (!resolveTenantId()) {
+        renderPlaceholder("Loading your account…", { retry: true });
+        setShiftsSummary("Loading your account…");
+        return;
+      }
+
+      renderPlaceholder("Loading shifts…");
+      setMessage("");
+      if (weekLabelEl) weekLabelEl.hidden = true;
+
+      try {
+        const res = await apiFetch("/rota/my-shifts", { method: "GET" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const errorText = parseApiError(data, "Could not load shifts.");
+          renderPlaceholder(errorText, { retry: true });
+          setShiftsSummary("Could not load shifts.");
+          setHomeToday([]);
+          return;
+        }
+
+        const items = data.shifts || [];
+        if (data.shift_reminders) {
+          reminderConfig = {
+            minutes_before_start: data.shift_reminders.minutes_before_start ?? 10,
+            minutes_before_end: data.shift_reminders.minutes_before_end ?? 10,
+          };
+        }
+        renderReminderBanner();
+        window.dispatchEvent(new CustomEvent("employee:shifts-loaded", { detail: data }));
+        setShiftsSummary(formatShiftSummary(items));
+        setHomeToday(items);
+
+        if (weekLabelEl) {
+          const label = formatWeekLabel(data.week_start, data.week_end);
+          if (label) {
+            weekLabelEl.textContent = label;
+            weekLabelEl.hidden = false;
+          } else {
+            weekLabelEl.hidden = true;
+          }
+        }
+
+        if (!items.length) {
+          renderPlaceholder("No published shifts this week yet. Check back after your manager publishes the rota.");
+          return;
+        }
+
+        listEl.innerHTML = items.map(renderShiftCard).join("");
+        listEl.querySelectorAll("[data-cover-shift]").forEach((btn) => {
+          btn.addEventListener("click", () => requestCover(Number(btn.getAttribute("data-cover-shift"))));
+        });
+      } catch {
+        renderPlaceholder("Could not reach the server. Check your connection.", { retry: true });
+        setShiftsSummary("Could not load shifts.");
+        setHomeToday([]);
+      }
+    })();
+
+    try {
+      await loadInFlight;
+    } finally {
+      loadInFlight = null;
+    }
+  }
+
+  function onShiftsRetry() {
+    void loadShifts({ force: true });
+  }
+
+  window.addEventListener("employee:profile-loaded", onShiftsRetry);
+  window.addEventListener("employee:profile-retry", onShiftsRetry);
+  window.addEventListener("employee:shifts-retry", onShiftsRetry);
+  window.addEventListener("shiftswift:native-session-ready", onShiftsRetry);
+  window.addEventListener("shiftswift:portal-ready", onShiftsRetry);
+
+  window.ShiftSwiftEmployeeRota = {
+    loadShifts,
+    reload: () => loadShifts({ force: true }),
+  };
+
+  void loadShifts();
 })();

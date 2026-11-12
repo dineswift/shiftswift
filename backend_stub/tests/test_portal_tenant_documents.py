@@ -27,8 +27,9 @@ def test_tenant_document_accessible_to_employee_assigned_other() -> None:
 
 
 def test_portal_document_visible_respects_employee_visible_flag() -> None:
-    assert portal_document_visible({"has_file": True, "employee_visible": False}) is False
-    assert portal_document_visible({"has_file": True, "employee_visible": True}) is True
+    stored = {"storage_path": "/tmp/policy.pdf"}
+    assert portal_document_visible({**stored, "employee_visible": False}) is False
+    assert portal_document_visible({**stored, "employee_visible": True}) is True
 
 
 def test_portal_document_visible_hr_only_company_doc_hidden_by_default() -> None:

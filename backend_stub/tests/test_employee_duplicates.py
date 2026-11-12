@@ -76,7 +76,7 @@ def test_assert_no_duplicate_blocks_name_when_email_clear() -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchone.side_effect = [None, (3, "Radhika", "Bhusal", None, None, None, "onboarding")]
+    cursor.fetchone.side_effect = [(3, "Radhika", "Bhusal", None, None, None, "onboarding")]
 
     with pytest.raises(DuplicateEmployeeError, match="already exists") as exc:
         assert_no_duplicate_employee(

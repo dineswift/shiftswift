@@ -423,6 +423,11 @@ def invite_employee_to_portal(
     if portal_meta.get("portal_setup_complete") and not resend_if_exists:
         raise ValueError("This employee has already completed portal setup")
 
+    from core.notifications import smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
+
     user, created = _ensure_employee_app_user(
         tenant_id=tenant_id,
         email=email,
@@ -580,7 +585,7 @@ def invite_missing_portal_accounts(
                     "created_account": result["created_account"],
                 }
             )
-        except ValueError as exc:
+        except (ValueError, RuntimeError) as exc:
             failed.append({"employee_id": employee_id, "name": label, "reason": str(exc)})
 
     created_count = sum(1 for item in invited if item.get("created_account"))

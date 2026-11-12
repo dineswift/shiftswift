@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from modules.employees.business_schedule import (
     get_business_schedule,
+    local_now,
     should_send_signin_reminder_now,
 )
 from modules.employees.notification_branding import employee_notification_from_name

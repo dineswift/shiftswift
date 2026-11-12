@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(root, "..");
-const src = path.join(repoRoot, "frontend", "native-app-login.html");
+const src = path.join(repoRoot, "frontend", "sign-in.html");
 const dest = path.join(root, "www", "app", "index.html");
 
 let html = fs.readFileSync(src, "utf8");

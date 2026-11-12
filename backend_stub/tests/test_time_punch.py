@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock
+from datetime import time
+from unittest.mock import MagicMock, patch
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -13,13 +14,52 @@ sys.path.insert(0, str(BACKEND))
 from modules.time_punch.service import (
     _detect_rapid_re_punch,
     _punch_row,
+    clean_admin_punch_note,
     haversine_meters,
+    resolve_admin_punched_at,
+    pick_shift_site_row,
     preview_geofence,
     record_punch,
+    QR_PROXIMITY_METERS,
+    evaluate_qr_proximity,
     record_punch_via_site_token,
     review_punch,
     scan_site_token,
+    set_site_staff,
 )
+
+
+def test_pick_shift_site_uses_open_shift_and_ignores_finished_ones() -> None:
+    morning = (1, "Stafford", time(9, 0), time(17, 0))
+    evening = (2, "Newport", time(18, 0), time(23, 0))
+    assert pick_shift_site_row([morning, evening], 10 * 60)[0] == 1
+    assert pick_shift_site_row([morning, evening], 19 * 60)[0] == 2
+    assert pick_shift_site_row([morning], 22 * 60) is None
+    assert pick_shift_site_row([morning], 7 * 60 + 30)[0] == 1
+
+
+def test_preview_uses_shift_site_instead_of_nearest() -> None:
+    conn = MagicMock()
+    assigned = {
+        "id": 2,
+        "name": "Stafford",
+        "latitude": 52.806,
+        "longitude": -2.117,
+        "radius_meters": 150,
+    }
+    with patch("modules.time_punch.service.shift_site_for_punch", return_value=assigned):
+        result = preview_geofence(
+            tenant_id=1,
+            employee_id=1,
+            latitude=53.4794,
+            longitude=-2.2451,
+            accuracy_meters=10.0,
+            conn=conn,
+        )
+    assert result["assigned_from_shift"] is True
+    assert result["site_name"] == "Stafford"
+    assert result["within_geofence"] is False
+    assert "shift" in result["message"].lower()
 
 
 def test_haversine_same_point_is_zero() -> None:
@@ -32,7 +72,8 @@ def test_haversine_known_distance_roughly() -> None:
     assert 900 < distance < 1100
 
 
-def test_record_punch_rejects_when_outside_geofence() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_record_punch_rejects_when_outside_geofence(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -64,7 +105,8 @@ def test_record_punch_rejects_when_outside_geofence() -> None:
         assert "150m" in str(exc)
 
 
-def test_preview_geofence_outside() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_preview_geofence_outside(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -86,7 +128,8 @@ def test_preview_geofence_outside() -> None:
     assert result["radius_meters"] == 100
 
 
-def test_preview_geofence_inside() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_preview_geofence_inside(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -136,7 +179,8 @@ def test_scan_site_token_rejects_other_tenant() -> None:
         assert "another business" in str(exc)
 
 
-def test_record_punch_via_site_token_inserts_qr_punch() -> None:
+@patch("modules.time_punch.service.shift_site_for_punch", return_value=None)
+def test_record_punch_via_site_token_inserts_qr_punch(_shift) -> None:
     conn = MagicMock()
     cursor = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cursor
@@ -170,6 +214,9 @@ def test_record_punch_via_site_token_inserts_qr_punch() -> None:
         username="employee@shiftswifthr.co.uk",
         punch_type="in",
         clock_token="valid-token",
+        latitude=53.4794,
+        longitude=-2.2451,
+        accuracy_meters=8.0,
         ip_address="127.0.0.1",
         user_agent="test",
         conn=conn,
@@ -180,6 +227,22 @@ def test_record_punch_via_site_token_inserts_qr_punch() -> None:
     assert result["clocked_in"] is True
     insert_params = cursor.execute.call_args_list[-1][0][1]
     assert insert_params[11] == "site_qr"
+    assert result["distance_meters"] == 0.0
+
+
+def test_qr_proximity_rejects_device_away_from_site() -> None:
+    site = {"id": 1, "name": "Main site", "latitude": 53.4794, "longitude": -2.2451}
+    near = evaluate_qr_proximity(site=site, latitude=53.4794, longitude=-2.2451, accuracy_meters=12)
+    assert near["within_geofence"] is True
+    assert near["radius_meters"] == QR_PROXIMITY_METERS
+
+    far = evaluate_qr_proximity(site=site, latitude=53.49, longitude=-2.2451, accuracy_meters=12)
+    assert far["within_geofence"] is False
+    assert "within" in far["message"]
+
+    coarse = evaluate_qr_proximity(site=site, latitude=53.4794, longitude=-2.2451, accuracy_meters=400)
+    assert coarse["within_geofence"] is False
+    assert "accuracy" in coarse["message"].lower()
 
 
 def test_punch_row_includes_hr_review_fields() -> None:
@@ -248,3 +311,71 @@ def test_review_punch_marks_record() -> None:
 
     assert result == {"id": 42, "reviewed": True}
     conn.commit.assert_called_once()
+
+
+def test_admin_punch_requires_a_reason() -> None:
+    assert clean_admin_punch_note("  Forgot   to punch  ") == "Forgot to punch"
+    try:
+        clean_admin_punch_note("ok")
+    except ValueError as exc:
+        assert "reason" in str(exc).lower()
+    else:
+        raise AssertionError("short reason should be rejected")
+
+
+def test_admin_punch_rejects_future_time() -> None:
+    now = datetime(2026, 11, 8, 12, 0, tzinfo=timezone.utc)
+    assert resolve_admin_punched_at(None, now=now) == now
+    past = now - timedelta(hours=2)
+    assert resolve_admin_punched_at(past, now=now) == past
+    try:
+        resolve_admin_punched_at(now + timedelta(hours=1), now=now)
+    except ValueError as exc:
+        assert "future" in str(exc).lower()
+    else:
+        raise AssertionError("future punch time should be rejected")
+
+
+def _staff_cursor() -> tuple[MagicMock, MagicMock]:
+    conn = MagicMock()
+    cursor = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    return conn, cursor
+
+
+def test_set_site_staff_replaces_the_site_list() -> None:
+    conn, cursor = _staff_cursor()
+    cursor.fetchone.return_value = (5,)
+    cursor.fetchall.return_value = [(1,), (2,)]
+
+    assert set_site_staff(tenant_id=1, site_id=5, employee_ids=[2, 1, 1], conn=conn) == [1, 2]
+
+    sql = " ".join(call.args[0] for call in cursor.execute.call_args_list)
+    assert "DELETE FROM employee_punch_assignments" in sql
+    assert "INSERT INTO employee_punch_assignments" in sql
+    conn.commit.assert_called_once()
+
+
+def test_set_site_staff_rejects_someone_from_another_business() -> None:
+    conn, cursor = _staff_cursor()
+    cursor.fetchone.return_value = (5,)
+    cursor.fetchall.return_value = [(1,)]
+    try:
+        set_site_staff(tenant_id=1, site_id=5, employee_ids=[1, 9], conn=conn)
+    except ValueError as exc:
+        assert "staff" in str(exc).lower()
+    else:
+        raise AssertionError("unknown staff should be rejected")
+    conn.commit.assert_not_called()
+
+
+def test_set_site_staff_missing_site() -> None:
+    conn, cursor = _staff_cursor()
+    cursor.fetchone.return_value = None
+    try:
+        set_site_staff(tenant_id=1, site_id=5, employee_ids=[], conn=conn)
+    except LookupError as exc:
+        assert "not found" in str(exc).lower()
+    else:
+        raise AssertionError("missing site should be rejected")
+

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -23,9 +23,10 @@ from sponsor_licence_compliance import (
     get_absence_monitoring_detail,
     get_absence_streak_summaries,
     get_advertisement_record,
-    get_rtw_check,
+    get_rtw_record,
     list_advertisement_records,
     list_rtw_checks,
+    rtw_record_file,
     list_sponsored_absence_days,
     list_working_calendar,
     log_sms_reportable_change,
@@ -36,6 +37,7 @@ from sponsor_licence_compliance import (
     refresh_sms_change_alert_statuses,
     send_rtw_expiry_reminder,
     store_immutable_rtw_pdf,
+    update_rtw_workspace_record,
     store_advertisement_evidence,
     upsert_working_calendar,
 )
@@ -114,6 +116,33 @@ def _db_conn() -> Any:
     return psycopg2.connect(url)
 
 
+def _optional_form_date(value: date | str | None) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    iso = text[:10]
+    if len(iso) == 10 and iso[4] == "-" and iso[7] == "-":
+        try:
+            return date.fromisoformat(iso)
+        except ValueError:
+            pass
+    slash = text.replace(" ", "")
+    parts = slash.split("/")
+    if len(parts) == 3 and all(parts):
+        try:
+            day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
+            return date(year, month, day)
+        except ValueError:
+            pass
+    raise HTTPException(status_code=400, detail=f"Invalid date: {text}")
+
+
 async def _read_validated_pdf(upload: UploadFile) -> bytes:
     if upload.content_type not in {None, "application/pdf", "application/octet-stream"}:
         raise HTTPException(status_code=400, detail="Only PDF uploads are allowed")
@@ -157,7 +186,7 @@ def sponsor_licence_acknowledge(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_plan(tenant_id=tenant_id, conn=conn)
-        return acknowledge_sponsor_licence(
+        result = acknowledge_sponsor_licence(
             tenant_id=tenant_id,
             acknowledged_by=current_user.username,
             holds_sponsor_licence=payload.holds_sponsor_licence,
@@ -167,6 +196,7 @@ def sponsor_licence_acknowledge(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     else:
         conn.commit()
+        return result
     finally:
         conn.close()
 
@@ -184,19 +214,20 @@ def rtw_checklist_link() -> dict[str, str]:
 def list_rtw_check_records(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    employee_id: int | None = None,
 ) -> dict[str, Any]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        return list_rtw_checks(tenant_id=tenant_id, conn=conn)
+        return list_rtw_checks(tenant_id=tenant_id, conn=conn, employee_id=employee_id)
     finally:
         conn.close()
 
 
-@router.get("/rtw-checks/{check_id}")
+@router.get("/rtw-checks/{record_id}")
 def get_rtw_check_record(
-    check_id: int,
+    record_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, Any]:
@@ -204,16 +235,65 @@ def get_rtw_check_record(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        return get_rtw_check(tenant_id=tenant_id, check_id=check_id, conn=conn)
-    except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return get_rtw_record(tenant_id=tenant_id, record_id=record_id, conn=conn)
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
     finally:
         conn.close()
 
 
-@router.post("/rtw-checks/{check_id}/send-reminder")
+@router.patch("/rtw-checks/{record_id}")
+async def patch_rtw_check_record(
+    record_id: str,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    start_date: str | None = Form(None),
+    expiry_date: str | None = Form(None),
+    evidence_pdf: UploadFile | None = File(None),
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, Any]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    from modules.documents.storage import read_validated_upload
+
+    file_bytes = None
+    filename = None
+    if evidence_pdf is not None and str(evidence_pdf.filename or "").strip():
+        file_bytes, _content_type, _ext = await read_validated_upload(
+            evidence_pdf, max_bytes=settings.max_upload_bytes
+        )
+        filename = evidence_pdf.filename
+    conn = _db_conn()
+    try:
+        _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
+        return update_rtw_workspace_record(
+            tenant_id=tenant_id,
+            record_id=record_id,
+            start_date=_optional_form_date(start_date),
+            expiry_date=_optional_form_date(expiry_date),
+            file_bytes=file_bytes,
+            filename=filename,
+            checker_user_id=current_user.username,
+            conn=conn,
+        )
+    except HTTPException:
+        raise
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the file on the server. Check storage permissions.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not update this document: {exc}") from exc
+    finally:
+        conn.close()
+
+
+@router.post("/rtw-checks/{record_id}/send-reminder")
 def send_rtw_check_reminder(
-    check_id: int,
+    record_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, Any]:
@@ -221,7 +301,7 @@ def send_rtw_check_reminder(
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        result = send_rtw_expiry_reminder(tenant_id=tenant_id, check_id=check_id, conn=conn)
+        result = send_rtw_expiry_reminder(tenant_id=tenant_id, check_id=record_id, conn=conn)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -237,32 +317,55 @@ def send_rtw_check_reminder(
 async def create_rtw_check(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     employee_id: int = Form(...),
-    check_date: date = Form(...),
+    check_date: str = Form(...),
     check_method: str = Form(...),
     outcome: str = Form(...),
     checker_user_id: str = Form(...),
-    expiry_date: date | None = Form(None),
+    expiry_date: str | None = Form(None),
+    visa_expiry_date: str | None = Form(None),
+    rtw_check_expiry_date: str | None = Form(None),
     gov_checklist_version: str | None = Form(None),
     evidence_pdf: UploadFile = File(...),
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, Any]:
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    pdf_bytes = await _read_validated_pdf(evidence_pdf)
+    from modules.documents.storage import read_validated_upload
+
+    parsed_check = _optional_form_date(check_date)
+    if parsed_check is None:
+        raise HTTPException(status_code=400, detail="Choose a valid check date")
+    file_bytes, _content_type, _ext = await read_validated_upload(
+        evidence_pdf, max_bytes=settings.max_upload_bytes
+    )
+    parsed_expiry = _optional_form_date(rtw_check_expiry_date) or _optional_form_date(expiry_date)
+    parsed_visa_expiry = _optional_form_date(visa_expiry_date)
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
         stored = store_immutable_rtw_pdf(
             tenant_id=tenant_id,
             employee_id=employee_id,
-            pdf_bytes=pdf_bytes,
-            check_date=check_date,
+            pdf_bytes=file_bytes,
+            check_date=parsed_check,
             check_method=check_method,
             outcome=outcome,
             checker_user_id=checker_user_id or current_user.username,
-            expiry_date=expiry_date,
+            expiry_date=parsed_expiry,
+            visa_expiry_date=parsed_visa_expiry,
             gov_checklist_version=gov_checklist_version,
             conn=conn,
         )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the RTW file on the server. Check storage permissions.",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not store RTW evidence: {exc}") from exc
     finally:
         conn.close()
     return {
@@ -276,38 +379,24 @@ async def create_rtw_check(
     }
 
 
-@router.get("/rtw-checks/{check_id}/file")
+@router.get("/rtw-checks/{record_id}/file")
 def download_rtw_check_file(
-    check_id: int,
+    record_id: str,
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ):
     from fastapi.responses import FileResponse
 
-    from modules.documents.storage import resolve_rtw_file
-
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT employee_id, check_date, storage_path, content_sha256
-                FROM right_to_work_checks
-                WHERE tenant_id = %s AND id = %s
-                """,
-                (tenant_id, check_id),
-            )
-            row = cur.fetchone()
+        payload = rtw_record_file(tenant_id=tenant_id, record_id=record_id, conn=conn)
+    except (LookupError, ValueError) as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or "RTW record not found") from exc
     finally:
         conn.close()
-    if not row:
-        raise HTTPException(status_code=404, detail="RTW check not found")
-    employee_id, check_date, storage_path, _digest = row
-    path = resolve_rtw_file(tenant_id=tenant_id, storage_path=storage_path)
-    filename = f"rtw-check-employee-{employee_id}-{check_date.isoformat()}.pdf"
-    return FileResponse(path, media_type="application/pdf", filename=filename)
+    return FileResponse(payload["path"], media_type=payload["media_type"], filename=payload["filename"])
 
 
 @router.post("/absence-alerts/run")
@@ -835,19 +924,35 @@ def audit_export(
 
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
         assert_tenant_feature(tenant_id=tenant_id, feature="audit_export", conn=conn)
-        if format.lower() == "pdf":
+        filename = f"audit-pack-tenant-{tenant_id}"
+        if employee_id:
+            filename += f"-employee-{employee_id}"
+        fmt = format.lower()
+        if fmt == "pdf":
             pdf_bytes = audit_export_pdf_bytes(
                 tenant_id=tenant_id, employee_id=employee_id, conn=conn
             )
-            filename = f"audit-pack-tenant-{tenant_id}"
-            if employee_id:
-                filename += f"-employee-{employee_id}"
             return Response(
                 content=pdf_bytes,
                 media_type="application/pdf",
                 headers={"Content-Disposition": f'attachment; filename="{filename}.pdf"'},
             )
-        return build_audit_export(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        if fmt == "zip":
+            from modules.compliance.audit_export import build_audit_export_zip
+
+            zip_bytes = build_audit_export_zip(
+                tenant_id=tenant_id, employee_id=employee_id, conn=conn
+            )
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.zip"'},
+            )
+        pack = build_audit_export(tenant_id=tenant_id, employee_id=employee_id, conn=conn)
+        for section in ("right_to_work_checks", "employee_documents", "tenant_documents", "identity_documents"):
+            for row in pack["sections"].get(section, []):
+                row.pop("storage_path", None)
+        return pack
     finally:
         conn.close()
 
@@ -855,7 +960,7 @@ def audit_export(
 class ShareCodeVerifyRequest(BaseModel):
     employee_id: int
     share_code: str = Field(min_length=6, max_length=32)
-    date_of_birth: date
+    date_of_birth: date | None = None
 
 
 @router.post("/rtw-verify-share-code")
@@ -864,22 +969,48 @@ def verify_rtw_share_code(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    from modules.compliance.idsp_rtw import IdspError, idsp_configured, persist_verification, verify_share_code
+    from modules.compliance.idsp_rtw import (
+        IdspError,
+        idsp_configured,
+        persist_verification,
+        resolve_share_code_date_of_birth,
+        verify_share_code,
+    )
+    from modules.employees.repository import fetch_employee, update_employee_fields
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    try:
-        verification = verify_share_code(
-            share_code=payload.share_code,
-            date_of_birth=payload.date_of_birth,
-            employee_id=payload.employee_id,
-            tenant_id=tenant_id,
-        )
-    except IdspError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
     conn = _db_conn()
     try:
         _require_sponsor_compliance_access(tenant_id=tenant_id, conn=conn)
+        employee = fetch_employee(tenant_id=tenant_id, employee_id=payload.employee_id, conn=conn)
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        try:
+            date_of_birth = resolve_share_code_date_of_birth(
+                provided=payload.date_of_birth,
+                stored=employee.get("date_of_birth"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if employee.get("date_of_birth") is None:
+            try:
+                update_employee_fields(
+                    tenant_id=tenant_id,
+                    employee_id=payload.employee_id,
+                    updates={"date_of_birth": date_of_birth},
+                    conn=conn,
+                )
+            except Exception:
+                pass
+        try:
+            verification = verify_share_code(
+                share_code=payload.share_code,
+                date_of_birth=date_of_birth,
+                employee_id=payload.employee_id,
+                tenant_id=tenant_id,
+            )
+        except IdspError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         result = persist_verification(
             conn=conn,
             tenant_id=tenant_id,

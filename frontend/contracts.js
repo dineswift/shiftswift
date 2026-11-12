@@ -26,12 +26,76 @@
       return `<span class="contracts-status-pill contracts-status-pill--signed">Signed</span>`;
     }
     if (status === "sent") {
-      return `<span class="contracts-status-pill contracts-status-pill--sent">Received</span>`;
+      return `<span class="contracts-status-pill contracts-status-pill--sent">Pending signature</span>`;
     }
     if (status === "declined" || status === "expired") {
       return `<span class="contracts-status-pill contracts-status-pill--danger">${escapeHtml(status === "declined" ? "Declined" : "Expired")}</span>`;
     }
     return `<span class="contracts-status-pill contracts-status-pill--draft">${escapeHtml(status || "—")}</span>`;
+  }
+
+  function mobileStatusBadge(row) {
+    const status = row.status;
+    if (status === "signed") {
+      return `<span class="leave-mobile-badge leave-mobile-badge--approved">Signed</span>`;
+    }
+    if (status === "sent") {
+      return `<span class="leave-mobile-badge leave-mobile-badge--pending">Pending signature</span>`;
+    }
+    if (status === "declined" || status === "expired") {
+      return `<span class="leave-mobile-badge leave-mobile-badge--declined">${escapeHtml(status === "declined" ? "Declined" : "Expired")}</span>`;
+    }
+    return `<span class="leave-mobile-badge">${escapeHtml(status || "—")}</span>`;
+  }
+
+  function isMobileContractsUi() {
+    if (!document.getElementById("mobile-tab-bar")) return false;
+    return window.isShiftSwiftMobileViewport?.() ?? window.matchMedia("(max-width: 860px)").matches;
+  }
+
+  function renderMobileContractsList() {
+    const host = $("contracts-mobile-list");
+    if (!host) return;
+    if (!contracts.length) {
+      host.innerHTML = `<p class="leave-mobile-empty muted">No agreements received yet. When ShiftSwift sends your MSA, DPA, and order form, they will appear here.</p>`;
+      return;
+    }
+    host.innerHTML = contracts
+      .map((row) => {
+        const selected = selectedContractId === row.id ? " docs-mobile-card--selected" : "";
+        return `<article class="leave-mobile-request-card docs-mobile-card${selected}" data-contract-id="${row.id}">
+          <div class="leave-mobile-request-card__head">
+            <div class="leave-mobile-request-card__who">
+              <strong>${escapeHtml(row.contract_number)}</strong>
+              <span>${escapeHtml(row.template_name || row.template_id)}</span>
+            </div>
+            ${mobileStatusBadge(row)}
+          </div>
+          <div class="leave-mobile-request-card__meta">
+            <span>${escapeHtml(row.customer_legal_name)}</span>
+            <span>${escapeHtml(formatDate(row.sent_at || row.created_at))}</span>
+          </div>
+          <div class="leave-mobile-request-card__actions">
+            <button type="button" class="leave-mobile-action leave-mobile-action--approve" data-contract-open="${row.id}">Open</button>
+          </div>
+        </article>`;
+      })
+      .join("");
+
+    host.querySelectorAll("[data-contract-open]").forEach((btn) => {
+      btn.addEventListener("click", () => selectContract(Number(btn.getAttribute("data-contract-open"))));
+    });
+  }
+
+  function renderMobileContractsShell() {
+    const shell = $("contracts-mobile-shell");
+    if (!shell) return;
+    if (!isMobileContractsUi()) {
+      shell.hidden = true;
+      return;
+    }
+    shell.hidden = Boolean(selectedContractId);
+    if (!shell.hidden) renderMobileContractsList();
   }
 
   function signatureCell(row) {
@@ -81,6 +145,7 @@
         $("contracts-detail-empty")?.removeAttribute("hidden");
       }
       renderContractsTable();
+      renderMobileContractsShell();
       if (selectedContractId && contracts.some((c) => c.id === selectedContractId)) {
         await selectContract(selectedContractId, { scroll: false });
       }
@@ -89,6 +154,7 @@
       if (tbody) {
         tbody.innerHTML = '<tr><td colspan="6" class="muted">Could not load agreements. Check you are signed in and the API is running.</td></tr>';
       }
+      renderMobileContractsShell();
     }
   }
 
@@ -145,6 +211,7 @@
   async function selectContract(contractId, { scroll = true } = {}) {
     selectedContractId = contractId;
     renderContractsTable();
+    renderMobileContractsShell();
     const content = $("contracts-detail-content");
     if (content) content.innerHTML = '<p class="muted">Loading agreement…</p>';
     try {
@@ -160,6 +227,7 @@
 
   async function initContractsSection() {
     await loadContracts();
+    renderMobileContractsShell();
   }
 
   function bindSectionEvents() {
@@ -167,6 +235,10 @@
     sectionBound = true;
     window.addEventListener("admin:section", (event) => {
       if (event.detail?.section === "contracts") initContractsSection();
+    });
+    window.addEventListener("resize", () => {
+      if (!sectionBound) return;
+      renderMobileContractsShell();
     });
     if (parseHashBaseSection(window.location.hash) === "contracts") initContractsSection();
   }

@@ -1,0 +1,134 @@
+{
+  "app": "ShiftSwift HR",
+  "bundle_id": "co.uk.shiftswifthr.app",
+  "source_files": [
+    "01-sign-in.png",
+    "02-admin-home.png",
+    "03-rota.png",
+    "04-compliance.png",
+    "05-more.png"
+  ],
+  "iphone_sets": {
+    "iphone-6.9": {
+      "size": [
+        1320,
+        2868
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    },
+    "iphone-6.7": {
+      "size": [
+        1290,
+        2796
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    },
+    "iphone-6.5": {
+      "size": [
+        1284,
+        2778
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    },
+    "iphone-6.5-xsmax": {
+      "size": [
+        1242,
+        2688
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    },
+    "iphone-6.1": {
+      "size": [
+        1179,
+        2556
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    }
+  },
+  "ipad_sets": {
+    "ipad-13": {
+      "size": [
+        2064,
+        2752
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    },
+    "ipad-12.9": {
+      "size": [
+        2048,
+        2732
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    },
+    "ipad-11": {
+      "size": [
+        1668,
+        2388
+      ],
+      "files": [
+        "01-sign-in.png",
+        "02-admin-home.png",
+        "03-rota.png",
+        "04-compliance.png",
+        "05-more.png"
+      ]
+    }
+  },
+  "app_store_connect": {
+    "app_icon": "upload/app-icon-1024.png (1024\u00d71024, no transparency)",
+    "iphone_required": "Upload iphone-6.5/ (1284\u00d72778) or iphone-6.9/ for 6.9-inch display",
+    "ipad_required": "Upload ipad-13 or ipad-12.9 (iPad supports iPhone + iPad)",
+    "transporter": "Use Transporter app or Xcode \u2192 Organizer \u2192 Distribute App",
+    "ipa": "ios/build/export/App.ipa (run: bash scripts/archive-for-app-store.sh)"
+  },
+  "app_icon": {
+    "file": "app-icon-1024.png",
+    "size": [
+      1024,
+      1024
+    ],
+    "source": "iphone-app/ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png"
+  }
+}

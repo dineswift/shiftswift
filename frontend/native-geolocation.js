@@ -12,9 +12,9 @@
     if (error?.code === 1 || /denied|permission/i.test(String(error?.message || ""))) {
       return "Location permission denied. Enable location in your device settings.";
     }
-    if (error?.code === 2) return "Location unavailable. Try moving outdoors or scan the premises QR.";
+    if (error?.code === 2) return "Location unavailable. Move closer to the site and try again.";
     if (error?.code === 3 || /timeout/i.test(String(error?.message || ""))) {
-      return "Location timed out. Check GPS or scan the premises QR.";
+      return "Location timed out. Move closer to the site and try again.";
     }
     return error?.message || "Could not read your location.";
   }
@@ -53,6 +53,11 @@
     const plugin = geoPlugin();
     if (!plugin?.requestPermissions) return "prompt";
     try {
+      if (plugin.checkPermissions) {
+        const current = await plugin.checkPermissions();
+        const state = current?.location || current?.coarseLocation;
+        if (state === "granted" || state === "denied") return state;
+      }
       const result = await plugin.requestPermissions();
       return result?.location || result?.coarseLocation || "prompt";
     } catch {

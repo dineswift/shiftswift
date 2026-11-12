@@ -154,3 +154,52 @@ body.kiosk-app {
   font-weight: 600;
   cursor: pointer;
 }
+
+@media (max-width: 640px) {
+  .kiosk-panel h1 {
+    font-size: 1.5rem;
+  }
+
+  .kiosk-lead,
+  .kiosk-message,
+  .kiosk-status {
+    font-size: 1rem;
+  }
+
+  .kiosk-form input,
+  .kiosk-btn {
+    font-size: 1rem;
+    min-height: 48px;
+  }
+}
+
+@media (min-width: 900px) {
+  .kiosk-shell {
+    max-width: 720px;
+    padding: 2rem 1.5rem;
+  }
+
+  .kiosk-panel {
+    padding: 2rem;
+  }
+
+  .kiosk-panel h1 {
+    font-size: 2rem;
+  }
+
+  .kiosk-lead,
+  .kiosk-state,
+  .kiosk-message {
+    font-size: 1.125rem;
+  }
+
+  .kiosk-form label {
+    font-size: 1.05rem;
+  }
+
+  .kiosk-form input,
+  .kiosk-btn {
+    font-size: 1.2rem;
+    min-height: 56px;
+  }
+}

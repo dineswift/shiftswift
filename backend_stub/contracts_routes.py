@@ -48,6 +48,7 @@ class GenerateContractRequest(CustomerContractData):
 class SignContractRequest(BaseModel):
     signature_name: str = Field(min_length=2, max_length=120)
     signature_title: str | None = Field(default=None, max_length=120)
+    signature_image: str | None = Field(default=None, max_length=280000)
     accept_terms: bool
 
 
@@ -173,6 +174,7 @@ def accept_contract_signature(
                 signature_name=payload.signature_name,
                 signature_title=payload.signature_title,
                 ip_address=client_ip(request),
+                signature_image=payload.signature_image,
             )
             conn.commit()
         except LookupError as exc:

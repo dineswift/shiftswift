@@ -272,16 +272,52 @@ def build_rota_readiness(*, tenant_id: int, conn: Any) -> dict[str, Any]:
             )
 
     if multi_site_addon and mode == "multi_site":
-        items.append(
-            _item(
-                item_id="multi_site_ui",
-                title="Multi-site rota",
-                status="warn",
-                message="Add-on is enabled, but per-location rota screens are not released yet. "
-                "Use Advanced mode at one site for now.",
-                required=False,
+        if "punch_site_id" not in table_columns(conn, "rota_shifts"):
+            items.append(
+                _item(
+                    item_id="multi_site_ui",
+                    title="Multi-site rota",
+                    status="warn",
+                    message="Per-location shifts need migration 101 (punch_site_id on rota shifts). "
+                    "Ask support to run it, then filter the rota by location.",
+                    required=False,
+                    action_text="Email support",
+                    action_href=f"{support_mail}?subject=Rota%20location%20migration",
+                )
             )
-        )
+        else:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT COUNT(*) FROM punch_sites WHERE tenant_id = %s AND is_active = TRUE",
+                    (tenant_id,),
+                )
+                site_count = int(cur.fetchone()[0])
+            if site_count >= 2:
+                items.append(
+                    _item(
+                        item_id="multi_site_ui",
+                        title="Multi-site rota",
+                        status="ok",
+                        message=f"{site_count} locations are ready. Open Rota and use the location filter "
+                        "so each shift is saved against a site.",
+                        required=False,
+                        action_text="Open Rota",
+                        action_href="#rota",
+                    )
+                )
+            else:
+                items.append(
+                    _item(
+                        item_id="multi_site_ui",
+                        title="Multi-site rota",
+                        status="warn",
+                        message="Add at least two time punch sites — one per location. "
+                        "The rota location filter uses those sites.",
+                        required=False,
+                        action_text="Set up sites",
+                        action_href="#time-punch",
+                    )
+                )
 
     required_items = [item for item in items if item["required"]]
     required_ok = all(item["status"] == "ok" for item in required_items)

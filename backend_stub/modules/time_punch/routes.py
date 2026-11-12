@@ -14,6 +14,7 @@ from config import load_settings
 from core.database import get_connection
 from deps import client_ip, get_employee_user, get_hr_user, require_tenant_subscription, resolve_tenant_id
 from modules.time_punch import service as punch_service
+from modules.time_punch import epos as epos_service
 from modules.time_punch import kiosk as kiosk_service
 from modules.time_punch import timesheet as timesheet_service
 from modules.time_punch.qr import punch_qr_data_uri, punch_qr_png_bytes
@@ -42,6 +43,7 @@ class GeofencePreviewRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     accuracy_meters: float | None = Field(default=None, ge=0)
+    clock_token: str | None = Field(default=None, min_length=8, max_length=200)
 
 
 class SiteScanRequest(BaseModel):
@@ -51,6 +53,13 @@ class SiteScanRequest(BaseModel):
 class SiteTokenPunchRequest(BaseModel):
     punch_type: PunchAction
     clock_token: str = Field(min_length=8, max_length=200)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float | None = Field(default=None, ge=0)
+
+
+class SiteStaffUpdate(BaseModel):
+    employee_ids: list[int] = Field(default_factory=list, max_length=2000)
 
 
 class PunchSiteUpdate(BaseModel):
@@ -107,6 +116,10 @@ class KioskSessionRequest(BaseModel):
 class KioskPunchRequest(BaseModel):
     session_token: str = Field(min_length=8, max_length=200)
     punch_type: PunchAction
+
+
+class EposTokenCreateRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=120)
 
 
 def _parse_optional_date(value: str | None, field_name: str) -> date | None:
@@ -203,8 +216,11 @@ def punch_preview(
             latitude=payload.latitude,
             longitude=payload.longitude,
             accuracy_meters=payload.accuracy_meters,
+            clock_token=payload.clock_token,
             conn=conn,
         )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     finally:
@@ -250,7 +266,7 @@ def punch_scan_site(
     current_user: Annotated[AuthUser, Depends(get_employee_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
 ) -> dict[str, object]:
-    """Validate a premises QR token so the employee can punch without GPS."""
+    """Validate a premises QR token. Clock in and out still require the device to be at the site."""
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
     conn = get_connection()
     try:
@@ -286,6 +302,9 @@ def punch_via_site_token(
             username=current_user.username,
             punch_type=payload.punch_type,
             clock_token=payload.clock_token,
+            latitude=payload.latitude,
+            longitude=payload.longitude,
+            accuracy_meters=payload.accuracy_meters,
             ip_address=client_ip(request),
             user_agent=request.headers.get("User-Agent"),
             conn=conn,
@@ -409,6 +428,32 @@ def patch_site(
         return punch_service._site_row(row)
     finally:
         conn.close()
+
+
+@admin_router.put("/sites/{site_id}/staff")
+def put_site_staff(
+    site_id: int,
+    payload: SiteStaffUpdate,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        try:
+            employee_ids = punch_service.set_site_staff(
+                tenant_id=tenant_id,
+                site_id=site_id,
+                employee_ids=payload.employee_ids,
+                conn=conn,
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return {"site_id": site_id, "employee_ids": employee_ids}
 
 
 def _clock_qr_payload(*, site_id: int, site_name: str, clock_token: str) -> dict[str, object]:
@@ -626,17 +671,64 @@ def export_punches_csv(
     )
 
 
+@admin_router.get("/hours-report.csv")
+def export_hours_report_csv(
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+    date_from: str | None = None,
+    date_to: str | None = None,
+    employee_id: int | None = None,
+    site_id: int | None = None,
+) -> Response:
+    from modules.payroll_export.service import build_hours_csv
+
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    filters = _punch_filters(
+        employee_id=employee_id,
+        site_id=site_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    conn = get_connection()
+    try:
+        csv_body = build_hours_csv(
+            tenant_id=tenant_id,
+            conn=conn,
+            from_date=filters.get("date_from"),
+            to_date=filters.get("date_to"),
+            employee_id=filters.get("employee_id"),
+            punch_site_id=filters.get("punch_site_id"),
+        )
+    finally:
+        conn.close()
+    start = filters.get("date_from") or date.today().replace(day=1)
+    end = filters.get("date_to") or date.today()
+    filename = f"clock-hours-{start.isoformat()}-to-{end.isoformat()}.csv"
+    return Response(
+        content=csv_body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @admin_router.get("/hours-report.pdf")
 def export_hours_report_pdf(
     current_user: Annotated[AuthUser, Depends(get_hr_user)],
     x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
     date_from: str | None = None,
     date_to: str | None = None,
+    employee_id: int | None = None,
+    site_id: int | None = None,
 ) -> Response:
     from modules.payroll_export.hours_pdf import hours_report_pdf_bytes
 
     tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
-    filters = _punch_filters(date_from=date_from, date_to=date_to)
+    filters = _punch_filters(
+        employee_id=employee_id,
+        site_id=site_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
     conn = get_connection()
     try:
         pdf_bytes = hours_report_pdf_bytes(
@@ -644,11 +736,14 @@ def export_hours_report_pdf(
             conn=conn,
             from_date=filters.get("date_from"),
             to_date=filters.get("date_to"),
+            employee_id=filters.get("employee_id"),
+            punch_site_id=filters.get("punch_site_id"),
         )
     finally:
         conn.close()
-    period = filters.get("date_from") or date.today().replace(day=1).isoformat()
-    filename = f"working-hours-{period}.pdf"
+    start = filters.get("date_from") or date.today().replace(day=1)
+    end = filters.get("date_to") or date.today()
+    filename = f"clock-hours-{start.isoformat()}-to-{end.isoformat()}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -862,3 +957,70 @@ def get_kiosk_pin_status(
         return {"employee_id": employee_id, "kiosk_pin_set": bool(row[0])}
     finally:
         conn.close()
+
+
+@admin_router.get("/sites/{site_id}/epos-tokens")
+def list_epos_tokens(
+    site_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        items = epos_service.list_integration_tokens(
+            tenant_id=tenant_id,
+            punch_site_id=site_id,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    return {"items": items, "count": len(items)}
+
+
+@admin_router.post("/sites/{site_id}/epos-tokens")
+def create_epos_token(
+    site_id: int,
+    payload: EposTokenCreateRequest,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        row = epos_service.create_integration_token(
+            tenant_id=tenant_id,
+            punch_site_id=site_id,
+            label=payload.label,
+            created_by=current_user.username,
+            conn=conn,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    finally:
+        conn.close()
+    return row
+
+
+@admin_router.delete("/epos-tokens/{token_id}")
+def revoke_epos_token(
+    token_id: int,
+    current_user: Annotated[AuthUser, Depends(get_hr_user)],
+    x_tenant_id: str | None = Header(default=None, alias="X-Tenant-Id"),
+) -> dict[str, object]:
+    tenant_id = resolve_tenant_id(current_user, x_tenant_id, settings=settings)
+    conn = get_connection()
+    try:
+        removed = epos_service.revoke_integration_token(
+            tenant_id=tenant_id,
+            token_id=token_id,
+            revoked_by=current_user.username,
+            conn=conn,
+        )
+    finally:
+        conn.close()
+    if not removed:
+        raise HTTPException(status_code=404, detail="Integration token not found")
+    return {"ok": True, "revoked": True}

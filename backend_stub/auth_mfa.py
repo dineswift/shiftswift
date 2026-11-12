@@ -7,8 +7,6 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
-from urllib.parse import quote
-
 import jwt
 import pyotp
 
@@ -29,9 +27,24 @@ def _store_secret(raw_secret: str) -> str:
 
 
 def _load_secret(stored: str) -> str:
+    stored = (stored or "").strip()
     if stored.startswith("plain:"):
-        return stored[6:]
-    return decrypt_text(stored)
+        return stored[6:].strip()
+    # Older rows saved the base32 secret on its own, with no encryption prefix.
+    if ":" not in stored:
+        return stored
+    return decrypt_text(stored).strip()
+
+
+def load_totp_secret(stored: str | None) -> str | None:
+    """Return a usable authenticator secret, or None when the stored value cannot be read."""
+    if not stored or not str(stored).strip():
+        return None
+    try:
+        secret = _load_secret(str(stored)).strip()
+    except Exception:
+        return None
+    return secret or None
 
 
 def generate_totp_secret() -> str:
@@ -39,18 +52,46 @@ def generate_totp_secret() -> str:
 
 
 def provisioning_uri(*, username: str, secret: str, portal: Portal) -> str:
-    label = f"{MFA_ISSUER} ({'Master' if portal == 'master' else 'Business'}):{username}"
-    return pyotp.TOTP(secret).provisioning_uri(name=quote(label), issuer_name=MFA_ISSUER)
+    # pyotp quotes the label. Pre-quoting it makes authenticator apps store a bad secret.
+    account = "Master" if portal == "master" else "Business"
+    label = f"{account}:{username}"
+    return pyotp.TOTP(secret).provisioning_uri(name=label, issuer_name=MFA_ISSUER)
+
+
+def qr_png_data_uri(otpauth_uri: str, *, box_size: int = 4) -> str:
+    """Inline PNG QR for native apps that cannot load third-party QR CDNs."""
+    import base64
+    import io
+
+    import qrcode
+
+    img = qrcode.make(otpauth_uri, box_size=box_size, border=2)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return f"data:image/png;base64,{base64.b64encode(buf.getvalue()).decode('ascii')}"
 
 
 def verify_totp_code(*, secret: str, code: str) -> bool:
     if not code or not secret:
         return False
-    normalized = code.strip().replace(" ", "")
-    if not normalized.isdigit() or len(normalized) not in {6, 8}:
+    normalized = "".join(ch for ch in code if ch.isdigit())
+    if len(normalized) not in {6, 8}:
         return False
     totp = pyotp.TOTP(secret)
-    return totp.verify(normalized, valid_window=1)
+    # Aware UTC avoids a wrong local timezone on the server. Ten steps is ±5 minutes.
+    now = datetime.now(timezone.utc)
+    return totp.verify(normalized, for_time=now, valid_window=10)
+
+
+def second_factor_order(*, has_totp: bool) -> tuple[str, ...]:
+    """Try the authenticator before the email code when this account has one.
+
+    The sign-in screen defaults to email, so an authenticator code was rejected
+    as an email code. Either factor still belongs to the same account.
+    """
+    if has_totp:
+        return ("totp", "email")
+    return ("email",)
 
 
 def create_mfa_challenge_token(
@@ -133,9 +174,10 @@ def fetch_user_mfa(cur: Any, username: str) -> dict[str, Any] | None:
         SELECT username, role, tenant_id::text, login_portal, mfa_enabled, totp_secret, is_active
         FROM app_users
         WHERE lower(username) = lower(%s)
+        ORDER BY (username = %s) DESC, id
         LIMIT 1
         """,
-        (username,),
+        (username, username),
     )
     row = cur.fetchone()
     if not row:
@@ -172,11 +214,33 @@ def begin_mfa_setup(*, conn: Any, username: str) -> dict[str, str]:
             (_store_secret(secret), username),
         )
     conn.commit()
+    otpauth_uri = provisioning_uri(username=user["username"], secret=secret, portal=portal)
     return {
         "secret": secret,
-        "otpauth_uri": provisioning_uri(username=user["username"], secret=secret, portal=portal),
+        "otpauth_uri": otpauth_uri,
+        "qr_data_uri": qr_png_data_uri(otpauth_uri),
         "portal": portal,
     }
+
+
+def enable_mfa_with_passkey(*, conn: Any, username: str) -> None:
+    """Mark MFA active when the user enrolled with Face ID / Touch ID (WebAuthn)."""
+    with conn.cursor() as cur:
+        user = fetch_user_mfa(cur, username)
+        if not user:
+            raise LookupError("user not found")
+        cur.execute(
+            """
+            UPDATE app_users
+            SET mfa_enabled = TRUE,
+                mfa_enabled_at = NOW(),
+                totp_secret = NULL,
+                updated_at = NOW()
+            WHERE lower(username) = lower(%s)
+            """,
+            (username,),
+        )
+    conn.commit()
 
 
 def confirm_mfa_setup(*, conn: Any, username: str, code: str) -> None:
@@ -214,7 +278,9 @@ def verify_user_mfa_code(*, conn: Any, username: str, code: str) -> bool:
         user = fetch_user_mfa(cur, username)
     if not user or not user.get("mfa_enabled") or not user.get("totp_secret"):
         return False
-    secret = _load_secret(user["totp_secret"])
+    secret = load_totp_secret(user["totp_secret"])
+    if not secret:
+        return False
     return verify_totp_code(secret=secret, code=code)
 
 

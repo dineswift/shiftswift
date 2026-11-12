@@ -14,8 +14,8 @@ from modules.documents.notifications import notify_employee_document_shared
 from modules.rota.notifications import notify_rota_published
 
 
-@patch("modules.push.service.send_employee_push")
-@patch("modules.rota.notifications.send_email_content")
+@patch("modules.rota.notifications.send_employee_push")
+@patch("modules.rota.notifications.send_email_content", return_value={})
 @patch("admin_service.tenant_notification_delivery_enabled", return_value=True)
 @patch("admin_service.get_tenant_profile")
 def test_rota_published_sends_push(
@@ -59,10 +59,11 @@ def test_rota_published_sends_push(
     assert send_push.call_args.kwargs["notification_key"] == "rota_published:2026-06-08:1"
 
 
-@patch("modules.push.service.send_employee_push")
-@patch("modules.documents.notifications.send_email_content")
+@patch("modules.documents.notifications.send_employee_push")
+@patch("modules.documents.notifications.send_email_content", return_value={})
+@patch("modules.documents.notifications.email_delivered", return_value=True)
 @patch("admin_service.get_tenant_profile")
-def test_payslip_share_sends_push(get_profile, send_email, send_push) -> None:
+def test_payslip_share_sends_push(get_profile, _delivered, send_email, send_push) -> None:
     get_profile.return_value = {"trading_name": "Himalayan Inn", "name": "Himalayan Inn"}
     send_push.return_value = {"sent": 1}
 
@@ -85,7 +86,7 @@ def test_payslip_share_sends_push(get_profile, send_email, send_push) -> None:
         commit=False,
     )
 
-    assert sent is True
+    assert sent["email_sent"] is True
     send_email.assert_called_once()
     send_push.assert_called_once()
     assert send_push.call_args.kwargs["notification_key"] == "document_shared:employee:99"

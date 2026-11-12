@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -105,6 +106,7 @@ def compliance() -> Image.Image:
 
 
 def main() -> None:
+    force = "--force" in sys.argv
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     specs = [
         ("admin-overview", admin_overview),
@@ -112,9 +114,12 @@ def main() -> None:
         ("compliance", compliance),
     ]
     for slug, builder in specs:
-        image = builder()
         png_path = OUT_DIR / f"{slug}.png"
         webp_path = OUT_DIR / f"{slug}.webp"
+        if not force and png_path.exists() and png_path.stat().st_size > 80_000:
+            print(f"skip {png_path.name} (live capture present; pass --force to overwrite)")
+            continue
+        image = builder()
         image.save(png_path, "PNG", optimize=True)
         image.save(webp_path, "WEBP", quality=88, method=6)
         print(f"wrote {png_path.name}, {webp_path.name}")

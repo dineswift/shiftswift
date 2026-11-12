@@ -11,6 +11,7 @@ import pytest
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
+from modules.rota.base_templates import pattern_from_shifts, week_shifts_from_pattern
 from modules.rota.service import (
     RotaValidationError,
     assert_week_copy_allowed,
@@ -18,6 +19,7 @@ from modules.rota.service import (
     assert_week_save_allowed,
     is_week_fully_past,
     parse_week_start,
+    plan_repeat_pairs,
     rota_week_policy,
     shift_window,
     shifts_overlap,
@@ -89,6 +91,80 @@ def test_validate_shift_payload_rejects_out_of_week() -> None:
         )
 
 
+def _sample_shift(**overrides):
+    payload = {
+        "employee_id": 1,
+        "shift_date": "2026-06-08",
+        "start_time": "09:00",
+        "end_time": "17:00",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_validate_shift_requires_location_when_multi_site() -> None:
+    week_start = date(2026, 6, 8)
+    with pytest.raises(RotaValidationError, match="location"):
+        validate_shift_payload(
+            shift=_sample_shift(),
+            week_start=week_start,
+            week_end=week_start + timedelta(days=6),
+            active_employee_ids={1},
+            index=0,
+            require_site=True,
+            active_site_ids={4},
+        )
+
+
+def test_validate_shift_rejects_unknown_location() -> None:
+    week_start = date(2026, 6, 8)
+    with pytest.raises(RotaValidationError, match="not an active site"):
+        validate_shift_payload(
+            shift=_sample_shift(punch_site_id=9),
+            week_start=week_start,
+            week_end=week_start + timedelta(days=6),
+            active_employee_ids={1},
+            index=0,
+            require_site=True,
+            active_site_ids={4},
+        )
+
+
+def test_validate_shift_keeps_location() -> None:
+    week_start = date(2026, 6, 8)
+    parsed = validate_shift_payload(
+        shift=_sample_shift(punch_site_id=4),
+        week_start=week_start,
+        week_end=week_start + timedelta(days=6),
+        active_employee_ids={1},
+        index=0,
+        require_site=True,
+        active_site_ids={4},
+    )
+    assert parsed["punch_site_id"] == 4
+
+
+def test_overlap_blocks_same_person_at_two_locations() -> None:
+    shifts = [
+        {
+            "employee_id": 1,
+            "shift_date": date(2026, 6, 8),
+            "start_time": time(9, 0),
+            "end_time": time(17, 0),
+            "punch_site_id": 1,
+        },
+        {
+            "employee_id": 1,
+            "shift_date": date(2026, 6, 8),
+            "start_time": time(12, 0),
+            "end_time": time(18, 0),
+            "punch_site_id": 2,
+        },
+    ]
+    with pytest.raises(RotaValidationError):
+        validate_no_overlaps(shifts)
+
+
 def test_validate_no_overlaps_raises() -> None:
     shifts = [
         {
@@ -152,9 +228,124 @@ def test_past_draft_week_allows_save_not_copy() -> None:
         assert_week_copy_allowed(week_start=week_start)
 
 
+def test_weekly_repeat_stops_on_until_and_skips_current_week() -> None:
+    pairs = plan_repeat_pairs(
+        match_date=date(2026, 10, 26),
+        new_date=date(2026, 10, 26),
+        until=date(2026, 11, 16),
+        frequency="week",
+        current_week_start=date(2026, 10, 26),
+    )
+    assert pairs == [
+        (date(2026, 11, 2), date(2026, 11, 2)),
+        (date(2026, 11, 9), date(2026, 11, 9)),
+        (date(2026, 11, 16), date(2026, 11, 16)),
+    ]
+
+
+def test_monthly_repeat_skips_missing_days() -> None:
+    pairs = plan_repeat_pairs(
+        match_date=date(2026, 1, 31),
+        new_date=date(2026, 1, 31),
+        until=date(2026, 6, 30),
+        frequency="month",
+        current_week_start=date(2026, 1, 26),
+    )
+    assert pairs == [
+        (date(2026, 3, 31), date(2026, 3, 31)),
+        (date(2026, 5, 31), date(2026, 5, 31)),
+    ]
+
+
+def test_repeat_moves_future_days_when_the_weekday_changes() -> None:
+    pairs = plan_repeat_pairs(
+        match_date=date(2026, 10, 28),
+        new_date=date(2026, 10, 29),
+        until=date(2026, 11, 12),
+        frequency="week",
+        current_week_start=date(2026, 10, 26),
+    )
+    assert pairs == [
+        (date(2026, 11, 4), date(2026, 11, 5)),
+        (date(2026, 11, 11), date(2026, 11, 12)),
+    ]
+
+
+def test_base_rota_keeps_people_times_and_location_on_a_later_week() -> None:
+    week = date(2026, 11, 9)
+    pattern = pattern_from_shifts(
+        week_start=week,
+        shifts=[
+            {
+                "employee_id": 4,
+                "shift_date": "2026-11-10",
+                "start_time": "09:00:00",
+                "end_time": "17:00",
+                "role_label": "Floor",
+                "notes": "Open",
+                "punch_site_id": 2,
+            }
+        ],
+    )
+    assert pattern == [
+        {
+            "day_offset": 1,
+            "employee_id": 4,
+            "start_time": "09:00",
+            "end_time": "17:00",
+            "role_label": "Floor",
+            "notes": "Open",
+            "punch_site_id": 2,
+        }
+    ]
+    payload, skipped = week_shifts_from_pattern(
+        week_start=date(2026, 11, 16),
+        pattern=pattern,
+        active_employee_ids={4},
+        active_site_ids={2},
+        require_site=True,
+    )
+    assert skipped == []
+    assert payload[0]["shift_date"] == "2026-11-17"
+    assert payload[0]["punch_site_id"] == 2
+    assert payload[0]["employee_id"] == 4
+
+
+def test_base_rota_skips_people_and_locations_that_are_gone() -> None:
+    pattern = [
+        {
+            "day_offset": 0,
+            "employee_id": 9,
+            "start_time": "10:00",
+            "end_time": "14:00",
+            "role_label": "",
+            "notes": "",
+            "punch_site_id": 3,
+        },
+        {
+            "day_offset": 2,
+            "employee_id": 4,
+            "start_time": "18:00",
+            "end_time": "22:00",
+            "role_label": "Bar",
+            "notes": "",
+            "punch_site_id": 8,
+        },
+    ]
+    payload, skipped = week_shifts_from_pattern(
+        week_start=date(2026, 11, 16),
+        pattern=pattern,
+        active_employee_ids={4},
+        active_site_ids={3},
+        require_site=True,
+    )
+    assert payload == []
+    assert {item["reason"] for item in skipped} == {"employee_unavailable", "missing_location"}
+
+
 def test_current_week_is_editable() -> None:
-    week_start = date(2026, 6, 8)
-    today = date(2026, 6, 10)
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())
     assert not is_week_fully_past(week_start, today=today)
     policy = rota_week_policy(week_start, {"status": "published", "version": 3})
     assert policy["readonly"] is False

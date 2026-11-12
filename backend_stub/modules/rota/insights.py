@@ -365,8 +365,17 @@ def generate_draft_from_template(
     expected_version: int | None,
     actor_username: str,
     conn: Any,
+    punch_site_id: int | None = None,
 ) -> dict[str, Any]:
-    from modules.rota.service import assert_week_copy_allowed, get_or_create_week, list_shifts_for_week, save_week_shifts
+    from modules.rota.service import (
+        RotaValidationError,
+        assert_week_copy_allowed,
+        get_or_create_week,
+        list_shifts_for_week,
+        primary_active_punch_site_id,
+        save_week_shifts,
+        tenant_requires_shift_site,
+    )
 
     assert_week_copy_allowed(week_start=week_start)
     template = rota_templates.resolve_template(tenant_id=tenant_id, template_id=template_id, conn=conn)
@@ -401,6 +410,18 @@ def generate_draft_from_template(
             "shifts_added": [],
         }
 
+    site_id = punch_site_id
+    if tenant_requires_shift_site(tenant_id=tenant_id, conn=conn):
+        if site_id is None:
+            site_id = primary_active_punch_site_id(tenant_id=tenant_id, conn=conn)
+        if site_id is None:
+            raise RotaValidationError(
+                "Add a time punch site before generating shifts for a multi-site rota",
+                field="punch_site_id",
+            )
+        for item in generated:
+            item["punch_site_id"] = site_id
+
     merge_payload = [
         {
             "employee_id": int(item["employee_id"]),
@@ -409,6 +430,7 @@ def generate_draft_from_template(
             "end_time": str(item["end_time"])[:5],
             "role_label": str(item.get("role_label") or ""),
             "notes": str(item.get("notes") or ""),
+            "punch_site_id": item.get("punch_site_id"),
         }
         for item in existing_shifts
     ] + generated

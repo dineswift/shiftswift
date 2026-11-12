@@ -176,15 +176,27 @@ def evaluate_shift_push_reminders(
             continue
 
         if _within_minutes(minutes_until_end, end_reminder_before) and minutes_until_end > 0:
+            attendance = evaluate_shift_attendance(
+                shift=shift,
+                punches=punches_by_employee.get(employee_id, []),
+                now=now,
+            )
+            # Only nudge clock-out when they are (or were) on the clock
+            if has_punch_sites and not attendance.get("clock_in_at"):
+                continue
+            if has_punch_sites and attendance.get("clock_out_at"):
+                continue
             result = send_employee_push(
                 tenant_id=tenant_id,
                 employee_id=employee_id,
                 notification_key=f"shift_end_reminder_{end_reminder_before}:{shift_id}",
                 title=f"Shift ends in {end_reminder_before} minutes",
                 body=(
-                    f"Your shift ends at {shift['end_time']} — tap to view your rota at {site_name}."
+                    f"Your shift ends at {shift['end_time']} — tap to clock out at {site_name}."
+                    if has_punch_sites
+                    else f"Your shift ends at {shift['end_time']} — tap to view your rota."
                 ),
-                url=rota_url,
+                url=clock_url if has_punch_sites else rota_url,
                 tag=f"shift-{shift_id}-end-reminder",
                 alert_type="shift_end_reminder",
                 conn=conn,
@@ -194,11 +206,18 @@ def evaluate_shift_push_reminders(
             continue
 
         if has_punch_sites and _within_minutes(minutes_after_end, 0):
+            attendance = evaluate_shift_attendance(
+                shift=shift,
+                punches=punches_by_employee.get(employee_id, []),
+                now=now,
+            )
+            if not attendance.get("clock_in_at") or attendance.get("clock_out_at"):
+                continue
             result = send_employee_push(
                 tenant_id=tenant_id,
                 employee_id=employee_id,
                 notification_key=f"shift_end:{shift_id}",
-                title="Shift ending now",
+                title="Clock out now",
                 body=f"Your shift at {site_name} ends now — tap to clock out.",
                 url=clock_url,
                 tag=f"shift-{shift_id}-end",
@@ -207,5 +226,60 @@ def evaluate_shift_push_reminders(
             )
             if result.get("sent"):
                 sent.append({"type": "shift_end", "shift_id": shift_id, **result})
+            continue
+
+        if has_punch_sites and _within_minutes(minutes_after_end, 15):
+            attendance = evaluate_shift_attendance(
+                shift=shift,
+                punches=punches_by_employee.get(employee_id, []),
+                now=now,
+            )
+            if attendance.get("attendance_status") != "missing_clock_out":
+                continue
+            result = send_employee_push(
+                tenant_id=tenant_id,
+                employee_id=employee_id,
+                notification_key=f"shift_missed_clock_out:{shift_id}",
+                title="Reminder: clock out",
+                body=(
+                    f"Your shift at {site_name} ended 15 minutes ago and you are still clocked in. "
+                    "Tap to clock out now."
+                ),
+                url=clock_url,
+                tag=f"shift-{shift_id}-missed-out",
+                alert_type="missed_clock_out",
+                conn=conn,
+            )
+            if result.get("sent"):
+                sent.append({"type": "shift_missed_clock_out", "shift_id": shift_id, **result})
+
+            try:
+                from admin_service import get_notification_preferences
+                from modules.employees.notification_branding import employer_legal_name
+                from modules.push.hr_notify import notify_hr_missed_clock_out
+
+                prefs = get_notification_preferences(tenant_id=tenant_id, conn=conn)["preferences"]
+                employee_name = (
+                    attendance.get("employee_name")
+                    or shift.get("employee_name")
+                    or f"Employee #{employee_id}"
+                )
+                shift_label = (
+                    f"{shift.get('shift_date')} {shift.get('start_time')}–{shift.get('end_time')}"
+                )
+                hr_result = notify_hr_missed_clock_out(
+                    tenant_id=tenant_id,
+                    shift_label=shift_label,
+                    employee_name=str(employee_name),
+                    shift_id=shift_id,
+                    tenant_name=employer_legal_name(tenant_id=tenant_id, conn=conn),
+                    minutes_after_end=15,
+                    preferences=prefs,
+                    conn=conn,
+                )
+                if hr_result.get("sent"):
+                    sent.append({"type": "missed_clock_out_hr", "shift_id": shift_id, **hr_result})
+            except Exception:
+                pass
 
     return sent

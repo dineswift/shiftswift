@@ -43,6 +43,76 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function createSignaturePad(canvas) {
+  const ctx = canvas.getContext("2d");
+  const state = { drawing: false, ink: 0, last: null };
+
+  function sizeCanvas() {
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(280, canvas.clientWidth || 640);
+    const height = 160;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#111827";
+    ctx.lineWidth = 2.4;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+    state.ink = 0;
+    state.last = null;
+  }
+
+  function point(event) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  }
+
+  function start(event) {
+    event.preventDefault();
+    canvas.setPointerCapture?.(event.pointerId);
+    state.drawing = true;
+    state.last = point(event);
+  }
+
+  function move(event) {
+    if (!state.drawing) return;
+    event.preventDefault();
+    const next = point(event);
+    ctx.beginPath();
+    ctx.moveTo(state.last.x, state.last.y);
+    ctx.lineTo(next.x, next.y);
+    ctx.stroke();
+    state.ink += Math.hypot(next.x - state.last.x, next.y - state.last.y);
+    state.last = next;
+  }
+
+  function end(event) {
+    if (event) event.preventDefault();
+    state.drawing = false;
+    state.last = null;
+  }
+
+  canvas.addEventListener("pointerdown", start);
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+  sizeCanvas();
+
+  return {
+    clear() {
+      sizeCanvas();
+    },
+    hasInk() {
+      return state.ink > 24;
+    },
+    toPng() {
+      return canvas.toDataURL("image/png");
+    },
+  };
+}
+
 async function loadContract() {
   if (!token) {
     document.getElementById("contract-meta").textContent = "Missing signing link.";
@@ -88,18 +158,30 @@ async function loadContract() {
   }
 }
 
+const signaturePad = (() => {
+  const canvas = document.getElementById("signature-pad");
+  if (!canvas) return null;
+  const pad = createSignaturePad(canvas);
+  document.getElementById("signature-pad-clear")?.addEventListener("click", () => pad.clear());
+  return pad;
+})();
+
 document.getElementById("sign-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const status = document.getElementById("sign-status");
   const form = event.currentTarget;
   const submitBtn = form.querySelector('button[type="submit"]');
   const performSign = async () => {
+    if (!signaturePad?.hasInk()) {
+      throw new Error("Draw your signature before signing.");
+    }
     const res = await fetch(`${API_BASE}${signPath}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         signature_name: form.signature_name.value.trim(),
         signature_title: form.signature_title.value.trim() || null,
+        signature_image: signaturePad.toPng(),
         accept_terms: form.accept_terms.checked,
       }),
     });

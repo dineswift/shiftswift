@@ -121,6 +121,21 @@ body.cookie-consent-open #faq {
   padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
 }
 
+@media (max-width: 640px) {
+  .cookie-consent {
+    padding: 0.65rem 0.85rem calc(0.65rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cookie-consent__text {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  .cookie-consent__inner {
+    gap: 0.55rem;
+  }
+}
+
 @media (min-width: 768px) {
   .cookie-consent__inner {
     grid-template-columns: 1fr auto;

@@ -21,6 +21,8 @@ for path in \
   native-app-bootstrap.js \
   native-app-chrome.css \
   native-app-login.css \
+  sign-in.html \
+  passkey-auth.js \
   native-app-login.html \
   session-auth.js; do
   if [ ! -f "${APP_ROOT}/${path}" ]; then

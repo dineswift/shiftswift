@@ -6,7 +6,7 @@
     return (
       window.ShiftSwiftSession?.resolveLoginUrl?.() ||
       window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
-      "./native-app-login.html"
+      "./sign-in.html"
     );
   }
 
@@ -40,7 +40,7 @@ function masterSignOut() {
   const loginUrl =
     window.ShiftSwiftSession?.resolveLoginUrl?.() ||
     window.ShiftSwiftNativeApp?.unifiedNativeLoginUrl?.() ||
-    "./native-app-login.html";
+    "./sign-in.html";
   if (window.ShiftSwiftSession?.signOut) {
     void window.ShiftSwiftSession.signOut(loginUrl);
     return;

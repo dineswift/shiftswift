@@ -32,3 +32,6 @@ def test_employee_portal_invite_email_mentions_employer_gdpr() -> None:
     assert "responsible for managing your personal data" in content.html
     assert "install-employee.html" in content.text
     assert "Add to Home Screen" in content.text
+    assert "privacy-policy.html" in content.html
+    assert '<a href="https://app.shiftswifthr.co.uk/privacy-policy.html"' in content.html
+    assert "&lt;a href" not in content.html

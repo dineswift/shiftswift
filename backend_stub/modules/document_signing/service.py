@@ -152,7 +152,10 @@ def send_document_for_signature(
 
     signing_url = f"{frontend_base.rstrip('/')}/sign-contract.html?token={token}&type=document"
     from core.email_templates import document_signing_email
-    from core.notifications import queue_email_notification
+    from core.notifications import require_email_delivered, send_email_content, smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
 
     content = document_signing_email(
         signatory_name=contact["name"],
@@ -160,23 +163,25 @@ def send_document_for_signature(
         reference_code=reference,
         signing_url=signing_url,
     )
-    queue_email_notification(
+    delivery = send_email_content(
         conn=conn,
         tenant_id=tenant_id,
-        subject=content.subject,
-        body=content.text,
+        content=content,
         purpose="document_signing",
         to=contact["email"],
+        audience="employee",
         payload={
             "document_id": document_id,
             "signing_request_id": request_id,
             "signing_url": signing_url,
             "type": "document_signing",
-            "audience": "employee",
+            "employee_id": employee_id,
             "html_body": content.html,
         },
+        deliver_now=True,
         commit=False,
     )
+    require_email_delivered(delivery)
     conn.commit()
     return {
         "signing_request_id": request_id,
@@ -185,6 +190,88 @@ def send_document_for_signature(
         "signatory_email": contact["email"],
         "signing_url": signing_url,
         "expires_at": expires.isoformat(),
+        "email_sent": True,
+    }
+
+
+def resend_document_signing_email(
+    *,
+    conn: Any,
+    tenant_id: int,
+    employee_id: int,
+    document_id: int,
+    frontend_base: str,
+) -> dict[str, Any]:
+    """Resend the signing email for the latest active signing request."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, signing_token, signing_token_expires_at, reference_code, status
+            FROM employee_document_signing_requests
+            WHERE tenant_id = %s
+              AND employee_id = %s
+              AND source_document_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (tenant_id, employee_id, document_id),
+        )
+        row = cur.fetchone()
+    if not row:
+        raise LookupError("No signing request found for this document")
+    request_id, token, expires, reference, status = row
+    if status != "sent":
+        raise ValueError("Signing request is not waiting for signature")
+    if expires and expires < _utcnow():
+        raise ValueError("Signing link has expired — send for signature again")
+
+    doc = get_employee_document(
+        tenant_id=tenant_id, employee_id=employee_id, document_id=document_id, conn=conn
+    )
+    if not doc:
+        raise LookupError("Document not found")
+    contact = _employee_contact(conn=conn, tenant_id=tenant_id, employee_id=employee_id)
+    signing_url = f"{frontend_base.rstrip('/')}/sign-contract.html?token={token}&type=document"
+
+    from core.email_templates import document_signing_email
+    from core.notifications import require_email_delivered, send_email_content, smtp_configured
+
+    if not smtp_configured():
+        raise RuntimeError("SMTP is not configured on the server — set SMTP_* in environment")
+
+    content = document_signing_email(
+        signatory_name=contact["name"],
+        document_title=str(doc.get("title") or "Document"),
+        reference_code=str(reference),
+        signing_url=signing_url,
+    )
+    delivery = send_email_content(
+        conn=conn,
+        tenant_id=tenant_id,
+        content=content,
+        purpose="document_signing",
+        to=contact["email"],
+        audience="employee",
+        payload={
+            "document_id": document_id,
+            "signing_request_id": request_id,
+            "signing_url": signing_url,
+            "type": "document_signing",
+            "employee_id": employee_id,
+            "html_body": content.html,
+        },
+        deliver_now=True,
+        commit=False,
+    )
+    require_email_delivered(delivery)
+    conn.commit()
+    return {
+        "signing_request_id": request_id,
+        "reference_code": reference,
+        "signatory_email": contact["email"],
+        "signing_url": signing_url,
+        "email_sent": True,
+        "message": f"Signing email resent to {contact['email']}",
     }
 
 
@@ -277,14 +364,18 @@ def _build_acknowledgment_html(
     signature_name: str,
     reference_code: str,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> str:
     signed_at = _utcnow().strftime("%d %B %Y %H:%M UTC")
     title = html.escape(str(doc.get("title") or "Document"))
     filename = html.escape(str(doc.get("original_filename") or "Uploaded file"))
     sha = html.escape(str(doc.get("content_sha256") or "Not recorded"))
+    from modules.document_signing.signature_image import signature_image_html
+
     signer = html.escape(signature_name)
     ip = html.escape(ip_address or "Not recorded")
     ref = html.escape(reference_code)
+    drawing = signature_image_html(signature_image) if signature_image else ""
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><title>Signed acknowledgment — {title}</title></head>
 <body style="font-family:system-ui,sans-serif;line-height:1.5;max-width:720px;margin:2rem auto;padding:0 1rem;">
@@ -295,6 +386,7 @@ def _build_acknowledgment_html(
   <p><strong>Content hash (SHA-256):</strong> {sha}</p>
   <section style="margin-top:2rem;padding:1rem;border:2px solid #0F6E56;">
     <h2>Signature</h2>
+    {drawing}
     <p><strong>Signed by:</strong> {signer}</p>
     <p><strong>Signed at:</strong> {signed_at}</p>
     <p><strong>IP address:</strong> {ip}</p>
@@ -309,6 +401,7 @@ def sign_document(
     token: str,
     signature_name: str,
     ip_address: str | None,
+    signature_image: str | None = None,
 ) -> dict[str, Any]:
     get_signing_by_token(conn, token)
 
@@ -335,11 +428,16 @@ def sign_document(
     if not source:
         raise LookupError("Document not found")
 
+    from modules.document_signing.signature_image import normalize_signature_image
+
+    normalize_signature_image(signature_image)
+
     signed_html = _build_acknowledgment_html(
         doc=source,
         signature_name=signature_name,
         reference_code=reference_code,
         ip_address=ip_address,
+        signature_image=signature_image,
     )
     signed_bytes = signed_html.encode("utf-8")
     from modules.documents.storage import write_document_file

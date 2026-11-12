@@ -170,8 +170,8 @@ def shifts_overlap(
     return a0 < b1 and b0 < a1
 
 
-def _shift_row(row: tuple[Any, ...]) -> dict[str, Any]:
-    return {
+def _shift_row(row: tuple[Any, ...], *, include_site: bool = False) -> dict[str, Any]:
+    payload = {
         "id": row[0],
         "employee_id": row[1],
         "shift_date": row[2].isoformat(),
@@ -181,7 +181,62 @@ def _shift_row(row: tuple[Any, ...]) -> dict[str, Any]:
         "notes": row[6] or "",
         "employee_name": row[7],
         "employee_status": row[8],
+        "punch_site_id": None,
+        "site_name": "",
     }
+    if include_site:
+        site_id = row[9] if len(row) > 9 else None
+        payload["punch_site_id"] = int(site_id) if site_id is not None else None
+        payload["site_name"] = (row[10] or "") if len(row) > 10 else ""
+    return payload
+
+
+def rota_shifts_have_site_column(conn: Any) -> bool:
+    from core.schema import table_columns
+
+    return "punch_site_id" in table_columns(conn, "rota_shifts")
+
+
+def tenant_requires_shift_site(*, tenant_id: int, conn: Any) -> bool:
+    """Multi-site rota mode stores every shift against a punch site."""
+    if not rota_shifts_have_site_column(conn):
+        return False
+    from admin_service import get_tenant_profile
+
+    profile = get_tenant_profile(tenant_id=tenant_id, conn=conn)
+    return bool(profile.get("rota_multi_site_enabled"))
+
+
+def _load_active_punch_site_ids(*, tenant_id: int, conn: Any) -> set[int]:
+    from core.schema import table_columns
+
+    if not table_columns(conn, "punch_sites"):
+        return set()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM punch_sites WHERE tenant_id = %s AND is_active = TRUE",
+            (tenant_id,),
+        )
+        return {int(row[0]) for row in cur.fetchall()}
+
+
+def primary_active_punch_site_id(*, tenant_id: int, conn: Any) -> int | None:
+    from core.schema import table_columns
+
+    if not table_columns(conn, "punch_sites"):
+        return None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id FROM punch_sites
+            WHERE tenant_id = %s AND is_active = TRUE
+            ORDER BY is_primary DESC, id
+            LIMIT 1
+            """,
+            (tenant_id,),
+        )
+        row = cur.fetchone()
+    return int(row[0]) if row else None
 
 
 def _week_row(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -214,6 +269,8 @@ def validate_shift_payload(
     week_end: date,
     active_employee_ids: set[int],
     index: int,
+    require_site: bool = False,
+    active_site_ids: set[int] | None = None,
 ) -> dict[str, Any]:
     try:
         employee_id = int(shift["employee_id"])
@@ -252,6 +309,24 @@ def validate_shift_payload(
     shift_id = shift.get("id")
     parsed_id = int(shift_id) if shift_id not in (None, "") else None
 
+    raw_site = shift.get("punch_site_id")
+    punch_site_id: int | None = None
+    if raw_site not in (None, ""):
+        try:
+            punch_site_id = int(raw_site)
+        except (TypeError, ValueError) as exc:
+            raise RotaValidationError("punch_site_id must be a location id", field="punch_site_id", index=index) from exc
+        if punch_site_id <= 0:
+            punch_site_id = None
+    if punch_site_id is not None and active_site_ids is not None and punch_site_id not in active_site_ids:
+        raise RotaValidationError(
+            "Location is not an active site for this business",
+            field="punch_site_id",
+            index=index,
+        )
+    if require_site and punch_site_id is None:
+        raise RotaValidationError("Choose a location for every shift", field="punch_site_id", index=index)
+
     return {
         "id": parsed_id,
         "employee_id": employee_id,
@@ -260,6 +335,7 @@ def validate_shift_payload(
         "end_time": end_time,
         "role_label": role_label,
         "notes": notes,
+        "punch_site_id": punch_site_id,
     }
 
 
@@ -330,20 +406,33 @@ def list_shifts_for_week(*, tenant_id: int, week_start: date, conn: Any) -> tupl
             return None, []
 
         week = _week_row(week_row)
+        include_site = rota_shifts_have_site_column(conn)
+        site_sql = (
+            ", s.punch_site_id, COALESCE(ps.name, '')"
+            if include_site
+            else ""
+        )
+        site_join = (
+            "LEFT JOIN punch_sites ps ON ps.id = s.punch_site_id AND ps.tenant_id = s.tenant_id"
+            if include_site
+            else ""
+        )
         cur.execute(
-            """
+            f"""
             SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time,
                    s.role_label, s.notes,
                    trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')) AS employee_name,
                    e.status
+                   {site_sql}
             FROM rota_shifts s
             JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
+            {site_join}
             WHERE s.tenant_id = %s AND s.rota_week_id = %s
             ORDER BY s.shift_date, s.start_time, employee_name
             """,
             (tenant_id, week["id"]),
         )
-        shifts = [_shift_row(row) for row in cur.fetchall()]
+        shifts = [_shift_row(row, include_site=include_site) for row in cur.fetchall()]
         return week, shifts
 
 
@@ -381,6 +470,9 @@ def save_week_shifts(
 ) -> dict[str, Any]:
     week_end = week_start + timedelta(days=6)
     active_ids = _load_active_employee_ids(tenant_id=tenant_id, conn=conn)
+    has_site = rota_shifts_have_site_column(conn)
+    require_site = tenant_requires_shift_site(tenant_id=tenant_id, conn=conn) if has_site else False
+    active_site_ids = _load_active_punch_site_ids(tenant_id=tenant_id, conn=conn) if has_site else None
     parsed = [
         validate_shift_payload(
             shift=item,
@@ -388,6 +480,8 @@ def save_week_shifts(
             week_end=week_end,
             active_employee_ids=active_ids,
             index=index,
+            require_site=require_site,
+            active_site_ids=active_site_ids,
         )
         for index, item in enumerate(shifts_payload)
     ]
@@ -423,25 +517,47 @@ def save_week_shifts(
         cur.execute("DELETE FROM rota_shifts WHERE tenant_id = %s AND rota_week_id = %s", (tenant_id, week_id))
 
         for shift in parsed:
-            cur.execute(
-                """
-                INSERT INTO rota_shifts (
-                  tenant_id, rota_week_id, employee_id, shift_date,
-                  start_time, end_time, role_label, notes
+            if has_site:
+                cur.execute(
+                    """
+                    INSERT INTO rota_shifts (
+                      tenant_id, rota_week_id, employee_id, shift_date,
+                      start_time, end_time, role_label, notes, punch_site_id
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        week_id,
+                        shift["employee_id"],
+                        shift["shift_date"],
+                        shift["start_time"],
+                        shift["end_time"],
+                        shift["role_label"],
+                        shift["notes"],
+                        shift.get("punch_site_id"),
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    tenant_id,
-                    week_id,
-                    shift["employee_id"],
-                    shift["shift_date"],
-                    shift["start_time"],
-                    shift["end_time"],
-                    shift["role_label"],
-                    shift["notes"],
-                ),
-            )
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO rota_shifts (
+                      tenant_id, rota_week_id, employee_id, shift_date,
+                      start_time, end_time, role_label, notes
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        tenant_id,
+                        week_id,
+                        shift["employee_id"],
+                        shift["shift_date"],
+                        shift["start_time"],
+                        shift["end_time"],
+                        shift["role_label"],
+                        shift["notes"],
+                    ),
+                )
 
         cur.execute(
             """
@@ -543,6 +659,74 @@ def publish_week(
     return result
 
 
+def resend_week_notifications(
+    *,
+    tenant_id: int,
+    week_start: date,
+    conn: Any,
+    employee_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    """Resend rota emails and push alerts for an already-published week."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, status
+            FROM rota_weeks
+            WHERE tenant_id = %s AND week_start = %s
+            """,
+            (tenant_id, week_start),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise RotaValidationError("No rota for this week", field="week_start")
+        week_id, status = int(row[0]), str(row[1])
+        if status != "published":
+            raise RotaValidationError(
+                "Publish the rota before resending staff notifications",
+                field="status",
+            )
+        cur.execute(
+            "SELECT COUNT(*) FROM rota_shifts WHERE tenant_id = %s AND rota_week_id = %s",
+            (tenant_id, week_id),
+        )
+        if int(cur.fetchone()[0]) == 0:
+            raise RotaValidationError("No shifts on this rota week", field="shifts")
+
+    _, shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
+    if employee_ids is not None:
+        allowed = {int(eid) for eid in employee_ids}
+        scheduled = {int(s["employee_id"]) for s in shifts}
+        missing = allowed - scheduled
+        if missing:
+            raise RotaValidationError(
+                "One or more selected staff are not scheduled on this rota week",
+                field="employee_ids",
+            )
+        if not allowed:
+            raise RotaValidationError("Select at least one staff member to resend", field="employee_ids")
+
+    from modules.rota.notifications import notify_rota_published
+
+    notifications = notify_rota_published(
+        tenant_id=tenant_id,
+        week_start=week_start,
+        shifts=shifts,
+        conn=conn,
+        resend=True,
+        employee_ids=employee_ids,
+    )
+    target_count = len(employee_ids) if employee_ids is not None else notifications.get("employees_notified", 0)
+    return {
+        "week_start": week_start.isoformat(),
+        "notifications": notifications,
+        "message": (
+            f"Rota notifications resent to {target_count} staff"
+            if employee_ids is not None
+            else "Rota notifications resent"
+        ),
+    }
+
+
 def copy_week_from_previous(
     *,
     tenant_id: int,
@@ -550,6 +734,7 @@ def copy_week_from_previous(
     expected_version: int | None,
     actor_username: str,
     conn: Any,
+    replace: bool = False,
 ) -> dict[str, Any]:
     assert_week_copy_allowed(week_start=week_start)
     previous_start = week_start - timedelta(days=7)
@@ -558,9 +743,9 @@ def copy_week_from_previous(
         raise RotaValidationError("Previous week has no shifts to copy", field="week_start")
 
     _, current_shifts = list_shifts_for_week(tenant_id=tenant_id, week_start=week_start, conn=conn)
-    if current_shifts:
+    if current_shifts and not replace:
         raise RotaValidationError(
-            "Current week already has shifts — remove them or save an empty rota before copying",
+            "This week already has shifts. Copy again to replace them with last week.",
             field="shifts",
         )
 
@@ -575,6 +760,7 @@ def copy_week_from_previous(
                 "end_time": shift["end_time"],
                 "role_label": shift.get("role_label") or "",
                 "notes": shift.get("notes") or "",
+                "punch_site_id": shift.get("punch_site_id"),
             }
         )
     result = save_week_shifts(
@@ -585,6 +771,292 @@ def copy_week_from_previous(
         actor_username=actor_username,
         conn=conn,
     )
-    result["message"] = f"Copied {len(payload)} shifts from previous week"
+    result["message"] = (
+        f"Replaced this week with {len(payload)} shifts from last week. It stays a draft until you publish."
+        if replace
+        else f"Copied {len(payload)} shifts from previous week"
+    )
     result["copied_from_week"] = previous_start.isoformat()
     return result
+
+
+MAX_REPEAT_OCCURRENCES = 52
+
+
+def _add_months(day: date, months: int) -> date | None:
+    month_index = day.month - 1 + months
+    year = day.year + month_index // 12
+    month = month_index % 12 + 1
+    if month == 12:
+        month_end = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        month_end = date(year, month + 1, 1) - timedelta(days=1)
+    if day.day > month_end.day:
+        return None
+    return date(year, month, day.day)
+
+
+def plan_repeat_pairs(
+    *,
+    match_date: date,
+    new_date: date,
+    until: date,
+    frequency: str,
+    current_week_start: date,
+) -> list[tuple[date, date]]:
+    """Future (match day, new day) pairs after the current week, up to `until`."""
+    week_end = week_end_date(current_week_start)
+    delta = new_date - match_date
+    pairs: list[tuple[date, date]] = []
+    if frequency == "month":
+        step = 1
+        while len(pairs) < MAX_REPEAT_OCCURRENCES and step <= 36:
+            match_day = _add_months(match_date, step)
+            step += 1
+            if match_day is None:
+                continue
+            target = match_day + delta
+            if match_day > until and target > until:
+                break
+            if target > until or target <= week_end:
+                continue
+            pairs.append((match_day, target))
+        return pairs
+
+    match_day = match_date + timedelta(days=7)
+    while len(pairs) < MAX_REPEAT_OCCURRENCES:
+        target = match_day + delta
+        if match_day > until and target > until:
+            break
+        if target <= until and target > week_end:
+            pairs.append((match_day, target))
+        match_day += timedelta(days=7)
+    return pairs
+
+
+def _parse_hhmm(value: str) -> time:
+    return time.fromisoformat(str(value).strip()[:5])
+
+
+def _clock_equal(left: time, right: time) -> bool:
+    return left.hour == right.hour and left.minute == right.minute
+
+
+def apply_repeat_rules(
+    *,
+    tenant_id: int,
+    current_week_start: date,
+    rules: list[dict[str, Any]],
+    actor_username: str,
+    conn: Any,
+) -> dict[str, Any]:
+    """Write the same shift into upcoming weeks without unlocking past published rotas."""
+    if not rules:
+        raise RotaValidationError("Choose at least one shift to repeat", field="rules")
+    week_start_day = get_tenant_rota_week_start_day(tenant_id=tenant_id, conn=conn)
+    active_ids = _load_active_employee_ids(tenant_id=tenant_id, conn=conn)
+    written = 0
+    skipped = 0
+    created_weeks: set[int] = set()
+    touched_weeks: set[int] = set()
+
+    try:
+        with conn.cursor() as cur:
+            for rule in rules:
+                employee_id = int(rule["employee_id"])
+                if employee_id not in active_ids:
+                    raise RotaValidationError("Employee not found or not active for rota", field="employee_id")
+                new_date = date.fromisoformat(str(rule["shift_date"])[:10])
+                match_date = date.fromisoformat(str(rule.get("match_shift_date") or rule["shift_date"])[:10])
+                until = date.fromisoformat(str(rule["until"])[:10])
+                if until < new_date:
+                    raise RotaValidationError("Auto schedule end date must be on or after the shift", field="until")
+                frequency = "month" if rule.get("frequency") == "month" else "week"
+                new_start = _parse_hhmm(rule["start_time"])
+                new_end = _parse_hhmm(rule["end_time"])
+                match_employee = int(rule.get("match_employee_id") or employee_id)
+                match_start = _parse_hhmm(rule["match_start_time"]) if rule.get("match_start_time") else new_start
+                match_end = _parse_hhmm(rule["match_end_time"]) if rule.get("match_end_time") else new_end
+                role_label = str(rule.get("role_label") or "").strip()[:80]
+                notes = str(rule.get("notes") or "").strip()[:500]
+                pairs = plan_repeat_pairs(
+                    match_date=match_date,
+                    new_date=new_date,
+                    until=until,
+                    frequency=frequency,
+                    current_week_start=current_week_start,
+                )
+                for match_day, target_day in pairs:
+                    target_week = week_start_on_or_before(target_day, week_start_day)
+                    if target_week <= current_week_start or is_week_fully_past(target_week):
+                        skipped += 1
+                        continue
+                    cur.execute(
+                        """
+                        SELECT id, status, version
+                        FROM rota_weeks
+                        WHERE tenant_id = %s AND week_start = %s
+                        FOR UPDATE
+                        """,
+                        (tenant_id, target_week),
+                    )
+                    week_row = cur.fetchone()
+                    if week_row:
+                        week_id, status, _version = int(week_row[0]), week_row[1], int(week_row[2])
+                        if status == "published" and is_week_fully_past(target_week):
+                            skipped += 1
+                            continue
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO rota_weeks (tenant_id, week_start, created_by, updated_by)
+                            VALUES (%s, %s, %s, %s)
+                            RETURNING id, status, version
+                            """,
+                            (tenant_id, target_week, actor_username, actor_username),
+                        )
+                        created = cur.fetchone()
+                        week_id, status = int(created[0]), created[1]
+                        created_weeks.add(week_id)
+
+                    week_end = week_end_date(target_week)
+                    payload = validate_shift_payload(
+                        shift={
+                            "employee_id": employee_id,
+                            "shift_date": target_day.isoformat(),
+                            "start_time": new_start.strftime("%H:%M"),
+                            "end_time": new_end.strftime("%H:%M"),
+                            "role_label": role_label,
+                            "notes": notes,
+                        },
+                        week_start=target_week,
+                        week_end=week_end,
+                        active_employee_ids=active_ids,
+                        index=0,
+                    )
+                    cur.execute(
+                        """
+                        SELECT id, employee_id, shift_date, start_time, end_time
+                        FROM rota_shifts
+                        WHERE tenant_id = %s AND rota_week_id = %s
+                        """,
+                        (tenant_id, week_id),
+                    )
+                    existing = cur.fetchall()
+                    match_id = None
+                    already = False
+                    for row in existing:
+                        row_id, row_employee, row_date, row_start, row_end = row
+                        if (
+                            int(row_employee) == employee_id
+                            and row_date == target_day
+                            and _clock_equal(row_start, new_start)
+                            and _clock_equal(row_end, new_end)
+                        ):
+                            already = True
+                            break
+                        if (
+                            int(row_employee) == match_employee
+                            and row_date == match_day
+                            and _clock_equal(row_start, match_start)
+                            and _clock_equal(row_end, match_end)
+                        ):
+                            match_id = int(row_id)
+                    if already:
+                        continue
+                    others = []
+                    for row in existing:
+                        if match_id is not None and int(row[0]) == match_id:
+                            continue
+                        others.append(
+                            {
+                                "employee_id": int(row[1]),
+                                "shift_date": row[2],
+                                "start_time": row[3],
+                                "end_time": row[4],
+                            }
+                        )
+                    clash = any(
+                        item["employee_id"] == employee_id
+                        and shifts_overlap(
+                            target_day,
+                            new_start,
+                            new_end,
+                            item["shift_date"],
+                            item["start_time"],
+                            item["end_time"],
+                        )
+                        for item in others
+                    )
+                    if clash:
+                        skipped += 1
+                        continue
+                    if match_id is not None:
+                        cur.execute(
+                            """
+                            UPDATE rota_shifts
+                            SET employee_id = %s, shift_date = %s, start_time = %s, end_time = %s,
+                                role_label = %s, notes = %s, updated_at = NOW()
+                            WHERE id = %s AND tenant_id = %s
+                            """,
+                            (
+                                payload["employee_id"],
+                                payload["shift_date"],
+                                payload["start_time"],
+                                payload["end_time"],
+                                payload["role_label"],
+                                payload["notes"],
+                                match_id,
+                                tenant_id,
+                            ),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO rota_shifts (
+                              tenant_id, rota_week_id, employee_id, shift_date,
+                              start_time, end_time, role_label, notes
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                tenant_id,
+                                week_id,
+                                payload["employee_id"],
+                                payload["shift_date"],
+                                payload["start_time"],
+                                payload["end_time"],
+                                payload["role_label"],
+                                payload["notes"],
+                            ),
+                        )
+                    written += 1
+                    touched_weeks.add(week_id)
+
+            for week_id in touched_weeks - created_weeks:
+                cur.execute(
+                    """
+                    UPDATE rota_weeks
+                    SET version = version + 1, updated_by = %s, updated_at = NOW()
+                    WHERE id = %s AND tenant_id = %s
+                    """,
+                    (actor_username, week_id, tenant_id),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+    week_count = len(touched_weeks)
+    if written:
+        message = (
+            f"Auto schedule saved {written} shift{'' if written == 1 else 's'} "
+            f"across {week_count} upcoming week{'' if week_count == 1 else 's'}"
+        )
+        if skipped:
+            message += f" ({skipped} skipped)"
+    elif skipped:
+        message = f"No upcoming shifts saved — {skipped} skipped because they would overlap or the week is locked."
+    else:
+        message = "Nothing to repeat before the end date. Choose a later until date."
+    return {"written": written, "skipped": skipped, "weeks": week_count, "message": message}

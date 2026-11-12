@@ -204,6 +204,7 @@ def _row_to_sponsor(row: tuple[Any, ...] | None) -> dict[str, Any]:
             "share_code": None,
             "cos_reference": None,
             "rtw_status": "pending",
+            "rtw_check_expiry_date": None,
         }
     return {
         "is_sponsored_worker": row[0],
@@ -212,6 +213,7 @@ def _row_to_sponsor(row: tuple[Any, ...] | None) -> dict[str, Any]:
         "share_code": row[3],
         "cos_reference": row[4],
         "rtw_status": row[5] or "pending",
+        "rtw_check_expiry_date": _iso(row[6]),
     }
 
 
@@ -228,7 +230,7 @@ def fetch_employee(*, tenant_id: int, employee_id: int, conn: Any) -> dict[str, 
         cur.execute(
             """
             SELECT is_sponsored_worker, visa_type, visa_expiry_date, share_code,
-                   cos_reference, rtw_status
+                   cos_reference, rtw_status, rtw_check_expiry_date
             FROM employee_sponsor_profiles
             WHERE tenant_id = %s AND employee_id = %s
             """,
@@ -318,7 +320,14 @@ def update_sponsorship_fields(
 
     sponsor_updates = {
         k: updates[k]
-        for k in ("visa_type", "visa_expiry_date", "share_code", "cos_reference", "rtw_status")
+        for k in (
+            "visa_type",
+            "visa_expiry_date",
+            "share_code",
+            "cos_reference",
+            "rtw_status",
+            "rtw_check_expiry_date",
+        )
         if k in updates
     }
 
@@ -334,6 +343,7 @@ def update_sponsorship_fields(
             visa_expiry_date=sponsor_updates.get("visa_expiry_date"),
             share_code=sponsor_updates.get("share_code"),
             cos_reference=sponsor_updates.get("cos_reference"),
+            rtw_check_expiry_date=sponsor_updates.get("rtw_check_expiry_date"),
         )
         if "rtw_status" in sponsor_updates:
             with conn.cursor() as cur:

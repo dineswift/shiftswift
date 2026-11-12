@@ -230,36 +230,20 @@ def build_week_attendance(
     return {"items": items, "summary": summary}
 
 
-def expected_shift_for_employee_on_date(
-    *,
-    tenant_id: int,
-    employee_id: int,
-    on_date: date,
-    conn: Any,
-) -> dict[str, Any] | None:
-    """Published shift for employee on a calendar day with attendance flags."""
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time, s.role_label, s.notes,
-                   trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')),
-                   e.status
-            FROM rota_shifts s
-            JOIN rota_weeks w ON w.id = s.rota_week_id AND w.tenant_id = s.tenant_id
-            JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
-            WHERE s.tenant_id = %s
-              AND s.employee_id = %s
-              AND s.shift_date = %s
-              AND w.status = 'published'
-            ORDER BY s.start_time
-            LIMIT 1
-            """,
-            (tenant_id, employee_id, on_date),
-        )
-        row = cur.fetchone()
-    if not row:
-        return None
-    shift = {
+def _employee_shift_site_sql(conn: Any) -> tuple[str, str, bool]:
+    from modules.rota.service import rota_shifts_have_site_column
+
+    if not rota_shifts_have_site_column(conn):
+        return "", "", False
+    return (
+        ", s.punch_site_id, COALESCE(ps.name, '')",
+        "LEFT JOIN punch_sites ps ON ps.id = s.punch_site_id AND ps.tenant_id = s.tenant_id",
+        True,
+    )
+
+
+def _employee_shift_payload(row: tuple[Any, ...], *, include_site: bool) -> dict[str, Any]:
+    payload = {
         "id": row[0],
         "employee_id": row[1],
         "shift_date": row[2].isoformat(),
@@ -269,7 +253,73 @@ def expected_shift_for_employee_on_date(
         "notes": row[6] or "",
         "employee_name": row[7],
         "employee_status": row[8],
+        "punch_site_id": None,
+        "site_name": "",
     }
+    if include_site:
+        site_id = row[9] if len(row) > 9 else None
+        payload["punch_site_id"] = int(site_id) if site_id is not None else None
+        payload["site_name"] = (row[10] or "") if len(row) > 10 else ""
+    return payload
+
+
+def _choose_expected_shift_row(rows: list[tuple[Any, ...]], *, include_site: bool) -> tuple[Any, ...] | None:
+    """Prefer the shift whose clock-in window is open, so the card matches the site check."""
+    if not rows:
+        return None
+    if not include_site:
+        return rows[0]
+    from modules.time_punch.service import _clock_minutes, pick_shift_site_row
+
+    now_minutes = _clock_minutes(datetime.now(UK_TZ).time())
+    keyed: list[tuple[tuple[Any, ...], tuple[Any, ...]]] = []
+    for row in rows:
+        site_id = row[9] if len(row) > 9 else None
+        if site_id is None:
+            continue
+        keyed.append((row, (site_id, row[10] if len(row) > 10 else "", row[3], row[4])))
+    chosen = pick_shift_site_row([item[1] for item in keyed], now_minutes)
+    if not chosen:
+        return rows[0]
+    for row, key in keyed:
+        if key[0] == chosen[0] and key[2] == chosen[2] and key[3] == chosen[3]:
+            return row
+    return rows[0]
+
+
+def expected_shift_for_employee_on_date(
+    *,
+    tenant_id: int,
+    employee_id: int,
+    on_date: date,
+    conn: Any,
+) -> dict[str, Any] | None:
+    """Published shift for employee on a calendar day with attendance flags."""
+    site_sql, site_join, include_site = _employee_shift_site_sql(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"""
+            SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time, s.role_label, s.notes,
+                   trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')),
+                   e.status
+                   {site_sql}
+            FROM rota_shifts s
+            JOIN rota_weeks w ON w.id = s.rota_week_id AND w.tenant_id = s.tenant_id
+            JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
+            {site_join}
+            WHERE s.tenant_id = %s
+              AND s.employee_id = %s
+              AND s.shift_date = %s
+              AND w.status = 'published'
+            ORDER BY s.start_time
+            """,
+            (tenant_id, employee_id, on_date),
+        )
+        rows = cur.fetchall()
+    row = _choose_expected_shift_row(rows, include_site=include_site)
+    if not row:
+        return None
+    shift = _employee_shift_payload(row, include_site=include_site)
     punches = load_punches_for_employees(
         tenant_id=tenant_id,
         employee_ids=[employee_id],
@@ -289,16 +339,19 @@ def list_employee_week_shifts(
     conn: Any,
 ) -> list[dict[str, Any]]:
     week_end = week_start + timedelta(days=6)
+    site_sql, site_join, include_site = _employee_shift_site_sql(conn)
     with conn.cursor() as cur:
         cur.execute(
-            """
+            f"""
             SELECT s.id, s.employee_id, s.shift_date, s.start_time, s.end_time,
                    s.role_label, s.notes,
                    trim(both ' ' from coalesce(e.first_name, '') || ' ' || coalesce(e.last_name, '')),
                    e.status
+                   {site_sql}
             FROM rota_shifts s
             JOIN rota_weeks w ON w.id = s.rota_week_id AND w.tenant_id = s.tenant_id
             JOIN employees e ON e.id = s.employee_id AND e.tenant_id = s.tenant_id
+            {site_join}
             WHERE s.tenant_id = %s
               AND s.employee_id = %s
               AND s.shift_date >= %s
@@ -308,17 +361,4 @@ def list_employee_week_shifts(
             """,
             (tenant_id, employee_id, week_start, week_end),
         )
-        return [
-            {
-                "id": row[0],
-                "employee_id": row[1],
-                "shift_date": row[2].isoformat(),
-                "start_time": row[3].strftime("%H:%M"),
-                "end_time": row[4].strftime("%H:%M"),
-                "role_label": row[5] or "",
-                "notes": row[6] or "",
-                "employee_name": row[7],
-                "employee_status": row[8],
-            }
-            for row in cur.fetchall()
-        ]
+        return [_employee_shift_payload(row, include_site=include_site) for row in cur.fetchall()]

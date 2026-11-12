@@ -42,6 +42,14 @@
   const SITE_SCAN_KEY = "punchSiteScan";
   const SITE_SCAN_TTL_MS = 10 * 60 * 1000;
 
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   let pendingChallenge = null;
   let deferredInstallPrompt = null;
   let punchInFlight = false;
@@ -52,6 +60,7 @@
   let siteScanReady = false;
   let siteScanToken = null;
   let siteScanName = "";
+  let qrProximityMeters = 40;
   let geofenceCheckInFlight = false;
   let waitingServiceWorker = null;
   let scanStream = null;
@@ -146,7 +155,7 @@
   }
 
   function clockReady() {
-    return geofenceWithin || siteScanReady;
+    return geofenceWithin;
   }
 
   function syncClockButtons() {
@@ -356,8 +365,13 @@
     siteScanToken = data.token;
     siteScanName = data.site_name || "your site";
     saveSiteScanSession(data);
-    setSiteScanStatus(`Premises verified — ${siteScanName}. You can clock in or out without GPS.`);
+    qrProximityMeters = Number(data.proximity_meters) || 40;
+    geofenceWithin = false;
+    setSiteScanStatus(
+      `Premises code accepted — ${siteScanName}. Clock in and clock out turn on when this phone is within ${qrProximityMeters}m.`,
+    );
     syncClockButtons();
+    void refreshGeofencePreview();
   }
 
   function restoreSiteScanSession() {
@@ -398,6 +412,7 @@
       token: tokenValue,
       site_id: data.site_id,
       site_name: data.site_name,
+      proximity_meters: data.proximity_meters,
     });
     setMessage(data.message || `Premises verified — ${data.site_name}.`, "success");
     return data;
@@ -557,23 +572,30 @@
       if (expected) {
         expectedShiftEl.hidden = false;
         const status = expected.attendance_status;
+        const siteName = expected.site_name ? escapeHtml(expected.site_name) : "";
+        const role = expected.role_label ? escapeHtml(expected.role_label) : "";
         const statusNote =
           status === "late"
             ? "You clocked in late for today’s shift."
             : status === "no_show"
-              ? "You missed today’s scheduled shift — contact your manager."
+              ? "You missed today’s scheduled shift. Contact your manager."
               : status === "awaiting"
-                ? "You’re on the rota today — remember to clock in."
+                ? siteName
+                  ? `Today’s shift is at ${siteName}. Clock in there during your shift, or at the nearest site outside those hours.`
+                  : "You are on the rota today. Clock in at the nearest site."
                 : status === "attended"
                   ? "Today’s shift is recorded."
-                  : `Today: ${expected.start_time}–${expected.end_time}${expected.role_label ? ` (${expected.role_label})` : ""}.`;
+                  : siteName
+                    ? `Today ${expected.start_time}–${expected.end_time} at ${siteName}.`
+                    : `Today ${expected.start_time}–${expected.end_time}.`;
         const tag =
           status === "no_show"
             ? `<span class="punch-expected-shift__tag">Missed shift</span>`
             : status === "late"
               ? `<span class="punch-expected-shift__tag">Late</span>`
               : "";
-        expectedShiftEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${expected.role_label ? ` · ${expected.role_label}` : ""}</strong><span class="punch-expected-shift__note">${statusNote}</span>`;
+        const place = siteName ? `<span class="punch-expected-shift__place">${siteName}</span>` : "";
+        expectedShiftEl.innerHTML = `${tag}<strong>Today · ${expected.start_time}–${expected.end_time}${role ? ` · ${role}` : ""}</strong>${place}<span class="punch-expected-shift__note">${statusNote}</span>`;
         expectedShiftEl.className = `punch-expected-shift punch-expected-shift--${status || "scheduled"}`;
       } else {
         expectedShiftEl.hidden = true;
@@ -588,7 +610,8 @@
                 weekday: "short",
                 day: "numeric",
               });
-              return `<li><strong>${day}</strong> ${s.start_time}–${s.end_time}${s.role_label ? ` · ${s.role_label}` : ""}</li>`;
+              const site = s.site_name ? ` · ${escapeHtml(s.site_name)}` : "";
+              return `<li><strong>${day}</strong> ${s.start_time}–${s.end_time}${s.role_label ? ` · ${escapeHtml(s.role_label)}` : ""}${site}</li>`;
             })
             .join("")
         : "<li class=\"muted\">No published shifts this week yet.</li>";
@@ -697,14 +720,6 @@
 
   async function refreshGeofencePreview() {
     if (!geofenceEl || !token() || !navigator.onLine || (clockView && clockView.hidden)) return;
-    if (siteScanReady) {
-      setGeofenceStatus(
-        `Using premises QR for ${siteScanName}. GPS check skipped — scan again if this expires.`,
-        "ok"
-      );
-      syncClockButtons();
-      return;
-    }
     if (geofenceCheckInFlight) return;
 
     geofenceCheckInFlight = true;
@@ -716,7 +731,10 @@
       const location = await readLocation();
       const response = await apiFetch("/time-punch/preview", {
         method: "POST",
-        body: JSON.stringify(location),
+        body: JSON.stringify({
+          ...location,
+          ...(siteScanReady && siteScanToken ? { clock_token: siteScanToken } : {}),
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (response.status === 401) {
@@ -731,11 +749,15 @@
       }
 
       geofenceWithin = Boolean(data.within_geofence);
+      if (data.qr_proximity && data.radius_meters) qrProximityMeters = Number(data.radius_meters);
       const accuracyNote =
         data.accuracy_meters != null ? ` GPS accuracy ±${Math.round(data.accuracy_meters)}m.` : "";
       if (geofenceWithin) {
-        const distance = data.distance_meters != null ? `${Math.round(data.distance_meters)}m from site` : "Within site";
-        setGeofenceStatus(`${distance} · within range${accuracyNote}`, "ok");
+        const site = data.site_name || "your site";
+        const where = data.assigned_from_shift ? `${site} for your shift` : site;
+        const distance = data.distance_meters != null ? ` · ${Math.round(data.distance_meters)}m from the site` : "";
+        const limit = data.qr_proximity ? ` · QR limit ${qrProximityMeters}m` : "";
+        setGeofenceStatus(`At ${where}${distance}${limit}.${accuracyNote}`, "ok");
         maybePromptPushNotifications();
       } else {
         setGeofenceStatus(`${data.message}${accuracyNote}`, "warn");
@@ -766,26 +788,30 @@
       return;
     }
     if (!clockReady()) {
-      setMessage("Move within your site geofence or scan the premises QR code first.", "error");
+      setMessage(
+        siteScanReady
+          ? `Move within ${qrProximityMeters}m of ${siteScanName} to clock in or out.`
+          : "Move within your site geofence. A premises QR still needs you within 40m.",
+        "error",
+      );
       return;
     }
 
     punchInFlight = true;
     syncClockButtons();
-    setMessage("Submitting punch…", "info");
+    setMessage("Reading your location…", "info");
 
     try {
       let response;
       let data;
+      const location = await readLocation();
       if (siteScanReady && siteScanToken) {
         response = await apiFetch("/time-punch/punch-site", {
           method: "POST",
-          body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken }),
+          body: JSON.stringify({ punch_type: punchType, clock_token: siteScanToken, ...location }),
         });
         data = await response.json().catch(() => ({}));
       } else {
-        setMessage("Reading your location…", "info");
-        const location = await readLocation();
         response = await apiFetch("/time-punch/punch", {
           method: "POST",
           body: JSON.stringify({ punch_type: punchType, ...location }),
@@ -857,6 +883,10 @@
   }
 
   function maybeShowInstallBanner() {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      if (installBanner) installBanner.hidden = true;
+      return;
+    }
     if (!installBanner || isStandalone() || installDismissed()) return;
 
     if (deferredInstallPrompt) {
@@ -889,6 +919,10 @@
   }
 
   function registerServiceWorker() {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      void window.ShiftSwiftBrand?.disablePwaRuntime?.();
+      return;
+    }
     if (!("serviceWorker" in navigator)) return;
 
     navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -926,6 +960,10 @@
   });
 
   window.addEventListener("beforeinstallprompt", (event) => {
+    if (window.ShiftSwiftBrand?.isPwaEnabled?.() !== true) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
     deferredInstallPrompt = event;
     maybeShowInstallBanner();
@@ -967,8 +1005,27 @@
         pendingChallenge = data.challenge_token;
         setInlineStatus(loginStatus, "");
         const mfaUser = mfaView?.querySelector("[data-mfa-user]");
-        if (mfaUser) mfaUser.textContent = data.username || payload.username;
+        const hint = data.email_hint || data.username || payload.username;
+        if (mfaUser) mfaUser.textContent = hint;
+        const lead = mfaView?.querySelector(".punch-lead");
+        if (lead) {
+          lead.innerHTML = data.email_sent
+            ? `We emailed a 6-digit code to <strong data-mfa-user>${String(hint).replace(/</g, "")}</strong>. Check inbox and spam.`
+            : `Enter the 6-digit code we email to <strong data-mfa-user>${String(hint).replace(/</g, "")}</strong>.`;
+        }
         showView(mfaView);
+        if (data.message) setInlineStatus(mfaStatus, data.message);
+        else if (!data.email_sent) {
+          setInlineStatus(mfaStatus, "Sending email code…");
+          try {
+            const resent = await postJson("/auth/mfa/send-email-code", {
+              challenge_token: pendingChallenge,
+            });
+            setInlineStatus(mfaStatus, resent.message || "We emailed a 6-digit code.");
+          } catch (error) {
+            setInlineStatus(mfaStatus, error.message || "Could not email code. Tap Resend.");
+          }
+        }
         mfaView?.querySelector('input[name="code"]')?.focus();
         return;
       }
@@ -998,6 +1055,7 @@
       const data = await postJson("/auth/mfa/verify", {
         challenge_token: pendingChallenge,
         code,
+        method: "email",
       });
       if (data.role && data.role !== "employee") {
         clearSession();
@@ -1011,6 +1069,23 @@
       await verifyEmployeeSession();
     } catch (error) {
       setInlineStatus(mfaStatus, error.message);
+    }
+  });
+
+  document.getElementById("punch-mfa-resend")?.addEventListener("click", async () => {
+    if (!pendingChallenge) {
+      setInlineStatus(mfaStatus, "Session expired. Sign in again.");
+      showView(loginView);
+      return;
+    }
+    setInlineStatus(mfaStatus, "Sending a new code…");
+    try {
+      const resent = await postJson("/auth/mfa/send-email-code", {
+        challenge_token: pendingChallenge,
+      });
+      setInlineStatus(mfaStatus, resent.message || "We emailed a new code.");
+    } catch (error) {
+      setInlineStatus(mfaStatus, error.message || "Could not resend code");
     }
   });
 

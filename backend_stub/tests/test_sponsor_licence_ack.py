@@ -32,6 +32,9 @@ class _FakeCursor:
     def fetchone(self):
         return self.row
 
+    def fetchall(self):
+        return []
+
     def __enter__(self):
         return self
 
@@ -117,3 +120,4 @@ def test_acknowledge_updates_tenant() -> None:
     )
     assert result["acknowledged"] is True
     assert any("UPDATE tenants" in cmd[0] for cmd in conn.commands)
+    assert conn.committed is True

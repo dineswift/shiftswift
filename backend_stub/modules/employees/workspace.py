@@ -51,6 +51,7 @@ def _section_data(section: str, employee: dict[str, Any]) -> dict[str, Any]:
             "share_code": sponsor.get("share_code"),
             "cos_reference": sponsor.get("cos_reference"),
             "rtw_status": sponsor.get("rtw_status", "pending"),
+            "rtw_check_expiry_date": sponsor.get("rtw_check_expiry_date"),
         }
     if section == "recruitment":
         data = {
@@ -92,7 +93,7 @@ def _section_complete(
         sponsor = employee.get("sponsorship") or {}
         return _is_filled(sponsor.get("visa_type")) and (
             _is_filled(sponsor.get("share_code")) or _is_filled(sponsor.get("cos_reference"))
-        )
+        ) and _is_filled(sponsor.get("visa_expiry_date")) and _is_filled(sponsor.get("rtw_check_expiry_date"))
     if section == "offboarding":
         if employee.get("status") != "terminated":
             return True

@@ -57,3 +57,49 @@ def test_readiness_advanced_needs_template(mock_profile, _mock_cols) -> None:
     assert payload["ready"] is False
     template_item = next(item for item in payload["items"] if item["id"] == "staffing_template")
     assert template_item["status"] == "warn"
+
+
+def _multi_site_columns(conn, table):
+    if table == "rota_shifts":
+        return frozenset({"id", "punch_site_id"})
+    return _schema_columns_side_effect(conn, table)
+
+
+@patch("modules.rota.readiness.table_columns", side_effect=_multi_site_columns)
+@patch("admin_service.get_tenant_profile")
+def test_readiness_multi_site_needs_two_locations(mock_profile, _mock_cols) -> None:
+    mock_profile.return_value = {
+        "rota_mode": "multi_site",
+        "rota_advanced_addon": False,
+        "rota_multi_site_addon": True,
+    }
+    conn = MagicMock()
+    cur = MagicMock()
+    cur.fetchone.side_effect = [(2,), (0,), (0,), (1,)]
+    conn.cursor.return_value.__enter__.return_value = cur
+
+    payload = build_rota_readiness(tenant_id=1, conn=conn)
+
+    item = next(row for row in payload["items"] if row["id"] == "multi_site_ui")
+    assert item["status"] == "warn"
+    assert item["action_href"] == "#time-punch"
+
+
+@patch("modules.rota.readiness.table_columns", side_effect=_multi_site_columns)
+@patch("admin_service.get_tenant_profile")
+def test_readiness_multi_site_ready_with_two_locations(mock_profile, _mock_cols) -> None:
+    mock_profile.return_value = {
+        "rota_mode": "multi_site",
+        "rota_advanced_addon": False,
+        "rota_multi_site_addon": True,
+    }
+    conn = MagicMock()
+    cur = MagicMock()
+    cur.fetchone.side_effect = [(2,), (0,), (0,), (2,)]
+    conn.cursor.return_value.__enter__.return_value = cur
+
+    payload = build_rota_readiness(tenant_id=1, conn=conn)
+
+    item = next(row for row in payload["items"] if row["id"] == "multi_site_ui")
+    assert item["status"] == "ok"
+    assert "2 locations" in item["message"]

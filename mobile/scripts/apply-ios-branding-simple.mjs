@@ -43,7 +43,7 @@ for (const [name, size] of splashFiles) {
 }
 
 const displayNamePlist = path.join(iosRoot, "Info.plist");
-if (fs.existsSync(displayNamePlist)) {
+  if (fs.existsSync(displayNamePlist)) {
   let plist = fs.readFileSync(displayNamePlist, "utf8");
   plist = plist.replace(
     /<string>App<\/string>/,
@@ -53,6 +53,27 @@ if (fs.existsSync(displayNamePlist)) {
     plist = plist.replace(
       /(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/,
       "$1ShiftSwift HR$2",
+    );
+  }
+  const privacyKeys = [
+    [
+      "NSCameraUsageDescription",
+      "Scan premises QR codes to clock in at your work site.",
+    ],
+    [
+      "NSLocationWhenInUseUsageDescription",
+      "Verify you are at your work site when clocking in.",
+    ],
+    [
+      "NSLocationAlwaysAndWhenInUseUsageDescription",
+      "Verify you are at your work site when clocking in.",
+    ],
+  ];
+  for (const [key, value] of privacyKeys) {
+    if (plist.includes(`<key>${key}</key>`)) continue;
+    plist = plist.replace(
+      "</dict>",
+      `\t<key>${key}</key>\n\t<string>${value}</string>\n</dict>`,
     );
   }
   fs.writeFileSync(displayNamePlist, plist);

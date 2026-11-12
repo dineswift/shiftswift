@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 import pytest
 from fastapi import HTTPException, UploadFile
+from starlette.datastructures import Headers
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -33,8 +34,11 @@ def test_format_upload_size_limit() -> None:
 
 @pytest.mark.asyncio
 async def test_read_validated_upload_accepts_pdf() -> None:
-    upload = UploadFile(filename="payslip.pdf", file=BytesIO(b"%PDF-1.4 test"))
-    upload.content_type = "application/pdf"
+    upload = UploadFile(
+        filename="payslip.pdf",
+        file=BytesIO(b"%PDF-1.4 test"),
+        headers=Headers({"content-type": "application/pdf"}),
+    )
     data, content_type, ext = await read_validated_upload(upload, max_bytes=1024)
     assert data.startswith(b"%PDF")
     assert content_type == "application/pdf"
@@ -43,8 +47,11 @@ async def test_read_validated_upload_accepts_pdf() -> None:
 
 @pytest.mark.asyncio
 async def test_read_validated_upload_rejects_docx() -> None:
-    upload = UploadFile(filename="notes.docx", file=BytesIO(b"PK\x03\x04"))
-    upload.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    upload = UploadFile(
+        filename="notes.docx",
+        file=BytesIO(b"PK\x03\x04"),
+        headers=Headers({"content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}),
+    )
     with pytest.raises(HTTPException) as exc:
         await read_validated_upload(upload, max_bytes=1024)
     assert exc.value.status_code == 400
@@ -53,8 +60,11 @@ async def test_read_validated_upload_rejects_docx() -> None:
 
 @pytest.mark.asyncio
 async def test_read_validated_upload_rejects_oversized_file() -> None:
-    upload = UploadFile(filename="scan.pdf", file=BytesIO(b"%PDF" + b"x" * 20))
-    upload.content_type = "application/pdf"
+    upload = UploadFile(
+        filename="scan.pdf",
+        file=BytesIO(b"%PDF" + b"x" * 20),
+        headers=Headers({"content-type": "application/pdf"}),
+    )
     with pytest.raises(HTTPException) as exc:
         await read_validated_upload(upload, max_bytes=10)
     assert exc.value.status_code == 413

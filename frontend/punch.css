@@ -464,6 +464,11 @@ body.punch-app {
   border-color: #f5a8a0;
 }
 
+.punch-expected-shift__place {
+  font-weight: 700;
+  color: var(--green-900, #14532d);
+}
+
 .punch-expected-shift__note {
   color: var(--gray-500);
   font-size: 0.85rem;
@@ -706,7 +711,39 @@ body.punch-app {
   margin-top: 0.35rem;
 }
 
-@media (min-width: 640px) {
+@media (max-width: 480px) {
+  .punch-expected-shift,
+  .punch-shift-list,
+  .punch-site-list,
+  .punch-install-help__lead,
+  .punch-install-help__note,
+  .punch-install-help__platform ol {
+    font-size: 0.95rem;
+  }
+
+  .punch-expected-shift__tag,
+  .punch-info-card__title {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .punch-shell {
+    max-width: 640px;
+  }
+
+  .punch-card--clock {
+    padding: 1.35rem 1.5rem 1.5rem;
+  }
+
+  .punch-expected-shift,
+  .punch-shift-list,
+  .punch-site-list {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 899px) {
   .punch-shell {
     max-width: 560px;
     padding-left: 1.25rem;
@@ -720,4 +757,9 @@ body.punch-app {
   .punch-clock-actions__secondary {
     max-width: 420px;
   }
+}
+
+html.pwa-disabled .punch-install-banner,
+html.pwa-disabled .punch-install-help {
+  display: none !important;
 }
